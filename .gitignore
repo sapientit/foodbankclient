@@ -1,0 +1,23 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Wrangler
+.wrangler/
+
+# Local secrets for wrangler dev
+.dev.vars
+
+# Vite
+*.local
+
+# Written and removed by test/eslint-rules.test.ts. Gitignored so a crashed run
+# cannot commit one; a leftover breaks `npm run lint`, which is the right noise.
+src/features/lint-fixture/
+src/**/lint-fixture-*

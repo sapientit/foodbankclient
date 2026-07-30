@@ -1,0 +1,26 @@
+#Food Bank System
+This system is for the management of a food bank.  The food bank runs multiple sessions every week.  People from authorised organisations, or authorised people, can refer people to the food bank.  This referral includes the session they are attending, whether they need a delivery, number of adults and children, reason for referral, name, address, phone number and food preferences.
+The administrators can move people between sessions and cancel people.
+Each session generates a food pick list - one "parcel" for each person.  The parcel contents depends on the size of the household being supported.
+The pick list can then be modified before being printed.  Once printed, further changes can be made before the pick-list is confirmed as created.  
+
+#Session maintenance
+Standard sessions repeat weekly.  They have a default capacity of 25 people. It is possible for the administrator to change the time of an individual session, cancel a session or add new ad hoc session.  Fields are date, time, duration, location and capacity.   Recurring meetings or individual meetings can be created or changed.
+
+A list of available sessions for the next 2 weeks can be made without signon. A session is not available if it is at or over capacity.  A list of all sessions is available after login.
+
+#Authorised referrers
+Referrers can be authorised either by full email address or a star and domain name.(*@guildford.gov.uk).  There is no check that they are who they say they are - only that the email address they enter is valid.
+
+#referral
+The referral is currently a Google Form because it does change periodically.  Like Google forms, the questions must form a text a columns key and validation rules.  There will be some columns that are fixed, but many of the columns will have to be generic names in the database.
+
+The fixed columns are: date of referral, session id, email id of referrer, organisation of referrer, phone number of referrer, name of referee, address of referee, phone number of referee, number of adults, number of children, reason for referral.  All other columns are dynamic.
+
+There is a maximum capacity on each session, so referrals cannot be made to a full session.
+
+Note that the referral is done without authentication (other than checking the entered email address).  At that point, a secure key is returned to the client.  They can amend or delete the referral for 15 minutes by returning that key.
+
+#Screens
+See screenDetails.md
+

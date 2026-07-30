@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"^#\\\\{1,3\\\\} \" CLAUDE.md)",
+      "Bash(awk '/^    PublicForm:/,/^    [A-Z][A-Za-z]*:$/' openapi.yaml)",
+      "Bash(awk '/^    PublicFormField:|^    FormField:/,0' openapi.yaml)"
+    ]
+  }
+}

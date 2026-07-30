@@ -1,0 +1,38 @@
+/*
+ * Base styles only. Component styles live in CSS Modules beside their
+ * component; this file is for the things that must be global.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  line-height: 1.5;
+  color: #1a1a1a;
+  background: #ffffff;
+}
+
+/* Volunteers use unfamiliar devices and keyboards. A visible focus ring is not
+   decoration — it is how someone finds their place. Never remove it. */
+:focus-visible {
+  outline: 3px solid #0b5fff;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

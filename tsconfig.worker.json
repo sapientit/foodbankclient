@@ -1,0 +1,47 @@
+{
+  /*
+   * The proxy Worker, and only the proxy Worker.
+   *
+   * `lib` deliberately omits DOM, and `types` names nothing but the generated
+   * Workers globals. That is the whole reason this project exists separately:
+   * the browser and the Workers runtime both declare `Request`, `Response` and
+   * `fetch` with different shapes, and a project that sees both reports that
+   * `Request` is not assignable to `Request`. See CLAUDE.md, "The tsconfig
+   * split".
+   */
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
+
+    "target": "es2024",
+    "lib": ["ES2024"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "types": ["./worker-configuration.d.ts"],
+
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "isolatedModules": true,
+
+    /* Strictness copied from the server. All deliberate. Do not relax per-file. */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "useUnknownInCatchVariables": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  /* `src/worker/index.test.ts` is included on purpose. It imports the Worker, so
+     it must be checked against Workers globals — checked in the app project it
+     would compare a DOM `Request` against a Workers `Request`, which is the
+     nonsense error this split exists to prevent. */
+  "include": ["src/worker", "worker-configuration.d.ts"]
+}

@@ -1,0 +1,106 @@
+/*
+ * The one screen a member of the public sees, so it stands on its own: no shell
+ * around it, wider than the sign-in card, and readable on a phone held in a
+ * corridor.
+ */
+.screen {
+  max-inline-size: 40rem;
+  margin-inline: auto;
+  padding: 2rem 1rem;
+}
+
+/*
+ * The honesty notice. Bordered and first, because it is the one thing on the
+ * page somebody must not miss — everything below it is optional detail.
+ * Deliberately not red: nothing has gone wrong.
+ */
+.notice {
+  margin-block-end: 2rem;
+  padding: 1rem 1.25rem;
+  border: 2px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
+.noticeHeadline {
+  margin-block-start: 0;
+  font-size: 1.1rem;
+}
+
+.section {
+  margin-block-end: 2.5rem;
+}
+
+.sessions {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.session {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #767676;
+  border-radius: 0.25rem;
+}
+
+.when {
+  font-weight: 600;
+}
+
+.where {
+  color: #565656;
+}
+
+.field {
+  display: grid;
+  gap: 0.375rem;
+  margin-block: 1rem;
+}
+
+.input {
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  border: 1px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.9rem;
+  /* #565656 on white is 7.0:1. */
+  color: #565656;
+}
+
+/*
+ * Reserves no space when empty, so the layout does not jump as the answer
+ * arrives, but the element itself is always present — a live region has to
+ * exist before its content changes to be announced reliably.
+ */
+.verdict:not(:empty) {
+  padding: 0.75rem 1rem;
+  border-inline-start: 4px solid currentcolor;
+  background: #f4f4f4;
+}
+
+.verdict p {
+  margin-block: 0.25rem;
+}
+
+.verdictHeadline {
+  font-weight: 600;
+}
+
+/*
+ * Printing this page is unlikely but free to get right: a referrer who prints it
+ * wants the sessions, not the field they cannot fill in on paper.
+ */
+@media print {
+  .field,
+  .verdict {
+    display: none;
+  }
+}

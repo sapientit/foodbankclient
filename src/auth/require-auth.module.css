@@ -1,0 +1,8 @@
+/* Only the placement. The disc itself is the shared Spinner's — one animation,
+   one reduced-motion rule, one place to change either. */
+.restoring {
+  display: grid;
+  place-items: center;
+  min-block-size: 60vh;
+  padding: 2rem;
+}

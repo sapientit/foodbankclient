@@ -1,0 +1,42 @@
+.dialog {
+  max-inline-size: min(32rem, calc(100vw - 2rem));
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #1a1a1a;
+  border-radius: 0.5rem;
+  color: inherit;
+  background: #ffffff;
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.title {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+}
+
+.body > p {
+  margin: 0 0 0.75rem;
+  max-inline-size: 60ch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-block-start: 1.25rem;
+}
+
+.cancel,
+.confirm {
+  padding: 0.5rem 1.1rem;
+  font: inherit;
+}
+
+.confirm {
+  /* #b3261e on white is 5.9:1, and this is the button that retires an account. */
+  border: 1px solid #b3261e;
+  color: #b3261e;
+  background: #ffffff;
+}

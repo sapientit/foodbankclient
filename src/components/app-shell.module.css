@@ -1,0 +1,172 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 100vh;
+}
+
+/* Visible only once focused, which is the whole point: the first Tab on any
+   screen must be a way past the navigation. */
+.skipLink {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.skipLink:focus {
+  position: static;
+  inline-size: auto;
+  block-size: auto;
+  padding: 0.5rem 1rem;
+  clip-path: none;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  padding: 0.75rem 1rem;
+  border-block-end: 1px solid #d0d0d0;
+}
+
+.wordmark {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Shown only under the narrow breakpoint. */
+.disclosure {
+  display: none;
+  margin-inline-start: auto;
+  padding: 0.45rem 0.85rem;
+  font: inherit;
+}
+
+.navList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navList a {
+  display: inline-block;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.25rem;
+  /* #444 on white is 9.7:1. */
+  color: #444444;
+  text-decoration: none;
+}
+
+/* Hung off the attribute NavLink already sets, so the thing a screen reader
+   announces and the thing a sighted volunteer sees cannot drift apart. */
+.navList a[aria-current='page'] {
+  color: #1a1a1a;
+  font-weight: 700;
+  box-shadow: inset 0 -3px 0 #0b5fff;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-inline-start: auto;
+}
+
+.userName {
+  font-weight: 600;
+}
+
+.signOut {
+  padding: 0.4rem 0.85rem;
+  font: inherit;
+}
+
+.main {
+  flex: 1;
+  inline-size: 100%;
+  max-inline-size: 70rem;
+  margin-inline: auto;
+  padding: 1.5rem 1rem;
+}
+
+/*
+ * Volunteers are on phones. Below this the nav collapses behind the disclosure
+ * button, and the DOM order already puts the menu directly under it — so the
+ * visual order and the tab order agree without any `order` juggling, which is
+ * the usual way a responsive header becomes unusable with a keyboard.
+ */
+@media (max-width: 700px) {
+  .disclosure {
+    display: inline-block;
+  }
+
+  .nav {
+    display: none;
+    flex-basis: 100%;
+  }
+
+  .nav[data-open='true'] {
+    display: block;
+  }
+
+  .navList {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .navList a {
+    display: block;
+    padding: 0.65rem 0.5rem;
+  }
+
+  .account {
+    flex-basis: 100%;
+    margin-inline-start: 0;
+  }
+}
+
+/*
+ * Printing is a first-class feature here — every session someone prints pick
+ * sheets on a hall printer, and nobody there can debug a stylesheet. The frame
+ * is set up now so the printing slice inherits a clean page instead of starting
+ * by fighting the shell. Sheet-specific rules (`break-after: page` per parcel,
+ * `break-inside: avoid` per line table) belong beside the print component.
+ */
+@media print {
+  @page {
+    margin: 1.5cm;
+  }
+
+  .skipLink,
+  .header {
+    display: none;
+  }
+
+  .main {
+    max-inline-size: none;
+    padding: 0;
+  }
+
+  /* Global on purpose: a control does nothing on paper, and colour costs a
+     charity's toner. */
+  :global(button) {
+    display: none;
+  }
+
+  :global(body) {
+    color: #000000;
+    background: #ffffff;
+  }
+
+  :global(a[href]) {
+    color: inherit;
+    text-decoration: none;
+  }
+}

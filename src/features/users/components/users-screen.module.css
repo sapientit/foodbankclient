@@ -1,0 +1,74 @@
+.intro {
+  max-inline-size: 70ch;
+}
+
+.add {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border: 1px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+  vertical-align: top;
+  border-block-end: 1px solid #d4d4d4;
+}
+
+.table thead th {
+  border-block-end: 2px solid #1a1a1a;
+}
+
+.you {
+  font-weight: normal;
+}
+
+.never {
+  /* #595959 on white is 7:1. Quieter than a real date, still readable. */
+  color: #595959;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.actions button {
+  font: inherit;
+  padding: 0.25rem 0.6rem;
+}
+
+/* A refused control still says why, in the cell, not only to a screen reader. */
+.reason {
+  flex-basis: 100%;
+  margin: 0;
+  max-inline-size: 40ch;
+  font-size: 0.9rem;
+}
+
+/*
+ * A user list is not a picking sheet, but a printed one is a plausible handover
+ * note — so it prints as a table and nothing else.
+ */
+@media print {
+  .add,
+  .toggle,
+  .actions {
+    display: none;
+  }
+}

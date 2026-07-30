@@ -1,0 +1,60 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "foodbank-client",
+  "main": "src/worker/index.ts",
+  // Matches the server's, so both sides of the service binding agree on runtime
+  // behaviour.
+  "compatibility_date": "2026-07-01",
+  "observability": { "enabled": true },
+  "assets": {
+    /*
+     * No `directory` here on purpose.
+     *
+     * `@cloudflare/vite-plugin` owns it: the build emits the client bundle to
+     * `dist/client` and a generated config to `dist/foodbank_client/`, then
+     * writes `.wrangler/deploy/config.json` pointing wrangler at the generated
+     * one, where `directory` is `../client`. A hand-written value here is
+     * silently ignored, so keeping one would only invite it to drift out of
+     * date and mislead the next person. The consequence is that `wrangler
+     * deploy` needs a build first — see the `deploy` and `dry-run` scripts.
+     */
+    "binding": "ASSETS",
+    /*
+     * Deep links like /sessions/:id must serve index.html, not 404.
+     *
+     * Consequence to handle in the app shell slice: an unknown path now returns
+     * index.html with HTTP 200, so the router needs its own catch-all 404
+     * route. Without one, a typo'd URL renders a blank shell.
+     */
+    "not_found_handling": "single-page-application",
+    // Only the API path costs a Worker invocation; assets are served directly,
+    // before the Worker runs at all.
+    "run_worker_first": ["/api/*"],
+  },
+  /*
+   * The server overrides its `name` per environment, so the binding target
+   * differs by environment: the local/default script is `foodbank-server`, and
+   * the deployed one is `foodbank-server-production`.
+   */
+  "services": [{ "binding": "API", "service": "foodbank-server" }],
+  /*
+   * Wrangler environments do not inherit top-level keys, so every key above is
+   * repeated here in full. Omitting one does not fall back — it deploys
+   * production without it. The server's wrangler.jsonc duplicates for the same
+   * reason.
+   */
+  "env": {
+    "production": {
+      "name": "foodbank-client-production",
+      "main": "src/worker/index.ts",
+      "compatibility_date": "2026-07-01",
+      "observability": { "enabled": true },
+      "assets": {
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*"],
+      },
+      "services": [{ "binding": "API", "service": "foodbank-server-production" }],
+    },
+  },
+}

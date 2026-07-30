@@ -1,0 +1,18 @@
+{
+  /*
+   * Solution root. Holds no files of its own — it exists so `tsc -b` checks
+   * every project in one command.
+   *
+   * The split is not organisational, it is a hard requirement: the browser and
+   * the Workers runtime both declare `Request`, `Response` and `fetch`, with
+   * different shapes. If one project saw both, you get errors saying `Request`
+   * is not assignable to `Request`. See CLAUDE.md, "Keep DOM types and Workers
+   * types apart".
+   */
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" },
+    { "path": "./tsconfig.worker.json" }
+  ]
+}

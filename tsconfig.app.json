@@ -1,0 +1,58 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+
+    "target": "es2024",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+
+    /*
+     * An explicit `types` list is load-bearing, not tidiness.
+     *
+     * Left unset, TypeScript auto-includes every `@types/*` package in
+     * node_modules, and `worker-configuration.d.ts` (551 KB of Workers globals,
+     * now that it exists) would redeclare the DOM's `Request`, `Response` and
+     * `fetch` inside this project, producing errors that say `Request` is not
+     * assignable to `Request`.
+     *
+     * React and Vite types arrive through imports, so they need no entry. The
+     * one thing that does is jest-dom's matcher augmentation: it is applied by a
+     * side-effect import in `test/setup.ts`, which the compiler has no reason to
+     * follow from a component test.
+     */
+    "types": ["@testing-library/jest-dom/vitest"],
+
+    /* Source imports are extensionless, unlike the server's `.ts` specifiers.
+       Deliberate divergence — Vite resolves them. See CLAUDE.md. */
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "isolatedModules": true,
+
+    /* Strictness copied from the server. All deliberate. Do not relax per-file. */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "useUnknownInCatchVariables": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  /* `test/` holds the MSW server and setup — jsdom-side code, so it belongs to
+     this project rather than the Node one, and it must be typechecked too.
+     `test/tooling/` is the exception: it tests the build config itself using
+     Node's fs and the ESLint API, so it belongs to the Node project. Keeping it
+     out of here is what stops `process` and `node:fs` becoming reachable from a
+     component. */
+  "include": ["src", "test"],
+  "exclude": ["src/worker", "test/tooling"]
+}
