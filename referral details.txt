@@ -1,0 +1,13 @@
+1. The number of stock items is actually 120 - much more than previously thought.  Is that going to cause any issues with timeout?  That could mean a single package approval generates 120 inserts? Does D1 support bulk insert?
+2. I am concerned about the way stock levels are done. As I understand it, you are always adding all the adjustments rather than keeping a running total.  The Stock Take is a single user, exclusive process.  At that point all previous movements can be ignored.  All we need is a final figure at the end of the stock take.
+3. Shopping, wastage, donations etc disappear as movement types.  There is a weekly stock take and then food is packed.  The entire shopping tree and stock adjustment tree can be removed.
+4. In order to limit the amount of work involved with session confirmation, each session should generate a stock impact when the collection is confirmed.  If it is then changed to cancelled, it will be deleted. 
+
+5. Other instructions for the referral process.  Remove the original specification that the referrer could change their answer for 15 minutes.  They should get a confirmation message with the mandatory fields shown, but once submitted they cannot change.
+
+Also, the preference field controls whether this will appear on the pick list maintenance screen.  Only preferences should be shown.
+
+6. On the print screen for the picklists,  the name should be printed.  If it is a delivery, also the word "DELIVERY" and the address, postcode and phone number should be printed.
+
+7. We need a screen for administrators to review referrals.  They need to see a list (most recent first), name, session and status.  They can select a row and it will show all the responses.  It would make sense to have an additional status of reviewed (but review is not required, and the session includes it whether it is reviewed or not.  If it is in a status of "not approved" (invalid referrer email) there should be options to approve (once) or approve (authorise referrer).  The session, other information, (and the notes) are the only 3 fields that can be changed.
+	

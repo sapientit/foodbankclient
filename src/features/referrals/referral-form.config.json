@@ -1,0 +1,416 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "pageNum": 1,
+      "pageTitle": "Referrer and client details",
+      "questions": [
+        {
+          "questionNum": 1,
+          "questionKey": "referrerName",
+          "questionTitle": "Referrer's name",
+          "keyField": "referrerName",
+          "required": true
+        },
+        {
+          "questionNum": 2,
+          "questionKey": "referrerEmail",
+          "questionTitle": "Referrer's email address",
+          "keyField": "referrerEmail",
+          "required": true,
+          "helpText": "Checked as you type. If we do not recognise it the referral still goes through, but an administrator has to approve it before the client is booked in."
+        },
+        {
+          "questionNum": 3,
+          "questionKey": "referrerOrganisation",
+          "questionTitle": "Referrer's organisation",
+          "keyField": "referrerOrganisation",
+          "required": true,
+          "helpText": "Choose yours from the list. If it is not there, choose the last option and type it in."
+        },
+        {
+          "questionNum": 4,
+          "questionKey": "referrerPhone",
+          "questionTitle": "Referrer's contact number",
+          "keyField": "referrerPhone",
+          "required": true
+        },
+        {
+          "questionNum": 5,
+          "questionKey": "refereeFirstName",
+          "questionTitle": "Client's first name",
+          "keyField": "refereeFirstName",
+          "required": true
+        },
+        {
+          "questionNum": 6,
+          "questionKey": "refereeSurname",
+          "questionTitle": "Client's surname",
+          "keyField": "refereeSurname",
+          "required": true
+        },
+        {
+          "questionNum": 7,
+          "questionKey": "refereeDateOfBirth",
+          "questionTitle": "Client's date of birth",
+          "keyField": "refereeDateOfBirth",
+          "required": true
+        },
+        {
+          "questionNum": 8,
+          "questionKey": "refereeAddress",
+          "questionTitle": "Client's address",
+          "keyField": "refereeAddress",
+          "required": true,
+          "helpText": "All on one line, without the postcode."
+        },
+        {
+          "questionNum": 9,
+          "questionKey": "refereePostcode",
+          "questionTitle": "Client's postcode",
+          "keyField": "refereePostcode",
+          "required": true
+        },
+        {
+          "questionNum": 10,
+          "questionKey": "refereePhone",
+          "questionTitle": "Client's contact number",
+          "keyField": "refereePhone",
+          "required": false
+        },
+        {
+          "questionNum": 11,
+          "questionKey": "sessionId",
+          "questionTitle": "Session date",
+          "keyField": "sessionId",
+          "required": true
+        },
+        {
+          "questionNum": 12,
+          "questionKey": "isDelivery",
+          "questionTitle": "Is the client eligible for delivery? (Housebound or Covid positive ONLY.) Otherwise clients must make their own arrangements. Someone else can collect on their behalf.",
+          "keyField": "isDelivery",
+          "required": false
+        },
+        {
+          "questionNum": 13,
+          "questionKey": "Collect",
+          "questionTitle": "Will someone collect on behalf of the client?",
+          "preference": false,
+          "required": false,
+          "validation": { "type": "String", "maxLength": 200 }
+        }
+      ]
+    },
+    {
+      "pageNum": 2,
+      "pageTitle": "The client's household",
+      "questions": [
+        {
+          "questionNum": 1,
+          "questionKey": "adults",
+          "questionTitle": "Number of adults in client's family",
+          "keyField": "adults",
+          "required": true
+        },
+        {
+          "questionNum": 2,
+          "questionKey": "children",
+          "questionTitle": "Number of children in client's family",
+          "keyField": "children",
+          "required": true
+        },
+        {
+          "questionNum": 3,
+          "questionKey": "Child 0-2",
+          "questionTitle": "Number of children aged 0-2 (if unknown enter 0)",
+          "preference": false,
+          "required": false,
+          "validation": { "type": "Number", "minimum": 0, "maximum": 30 }
+        },
+        {
+          "questionNum": 4,
+          "questionKey": "Child 3-4",
+          "questionTitle": "Number of children aged 3-4 (if unknown enter 0)",
+          "preference": false,
+          "required": false,
+          "validation": { "type": "Number", "minimum": 0, "maximum": 30 }
+        },
+        {
+          "questionNum": 5,
+          "questionKey": "Child 5-11",
+          "questionTitle": "Number of children aged 5-11 (if unknown enter 0)",
+          "preference": false,
+          "required": false,
+          "validation": { "type": "Number", "minimum": 0, "maximum": 30 }
+        },
+        {
+          "questionNum": 6,
+          "questionKey": "Child 12-17",
+          "questionTitle": "Number of children aged 12-17 (if unknown enter 0)",
+          "preference": false,
+          "required": false,
+          "validation": { "type": "Number", "minimum": 0, "maximum": 30 }
+        }
+      ]
+    },
+    {
+      "pageNum": 3,
+      "pageTitle": "Why the client needs help",
+      "questions": [
+        {
+          "questionNum": 1,
+          "questionKey": "reasonId",
+          "questionTitle": "Main cause of crisis",
+          "keyField": "reasonId",
+          "required": true
+        },
+        {
+          "questionNum": 2,
+          "questionKey": "Cause Details",
+          "questionTitle": "Main cause of crisis - additional comments",
+          "preference": false,
+          "required": false,
+          "validation": { "type": "String", "maxLength": 500 }
+        },
+        {
+          "questionNum": 3,
+          "questionKey": "Secondary",
+          "questionTitle": "Secondary cause of crisis",
+          "preference": false,
+          "required": false,
+          "validation": {
+            "type": "CheckBox",
+            "answerMin": 0,
+            "answerMax": 1,
+            "optionsFrom": "referralReasons",
+            "maxAnswerLength": 120
+          }
+        }
+      ]
+    },
+    {
+      "pageNum": 4,
+      "pageTitle": "Food preferences",
+      "questions": [
+        {
+          "questionNum": 1,
+          "questionKey": "Dietary",
+          "questionTitle": "Please specify any dietary requirements",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "String", "maxLength": 500 }
+        },
+        {
+          "questionNum": 2,
+          "questionKey": "Pasta/Rice",
+          "questionTitle": "Would they prefer pasta or rice?",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["Pasta", "Rice", "Both"],
+          "default": ["Both"]
+        },
+        {
+          "questionNum": 3,
+          "questionKey": "Sugar/Flour",
+          "questionTitle": "Would they like flour or sugar?",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["Sugar", "Plain Flour", "Self-Raising Flour"]
+        },
+        {
+          "questionNum": 4,
+          "questionKey": "Oil",
+          "questionTitle": "Do they require cooking oil?",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["Yes"],
+          "default": ["Yes"]
+        },
+        {
+          "questionNum": 5,
+          "questionKey": "Tea/Coffee",
+          "questionTitle": "Would they prefer tea, coffee or hot chocolate?",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["Tea", "Coffee", "Both"],
+          "default": ["Both"]
+        },
+        {
+          "questionNum": 6,
+          "questionKey": "Eggs",
+          "questionTitle": "Would they like eggs?",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["Yes"],
+          "default": ["Yes"]
+        },
+        {
+          "questionNum": 7,
+          "questionKey": "Porridge",
+          "questionTitle": "Would they like porridge oats?",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["Yes"]
+        },
+        {
+          "questionNum": 8,
+          "questionKey": "Pets",
+          "questionTitle": "Would they like cat/dog food? (Please state number of cats/dogs.) Please note we do not have other types of pet food.",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "String", "maxLength": 200 }
+        },
+        {
+          "questionNum": 9,
+          "questionKey": "Spread",
+          "questionTitle": "What would be their preference of spread? (Please only select 1 spread if 1-2 people and 2 spreads if 3 or more in household.)",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 2 },
+          "answers": ["Jam", "Marmalade", "Honey", "Peanut Butter", "Chocolate Spread"]
+        },
+        {
+          "questionNum": 10,
+          "questionKey": "Pulses",
+          "questionTitle": "Would they like tinned pulses? (If they have a preference please say which.)",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "String", "maxLength": 200 }
+        }
+      ]
+    },
+    {
+      "pageNum": 5,
+      "pageTitle": "Toiletries and baby items",
+      "questions": [
+        {
+          "questionNum": 1,
+          "questionKey": "Sanitary",
+          "questionTitle": "Would they like sanitary products?",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["Yes"]
+        },
+        {
+          "questionNum": 2,
+          "questionKey": "Toiletries",
+          "questionTitle": "Please select which THREE toiletries they require most. We give everyone toilet roll.",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 3 },
+          "answers": [
+            "Shower Gel",
+            "Deodorant",
+            "Conditioner",
+            "Shampoo",
+            "Toothpaste",
+            "Toothbrush",
+            "Soap",
+            "Razors",
+            "Shaving Foam"
+          ],
+          "default": ["Shower Gel", "Deodorant", "Conditioner"]
+        },
+        {
+          "questionNum": 3,
+          "questionKey": "Nappies",
+          "questionTitle": "Do they require nappies?",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["Size 1", "Size 2", "Size 3", "Size 4", "Size 5", "Size 6"]
+        },
+        {
+          "questionNum": 4,
+          "questionKey": "Baby Food",
+          "questionTitle": "Do they require baby food?",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["Yes"]
+        },
+        {
+          "questionNum": 5,
+          "questionKey": "Baby Milk",
+          "questionTitle": "Do they require baby milk?",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["First Infant Milk", "Follow-On Milk", "Hungry Baby Milk"]
+        },
+        {
+          "questionNum": 6,
+          "questionKey": "Household",
+          "questionTitle": "Please select which THREE household items they require most.",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 3 },
+          "answers": [
+            "Spray Cleaner",
+            "Detergent",
+            "Washing Up Liquid",
+            "Bleach",
+            "Laundry Powder",
+            "Surface Wipes"
+          ],
+          "default": ["Spray Cleaner", "Detergent", "Washing Up Liquid"]
+        }
+      ]
+    },
+    {
+      "pageNum": 6,
+      "pageTitle": "Gas and electricity",
+      "questions": [
+        {
+          "questionNum": 1,
+          "questionKey": "needsFuelHelp",
+          "questionTitle": "Does the client need help with their gas and/or electricity?",
+          "keyField": "needsFuelHelp",
+          "required": false
+        },
+        {
+          "questionNum": 2,
+          "questionKey": "Pre-Payment",
+          "questionTitle": "Is the client on pre-payment meters and in fuel crisis?",
+          "preference": false,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["Yes"],
+          "enabledWhen": { "questionKey": "needsFuelHelp", "hasAnswer": "Yes" }
+        },
+        {
+          "questionNum": 3,
+          "questionKey": "Contact approved",
+          "questionTitle": "Has the client given permission for us to call them about their fuel?",
+          "preference": false,
+          "required": false,
+          "validation": { "type": "CheckBox", "answerMin": 0, "answerMax": 1 },
+          "answers": ["Yes"],
+          "enabledWhen": { "questionKey": "needsFuelHelp", "hasAnswer": "Yes" }
+        }
+      ]
+    },
+    {
+      "pageNum": 7,
+      "pageTitle": "Anything else",
+      "questions": [
+        {
+          "questionNum": 1,
+          "questionKey": "Other",
+          "questionTitle": "Any additional information?",
+          "preference": true,
+          "required": false,
+          "validation": { "type": "String", "maxLength": 1000 }
+        }
+      ]
+    }
+  ]
+}

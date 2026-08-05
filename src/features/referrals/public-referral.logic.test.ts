@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { looksLikeEmail, normaliseEmail, sortByStart } from './public-referral.logic';
+import {
+  looksLikeEmail,
+  normaliseEmail,
+  referrerVerdict,
+  sortByStart,
+  suggestedOrganisation,
+} from './public-referral.logic';
 import type { PublicSession } from './queries';
 
 function session(overrides: Partial<PublicSession> & { id: string }): PublicSession {
@@ -40,6 +46,95 @@ describe('looksLikeEmail', () => {
 describe('normaliseEmail', () => {
   it('matches the way the server stores an address, so one address is one request', () => {
     expect(normaliseEmail('  Ada@Charity.ORG ')).toBe('ada@charity.org');
+  });
+});
+
+describe('referrerVerdict', () => {
+  const unrecognised = { authorised: false, organisationName: null };
+  const recognised = { authorised: true, organisationName: 'Guildford Borough Council' };
+
+  it('never says an address is not recognised while it is still being typed', () => {
+    /*
+     * The bug this exists to stop. `pete@guildford.gov` is a complete-looking
+     * address on the way to `pete@guildford.gov.uk`, so it gets checked and the
+     * server rightly answers "no" — and the screen then told a recognised
+     * referrer, in a live region, that the food bank did not know them.
+     */
+    expect(referrerVerdict({ checking: false, result: unrecognised, left: false })).toEqual({
+      kind: 'silent',
+    });
+  });
+
+  it('says it once they have left the address, which is still before any household details', () => {
+    expect(referrerVerdict({ checking: false, result: unrecognised, left: true })).toEqual({
+      kind: 'unrecognised',
+    });
+  });
+
+  it('reassures a recognised referrer as soon as it knows, without waiting for them to leave', () => {
+    expect(referrerVerdict({ checking: false, result: recognised, left: false })).toEqual({
+      kind: 'authorised',
+      organisationName: 'Guildford Borough Council',
+    });
+  });
+
+  it('carries a null organisation rather than a name, so no screen can render the word null', () => {
+    expect(
+      referrerVerdict({
+        checking: false,
+        result: { authorised: true, organisationName: null },
+        left: true,
+      }),
+    ).toEqual({ kind: 'authorised', organisationName: null });
+  });
+
+  it('says nothing at all before there is an answer', () => {
+    expect(referrerVerdict({ checking: false, result: undefined, left: true })).toEqual({
+      kind: 'silent',
+    });
+  });
+
+  it('shows the check in progress ahead of an answer that is no longer about this address', () => {
+    // A verdict in flight is a verdict for a different address: the previous
+    // one must not be left on screen underneath a correction.
+    expect(referrerVerdict({ checking: true, result: recognised, left: true })).toEqual({
+      kind: 'checking',
+    });
+  });
+});
+
+describe('suggestedOrganisation', () => {
+  const offered = ['Guildford Borough Council', 'Woking Borough Council'];
+
+  it('offers the organisation a recognised address already belongs to', () => {
+    expect(
+      suggestedOrganisation(
+        { authorised: true, organisationName: 'Guildford Borough Council' },
+        offered,
+      ),
+    ).toBe('Guildford Borough Council');
+  });
+
+  it('suggests nothing for an address the charity does not recognise', () => {
+    expect(
+      suggestedOrganisation({ authorised: false, organisationName: null }, offered),
+    ).toBeNull();
+  });
+
+  it('suggests nothing before there is an answer', () => {
+    expect(suggestedOrganisation(undefined, offered)).toBeNull();
+  });
+
+  it('suggests nothing when the authorised referrer has no organisation', () => {
+    expect(suggestedOrganisation({ authorised: true, organisationName: null }, offered)).toBeNull();
+  });
+
+  it('never suggests a name the dropdown does not offer', () => {
+    // The select would fall back to "Choose one" while the answer said
+    // otherwise — a box disagreeing with itself is worse than being asked.
+    expect(
+      suggestedOrganisation({ authorised: true, organisationName: 'Elmbridge Council' }, offered),
+    ).toBeNull();
   });
 });
 

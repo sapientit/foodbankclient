@@ -1,7 +1,22 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { ESLint } from 'eslint';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+/*
+ * **A longer timeout, because the work really is that slow.**
+ *
+ * The first `lintFiles` call pays for typescript-eslint's `projectService`
+ * building a TypeScript program over the whole app project — seconds of genuine
+ * work, not a hang — and this file competes with every other test file for CPU.
+ * The 5s default is ample when it runs alone and not enough under full parallel
+ * load, which is exactly how this presented: an intermittent failure that always
+ * passed in isolation and so read as flakiness rather than as a limit set too
+ * low. Raising it is the honest fix; retrying or skipping would hide a rule that
+ * had genuinely stopped firing, which is the one thing this file exists to
+ * catch.
+ */
+vi.setConfig({ testTimeout: 30_000 });
 
 /**
  * Tests the lint config, not the app.

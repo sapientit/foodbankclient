@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { RouterProvider, createMemoryRouter, type RouteObject } from 'react-router';
@@ -29,6 +29,8 @@ beforeEach(async () => {
 const REFRESH = '/api/v1/auth/refresh';
 const DEV_LOGIN = '/api/v1/auth/dev-login';
 const PUBLIC_SESSIONS = '/api/v1/public/sessions';
+const PUBLIC_REASONS = '/api/v1/public/referral-reasons';
+const PUBLIC_ORGANISATIONS = '/api/v1/public/organisations';
 
 function signedInAs(role: 'admin' | 'team_lead') {
   return HttpResponse.json({
@@ -87,6 +89,8 @@ describe('routing', () => {
         publicCalls();
         return HttpResponse.json({ sessions: [] });
       }),
+      http.get(PUBLIC_REASONS, () => HttpResponse.json({ referralReasons: [] })),
+      http.get(PUBLIC_ORGANISATIONS, () => HttpResponse.json({ organisations: [] })),
     );
 
     // The structural guarantee that keeps the public flow unblocked: /refer is a
@@ -102,8 +106,9 @@ describe('routing', () => {
     // The page now really does call the API, which is what makes the assertion
     // below worth something: it is not "no requests", it is "no *auth* requests
     // even while the screen is fetching".
-    await screen.findByRole('heading', { name: 'No sessions have space at the moment' });
-    expect(publicCalls).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(publicCalls).toHaveBeenCalled();
+    });
     expect(refreshes).not.toHaveBeenCalled();
 
     // And no shell: no nav, no sign-out control, nothing implying an account.
@@ -121,9 +126,9 @@ describe('routing', () => {
       http.get(PUBLIC_SESSIONS, () => HttpResponse.json({ sessions: [] })),
     );
 
-    // The real flow has steps under /refer — the form, the confirmation, the
-    // fifteen-minute edit window — and the splat is what stops any of them
-    // falling through to the catch-all or into the authenticated layout.
+    // The real flow has steps under /refer — the form's pages and the
+    // confirmation — and the splat is what stops any of them falling through
+    // to the catch-all or into the authenticated layout.
     renderAt('/refer/confirm');
 
     expect(
@@ -146,6 +151,9 @@ describe('routing', () => {
     server.use(
       http.post(REFRESH, () => noSession()),
       http.post(DEV_LOGIN, () => signedInAs('team_lead')),
+      // /sessions fetches on mount; a team lead's heading is "Your sessions",
+      // not "Sessions" — see src/features/sessions/sessions-team-lead.test.tsx.
+      http.get('/api/v1/sessions', () => HttpResponse.json({ sessions: [] })),
     );
 
     renderAt('/sessions');
@@ -154,7 +162,7 @@ describe('routing', () => {
     await user.type(await screen.findByLabelText('Email address'), 'lead@x.com');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(await screen.findByRole('heading', { name: 'Sessions' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Your sessions' })).toBeInTheDocument();
   });
 
   it('shows the sign-in screen without the shell', async () => {

@@ -1,0 +1,67 @@
+.intro {
+  max-inline-size: 70ch;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  margin-block-end: 1.5rem;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+  vertical-align: top;
+  border-block-end: 1px solid #d4d4d4;
+}
+
+.table thead th {
+  border-block-end: 2px solid #1a1a1a;
+}
+
+.status {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid currentcolor;
+  border-radius: 1rem;
+}
+
+/* Colour is never the only signal — the label text already says the status —
+   but a quiet visual grouping helps the list scan quickly. */
+.status[data-status='cancelled'] {
+  color: #595959;
+}
+
+.deliveryTag {
+  margin-inline-start: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.85rem;
+  color: #1a1a1a;
+  border: 1px solid #595959;
+  border-radius: 1rem;
+}
+
+@media print {
+  .filters {
+    display: none;
+  }
+}
+
+/* Matches the detail screen: awaiting review is the one status that is a call
+   to action rather than a record of one. */
+.status[data-status='pending_review'] {
+  color: #7a4b00;
+  background: #fff4e0;
+  border-color: #7a4b00;
+}
+
+.status[data-status='rejected'] {
+  color: #595959;
+}

@@ -8,9 +8,11 @@ a Cloudflare Workers static-assets site with a tiny Worker (`src/worker/index.ts
 `/api/*` to the server over a service binding, so the client and the API are **one origin**. That is
 not a preference: the API's refresh cookie is `SameSite=Strict`, and `*.workers.dev` is on the Public
 Suffix List, so two `workers.dev` hostnames would be two different sites and refresh would silently
-fail. See `CLAUDE.md`, "Deploy as one origin, not two".
+fail. See [`docs/architecture/deployment-topology.md`](./docs/architecture/deployment-topology.md),
+"Deploy as one origin, not two".
 
-See `CLAUDE.md` for the architecture, the rules that matter, and why they are rules.
+See [`CLAUDE.md`](./CLAUDE.md) for the architecture and the rules that matter, and
+[`STATUS.md`](./STATUS.md) for what is actually built.
 
 ## Requirements
 

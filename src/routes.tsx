@@ -1,12 +1,36 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 import { RequireAuth } from './auth/require-auth';
 import { AppShell } from './components/app-shell';
-import { NotBuiltYet } from './components/not-built-yet';
 import { NotFound } from './components/not-found';
 import { RouteError } from './components/route-error';
 import { HomeScreen } from './features/home/home-screen';
 import { LoginScreen } from './features/auth/login-screen';
 import { PublicReferralScreen } from './features/referrals/components/public-referral-screen';
+import { ReferralDetailScreen } from './features/referrals/components/referral-detail-screen';
+import { ReferralsScreen } from './features/referrals/components/referrals-screen';
+import { AmendRecurringSessionScreen } from './features/sessions/components/amend-recurring-session-screen';
+import { CreateRecurringSessionScreen } from './features/sessions/components/create-recurring-session-screen';
+import { CreateSessionScreen } from './features/sessions/components/create-session-screen';
+import { RecurringSessionsScreen } from './features/sessions/components/recurring-sessions-screen';
+import { SessionDetailScreen } from './features/sessions/components/session-detail-screen';
+import { SessionsScreen } from './features/sessions/components/sessions-screen';
+import { AmendReferrerScreen } from './features/admin-setup/components/amend-referrer-screen';
+import { AmendReferralReasonScreen } from './features/admin-setup/components/amend-referral-reason-screen';
+import { CreateReferrerScreen } from './features/admin-setup/components/create-referrer-screen';
+import { CreateReferralReasonScreen } from './features/admin-setup/components/create-referral-reason-screen';
+import { ReferrersScreen } from './features/admin-setup/components/referrers-screen';
+import { ReferralReasonsScreen } from './features/admin-setup/components/referral-reasons-screen';
+import { AmendModelParcelScreen } from './features/model-parcels/components/amend-model-parcel-screen';
+import { CreateModelParcelScreen } from './features/model-parcels/components/create-model-parcel-screen';
+import { HouseholdGridScreen } from './features/model-parcels/components/household-grid-screen';
+import { ModelParcelsScreen } from './features/model-parcels/components/model-parcels-screen';
+import { AdjustStockScreen } from './features/stock/components/adjust-stock-screen';
+import { AmendStockItemScreen } from './features/stock/components/amend-stock-item-screen';
+import { CreateStockItemScreen } from './features/stock/components/create-stock-item-screen';
+import { RecordShopScreen } from './features/stock/components/record-shop-screen';
+import { StockItemsScreen } from './features/stock/components/stock-items-screen';
+import { StockLevelsScreen } from './features/stock/components/stock-levels-screen';
+import { StockTakeScreen } from './features/stock/components/stock-take-screen';
 import { AmendUserScreen } from './features/users/components/amend-user-screen';
 import { CreateUserScreen } from './features/users/components/create-user-screen';
 import { UsersScreen } from './features/users/components/users-screen';
@@ -67,13 +91,78 @@ export const routes: RouteObject[] = [
        * a screen that admits it does not exist yet. Each one is replaced in
        * place as its slice lands.
        */
-      { path: 'sessions', element: <NotBuiltYet title="Sessions" /> },
-      { path: 'referrals', element: <NotBuiltYet title="Referrals" /> },
-      { path: 'stock', element: <NotBuiltYet title="Stock" /> },
-      { path: 'stock/items', element: <NotBuiltYet title="Stock items" /> },
-      { path: 'model-parcels', element: <NotBuiltYet title="Model parcels" /> },
-      { path: 'referrers', element: <NotBuiltYet title="Referrers" /> },
-      { path: 'referral-form', element: <NotBuiltYet title="Referral form" /> },
+      /*
+       * Sessions. `sessions/:sessionId` is a real fetch of its own — unlike
+       * stock and users, `GET /sessions/{id}` exists and is not capped by role
+       * — so it is a sibling of the list rather than a parameter on it. React
+       * Router ranks static segments over dynamic ones regardless of array
+       * order, so `sessions/new` and `sessions/recurring*` are never shadowed
+       * by `sessions/:sessionId`.
+       */
+      { path: 'sessions', element: <SessionsScreen /> },
+      { path: 'sessions/new', element: <CreateSessionScreen /> },
+      { path: 'sessions/recurring', element: <RecurringSessionsScreen /> },
+      { path: 'sessions/recurring/new', element: <CreateRecurringSessionScreen /> },
+      {
+        path: 'sessions/recurring/:recurringSessionId',
+        element: <AmendRecurringSessionScreen />,
+      },
+      { path: 'sessions/:sessionId', element: <SessionDetailScreen /> },
+      /*
+       * Referrals: reading is both roles (`API.md` §2), amending, moving and
+       * cancelling are admin only. No role guard either way — a team lead who
+       * opens `/referrals/:referralId` makes the real request and gets a real
+       * `200` with three fields missing, not a `403`; see `hasAdminFields` in
+       * `referrals.logic.ts` and the module comment on
+       * `referral-detail-screen.tsx`. `referrals/:referralId` is a static-vs-
+       * dynamic sibling pair the same way `sessions/:sessionId` is, and there
+       * is nothing to shadow it with — this feature has no `referrals/new`,
+       * because a referral can only be created through the public flow.
+       */
+      { path: 'referrals', element: <ReferralsScreen /> },
+      { path: 'referrals/:referralId', element: <ReferralDetailScreen /> },
+      /*
+       * Stock, and the role split inside it is the one that is easy to invert:
+       * **moving stock is both roles, changing what stock items exist is admin
+       * only.** Levels, shops, stock takes and adjustments are a team lead's
+       * work — they are the person standing in the warehouse — while
+       * `stock/items*` is admin maintenance. No route is role-guarded either
+       * way; a team lead who types an item URL makes the request and gets a
+       * real 403.
+       */
+      { path: 'stock', element: <StockLevelsScreen /> },
+      { path: 'stock/shop', element: <RecordShopScreen /> },
+      { path: 'stock/take', element: <StockTakeScreen /> },
+      { path: 'stock/adjust/:stockItemId', element: <AdjustStockScreen /> },
+      { path: 'stock/items', element: <StockItemsScreen /> },
+      { path: 'stock/items/new', element: <CreateStockItemScreen /> },
+      { path: 'stock/items/:stockItemId', element: <AmendStockItemScreen /> },
+      /*
+       * Model parcels and the household grid. Admin only per `API.md` §2, and
+       * — as with users and stock items — no route is role-guarded: a team
+       * lead who types one of these URLs makes the real request and gets a
+       * real 403. `model-parcels/grid` and `model-parcels/new` are static
+       * siblings of `model-parcels/:modelParcelId`, so neither is ever
+       * shadowed by the dynamic route.
+       */
+      { path: 'model-parcels', element: <ModelParcelsScreen /> },
+      { path: 'model-parcels/new', element: <CreateModelParcelScreen /> },
+      { path: 'model-parcels/grid', element: <HouseholdGridScreen /> },
+      { path: 'model-parcels/:modelParcelId', element: <AmendModelParcelScreen /> },
+      /*
+       * Admin setup: authorised referrers and reasons for referral. Admin
+       * only per `API.md` §2, and — as with users, stock items and model
+       * parcels — no route is role-guarded: a team lead who types one of
+       * these URLs makes the real request and gets a real `403`.
+       * `referrers/new` and `referral-reasons/new` are static siblings of
+       * their `:id` routes, so neither is shadowed.
+       */
+      { path: 'referrers', element: <ReferrersScreen /> },
+      { path: 'referrers/new', element: <CreateReferrerScreen /> },
+      { path: 'referrers/:referrerId', element: <AmendReferrerScreen /> },
+      { path: 'referral-reasons', element: <ReferralReasonsScreen /> },
+      { path: 'referral-reasons/new', element: <CreateReferralReasonScreen /> },
+      { path: 'referral-reasons/:reasonId', element: <AmendReferralReasonScreen /> },
 
       /*
        * User maintenance. Three screens and no role guard on any of them: a team

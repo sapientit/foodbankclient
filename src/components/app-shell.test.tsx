@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { RouterProvider, createMemoryRouter, type RouteObject } from 'react-router';
@@ -33,12 +34,24 @@ function signedInAs(role: 'admin' | 'team_lead') {
 }
 
 async function renderShell(role: 'admin' | 'team_lead', path = '/sessions') {
-  server.use(http.post(REFRESH, () => signedInAs(role)));
+  server.use(
+    http.post(REFRESH, () => signedInAs(role)),
+    // The default path renders the sessions screen, which fetches on mount.
+    http.get('/api/v1/sessions', () => HttpResponse.json({ sessions: [] })),
+  );
 
   render(
-    <AuthProvider>
-      <RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} />
-    </AuthProvider>,
+    <QueryClientProvider
+      client={
+        new QueryClient({
+          defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+        })
+      }
+    >
+      <AuthProvider>
+        <RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} />
+      </AuthProvider>
+    </QueryClientProvider>,
   );
 
   await screen.findByRole('navigation', { name: 'Main' });

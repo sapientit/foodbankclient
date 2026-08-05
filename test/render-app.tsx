@@ -17,17 +17,14 @@ import { routes } from '../src/routes';
  *
  * The query client is per render, and never the app's singleton: one test's cache
  * must not answer the next one's query.
+ *
+ * **The default client has `staleTime: 0`,** which makes every remount refetch
+ * and is what most screen tests want. It also makes an invalidation test vacuous
+ * — the refetch would have happened anyway — so a test about a mutation
+ * invalidating another screen's query passes its own client with a real
+ * `staleTime`. That is the only reason the parameter exists.
  */
-export function renderApp(path: string) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      // A retried 4xx would only slow the failure down, and every assertion here
-      // is about the first answer the server gives.
-      queries: { retry: false, staleTime: 0 },
-      mutations: { retry: false },
-    },
-  });
-
+export function renderApp(path: string, queryClient: QueryClient = defaultTestClient()) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
 
   render(
@@ -39,4 +36,15 @@ export function renderApp(path: string) {
   );
 
   return { router, queryClient };
+}
+
+function defaultTestClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: {
+      // A retried 4xx would only slow the failure down, and every assertion here
+      // is about the first answer the server gives.
+      queries: { retry: false, staleTime: 0 },
+      mutations: { retry: false },
+    },
+  });
 }

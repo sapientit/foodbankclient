@@ -129,7 +129,7 @@ export interface paths {
                 /** @description Signed in */
                 200: {
                     headers: {
-                        /** @description `foodbank_refresh`, HttpOnly, Secure, SameSite=Strict, scoped to `/api/v1/auth`. Not readable by JavaScript, by design. */
+                        /** @description `foodbank_refresh`, HttpOnly, Secure, SameSite=Strict, scoped to `/api/v1/auth`. Not readable by JavaScript, by design. It expires when the eight-hour sign-in does, and a rotation does not extend it. */
                         "Set-Cookie"?: string;
                         [name: string]: unknown;
                     };
@@ -178,9 +178,19 @@ export interface paths {
         put?: never;
         /**
          * Exchange the refresh cookie for a new access token
-         * @description Rotates the refresh token. Presenting one that has already been rotated
-         *     is treated as theft and **revokes the entire token family** — the user
-         *     is signed out everywhere. Send the cookie, never a body.
+         * @description Rotates the refresh token. Send the cookie, never a body.
+         *
+         *     **A sign-in lasts eight hours from the moment the user signed in.** The
+         *     replacement token inherits the expiry of the one it replaces, so
+         *     refreshing never pushes that out: once the eight hours are up, refresh
+         *     returns `401` and the user signs in again. The access token in the
+         *     response is capped at the same instant, so the last one of a sign-in
+         *     may be shorter than fifteen minutes.
+         *
+         *     A token that has already been rotated is **refused and nothing more**.
+         *     The sign-in it belonged to carries on, so a client that refreshed twice
+         *     by accident should retry with the cookie it now holds rather than sign
+         *     the user out.
          */
         post: {
             parameters: {
@@ -200,7 +210,7 @@ export interface paths {
                         "application/json": components["schemas"]["TokenResponse"];
                     };
                 };
-                /** @description Missing, expired, unknown, or replayed */
+                /** @description Missing, unknown, already rotated, or the eight-hour sign-in has ended */
                 401: {
                     headers: {
                         [name: string]: unknown;
@@ -337,8 +347,13 @@ export interface paths {
         /**
          * Add a user
          * @description Admin only. **This is the only way an account comes into existence** —
-         *     signing in never creates one. The address is stored lowercased, because
-         *     that is how every identity provider resolves an account.
+         *     signing in never creates one, and there is no self-service signup. The
+         *     address is stored lowercased, because that is how every identity
+         *     provider resolves an account.
+         *
+         *     A fresh database is seeded with one administrator so there is somebody
+         *     who can call this. That seeded address is a stand-in and is replaced
+         *     when sign-in moves to Google.
          */
         post: {
             parameters: {
@@ -503,7 +518,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/referral-form": {
+    "/api/v1/public/referral-reasons": {
         parameters: {
             query?: never;
             header?: never;
@@ -511,10 +526,15 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The published referral form and reason options
-         * @description Everything needed to render the form in one request: the dynamic
-         *     questions and the reason dropdown. Send `formDefinitionId` back? No —
-         *     the server resolves the published version itself.
+         * The reason-for-referral options
+         * @description Active options only, in display order, for the dropdown on the referral
+         *     form.
+         *
+         *     **The questions on the form are not served here.** The referral form is
+         *     client configuration: it ships with the application, is seen in the test
+         *     system first, and goes live when a new version of the client does. The
+         *     reason list stays on the server because it is a maintained lookup the
+         *     referral points at by `reasonId`.
          */
         get: {
             parameters: {
@@ -525,21 +545,16 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description The form */
+                /** @description The options */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["PublicForm"];
+                        "application/json": {
+                            referralReasons: components["schemas"]["ReferralReason"][];
+                        };
                     };
-                };
-                /** @description No form has been published yet */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
                 };
                 429: components["responses"]["RateLimited"];
             };
@@ -623,9 +638,15 @@ export interface paths {
          *     server is configured with a secret — always in production. Tokens are
          *     single-use and expire after five minutes.
          *
-         *     The response contains `editKey` **once and nowhere else**. Hold it in
-         *     memory to let the referrer amend or withdraw within fifteen minutes;
-         *     after that they must phone the food bank.
+         *     **An unrecognised referrer is not refused.** The address is still
+         *     checked, but it decides the *status* rather than whether the referral is
+         *     taken: a recognised address gives `status: "active"`, an unrecognised
+         *     one `status: "pending_review"`, which waits for an administrator to
+         *     accept or reject it. This endpoint no longer returns `403`.
+         *
+         *     **There is no edit window.** The response is a confirmation to show
+         *     back, not a handle to return with — show the referrer what they sent
+         *     and tell them to phone the food bank if it needs changing.
          */
         post: {
             parameters: {
@@ -643,7 +664,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Referral accepted */
+                /** @description Referral accepted. Check `status` — it may be awaiting review. */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -654,13 +675,6 @@ export interface paths {
                 };
                 /** @description Validation failed, or the bot check was missing or stale */
                 400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description The referrer's address is not authorised */
-                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -689,147 +703,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/referrals/{id}": {
+    "/api/v1/public/organisations": {
         parameters: {
             query?: never;
-            header: {
-                "x-referral-key": components["parameters"]["ReferralKey"];
-            };
-            path: {
-                id: components["parameters"]["Id"];
-            };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
-        /** Read your own referral during the edit window */
+        /**
+         * Organisations that may refer
+         * @description The distinct organisation names on the active authorised-referrer list, sorted, for the dropdown on page one of the referral form. Beside it the form offers a free-text box for an organisation that is not here — which is also the path that produces a `pending_review` referral.
+         *     Names only, never the match rules behind them.
+         */
         get: {
             parameters: {
                 query?: never;
-                header: {
-                    "x-referral-key": components["parameters"]["ReferralKey"];
-                };
-                path: {
-                    id: components["parameters"]["Id"];
-                };
+                header?: never;
+                path?: never;
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description The referral as the referrer submitted it */
+                /** @description Organisations, by name */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SelfServiceReferral"];
+                        "application/json": {
+                            organisations: {
+                                name: string;
+                            }[];
+                        };
                     };
                 };
-                /** @description The edit key header is missing */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description The key is invalid */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description The fifteen-minute window has closed */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
+                429: components["responses"]["RateLimited"];
             };
         };
         put?: never;
         post?: never;
-        /**
-         * Withdraw your own referral
-         * @description Consumes the key, so it cannot be used again.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header: {
-                    "x-referral-key": components["parameters"]["ReferralKey"];
-                };
-                path: {
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Withdrawn */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Invalid key */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Amend your own referral
-         * @description Amending does **not** extend the window — it runs from submission and is absolute.
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header: {
-                    "x-referral-key": components["parameters"]["ReferralKey"];
-                };
-                path: {
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ReferralSelfAmend"];
-                };
-            };
-            responses: {
-                /** @description Updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SelfServiceReferral"];
-                    };
-                };
-                400: components["responses"]["BadRequest"];
-                /** @description Invalid key */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Window closed */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/api/v1/sessions": {
@@ -839,11 +755,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List sessions */
+        /**
+         * List sessions
+         * @description **How far ahead this reaches depends on the caller's role.** An admin
+         *     sees the whole materialised six weeks. A **team lead sees six days**:
+         *     today through today plus six inclusive, counted in `Europe/London`.
+         *
+         *     The cap is applied server-side from the access token, so a team lead
+         *     cannot widen it — a `to` beyond the horizon is silently **clamped** back
+         *     to it rather than refused, and a `from` beyond it simply returns an
+         *     empty list. A narrower `to` still applies. Only the far end is capped:
+         *     a team lead can still list sessions in the past.
+         *
+         *     Note the unauthenticated `GET /api/v1/public/sessions` window is
+         *     fourteen days, so it reaches further ahead than a team lead's list.
+         *     That is deliberate — it answers "which session can I book somebody
+         *     onto", not "which shift am I working".
+         */
         get: {
             parameters: {
                 query?: {
                     from?: string;
+                    /** @description Clamped to the caller's horizon; see the description. */
                     to?: string;
                     status?: "planned" | "in_progress" | "confirmed" | "cancelled";
                 };
@@ -1068,9 +1001,11 @@ export interface paths {
         put?: never;
         /**
          * Close the session
-         * @description The team lead's final step. Refuses while any household is still
-         *     unrecorded, and says which pick numbers — a session confirmed with
-         *     people unaccounted for has wrong stock figures.
+         * @description The team lead's final step. Every household must be marked either
+         *     attended (delivered) or a no-show (not in) first: this refuses while
+         *     anyone is still unrecorded and says which pick numbers, because a
+         *     session closed with people unaccounted for has wrong stock figures.
+         *     There is no override.
          */
         post: {
             parameters: {
@@ -1209,7 +1144,7 @@ export interface paths {
         head?: never;
         /**
          * Amend a weekly template
-         * @description Admin only. Does not retrospectively change sessions already generated.
+         * @description Admin only. Any subset of the fields, and at least one — an empty body is a `400`. Does not retrospectively change sessions already generated: the cron never updates a session row, so an amendment reaches only the occurrences materialised after it.
          */
         patch: {
             parameters: {
@@ -1222,7 +1157,19 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": {
+                        name?: string;
+                        /** @description ISO-8601, 1 = Monday. */
+                        weekday?: number;
+                        startTime?: components["schemas"]["LocalTime"];
+                        durationMinutes?: number;
+                        location?: string;
+                        capacity?: number;
+                        /** Format: date */
+                        activeFrom?: string;
+                        /** Format: date */
+                        activeUntil?: string | null;
+                    };
                 };
             };
             responses: {
@@ -1248,14 +1195,20 @@ export interface paths {
         };
         /**
          * List referrals
-         * @description **A team lead does not receive `reasonId`, `referrerEmail` or
-         *     `referrerPhone`.** Why someone is hungry is not picking information.
+         * @description **A team lead does not receive `reasonId`, `referrerEmail`,
+         *     `referrerPhone` or `reviewComment`.** Why someone is hungry is not
+         *     picking information.
+         *
+         *     **A team lead's list never contains rejected referrals**, whatever they
+         *     filter by; asking for `status=rejected` returns an empty list rather
+         *     than an error, because the status is simply not one of theirs. Pending
+         *     ones they do see.
          */
         get: {
             parameters: {
                 query?: {
                     sessionId?: string;
-                    status?: "active" | "cancelled";
+                    status?: "pending_review" | "active" | "rejected" | "cancelled";
                 };
                 header?: never;
                 path?: never;
@@ -1314,7 +1267,13 @@ export interface paths {
                         "application/json": components["schemas"]["Referral"];
                     };
                 };
-                404: components["responses"]["NotFound"];
+                /** @description No such referral — or it is rejected and the caller is a team lead, who has no business learning that it exists. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         put?: never;
@@ -1327,6 +1286,10 @@ export interface paths {
          * @description Admin only. Supplying `sessionId` moves it; moving into a full session
          *     requires `acknowledgeOverCapacity: true`, which is the server half of
          *     the warning the operator has to accept.
+         *
+         *     A cancelled or rejected referral cannot be amended **or moved** — a move
+         *     is an amendment, and nothing reinstates a referral, so relocating a dead
+         *     one only moves a dead record.
          */
         patch: {
             parameters: {
@@ -1339,7 +1302,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["ReferralSelfAmend"] & {
+                    "application/json": components["schemas"]["ReferralAmend"] & {
                         /** Format: uuid */
                         sessionId?: string;
                         /** @default false */
@@ -1357,7 +1320,7 @@ export interface paths {
                         "application/json": components["schemas"]["Referral"];
                     };
                 };
-                /** @description Target session is full and not acknowledged */
+                /** @description Target session is full and not acknowledged, or the referral is cancelled or rejected */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -1366,6 +1329,116 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/referrals/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a referral awaiting review
+         * @description Admin only. Moves `pending_review` to `active`. The referral already held its place on the session, so accepting it takes no further capacity and cannot fail for a full session.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ReferralReview"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Referral"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+                /** @description That referral is not awaiting review */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/referrals/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a referral awaiting review
+         * @description Admin only. Moves `pending_review` to `rejected` and releases its place on the session. A team lead can no longer see it at all.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ReferralReview"];
+                };
+            };
+            responses: {
+                /** @description Rejected */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Referral"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+                /** @description That referral is not awaiting review */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/referrals/{id}/cancel": {
@@ -1382,6 +1455,7 @@ export interface paths {
         /**
          * Cancel a referral
          * @description Admin only. Idempotent. Frees its place in the session.
+         *     A **rejected** referral is a `409`, not a cancellation. The two are different things that happened, and `reviewComment` is the only record of why the charity turned the household away — relabelling the status would leave that comment on a referral that no longer says a review took place.
          */
         post: {
             parameters: {
@@ -1408,6 +1482,13 @@ export interface paths {
                     content: {
                         "application/json": components["schemas"]["Referral"];
                     };
+                };
+                /** @description That referral was rejected */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
             };
         };
@@ -1562,17 +1643,10 @@ export interface paths {
                     "application/json": {
                         name: string;
                         /**
-                         * @example tin
-                         * @example packet
-                         * @example kg
-                         */
-                        unit: string;
-                        /**
                          * @example A1
                          * @example 12b
                          */
                         shelfNumber: string;
-                        lowStockThreshold?: number | null;
                     };
                 };
             };
@@ -1633,9 +1707,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         name?: string;
-                        unit?: string;
                         shelfNumber?: string;
-                        lowStockThreshold?: number | null;
                         isActive?: boolean;
                     };
                 };
@@ -1730,9 +1802,16 @@ export interface paths {
         put?: never;
         /**
          * Correct stock by hand
-         * @description Admin or team lead. Always requires a reason — this is the only
-         *     unexplained movement type, and it is where a mis-recorded attendance
-         *     gets fixed, which is the team lead's own mistake to correct.
+         * @description Admin or team lead. Always requires a reason — a hand correction is the
+         *     only movement that does not explain itself, and it is where a
+         *     mis-recorded attendance gets fixed, which is the team lead's own mistake
+         *     to correct.
+         *
+         *     All six ways stock moves are offered, including the two the app usually
+         *     writes for itself: stock arriving without a recorded shop, or a parcel
+         *     handed over outside a session, both happen in a warehouse and both need
+         *     a way onto the ledger. Food thrown away is `wastage`, whatever the
+         *     reason it was thrown away.
          */
         post: {
             parameters: {
@@ -1749,7 +1828,7 @@ export interface paths {
                         /** @description Signed, never zero. Negative removes stock. */
                         quantityDelta: number;
                         /** @enum {string} */
-                        movementType: "donation" | "wastage" | "expiry" | "correction" | "opening_balance";
+                        movementType: "opening_balance" | "purchase" | "donation" | "parcel_issued" | "wastage" | "correction";
                         reason: string;
                     };
                 };
@@ -1916,6 +1995,10 @@ export interface paths {
          * @description Admin or team lead. Writes an adjustment **only for items whose count
          *     differs** from the derived level, so the variance is visible rather than
          *     silently absorbed. The response lists exactly what moved.
+         *
+         *     The variance lands on the ledger as a `correction` carrying the id of
+         *     this stock take, so it can still be found — but the movement type does
+         *     not distinguish it from a hand correction.
          */
         post: {
             parameters: {
@@ -2777,12 +2860,16 @@ export interface paths {
         /**
          * Did this household turn up?
          * @description **Attended** issues the parcel and decrements stock. **No-show** moves
-         *     nothing — the parcel is unpacked and nothing was ever given away.
+         *     nothing — the parcel is unpacked and nothing was ever given away. For a
+         *     delivery these are the same two outcomes under the driver's names:
+         *     delivered and not in.
          *
          *     Safe to submit repeatedly: `alreadyRecorded: true` means the outcome was
-         *     already in place and stock did not move again. A mis-record can be
-         *     corrected once in each direction; a third change is refused and needs a
-         *     stock adjustment.
+         *     already in place and stock did not move again.
+         *
+         *     **The outcome is final.** Submitting the *other* outcome afterwards is
+         *     refused with `409`; a mis-tap is put right with a stock adjustment
+         *     (`POST /stock/adjustments`), which leaves the correction on the record.
          */
         post: {
             parameters: {
@@ -2817,7 +2904,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Already issued and returned once */
+                /** @description The other outcome is already recorded */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -3098,309 +3185,6 @@ export interface paths {
         };
         trace?: never;
     };
-    "/api/v1/form-definitions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** All form versions */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            formDefinitions: components["schemas"]["FormDefinition"][];
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Start a new draft form
-         * @description Admin only. Version numbers are assigned automatically.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        title: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Draft created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/form-definitions/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        /** One version with its questions */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The version */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/form-definitions/{id}/fields": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add a question to a draft
-         * @description Admin only, drafts only. `key` is the stable key answers are stored
-         *     under and must never be reused for a different question.
-         *
-         *     `isPii` defaults to **true**: a question is treated as personal data
-         *     unless someone deliberately says otherwise, because it decides what a
-         *     retention purge strips.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        key: string;
-                        label: string;
-                        helpText?: string | null;
-                        /** @enum {string} */
-                        type: "text" | "textarea" | "number" | "boolean" | "select" | "multiselect" | "date";
-                        /** @default false */
-                        isRequired?: boolean;
-                        /** @description Required for select and multiselect. */
-                        options?: string[];
-                        minValue?: number | null;
-                        maxValue?: number | null;
-                        maxLength?: number | null;
-                        /** @default true */
-                        isPii?: boolean;
-                        /** @default 0 */
-                        displayOrder?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Added */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Published form */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/form-definitions/{id}/publish": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Publish a draft form
-         * @description Admin only. Retires the previously published version, which stays readable so old referrals keep their meaning.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Published */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Not a draft */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/form-fields/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Remove a question from a draft */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Removed */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description The form has been published */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        /** Amend a question on a draft */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            responses: {
-                /** @description Updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AdminFormField"];
-                    };
-                };
-                /** @description The form has been published */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        trace?: never;
-    };
     "/api/v1/jobs/session-materialisation/run": {
         parameters: {
             query?: never;
@@ -3415,6 +3199,12 @@ export interface paths {
          * @description Admin only. Calls exactly what the nightly cron calls: generates six
          *     weeks of sessions from the weekly templates, clears expired referral
          *     edit keys, and purges old personal data if a retention period is set.
+         *
+         *     Six weeks is how far ahead sessions are *materialised*, and it is not
+         *     the same thing as how far ahead anyone is shown them — see
+         *     `GET /api/v1/sessions` for the per-role horizons.
+         *
+         *     Idempotent — a second run creates nothing.
          */
         post: {
             parameters: {
@@ -3439,7 +3229,6 @@ export interface paths {
                             templatesConsidered?: number;
                             occurrencesPlanned?: number;
                             sessionsCreated?: number;
-                            editKeysPurged?: number;
                             referralsPurged?: number;
                         };
                     };
@@ -3495,7 +3284,7 @@ export interface components {
         TokenResponse: {
             /** @description Hold in memory only. Never in localStorage. */
             accessToken: string;
-            /** @description Epoch seconds. */
+            /** @description Epoch seconds. Fifteen minutes away, or the end of the eight-hour sign-in, whichever is sooner. */
             expiresAt: number;
             user: {
                 /** Format: uuid */
@@ -3528,7 +3317,10 @@ export interface components {
             location: string;
             /** @description Counts households, not people. A session of capacity 25 takes 25 referrals however large the households are. */
             capacity: number;
-            /** @description Active referrals on this session — households, so directly comparable with `capacity`. Derived by summing referrals, never stored. Cancelled referrals do not occupy a place. An admin may deliberately exceed capacity when moving someone, so this can be greater than `capacity`. */
+            /**
+             * @description Referrals holding a place on this session — households, so directly comparable with `capacity`. Derived by summing referrals, never stored.
+             *     **A referral awaiting review counts.** It has not been looked at yet, but the household may well turn up, so it holds its place; cancelled and rejected referrals give theirs back. An admin may deliberately exceed capacity when moving someone, so this can be greater than `capacity`.
+             */
             booked: number;
             /** @enum {string} */
             status: "planned" | "in_progress" | "confirmed" | "cancelled";
@@ -3553,117 +3345,150 @@ export interface components {
             /** Format: date */
             activeUntil: string | null;
         };
-        PublicForm: {
-            /** Format: uuid */
-            formDefinitionId: string;
-            version: number;
-            title: string;
-            reasons: components["schemas"]["ReferralReason"][];
-            fields: components["schemas"]["FormField"][];
-        };
         ReferralSubmission: {
             /** Format: uuid */
             sessionId: string;
             /** Format: uuid */
             reasonId: string;
-            /** Format: email */
+            referrerName: string;
+            /**
+             * Format: email
+             * @description Still checked against the authorised list, but an address that is not on it no longer refuses the referral — it makes it `pending_review`.
+             */
             referrerEmail: string;
+            /**
+             * @description **Supplied by you, not derived.** An unrecognised referrer has no authorised-referrer row to derive an organisation from, which is why the form asks: the dropdown from `GET /public/organisations` for one on the list, the free-text box for one that is not.
+             *     When the address *is* authorised, pre-fill it from `POST /public/referrers/check` so the value matches what the server would have derived. The server still records its own match separately, so this string never decides which organisation a referral is credited to.
+             */
+            referrerOrganisation: string;
             referrerPhone?: string;
-            refereeName: string;
+            refereeFirstName: string;
+            /** @description Held apart from the first name because it is what a list sorts by and what a volunteer matches a bag to. */
+            refereeSurname: string;
+            /**
+             * Format: date
+             * @description `YYYY-MM-DD`. A date, not an age — an age is wrong a year later.
+             */
+            refereeDateOfBirth: string;
             refereeAddress: string;
             refereePostcode: string;
             refereePhone?: string;
+            /**
+             * @description A column rather than an answer, because the charity reports on it. The two questions that follow from it — pre-payment meter, permission to ring — are ordinary answers and belong in `answers`.
+             * @default false
+             */
+            needsFuelHelp: boolean;
             /** @description At least one, so every referral maps to a real grid cell. */
             adults: number;
             children?: number;
-            /** @default false */
+            /**
+             * @description Delivered rather than collected. A delivery goes to `refereeAddress`; there is no separate delivery address to send.
+             * @default false
+             */
             isDelivery: boolean;
-            /** @description Only for a delivery; defaults to the referee's own address. */
-            deliveryAddress?: string;
-            /** @description Keyed by the `key` of each question from `/public/referral-form`. Unknown keys are ignored rather than rejected. */
+            /**
+             * @description The dynamic answers, keyed by the question keys in **your** form configuration. The server holds no form definition and does not validate these against anything — it stores what you send and returns it unchanged, so the keys and their meaning are yours to keep stable.
+             *     Bounded only for storage safety, because this is an unauthenticated write: at most 100 keys, keys at most 60 characters, and at most 16KB once serialised. Exceeding any of those is a `400`.
+             */
             answers?: {
                 [key: string]: unknown;
             };
         };
-        /** @description Any subset. Amending does not extend the fifteen-minute window. */
-        ReferralSelfAmend: {
-            refereeName?: string;
+        /**
+         * @description Any subset. **Admin only** — there is no self-service amendment; a referrer who needs a change phones the food bank.
+         *     `referrerEmail` is deliberately absent. It is what the authorisation decision was made on, so editing it would leave a referral whose status no longer follows from its address.
+         */
+        ReferralAmend: {
+            referrerName?: string;
+            referrerPhone?: string | null;
+            refereeFirstName?: string;
+            refereeSurname?: string;
+            /** Format: date */
+            refereeDateOfBirth?: string;
             refereeAddress?: string;
             refereePostcode?: string;
             refereePhone?: string | null;
-            referrerPhone?: string | null;
             adults?: number;
             children?: number;
             isDelivery?: boolean;
-            deliveryAddress?: string | null;
+            needsFuelHelp?: boolean;
             /** Format: uuid */
             reasonId?: string;
             answers?: {
                 [key: string]: unknown;
             };
         };
+        /** @description The administrator's note on why a referral was let through or turned away. One short line; it replaces any earlier note, and there is no review history and no review timestamp. `Referral.referredAt` is the timestamp the charity asked for — when the referrer submitted. */
+        ReferralReview: {
+            comment?: string;
+        };
+        /** @description What the referrer gets back. This is the whole of their relationship with the system now: there is no key and no window, so show it as a confirmation. **Read `status`** — `pending_review` means the referral is waiting to be looked at, not that a place is booked and settled. */
         ReferralReceipt: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             sessionId: string;
-            status: string;
+            /** @enum {string} */
+            status: "pending_review" | "active";
             adults: number;
             children: number;
             isDelivery: boolean;
-            /** @description Returned once and never again. Hold it in memory to allow amending within fifteen minutes. */
-            editKey: string;
-            /** @description Epoch seconds. */
-            editKeyExpiresAt: number;
-        };
-        /** @description The referrer's own view. Never includes the edit key. */
-        SelfServiceReferral: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            sessionId: string;
-            status: string;
-            adults: number;
-            children: number;
-            isDelivery: boolean;
-            refereeName: string | null;
+            needsFuelHelp: boolean;
+            refereeFirstName: string | null;
+            refereeSurname: string | null;
             refereeAddress: string | null;
             refereePostcode: string | null;
-            refereePhone: string | null;
-            deliveryAddress: string | null;
-            answers: {
-                [key: string]: unknown;
-            };
+            /** Format: date-time */
+            referredAt: string;
         };
         /**
-         * @description The staff view. **The last three fields are admin-only** — a team lead
+         * @description The staff view. **The last four fields are admin-only** — a team lead
          *     receives the object without them, so treat them as optional.
+         *
+         *     **A team lead does not see rejected referrals at all.** They are absent
+         *     from the list, and fetching one by id is a `404`. Pending ones they do
+         *     see, marked by `status`, because a household awaiting review may well
+         *     turn up and the team lead is the person in the hall when they do.
          */
         Referral: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             sessionId: string;
-            /** @enum {string} */
-            status: "active" | "cancelled";
-            /** Format: date-time */
+            /**
+             * @description `pending_review` — the referrer's address was not recognised and an administrator has not yet looked at it. It **holds its place** on the session, so it counts against capacity, but it never reaches a pick list, a printed sheet or the household grid.
+             *     `rejected` — an administrator turned it away. Its place is released.
+             * @enum {string}
+             */
+            status: "pending_review" | "active" | "rejected" | "cancelled";
+            /**
+             * Format: date-time
+             * @description When the referrer submitted. There is no separate review timestamp.
+             */
             referredAt: string;
             adults: number;
             children: number;
             householdSize: number;
             isDelivery: boolean;
+            needsFuelHelp: boolean;
+            /** @description As the referrer gave it. For an unrecognised referrer there was no authorised-referrer row to derive it from. */
             referrerOrganisation: string;
-            refereeName: string | null;
+            referrerName: string | null;
+            refereeFirstName: string | null;
+            refereeSurname: string | null;
+            /** Format: date */
+            refereeDateOfBirth: string | null;
             refereeAddress: string | null;
             refereePostcode: string | null;
             refereePhone: string | null;
-            deliveryAddress: string | null;
+            /** @description Exactly what was submitted. Empty once `piiPurgedAt` is set — see below. */
             answers: {
                 [key: string]: unknown;
             };
             /**
              * Format: date-time
-             * @description When set, the identifying fields above are null by design.
+             * @description When set, the **referee's** fields above are null by design and `answers` is empty.
+             *     The referrer's own details are **not** purged — `referrerName`, `referrerEmail`, `referrerPhone` and `reviewComment` all survive. The retention period exists to forget the household that needed feeding, not the professional who referred them.
              */
             piiPurgedAt: string | null;
             /**
@@ -3675,20 +3500,19 @@ export interface components {
             referrerEmail?: string | null;
             /** @description **Admin only.** */
             referrerPhone?: string | null;
+            /** @description **Admin only.** The reviewing administrator's one line. It can name a referrer or record a suspicion, which is not a team lead's business. Who reviewed is stored but never returned — no screen asks. */
+            reviewComment?: string | null;
         };
         StockItem: {
             /** Format: uuid */
             id: string;
             name: string;
-            unit: string;
             shelfNumber: string;
-            lowStockThreshold: number | null;
             isActive: boolean;
         };
         StockLevel: components["schemas"]["StockItem"] & {
             /** @description Derived by summing the ledger. May be negative after a correction. */
             quantityOnHand: number;
-            isLow: boolean;
         };
         ParcelContentLine: {
             /** Format: uuid */
@@ -3721,7 +3545,6 @@ export interface components {
             /** Format: uuid */
             stockItemId: string;
             name: string;
-            unit: string;
             shelfNumber: string;
             quantity: number;
             /**
@@ -3743,19 +3566,34 @@ export interface components {
             /** @enum {string} */
             attendance: "pending" | "attended" | "no_show" | "cancelled";
             notes: string | null;
+            /**
+             * @description The referral's answers, **whole and unfiltered**, for the preferences half of the pick-list maintenance screen.
+             *     Which of them are preferences is yours to know: you own the form definition and the `preference` flag on each question, so filter this map yourself. The server holds no definition and will not guess — the four hard-coded dietary keys this replaced were exactly that guess, and none of them is a key in the real form.
+             *     Empty once the referral's personal data has been purged.
+             */
+            answers: {
+                [key: string]: unknown;
+            };
             lines: components["schemas"]["ParcelLine"][];
         };
-        /** @description Deliberately narrow. No reason for referral, ever. No name or address unless it is a delivery. */
+        /**
+         * @description Deliberately narrow. **No reason for referral, ever**, and no answers — by print time the decision they informed is in `lines`.
+         *     The pick number and the household's name are on every sheet: the person carrying the bag has to hand it to somebody. The address, postcode and phone number appear **only** for a delivery.
+         */
         PrintParcel: {
             pickNumber: number;
             householdSize: number;
             adults: number;
             children: number;
+            refereeFirstName: string | null;
+            refereeSurname: string | null;
+            /** @description Print the word `DELIVERY` when this is true. */
             isDelivery: boolean;
-            deliveryName: string | null;
+            /** @description Where to drive to. This is the referee's own address — a delivery never goes anywhere else — and is null for a collection. */
             deliveryAddress: string | null;
-            /** @description Included because the picker is the only person who can act on it. */
-            dietaryNotes: string | null;
+            deliveryPostcode: string | null;
+            /** @description For the driver who cannot find the door. Null for a collection. */
+            deliveryPhone: string | null;
             notes: string | null;
             lines: components["schemas"]["ParcelLine"][];
         };
@@ -3781,40 +3619,8 @@ export interface components {
             displayOrder: number;
         };
         AdminReferralReason: components["schemas"]["ReferralReason"] & {
-            /** @description Retires an option without breaking historical referrals. Retired reasons are absent from the public form but visible here. */
+            /** @description Retires an option without breaking historical referrals. Retired reasons are absent from the public list but visible here. */
             isActive: boolean;
-        };
-        FormField: {
-            /** Format: uuid */
-            id: string;
-            /** @description The key to send the answer back under. */
-            key: string;
-            label: string;
-            helpText: string | null;
-            /** @description Not an enum on purpose — the form is admin-maintained and may grow a type this build has never heard of. Render an unknown type as text rather than failing. */
-            type: string;
-            isRequired: boolean;
-            options: string[];
-            minValue: number | null;
-            maxValue: number | null;
-            maxLength: number | null;
-            displayOrder: number;
-        };
-        AdminFormField: components["schemas"]["FormField"] & {
-            /** @description Admin-only. Drives the retention purge. */
-            isPii: boolean;
-        };
-        FormDefinition: {
-            /** Format: uuid */
-            id: string;
-            version: number;
-            title: string;
-            /** @enum {string} */
-            status: "draft" | "published" | "retired";
-            /** Format: date-time */
-            publishedAt: string | null;
-            /** Format: date-time */
-            retiredAt: string | null;
         };
         StockTake: {
             /** Format: uuid */
@@ -3881,7 +3687,6 @@ export interface components {
     parameters: {
         Id: string;
         SessionId: string;
-        ReferralKey: string;
     };
     requestBodies: never;
     headers: never;

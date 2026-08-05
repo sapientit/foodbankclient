@@ -1,0 +1,61 @@
+.intro {
+  max-inline-size: 70ch;
+}
+
+.add {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border: 1px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+  vertical-align: top;
+  border-block-end: 1px solid #d4d4d4;
+}
+
+.table thead th {
+  border-block-end: 2px solid #1a1a1a;
+}
+
+.notes {
+  color: #595959;
+}
+
+/* Names what an inactive email row is actually doing, in the row itself —
+   not a status label, so it reads as an explanation rather than a second
+   badge next to "Inactive". */
+.blocks {
+  display: block;
+  margin-block-start: 0.25rem;
+  max-inline-size: 40ch;
+  font-size: 0.9rem;
+  color: #595959;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.actions button {
+  padding: 0.25rem 0.6rem;
+  font: inherit;
+}
+
+@media print {
+  .add,
+  .actions {
+    display: none;
+  }
+}

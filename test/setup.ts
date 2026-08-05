@@ -35,8 +35,21 @@ beforeAll(() => {
 });
 
 afterEach(() => {
-  server.resetHandlers();
+  /*
+   * **Unmount first, then drop the handlers. The order is the whole point.**
+   *
+   * Reversed — `resetHandlers()` before `cleanup()` — the React tree is still
+   * mounted with the handlers already gone, so anything it fires in that window
+   * hits no handler at all: a TanStack Query refetch, a retry, a promise from
+   * the test just ending settling into a re-render. With
+   * `onUnhandledRequest: 'error'` above, that surfaces as "intercepted a request
+   * without a matching handler" — and it is reported against whichever test runs
+   * *next*, which is why it read as three unrelated flaky tests
+   * (`sessions-team-lead`, `record-shop-screen`, `eslint-rules`) rather than as
+   * one teardown bug. Unmounting first leaves nothing alive to make the request.
+   */
   cleanup();
+  server.resetHandlers();
 });
 
 afterAll(() => {

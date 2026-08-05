@@ -22,8 +22,11 @@ describe('menuFor', () => {
 
     expect(teamLead).not.toContain('Stock items');
     expect(teamLead).not.toContain('Referrers');
-    expect(teamLead).not.toContain('Referral form');
+    expect(teamLead).not.toContain('Reasons for referral');
     expect(teamLead).not.toContain('Users');
+    expect(teamLead).not.toContain('Weekly sessions');
+    expect(teamLead).not.toContain('Model parcels');
+    expect(teamLead).not.toContain('Household grid');
   });
 
   it('gives an admin every item, including the ones a team lead cannot see', () => {
@@ -37,6 +40,8 @@ describe('menuFor', () => {
     const teamLead = labels('team_lead');
 
     expect(teamLead).toContain('Stock');
+    expect(teamLead).toContain('Record a shop');
+    expect(teamLead).toContain('Stock take');
     expect(teamLead).not.toContain('Stock items');
   });
 
@@ -45,7 +50,16 @@ describe('menuFor', () => {
 
     expect(teamLead).toContain('Sessions');
     expect(teamLead).toContain('Referrals');
-    expect(teamLead).toContain('Model parcels');
+  });
+
+  it('keeps model parcels and the household grid admin-only', () => {
+    // Easy to get backwards the other way from the stock split: a team lead
+    // runs sessions against whatever the grid already says, but does not
+    // decide what a household size receives.
+    expect(labels('admin')).toContain('Model parcels');
+    expect(labels('admin')).toContain('Household grid');
+    expect(labels('team_lead')).not.toContain('Model parcels');
+    expect(labels('team_lead')).not.toContain('Household grid');
   });
 
   it('never returns an item the role is not listed on', () => {

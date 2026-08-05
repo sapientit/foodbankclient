@@ -1,0 +1,53 @@
+.intro {
+  max-inline-size: 70ch;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+  vertical-align: top;
+  border-block-end: 1px solid #d4d4d4;
+}
+
+.table thead th {
+  border-block-end: 2px solid #1a1a1a;
+}
+
+/* Quantities line up on their last digit so a column of them can be scanned,
+   and a minus sign stays visible rather than being swallowed by the gap. */
+.numeric {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.retired {
+  /* #595959 on white is 7:1. The word carries the meaning; the colour is not
+     doing the work on its own. */
+  color: #595959;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+@media print {
+  .toggle,
+  .actions {
+    display: none;
+  }
+}

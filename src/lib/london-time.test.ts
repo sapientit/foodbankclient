@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { formatLondonDate, formatLondonDateTime, formatSessionDate } from './london-time';
+import {
+  formatLondonDate,
+  formatLondonDateTime,
+  formatSessionDate,
+  formatTimeRange,
+} from './london-time';
 
 describe('formatLondonDateTime', () => {
   it('shows the London wall clock, not UTC, in summer', () => {
@@ -63,5 +68,34 @@ describe('formatSessionDate', () => {
     // 3rd of March, which is a wrong day nobody would question.
     expect(formatSessionDate('2026-02-31')).toBe('2026-02-31');
     expect(formatSessionDate('2026-99-99')).toBe('2026-99-99');
+  });
+});
+
+describe('formatTimeRange', () => {
+  it('shows a plain range within one day', () => {
+    expect(formatTimeRange('10:00', 90)).toBe('10:00–11:30');
+  });
+
+  it('wraps past midnight rather than showing a time past 23:59', () => {
+    // The reason this function takes no date at all: a delivery run starting
+    // at 23:00 for two hours ends at 01:00, on whatever the next day turns out
+    // to be, and this is deliberately silent about which day that is.
+    expect(formatTimeRange('23:00', 120)).toBe('23:00–01:00');
+  });
+
+  it('leaves startTime exactly as it arrived across the BST changeover', () => {
+    // No `Date` is ever constructed here, so the clocks changing has nothing to
+    // act on — this is minutes-of-day arithmetic, not a timezone conversion.
+    // Both the last Sunday of March and the last Sunday of October are BST
+    // boundaries in Europe/London, and neither moves this by a minute.
+    expect(formatTimeRange('10:00', 60)).toBe('10:00–11:00');
+  });
+
+  it('returns startTime alone when it will not parse', () => {
+    expect(formatTimeRange('not a time', 30)).toBe('not a time');
+  });
+
+  it('handles a duration long enough to wrap more than once', () => {
+    expect(formatTimeRange('06:00', 25 * 60)).toBe('06:00–07:00');
   });
 });

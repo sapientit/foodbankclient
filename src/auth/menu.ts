@@ -36,12 +36,30 @@ export const MENU: readonly MenuItem[] = [
   { to: '/sessions', label: 'Sessions', roles: EVERYONE },
   { to: '/referrals', label: 'Referrals', roles: EVERYONE },
   { to: '/stock', label: 'Stock', roles: EVERYONE },
-  { to: '/model-parcels', label: 'Model parcels', roles: EVERYONE },
+
+  // Recording a shop and running a stock take are both roles, and getting this
+  // wrong hides from a team lead the two jobs they are actually in the
+  // warehouse to do. `openapi.yaml` says "Admin or team lead" on every endpoint
+  // behind both.
+  { to: '/stock/shop', label: 'Record a shop', roles: EVERYONE },
+  { to: '/stock/take', label: 'Stock take', roles: EVERYONE },
 
   // Maintaining the stock item list is not the same thing as moving stock.
   { to: '/stock/items', label: 'Stock items', roles: ADMIN_ONLY },
+
+  // Model parcels and the household grid decide what a household receives —
+  // `API.md` §2 puts this admin-only, alongside the stock item list and the
+  // rest of the maintenance screens. A team lead runs sessions against
+  // whatever the grid already says; they do not edit the grid itself.
+  { to: '/model-parcels', label: 'Model parcels', roles: ADMIN_ONLY },
+  { to: '/model-parcels/grid', label: 'Household grid', roles: ADMIN_ONLY },
+
+  // Setting up the weekly templates sessions are generated from is
+  // create-or-amend-a-session work, so it follows that split: admin only,
+  // same as `Create or amend sessions and referrals` in `API.md` §2.
+  { to: '/sessions/recurring', label: 'Weekly sessions', roles: ADMIN_ONLY },
   { to: '/referrers', label: 'Referrers', roles: ADMIN_ONLY },
-  { to: '/referral-form', label: 'Referral form', roles: ADMIN_ONLY },
+  { to: '/referral-reasons', label: 'Reasons for referral', roles: ADMIN_ONLY },
   { to: '/users', label: 'Users', roles: ADMIN_ONLY },
 ];
 
