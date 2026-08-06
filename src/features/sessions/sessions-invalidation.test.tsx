@@ -30,6 +30,8 @@ function session(overrides: Partial<Session> = {}): Session {
     startsAtUtc: '2026-08-04T09:00:00.000Z',
     durationMinutes: 90,
     location: 'Old hall',
+    deliveryTime: null,
+    deliveriesAllowed: false,
     capacity: 25,
     booked: 10,
     status: 'planned',

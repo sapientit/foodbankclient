@@ -30,12 +30,4 @@ export const stockKeys = {
    * check keying on the address.
    */
   search: (term: string) => [...stockKeys.all, 'search', term] as const,
-
-  /**
-   * The stock take list, and it is a list only. There is **no
-   * `GET /stock/takes/{id}`**, so there is no detail key to add here and no
-   * recorded count that can ever be read back — see `stock-take-screen.tsx` for
-   * what that forces the screen to be.
-   */
-  takes: () => [...stockKeys.all, 'takes'] as const,
 };

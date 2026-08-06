@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { components, paths } from '../../api/schema';
-import { unwrap, unwrapVoid } from '../../api/unwrap';
+import { unwrap } from '../../api/unwrap';
 import { stockKeys } from './keys';
 
 /**
@@ -20,47 +20,13 @@ import { stockKeys } from './keys';
 
 export type StockItem = components['schemas']['StockItem'];
 export type StockLevel = components['schemas']['StockLevel'];
-export type StockTake = components['schemas']['StockTake'];
 
-type PurchaseBody =
-  paths['/api/v1/stock/purchases']['post']['requestBody']['content']['application/json'];
+type StockTakeBody =
+  paths['/api/v1/stock/take']['post']['requestBody']['content']['application/json'];
 
-export type PurchaseInput = PurchaseBody;
-export type PurchaseLine = PurchaseBody['lines'][number];
-
-/**
- * **Both fields are optional and must stay that way.** The `201` schema declares
- * no `required:`, so the generated type marks `purchaseId` and `lines` optional
- * — a `!` here would be the client asserting something the contract does not
- * say, on the one screen where being wrong costs money.
- */
-export type PurchaseResult =
-  paths['/api/v1/stock/purchases']['post']['responses']['201']['content']['application/json'];
-
-type CountsBody =
-  paths['/api/v1/stock/takes/{id}/counts']['post']['requestBody']['content']['application/json'];
-
-export type StockCount = CountsBody['counts'][number];
-
-export type CommitResult =
-  paths['/api/v1/stock/takes/{id}/commit']['post']['responses']['200']['content']['application/json'];
-
-/** One non-zero variance. Every field on it is optional in the contract. */
-export type StockTakeAdjustment = NonNullable<CommitResult['adjustments']>[number];
-
-type StockAdjustmentBody =
-  paths['/api/v1/stock/adjustments']['post']['requestBody']['content']['application/json'];
-
-/**
- * The six ways stock moves, taken straight off the generated union rather than
- * re-declared. The list is a `CHECK` constraint on a table the server cannot
- * alter without a rebuild, and the compiler is the only thing that will notice
- * if it ever changes. `expiry` used to be a seventh and is gone: anything thrown
- * away is `wastage`, whatever the reason it was thrown away.
- */
-export type MovementType = StockAdjustmentBody['movementType'];
-
-export type StockAdjustmentInput = StockAdjustmentBody;
+export type StockTakeCount = StockTakeBody['counts'][number];
+export type StockTakeResult =
+  paths['/api/v1/stock/take']['post']['responses']['200']['content']['application/json'];
 
 export interface StockItemInput {
   readonly name: string;
@@ -174,105 +140,16 @@ export function useStockSearch(term: string) {
   });
 }
 
-/**
- * A shop: one request carrying every line.
- *
- * **There is no idempotency key.** The server mints a fresh `purchaseId` per
- * request, so two of these are two shops on the ledger — real money, wrong
- * stock, found out days later. Nothing in this hook can prevent that; the guard
- * is the synchronous ref lock at the call site, in `record-shop-screen.tsx`, and
- * this comment is here so nobody adds a retry to it.
- */
-export function useRecordPurchase() {
+/** Save one independently resumable page of a weekly stock take. */
+export function useSaveStockTake() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: PurchaseInput): Promise<PurchaseResult> =>
-      unwrap(api.POST('/api/v1/stock/purchases', { body: input })),
+    mutationFn: (counts: readonly StockTakeCount[]): Promise<StockTakeResult> =>
+      unwrap(api.POST('/api/v1/stock/take', { body: { counts: [...counts] } })),
     onSuccess: () => {
-      // The whole point of a shop is that levels went up.
-      void queryClient.invalidateQueries({ queryKey: stockKeys.all });
-    },
-  });
-}
-
-export function useStockTakes() {
-  return useQuery({
-    queryKey: stockKeys.takes(),
-    queryFn: async (): Promise<StockTake[]> => {
-      const { stockTakes } = await unwrap(api.GET('/api/v1/stock/takes'));
-      return [...stockTakes];
-    },
-  });
-}
-
-/**
- * Open a stock take.
- *
- * **The empty object is mandatory.** Every field on the body is optional, but
- * the handler parses the body rather than defaulting it, so sending nothing at
- * all is a `400`. `body: {}` is the whole fix and it looks like a mistake, which
- * is why it is commented here rather than at the call site.
- */
-export function useOpenStockTake() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => unwrap(api.POST('/api/v1/stock/takes', { body: {} })),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: stockKeys.takes() });
-    },
-  });
-}
-
-/**
- * Record counted quantities. **204, so `unwrapVoid`.**
- *
- * Nothing is invalidated, and that is not an omission: counts move no stock and
- * there is no endpoint that can read them back, so there is no cached answer
- * anywhere that this could make stale.
- */
-export function useRecordCounts() {
-  return useMutation({
-    mutationFn: ({ id, counts }: { id: string; counts: readonly StockCount[] }) =>
-      unwrapVoid(
-        api.POST('/api/v1/stock/takes/{id}/counts', {
-          params: { path: { id } },
-          body: { counts: [...counts] },
-        }),
-      ),
-  });
-}
-
-/** Commit the count. This is where a stock take moves stock. */
-export function useCommitStockTake() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string): Promise<CommitResult> =>
-      unwrap(api.POST('/api/v1/stock/takes/{id}/commit', { params: { path: { id } } })),
-    onSuccess: () => {
-      // Every variance became a `correction` on the ledger, and the take is no
-      // longer open.
-      void queryClient.invalidateQueries({ queryKey: stockKeys.all });
-    },
-  });
-}
-
-export function useAdjustStock() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    /*
-     * **204, so `unwrapVoid`.** `unwrap` would throw on a perfectly successful
-     * adjustment, because `openapi-fetch` reports `data: undefined` for a body
-     * that was never sent. That trap has its own named test in
-     * `src/api/unwrap.test.ts`.
-     */
-    mutationFn: (input: StockAdjustmentInput) =>
-      unwrapVoid(api.POST('/api/v1/stock/adjustments', { body: input })),
-    onSuccess: () => {
-      // The whole point of an adjustment is that a level changed.
+      // A saved count replaces each named item's history, so the levels list is
+      // stale even though the response supplies the saved rows for this page.
       void queryClient.invalidateQueries({ queryKey: stockKeys.all });
     },
   });

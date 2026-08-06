@@ -39,6 +39,7 @@ const TUESDAY: PublicSession = {
   startsAtUtc: '2026-08-04T09:00:00.000Z',
   durationMinutes: 120,
   location: 'St Mary’s Hall',
+  deliveriesAllowed: false,
 };
 
 const THURSDAY: PublicSession = {
@@ -48,6 +49,7 @@ const THURSDAY: PublicSession = {
   startsAtUtc: '2026-08-06T13:30:00.000Z',
   durationMinutes: 90,
   location: 'The Community Centre',
+  deliveriesAllowed: false,
 };
 
 const HARDSHIP: ReferralReason = {

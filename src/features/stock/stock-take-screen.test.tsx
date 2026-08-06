@@ -4,21 +4,11 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
-import type { StockLevel, StockTake } from './queries';
-
-/**
- * The stock take, and the two server facts that shape every one of these tests:
- *
- * - **`abandoned` is unreachable and several takes can be open at once.** A
- *   mis-clicked take is permanent, so starting one is confirmed and an existing
- *   open one is resumed rather than duplicated.
- * - **There is no `GET /stock/takes/{id}`**, so nothing can read a recorded
- *   count back. That is why the screen is one page and one Save.
- */
+import type { StockLevel } from './queries';
 
 const REFRESH = '/api/v1/auth/refresh';
-const TAKES = '/api/v1/stock/takes';
 const LEVELS = '/api/v1/stock/levels';
+const TAKE = '/api/v1/stock/take';
 
 const BEANS: StockLevel = {
   id: 's1',
@@ -35,8 +25,14 @@ const RICE: StockLevel = {
   quantityOnHand: 4,
 };
 
-function openTake(id: string, countedAt = '2026-07-30T09:00:00Z'): StockTake {
-  return { id, countedAt, status: 'open', note: null, committedAt: null };
+function levels(count: number): StockLevel[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `s${String(index + 1)}`,
+    name: `Item ${String(index + 1)}`,
+    shelfNumber: `A${String(index + 1)}`,
+    isActive: true,
+    quantityOnHand: index + 1,
+  }));
 }
 
 beforeEach(() => {
@@ -52,295 +48,115 @@ beforeEach(() => {
   );
 });
 
-describe('opening a stock take', () => {
-  it('resumes an open stock take rather than starting a second one', async () => {
-    // Several takes can be open at once and none of them can ever be discarded,
-    // so a screen that starts a fresh one on entry leaves permanent litter.
-    let opened = 0;
-    server.use(
-      http.get(TAKES, () => HttpResponse.json({ stockTakes: [openTake('t1')] })),
-      http.post(TAKES, () => {
-        opened += 1;
-        return HttpResponse.json({ id: 't2', status: 'open' }, { status: 201 });
-      }),
-    );
-
-    renderApp('/stock/take');
-
-    expect(await screen.findByText(/Counting the stock take started/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Start a stock take' })).toBeNull();
-    expect(opened).toBe(0);
-  });
-
-  it('confirms before starting one, because it cannot be cancelled', async () => {
-    let opened = 0;
-    server.use(
-      http.get(TAKES, () => HttpResponse.json({ stockTakes: [] })),
-      http.post(TAKES, () => {
-        opened += 1;
-        return HttpResponse.json({ id: 't1', status: 'open' }, { status: 201 });
-      }),
-    );
-
-    renderApp('/stock/take');
-    const user = userEvent.setup();
-
-    await user.click(await screen.findByRole('button', { name: 'Start a stock take' }));
-
-    expect(screen.getByText('A stock take cannot be cancelled.')).toBeInTheDocument();
-    expect(opened).toBe(0);
-
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(opened).toBe(0);
-
-    await user.click(screen.getByRole('button', { name: 'Start a stock take' }));
-    await user.click(screen.getByRole('button', { name: 'Start the stock take' }));
-
-    expect(opened).toBe(1);
-  });
-
-  it('sends an object rather than an empty body when opening one', async () => {
-    /*
-     * Every field on the body is optional, but the handler parses the body
-     * rather than defaulting it — so sending nothing at all is a `400`. It
-     * looks like a request that needs no body and it is not.
-     */
-    let raw: string | null = null;
-    server.use(
-      http.get(TAKES, () => HttpResponse.json({ stockTakes: [] })),
-      http.post(TAKES, async ({ request }) => {
-        raw = await request.text();
-        return HttpResponse.json({ id: 't1', status: 'open' }, { status: 201 });
-      }),
-    );
-
-    renderApp('/stock/take');
-    const user = userEvent.setup();
-
-    await user.click(await screen.findByRole('button', { name: 'Start a stock take' }));
-    await user.click(screen.getByRole('button', { name: 'Start the stock take' }));
-
-    await screen.findByLabelText('Counted Baked beans');
-    expect(raw).toBe('{}');
-  });
-
-  it('never offers to start a second one while the list catches up with the first', async () => {
-    /*
-     * The handler above answers `GET /stock/takes` with an empty list even
-     * after the take has been opened, which is what a slow or stale refetch
-     * looks like. Falling back to "no stock take is open" there would invite an
-     * operator to start another — and there is no route that discards one.
-     */
-    server.use(
-      http.get(TAKES, () => HttpResponse.json({ stockTakes: [] })),
-      http.post(TAKES, () => HttpResponse.json({ id: 't1', status: 'open' }, { status: 201 })),
-    );
-
-    renderApp('/stock/take');
-    const user = userEvent.setup();
-
-    await user.click(await screen.findByRole('button', { name: 'Start a stock take' }));
-    await user.click(screen.getByRole('button', { name: 'Start the stock take' }));
-
-    expect(
-      await screen.findByText('Counting the stock take you have just started.'),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Start a stock take' })).toBeNull();
-  });
-
-  it('makes the operator choose when several are open, and says the extras cannot be removed', async () => {
-    server.use(
-      http.get(TAKES, () =>
-        HttpResponse.json({
-          stockTakes: [
-            openTake('t1', '2026-07-29T09:00:00Z'),
-            openTake('t2', '2026-07-30T09:00:00Z'),
-          ],
-        }),
-      ),
-    );
-
-    renderApp('/stock/take');
-    const user = userEvent.setup();
-
-    const warning = await screen.findByRole('alert');
-    expect(warning).toHaveTextContent('There is more than one stock take open');
-    expect(warning).toHaveTextContent('The others cannot be removed');
-
-    const choices = screen.getAllByRole('button', { name: /^Count the stock take started/ });
-    expect(choices).toHaveLength(2);
-
-    const [first] = choices;
-    if (first === undefined) throw new Error('expected a choice');
-    await user.click(first);
-
-    expect(await screen.findByText(/^Counting the stock take started/)).toHaveTextContent(
-      'One other stock take is open and cannot be removed.',
-    );
-  });
-});
-
-describe('counting', () => {
-  beforeEach(() => {
-    server.use(http.get(TAKES, () => HttpResponse.json({ stockTakes: [openTake('t1')] })));
-  });
-
-  it('sends only the items that were counted, leaving a blank alone', async () => {
-    // A blank is "I have not got to that shelf". Sending it as a zero would
-    // write off the stock of every item nobody reached.
+describe('saving a stock take page', () => {
+  it('sends only changed counts, including zero, to the one stock-take endpoint', async () => {
     let body: unknown = null;
     server.use(
-      http.post(`${TAKES}/t1/counts`, async ({ request }) => {
+      http.post(TAKE, async ({ request }) => {
         body = await request.json();
-        return new HttpResponse(null, { status: 204 });
+        return HttpResponse.json({
+          applied: 2,
+          levels: [
+            { stockItemId: BEANS.id, quantityOnHand: 9 },
+            { stockItemId: RICE.id, quantityOnHand: 0 },
+          ],
+        });
       }),
     );
-
     renderApp('/stock/take');
     const user = userEvent.setup();
 
     await user.type(await screen.findByLabelText('Counted Baked beans'), '9');
-    await user.click(screen.getByRole('button', { name: 'Save counts' }));
+    await user.type(screen.getByLabelText('Counted Rice'), '0');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
 
-    expect(await screen.findByText('One count saved.')).toBeInTheDocument();
-    expect(body).toEqual({ counts: [{ stockItemId: 's1', countedQuantity: 9 }] });
+    expect(await screen.findByText('2 changed counts saved.')).toBeInTheDocument();
+    expect(body).toEqual({
+      counts: [
+        { stockItemId: 's1', countedQuantity: 9 },
+        { stockItemId: 's2', countedQuantity: 0 },
+      ],
+    });
   });
 
-  it('records a zero, because an empty shelf is a count', async () => {
-    let body: unknown = null;
+  it('does not post when every entered number matches the current level', async () => {
+    let saves = 0;
     server.use(
-      http.post(`${TAKES}/t1/counts`, async ({ request }) => {
-        body = await request.json();
-        return new HttpResponse(null, { status: 204 });
+      http.post(TAKE, () => {
+        saves += 1;
+        return HttpResponse.json({ applied: 0, levels: [] });
       }),
     );
-
     renderApp('/stock/take');
     const user = userEvent.setup();
 
-    await user.type(await screen.findByLabelText('Counted Rice'), '0');
-    await user.click(screen.getByRole('button', { name: 'Save counts' }));
+    await user.type(await screen.findByLabelText('Counted Baked beans'), '12');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
 
-    await screen.findByText('One count saved.');
-    expect(body).toEqual({ counts: [{ stockItemId: 's2', countedQuantity: 0 }] });
+    expect(
+      await screen.findByText('Nothing changed on this page. Nothing was saved.'),
+    ).toBeInTheDocument();
+    expect(saves).toBe(0);
   });
 
-  it('refuses to save nothing at all before any request is made', async () => {
-    let attempts = 0;
-    server.use(
-      http.post(`${TAKES}/t1/counts`, () => {
-        attempts += 1;
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-
+  it('identifies an invalid count and links it to its explanation', async () => {
     renderApp('/stock/take');
     const user = userEvent.setup();
+    const input = await screen.findByLabelText('Counted Baked beans');
 
-    await user.click(await screen.findByRole('button', { name: 'Save counts' }));
+    await user.type(input, '-1');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
 
-    expect(await screen.findByText('Enter at least one count before saving.')).toBeInTheDocument();
-    expect(attempts).toBe(0);
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveAccessibleDescription('A count cannot be below zero.');
   });
 
-  it('lists the shelves in the order the server sent them, never re-sorted', async () => {
-    // A2 before A10 is the server's zero-padded shelf sort, and it is the order
-    // the aisle is walked in. Any client-side sort would swap them.
+  it('uses the server-confirmed level as the next save baseline', async () => {
+    const bodies: unknown[] = [];
+    server.use(
+      http.post(TAKE, async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({
+          applied: 1,
+          levels: [{ stockItemId: BEANS.id, quantityOnHand: 9 }],
+        });
+      }),
+    );
     renderApp('/stock/take');
+    const user = userEvent.setup();
+    const input = await screen.findByLabelText('Counted Baked beans');
 
-    await screen.findByLabelText('Counted Baked beans');
-    const rows = screen.getAllByRole('row').slice(1);
+    await user.type(input, '9');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
+    await screen.findByText('One changed count saved.');
 
-    expect(rows.map((row) => within(row).getByRole('rowheader').textContent)).toEqual([
-      'Baked beans',
-      'Rice',
-    ]);
+    await user.type(input, '9');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
+
+    expect(
+      await screen.findByText('Nothing changed on this page. Nothing was saved.'),
+    ).toBeInTheDocument();
+    expect(bodies).toEqual([{ counts: [{ stockItemId: 's1', countedQuantity: 9 }] }]);
   });
 });
 
-describe('committing', () => {
-  beforeEach(() => {
-    server.use(
-      http.get(TAKES, () => HttpResponse.json({ stockTakes: [openTake('t1')] })),
-      http.post(`${TAKES}/t1/counts`, () => new HttpResponse(null, { status: 204 })),
-    );
-  });
-
-  async function countAndCommit(user: ReturnType<typeof userEvent.setup>) {
-    await user.type(await screen.findByLabelText('Counted Baked beans'), '12');
-    await user.click(screen.getByRole('button', { name: 'Save counts' }));
-    await screen.findByText('One count saved.');
-    await user.click(screen.getByRole('button', { name: 'Commit the stock take' }));
-    await user.click(screen.getByRole('button', { name: 'Commit and correct the ledger' }));
-  }
-
-  it('says everything matched rather than showing an empty table', async () => {
-    /*
-     * The server returns **only** the items whose count differed, so `[]` is
-     * the best possible outcome and has to read like one. An empty table with
-     * "no rows" would say the opposite of what happened.
-     */
-    server.use(
-      http.post(`${TAKES}/t1/commit`, () =>
-        HttpResponse.json({
-          id: 't1',
-          status: 'committed',
-          committedAt: '2026-07-30T11:00:00Z',
-          adjustments: [],
-        }),
-      ),
-    );
-
+describe('stock take pagination', () => {
+  it('shows forty shelf-ordered items per page and carries no counts between pages', async () => {
+    server.use(http.get(LEVELS, () => HttpResponse.json({ items: levels(41) })));
     renderApp('/stock/take');
-    await countAndCommit(userEvent.setup());
+    const user = userEvent.setup();
 
-    expect(await screen.findByText('Everything matched')).toBeInTheDocument();
-    expect(screen.getByText(/nothing needed correcting and no stock moved/)).toBeInTheDocument();
-    expect(screen.queryByRole('table')).toBeNull();
-  });
+    expect(await screen.findByText('Page 1 of 2 — items 1–40 of 41.')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(41);
+    expect(
+      within(screen.getAllByRole('row')[1] ?? document.body).getByRole('rowheader'),
+    ).toHaveTextContent('Item 1');
+    expect(screen.queryByLabelText('Counted Item 41')).toBeNull();
 
-  it('names each item that did not match and by how much', async () => {
-    server.use(
-      http.post(`${TAKES}/t1/commit`, () =>
-        HttpResponse.json({
-          id: 't1',
-          status: 'committed',
-          committedAt: '2026-07-30T11:00:00Z',
-          adjustments: [{ stockItemId: 's1', expected: 12, counted: 9, delta: -3 }],
-        }),
-      ),
-    );
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
 
-    renderApp('/stock/take');
-    await countAndCommit(userEvent.setup());
-
-    const row = await screen.findByRole('row', { name: /Baked beans/ });
-    expect(row).toHaveTextContent('12');
-    expect(row).toHaveTextContent('9');
-    expect(row).toHaveTextContent('-3');
-  });
-
-  it('shows the server’s refusal when there is nothing to commit', async () => {
-    // `409` here means already committed, or no counts recorded. Both are
-    // sentences worth showing rather than flattening into "went wrong".
-    server.use(
-      http.post(`${TAKES}/t1/commit`, () =>
-        HttpResponse.json(
-          {
-            error: {
-              code: 'CONFLICT',
-              message: 'This stock take has no counts recorded',
-              requestId: 'r1',
-            },
-          },
-          { status: 409 },
-        ),
-      ),
-    );
-
-    renderApp('/stock/take');
-    await countAndCommit(userEvent.setup());
-
-    expect(await screen.findByText('This stock take has no counts recorded')).toBeInTheDocument();
+    expect(await screen.findByText('Page 2 of 2 — items 41–41 of 41.')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(2);
+    expect(screen.getByLabelText('Counted Item 41')).toBeInTheDocument();
   });
 });

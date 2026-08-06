@@ -14,6 +14,7 @@ import type { Referral } from './queries';
 export const REFERRAL_STATUS_LABELS: Record<ReferralStatus, string> = {
   pending_review: 'Awaiting review',
   active: 'Active',
+  reviewed: 'Reviewed',
   rejected: 'Rejected',
   cancelled: 'Cancelled',
 };

@@ -1,0 +1,30 @@
+.screenOnly {
+  max-inline-size: 70ch;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.65rem;
+  text-align: start;
+  vertical-align: top;
+  border: 1px solid #555555;
+}
+
+.table td {
+  white-space: pre-wrap;
+}
+
+@media print {
+  .screenOnly {
+    display: none;
+  }
+
+  .table {
+    font-size: 10pt;
+  }
+}

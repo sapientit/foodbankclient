@@ -101,14 +101,11 @@ describe('stock levels', () => {
     expect(await screen.findByRole('row', { name: /Soup/ })).toHaveTextContent('retired');
   });
 
-  it('offers an adjustment for the row it was opened from', async () => {
+  it('does not offer a hand adjustment', async () => {
     renderApp('/stock');
 
-    const row = await screen.findByRole('row', { name: /Baked beans/ });
+    await screen.findByRole('row', { name: /Baked beans/ });
 
-    expect(within(row).getByRole('link', { name: 'Adjust' })).toHaveAttribute(
-      'href',
-      '/stock/adjust/s2',
-    );
+    expect(screen.queryByRole('link', { name: 'Adjust' })).toBeNull();
   });
 });

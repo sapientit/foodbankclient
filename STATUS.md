@@ -24,7 +24,7 @@ in [`DEFERRED-WORK.md`](./DEFERRED-WORK.md).
 | **3 — app shell and routing** | `src/routes.tsx` as a data router, `src/auth/menu.ts`, the shared components in `src/components/`, the home screen. The `@media print` frame already lives in `app-shell.module.css`.                                                                                  |
 | **3b — users**                | `/users`, `/users/new`, `/users/:userId`; `ConfirmDialog`; the first `london-time` helpers; `test/render-app.tsx`. **The slice that unblocks role testing** — the only way to create a team lead.                                                                      |
 | **3c — public probe**         | `/refer` against the first two unauthenticated endpoints. **Superseded by slice 11**, which turned it into the real form.                                                                                                                                              |
-| **4 — stock**                 | One `stockKeys` root for the whole module: levels at `/stock`, hand adjustment, the shop, the stock take, and admin-only item maintenance under `/stock/items`.                                                                                                        |
+| **4 — stock**                 | One `stockKeys` root for the whole module: levels at `/stock`, a page-at-a-time weekly stock take, and admin-only item maintenance under `/stock/items`.                                                                                                               |
 | **5 — sessions**              | `/sessions`, `/sessions/new`, `/sessions/:sessionId` and the three `/sessions/recurring*` screens. Create, amend and cancel; weekly-template maintenance; the ops call that materialises sessions without waiting for the cron.                                        |
 | **6 — model parcels**         | `/model-parcels*` and the thirty-cell household grid at `/model-parcels/grid`, saved whole. Create, amend, delete, and a preview of what a household size receives.                                                                                                    |
 | **7 — referrers and reasons** | `src/features/admin-setup/`: `/referrers*` and `/referral-reasons*`. Authorise by exact address or domain; add, amend and retire a reason.                                                                                                                             |
@@ -36,10 +36,8 @@ in [`DEFERRED-WORK.md`](./DEFERRED-WORK.md).
 **All twelve menu destinations route to a real screen.** The role split is enforced as data in
 `src/auth/menu.ts` and tested in `src/auth/menu.test.ts`.
 
-Verified against a running server rather than assumed: a team lead gets `200`/`201` on
-`/stock/search`, `GET|POST /stock/takes`, the count and commit routes and `POST /stock/purchases`,
-`200` on `/stock/levels`, `204` on `/stock/adjustments`, and `403` on `POST /stock/items`. Only the
-item list is admin-only.
+The stock take is available to a team lead or administrator at `POST /stock/take`; levels and item
+maintenance retain their existing role split, with only the item list admin-only.
 
 The rationale behind the structural decisions in these slices — which is the part worth keeping — is
 in [`docs/engineering/data-fetching.md`](./docs/engineering/data-fetching.md),

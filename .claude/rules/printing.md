@@ -12,9 +12,13 @@ every session by somebody who cannot debug it. Nothing in this area is built yet
 
 ## What must never reach a sheet
 
-- **Never print the reason for referral. Not even for an admin.** Sheets get carried round halls and
-  left on tables. A test must assert the print payload cannot render one **even if the server sends
-  it**.
+- **Never print the reason for referral on a picking sheet.** Sheets get carried round halls and
+  left on tables. A test must assert the picking-sheet payload cannot render one **even if the
+  server sends it**.
+- **The listener sheet is the sole exception.** It is one sensitive sheet per session, for selected
+  listeners only, and may show only name, reason, Cause Details and fuel-help status. It uses
+  `GET /sessions/{id}/listener-sheet`; no other referral field or dynamic answer may reach its DOM
+  or printed output. The server has already excluded delivery, cancelled and rejected households.
 - **The referee's name goes on every sheet.** A volunteer handing a bag over needs to know it is the
   right one. Reversed deliberately on 2026-08-05 — `screenDetails.md`, "The printed picking sheet".
 - **Do not print the address, postcode or phone unless `isDelivery` is true**, where the address is

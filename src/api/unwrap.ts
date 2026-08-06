@@ -41,7 +41,7 @@ export async function unwrap<T>(call: Promise<ApiResult<T>>): Promise<T> {
 
 /**
  * For the endpoints that answer **204 No Content**: `POST /auth/logout`,
- * `POST /stock/adjustments` and `POST /stock/takes/{id}/counts`.
+ * Endpoints such as `PUT /parcels/{id}/lines` that deliberately return no body.
  *
  * Passing one of those to `unwrap` throws on a perfectly successful request,
  * because `data` is `undefined` by design. This is the whole reason the two

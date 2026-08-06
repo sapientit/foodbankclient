@@ -14,7 +14,7 @@ that goes wrong. Patterns, worked examples and why each shape was chosen:
 
 - **Server state is not component state.** Do not put API responses in `useState`, `useReducer` or a
   global store. It is remote, shared, cached and refetched.
-- **Generous `staleTime`, and never poll.** Session lists and stock levels do not change second to
+- **Generous `staleTime`, and never poll, except the SMS summary while its run-session screen is open.** Session lists and stock levels do not change second to
   second, and the public endpoints are rate limited (roughly 5 referral submissions and 60 other
   public calls per IP per minute). A retry loop is the only realistic way to hit those limits.
 - **Do not retry `4xx`.** Retrying a `409` cannot help — the session really is full. Retry network

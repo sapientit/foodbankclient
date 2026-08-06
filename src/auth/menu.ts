@@ -14,8 +14,8 @@ import type { components } from '../api/schema';
  *
  * The split is copied from `API.md` section 2, which is the authority. The one
  * that is easy to invert: **moving stock is both roles, changing what stock
- * items exist is admin only.** A team lead does the shops, the stock takes and
- * the corrections; only an admin maintains the stock item list.
+ * items exist is admin only.** A team lead carries out stock takes; only an
+ * admin maintains the stock item list.
  */
 
 export type Role = components['schemas']['Role'];
@@ -30,18 +30,15 @@ const EVERYONE: readonly Role[] = ['admin', 'team_lead'];
 const ADMIN_ONLY: readonly Role[] = ['admin'];
 
 export const MENU: readonly MenuItem[] = [
-  // Running a session — pick lists, printing, attendance — is a team lead's job
-  // as much as an admin's. Creating and amending sessions is not, but that is a
-  // control on the screen, not a reason to hide it.
-  { to: '/sessions', label: 'Sessions', roles: EVERYONE },
-  { to: '/referrals', label: 'Referrals', roles: EVERYONE },
+  // The operational view is separate from calendar and referral maintenance:
+  // a team lead arrives to run today's session, not to plan one or browse
+  // household records. Administrators keep both routes so they can cover.
+  { to: '/run-sessions', label: 'Run a session', roles: EVERYONE },
+  { to: '/sessions', label: 'Sessions', roles: ADMIN_ONLY },
+  { to: '/referrals', label: 'Referrals', roles: ADMIN_ONLY },
   { to: '/stock', label: 'Stock', roles: EVERYONE },
 
-  // Recording a shop and running a stock take are both roles, and getting this
-  // wrong hides from a team lead the two jobs they are actually in the
-  // warehouse to do. `openapi.yaml` says "Admin or team lead" on every endpoint
-  // behind both.
-  { to: '/stock/shop', label: 'Record a shop', roles: EVERYONE },
+  // The weekly stock take is operational work for both roles.
   { to: '/stock/take', label: 'Stock take', roles: EVERYONE },
 
   // Maintaining the stock item list is not the same thing as moving stock.
@@ -61,6 +58,7 @@ export const MENU: readonly MenuItem[] = [
   { to: '/referrers', label: 'Referrers', roles: ADMIN_ONLY },
   { to: '/referral-reasons', label: 'Reasons for referral', roles: ADMIN_ONLY },
   { to: '/users', label: 'Users', roles: ADMIN_ONLY },
+  { to: '/sms/unmatched', label: 'Unmatched SMS replies', roles: ADMIN_ONLY },
 ];
 
 export function menuFor(role: Role): MenuItem[] {

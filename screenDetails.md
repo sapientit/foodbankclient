@@ -5,8 +5,8 @@ Administrators can amend or cancel referrals or move them to another session (ev
 Authentication will eventually be via a Google id. Initial version will be a dummy signon page with no validation, but this should still generate an expiring security token, with refresh tokens etc.
 
 #Stock maintenance
-There are about 40 stock items (with a maintenance facility to amend them). After a shop, there will be a facility to type sug and it will find sugar and autocomplete. Then a field for how many we bought. This will add to the existing stock.
-There will also be a list screen with items and current stock that can be maintained for a stock take.
+There are about 40 stock items, with a maintenance facility to amend them. A weekly stock take is the source of truth: it shows the stock items in shelf order, forty at a time, and saves each page independently. The current value is visible as a reference, but only a count that differs from it is saved; leaving a row unchanged does not overwrite its history. A counter can return to a saved page and amend it again, and only the change from the most recently saved value is sent.
+There will also be a list screen with items and current stock, in shelf order, to support the stock take.
 Stock is maintained in a certain place in the warehouse. So each stock item has a shelf number. The list should be by shelf number. Stock-item maintenance has only two fields: name and shelf number. Units and low-stock thresholds are not maintained.
 
 #Picking list
@@ -47,13 +47,17 @@ The model picking lists are not versioned. When a picking list is created for a 
 Administrators can create and amend either weekly or ad hoc sessions and update the package limit for each.
 
 #Session processing
-Having selected a session, there are options to view and update the picking lists. To confirm attendance (or delivery to) a client (or to confirm non attendance - one or the other must be done)
-After the session, each referee is marked as attended or did not show. If they attended, the stock is updated. Otherwise the parcel will be unpacked.
-Only when all clients have been confirmed as attended or no show (or delivered/not delivered) can the session be confirmed and closed
+Team leaders, and administrators covering for them, have a Run a session option. It shows upcoming sessions rather than the calendar-maintenance or referral-maintenance screens. Selecting a session shows its date, time, location and booking count, followed by its clients.
+
+Opening an editable session creates a pick list for every active client who does not already have one, only when the household grid provides a model parcel for every active client's household size. Generation is all-or-nothing: if the grid is incomplete, no new pick lists are created and the administrator must complete the grid before staff can run the session. Existing parcels are never changed, so a late referral or transfer gets a new pick list without replacing a picker's adjustments. The client list says whether pick lists have been generated; staff select each client in turn to check and update their parcel. If late parcels are created after the list was printed, the screen says that the list must be printed again.
+
+Once all pick lists have been generated there is an option to print all of them. The session client list keeps each pick number with the name, followed by a status: Pending Review, Pick List reviewed, Attended/Delivered, or No Show/Not in. A pending client has a Review Pick list link. Once reviewed, Attended/Delivered and No Show/Not in become clickable. A Complete Session button sits above the list and is available only after every client has an outcome. Selecting a client opens a separate client workspace, so the session client list does not compete for screen space. The pick list and the client’s preferences are shown in separate, independently scrollable panels, each taking at least one third of the screen. Preferences use the referral field key and the answer in aligned columns; the full question is not repeated. Staff can alter several quantities and add items while considering the preferences, then save all those changes with one Save action. If they return to the client list, print, record attendance or complete the session while changes have not been saved, the system asks whether to save first. To confirm attendance (or delivery to) a client (or to confirm non attendance - one or the other must be done)
+After the session, each referee is marked as attended or did not show. If they attended, the stock is updated. Otherwise the parcel will be unpacked. Until the session is confirmed, either outcome can be changed to correct a mis-tap; changing attended to no show puts that parcel's stock back, and changing it back to attended takes it again.
+Only when all clients have been confirmed as attended or no show (or delivered/not delivered) can the session be confirmed and closed. A closed session and its pick list cannot be changed.
 
 #Menus
 If the id is an admin account then a full menu is shown. If a team leader a partial menu is shown.
-In the partial menu there are options for stock taking, adding shopping, and see all the planned sessions (and sessions for the past few days).
+In the partial menu there are options for running a session and stock taking. Calendar maintenance and the general referral list are not team lead tasks.
 The full menu allows maintenance of security information, model packets, assignment of model packets to family size, stock item maintenance, and see full details of clients by session (and update details for a client.
 
 #Valid referrers
@@ -99,4 +103,14 @@ Accepting or rejecting one takes a single line of comment - why it was let throu
 #Session processing screens
 A session cannot be closed while anybody on it is still unmarked. When the screen refuses to close a session it names the pick numbers still waiting, because what the team leader needs to know is who is missing.
 
-Marking a referee attended or a delivery delivered cannot be undone, so the screen confirms before sending it. Putting a mis-tap right is a stock correction by hand, which stays on the record.
+Marking a referee attended or a delivery delivered is reversible until the session is confirmed, so it is sent directly rather than confirmed. After confirmation no outcome or pick list can be changed.
+
+#Listener sheet
+From a Run a session screen, a team leader or administrator can open and print one listener sheet for that session. It includes every non-delivery household except cancelled and rejected referrals. The sheet contains only the household name, the reason for referral, Cause Details returned in the server response, and whether fuel help is needed. It never contains an address, postcode, phone number, referrer information, date of birth, parcel contents or any other form answer. It is the only printed document on which a team leader may see the reason for referral, and is for the selected listeners only.
+
+#SMS reminders and replies
+The Run a session screen lets a team leader or administrator send SMS reminders and shows the total number of unread incoming messages prominently. A reminder goes to every household holding a place, including one pending review, but never to a cancelled or rejected referral. The person running the session can press Send SMS reminders again: newly referred households and earlier failures are tried, while households already reminded are not texted twice. The result states how many were sent, failed and already sent, with failures prominent.
+
+Each household on the session has an expandable message conversation, marked out when it has unread incoming messages. Opening it marks incoming messages read and shows the complete conversation in order. A team leader or administrator can reply from there. The reply control warns that a message must not contain a name, address or anything identifying the household. SMS conversations are never printed or exported.
+
+Administrators also have an Unmatched SMS replies screen for messages with no upcoming session. This is the only SMS screen that shows a phone number, because it is needed to ring the sender back. Messages are only a thirty-day operational record, not a permanent household history.

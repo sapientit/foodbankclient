@@ -40,16 +40,17 @@ describe('menuFor', () => {
     const teamLead = labels('team_lead');
 
     expect(teamLead).toContain('Stock');
-    expect(teamLead).toContain('Record a shop');
+    expect(teamLead).not.toContain('Record a shop');
     expect(teamLead).toContain('Stock take');
     expect(teamLead).not.toContain('Stock items');
   });
 
-  it('gives a team lead the session and referral work they run', () => {
+  it('gives a team lead the operational session work, not maintenance referrals or sessions', () => {
     const teamLead = labels('team_lead');
 
-    expect(teamLead).toContain('Sessions');
-    expect(teamLead).toContain('Referrals');
+    expect(teamLead).toContain('Run a session');
+    expect(teamLead).not.toContain('Sessions');
+    expect(teamLead).not.toContain('Referrals');
   });
 
   it('keeps model parcels and the household grid admin-only', () => {

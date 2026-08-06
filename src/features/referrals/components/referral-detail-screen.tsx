@@ -42,7 +42,6 @@ import {
   isAwaitingReview,
   isPurged,
   moveCapacityWarning,
-  normalisePhone,
   parseWholeNumber,
   refereeName,
 } from '../referrals.logic';
@@ -504,23 +503,7 @@ function DetailsForm({
     const children = parseWholeNumber(values.children, CHILDREN_BOUNDS);
     if (!adults.ok || !children.ok) return;
 
-    const patch: AmendReferralInput = {
-      refereeFirstName: values.refereeFirstName,
-      refereeSurname: values.refereeSurname,
-      refereeDateOfBirth: values.refereeDateOfBirth,
-      refereeAddress: values.refereeAddress,
-      refereePostcode: values.refereePostcode,
-      refereePhone: normalisePhone(values.refereePhone),
-      adults: adults.value,
-      children: children.value,
-      isDelivery: values.isDelivery,
-      needsFuelHelp: values.needsFuelHelp,
-      // Never sent for a team lead's view — there is nothing loaded to send,
-      // and the mutation would 403 on role before either field mattered.
-      ...(isAdminView
-        ? { referrerPhone: normalisePhone(values.referrerPhone), reasonId: values.reasonId }
-        : {}),
-    };
+    const patch: AmendReferralInput = { answers: referral.answers };
 
     try {
       await amend.mutateAsync({ id: referral.id, patch });

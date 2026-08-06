@@ -1,0 +1,19 @@
+.unread {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.households,
+.thread {
+  padding-inline-start: 1.25rem;
+}
+.unreadButton {
+  font-weight: 700;
+}
+.warning {
+  font-weight: 700;
+}
+textarea {
+  display: block;
+  inline-size: min(100%, 32rem);
+  min-block-size: 5rem;
+}

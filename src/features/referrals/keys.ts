@@ -25,7 +25,7 @@ export const publicReferralKeys = {
  * against two different parts of the contract, and nothing here is ever
  * invalidated by a public mutation or vice versa.
  */
-export type ReferralStatus = 'pending_review' | 'active' | 'rejected' | 'cancelled';
+export type ReferralStatus = 'pending_review' | 'active' | 'reviewed' | 'rejected' | 'cancelled';
 
 /**
  * `GET /referrals` takes `sessionId` and `status` as its only filters — no

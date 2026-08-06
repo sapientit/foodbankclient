@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
@@ -11,16 +11,14 @@ const RETIRED_PARAM = 'retired';
 
 /**
  * What is on the shelves. Visible to both roles — a team lead is the person
- * standing in the warehouse, and correcting stock by hand is their job.
+ * standing in the warehouse.
  *
  * Two rules the server hands over and this screen must not undo:
  *
  * - **The order is the server's**, derived from a zero-padded shelf key so a
  *   picker walks the aisle once: `A1, A2, A10`. Nothing here sorts.
- * - **`quantityOnHand` is a ledger sum and may be negative.** It is rendered as
- *   the number it is. A negative level is a real state after a correction, not
- *   a fault, and dressing it up as an error would send somebody looking for a
- *   bug instead of for the missing tins.
+ * - **`quantityOnHand` can be negative.** Parcels can go out between weekly
+ *   counts, so it is rendered as the real number rather than as an error.
  */
 export function StockLevelsScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -49,9 +47,8 @@ export function StockLevelsScreen() {
     <>
       <PageHeader title="Stock" />
       <p className={styles.intro}>
-        What the ledger says is on each shelf, in the order you would walk them. Levels are worked
-        out from every movement recorded, so a count that disagrees with the shelf is put right with
-        an adjustment.
+        What the system says is on each shelf, in the order you would walk them. The weekly stock
+        take resets a changed item to the number counted on its shelf.
       </p>
       <p>
         <label className={styles.toggle}>
@@ -87,7 +84,6 @@ export function StockLevelsScreen() {
               <th className={styles.numeric} scope="col">
                 On hand
               </th>
-              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -101,9 +97,6 @@ export function StockLevelsScreen() {
                 </th>
                 <td>{level.shelfNumber}</td>
                 <td className={styles.numeric}>{level.quantityOnHand}</td>
-                <td className={styles.actions}>
-                  <Link to={`/stock/adjust/${level.id}`}>Adjust</Link>
-                </td>
               </tr>
             ))}
           </tbody>

@@ -17,6 +17,8 @@ function template(
     startTime: '10:00',
     durationMinutes: 90,
     location: 'St Mary’s Hall',
+    deliveryTime: null,
+    deliveriesAllowed: false,
     capacity: 25,
     activeFrom: '2026-01-01',
     activeUntil: null,

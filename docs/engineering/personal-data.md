@@ -74,8 +74,11 @@ purged-referral rendering is written to be correct either way.
 
 ## Printing
 
-Reason for referral **never appears on anything printable**, not even for an admin, because sheets get
-carried round halls and left on tables.
+Reason for referral never appears on a picking sheet, not even for an admin, because those sheets get
+carried round halls and left on tables. The listener sheet is the one deliberate exception: selected
+listeners receive one sensitive, session-wide sheet containing only name, reason, Cause Details and
+fuel-help status for the non-delivery households the server returned. Its dedicated API response is
+the access-control boundary; do not reuse it for another screen.
 
 The referee's **name** goes on every sheet — reversed deliberately on 2026-08-05, because a volunteer
 handing a bag over needs to know it is the right one. Nothing else about them does unless

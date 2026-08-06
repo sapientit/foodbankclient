@@ -116,101 +116,18 @@ describe('one stock key root', () => {
     });
   });
 
-  it('refetches the levels after an adjustment', async () => {
+  it('refetches the levels after a stock-take page is saved', async () => {
+    // The cache is fresh for a minute, so this proves the save invalidates it.
+    // A response body alone is not sufficient: returning to the levels screen
+    // must show the figure that subsequent work is based on.
     let quantity = 12;
     server.use(
       http.get(LEVELS, () => HttpResponse.json({ items: [level(BEANS, quantity)] })),
-      http.post('/api/v1/stock/adjustments', async ({ request }) => {
-        const body = await request.json();
-        if (typeof body === 'object' && body !== null && 'quantityDelta' in body) {
-          quantity += Number(body.quantityDelta);
-        }
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-
-    renderApp('/stock', cachingClient());
-    const user = userEvent.setup();
-
-    const row = await screen.findByRole('row', { name: /Baked beans/ });
-    expect(row).toHaveTextContent('12');
-
-    await user.click(within(row).getByRole('link', { name: 'Adjust' }));
-    await user.type(await screen.findByLabelText('How many'), '-6');
-    await user.type(screen.getByLabelText('Why'), 'Six tins water damaged');
-    await user.click(screen.getByRole('button', { name: 'Record adjustment' }));
-
-    expect(await screen.findByRole('row', { name: /Baked beans/ })).toHaveTextContent('6');
-  });
-
-  it('refetches the levels after a shop', async () => {
-    let quantity = 12;
-    server.use(
-      http.get(LEVELS, () => HttpResponse.json({ items: [level(BEANS, quantity)] })),
-      http.get('/api/v1/stock/search', () => HttpResponse.json({ items: [BEANS] })),
-      http.post('/api/v1/stock/purchases', async ({ request }) => {
-        const body = await request.json();
-        if (typeof body === 'object' && body !== null && 'lines' in body) {
-          const { lines } = body;
-          if (Array.isArray(lines)) quantity += lines.length * 6;
-        }
-        return HttpResponse.json({ purchaseId: 'p1', lines: 1 }, { status: 201 });
-      }),
-    );
-
-    const { router } = renderApp('/stock', cachingClient());
-    const user = userEvent.setup();
-
-    expect(await screen.findByRole('row', { name: /Baked beans/ })).toHaveTextContent('12');
-
-    await router.navigate('/stock/shop');
-    await user.type(await screen.findByLabelText('Find an item'), 'bak');
-    await user.click(await screen.findByRole('button', { name: /^Add Baked beans/ }));
-    const quantityInput = screen.getByLabelText('How many Baked beans');
-    await user.clear(quantityInput);
-    await user.type(quantityInput, '6');
-    await user.click(screen.getByRole('button', { name: 'Record the shop' }));
-    await screen.findByText('Shop recorded');
-
-    await router.navigate('/stock');
-    // The levels screen, not the shop's own confirmation — the assertion below
-    // must be about the cached list and nothing else.
-    await screen.findByRole('columnheader', { name: 'On hand' });
-
-    // The cache is fresh for another minute, so this number can only move if
-    // the purchase invalidated the levels query.
-    await waitFor(() => {
-      expect(screen.getByRole('row', { name: /Baked beans/ })).toHaveTextContent('18');
-    });
-  });
-
-  it('refetches the levels after a stock take is committed', async () => {
-    // Committing is where a stock take moves stock: every count that differs
-    // from the ledger becomes a correction.
-    let quantity = 12;
-    server.use(
-      http.get(LEVELS, () => HttpResponse.json({ items: [level(BEANS, quantity)] })),
-      http.get('/api/v1/stock/takes', () =>
-        HttpResponse.json({
-          stockTakes: [
-            {
-              id: 't1',
-              countedAt: '2026-07-30T09:00:00Z',
-              status: 'open',
-              note: null,
-              committedAt: null,
-            },
-          ],
-        }),
-      ),
-      http.post('/api/v1/stock/takes/t1/counts', () => new HttpResponse(null, { status: 204 })),
-      http.post('/api/v1/stock/takes/t1/commit', () => {
+      http.post('/api/v1/stock/take', () => {
         quantity = 9;
         return HttpResponse.json({
-          id: 't1',
-          status: 'committed',
-          committedAt: '2026-07-30T11:00:00Z',
-          adjustments: [{ stockItemId: BEANS.id, expected: 12, counted: 9, delta: -3 }],
+          applied: 1,
+          levels: [{ stockItemId: BEANS.id, quantityOnHand: quantity }],
         });
       }),
     );
@@ -222,17 +139,14 @@ describe('one stock key root', () => {
 
     await router.navigate('/stock/take');
     await user.type(await screen.findByLabelText('Counted Baked beans'), '9');
-    await user.click(screen.getByRole('button', { name: 'Save counts' }));
-    await screen.findByText('One count saved.');
-    await user.click(screen.getByRole('button', { name: 'Commit the stock take' }));
-    await user.click(screen.getByRole('button', { name: 'Commit and correct the ledger' }));
-    await screen.findByText('Stock take committed');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
+    await screen.findByText('One changed count saved.');
 
     await router.navigate('/stock');
     /*
-     * The levels screen, not the variance table left behind by the commit —
-     * that one also has a `Baked beans` row containing a 9, and asserting
-     * against it would pass whether or not anything was invalidated.
+     * The levels screen, not the count screen's baseline — that one also has a
+     * `Baked beans` row containing a 9, and asserting against it would pass
+     * whether or not anything was invalidated.
      */
     await screen.findByRole('columnheader', { name: 'On hand' });
 

@@ -15,6 +15,7 @@ function session(overrides: Partial<PublicSession> & { id: string }): PublicSess
     startsAtUtc: '2026-08-04T09:00:00.000Z',
     durationMinutes: 120,
     location: 'St Mary’s Hall',
+    deliveriesAllowed: false,
     ...overrides,
   };
 }

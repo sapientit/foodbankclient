@@ -771,6 +771,15 @@ export interface paths {
          *     fourteen days, so it reaches further ahead than a team lead's list.
          *     That is deliberate — it answers "which session can I book somebody
          *     onto", not "which shift am I working".
+         *
+         *     **The horizon shapes this list and nothing else, deliberately.**
+         *     `GET /api/v1/sessions/{id}`, the pick-list routes and
+         *     `POST /api/v1/sessions/{sessionId}/confirm` are **not** capped, so a
+         *     team lead holding a session id can open it and prepare its pick list
+         *     however far out it is. That is preparation, not a hole: the charity
+         *     does not want a team lead stopped from getting a fortnight's picking
+         *     ready, and does not need the server enforcing a window nobody works
+         *     outside anyway.
          */
         get: {
             parameters: {
@@ -823,6 +832,13 @@ export interface paths {
                         location: string;
                         /** @default 25 */
                         capacity?: number;
+                        /** @description When deliveries go out, if that is not the session's own start time. Null or absent means the session time. */
+                        deliveryTime?: components["schemas"]["LocalTime"];
+                        /**
+                         * @description False means this session has nobody to drive. **Not enforced server-side yet** — a delivery referral to such a session is still accepted, so the form is what has to stop offering it.
+                         * @default true
+                         */
+                        deliveriesAllowed?: boolean;
                     };
                 };
             };
@@ -908,6 +924,9 @@ export interface paths {
                         durationMinutes?: number;
                         location?: string;
                         capacity?: number;
+                        /** @description Explicit `null` clears it, putting deliveries back at the session's start time. */
+                        deliveryTime?: components["schemas"]["LocalTime"] | null;
+                        deliveriesAllowed?: boolean;
                     };
                 };
             };
@@ -946,6 +965,13 @@ export interface paths {
         /**
          * Cancel a session
          * @description Admin only. Idempotent.
+         *
+         *     **Refused while anybody still holds a place**, with `details.booked`
+         *     giving the count so the screen can say how big the job is. The
+         *     households have to be moved or cancelled one at a time first;
+         *     cancelling the session out from under them would strand families who
+         *     are expecting food. A cancelled session therefore never has referrals
+         *     attached to it.
          */
         post: {
             parameters: {
@@ -973,12 +999,17 @@ export interface paths {
                         "application/json": components["schemas"]["Session"];
                     };
                 };
-                /** @description The session has been confirmed */
+                /**
+                 * @description The session has been confirmed, or households still hold a place on
+                 *     it — `details.booked` is how many.
+                 */
                 409: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
                 };
             };
         };
@@ -1005,6 +1036,7 @@ export interface paths {
          *     attended (delivered) or a no-show (not in) first: this refuses while
          *     anyone is still unrecorded and says which pick numbers, because a
          *     session closed with people unaccounted for has wrong stock figures.
+         *     Once confirmed, the session and its pick list can no longer be changed.
          *     There is no override.
          */
         post: {
@@ -1100,6 +1132,10 @@ export interface paths {
                         startTime: components["schemas"]["LocalTime"];
                         durationMinutes: number;
                         location: string;
+                        /** @description Copied onto every occurrence. Absent means deliveries go at the session time. */
+                        deliveryTime?: components["schemas"]["LocalTime"];
+                        /** @default true */
+                        deliveriesAllowed?: boolean;
                         /** @default 25 */
                         capacity?: number;
                         /** Format: date */
@@ -1164,6 +1200,9 @@ export interface paths {
                         startTime?: components["schemas"]["LocalTime"];
                         durationMinutes?: number;
                         location?: string;
+                        /** @description Explicit `null` puts deliveries back at the session time. */
+                        deliveryTime?: components["schemas"]["LocalTime"] | null;
+                        deliveriesAllowed?: boolean;
                         capacity?: number;
                         /** Format: date */
                         activeFrom?: string;
@@ -1184,6 +1223,77 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/sessions/{sessionId}/listener-sheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The listener sheet for a session
+         * @description **One sheet for the whole session**, not one per household — a listener
+         *     is handed a single sheet and scans it for whoever is in front of them.
+         *     Ordered by surname for that reason; a purged household sorts last.
+         *
+         *     Open to a team leader, and **the only place a team leader is given the
+         *     reason for referral**. That is a deliberate exception: a listener is
+         *     having a conversation about what went wrong and cannot have it without
+         *     knowing what went wrong. Everywhere else — the referral list, a referral
+         *     by id, the printed picking sheet — the reason stays with administrators,
+         *     and `Referral.reasonId` is still absent for a team leader.
+         *
+         *     Deliberately minimal. **No address, postcode, phone, date of birth or
+         *     anything about the referrer.** This ends up on paper in a hall.
+         *
+         *     `answers` is the referral's dynamic answers **whole and unfiltered**.
+         *     The sheet's *Cause Details* is one of them, and **the client extracts
+         *     it**: the client owns the form definition and the server holds none, so
+         *     naming the key here would be a guess rather than a contract.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: components["parameters"]["SessionId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The sheet */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            sessionId: string;
+                            households: components["schemas"]["ListenerSheetHousehold"][];
+                        };
+                    };
+                };
+                /** @description No such session */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/referrals": {
@@ -1208,7 +1318,7 @@ export interface paths {
             parameters: {
                 query?: {
                     sessionId?: string;
-                    status?: "pending_review" | "active" | "rejected" | "cancelled";
+                    status?: "pending_review" | "active" | "reviewed" | "rejected" | "cancelled";
                 };
                 header?: never;
                 path?: never;
@@ -1283,13 +1393,24 @@ export interface paths {
         head?: never;
         /**
          * Amend or move a referral
-         * @description Admin only. Supplying `sessionId` moves it; moving into a full session
-         *     requires `acknowledgeOverCapacity: true`, which is the server half of
-         *     the warning the operator has to accept.
+         * @description Admin only, and **narrow on purpose: the session and the answers are
+         *     the only things that change.** Supplying `sessionId` moves it; moving
+         *     into a full session requires `acknowledgeOverCapacity: true`, which is
+         *     the server half of the warning the operator has to accept.
+         *
+         *     Everything else a referral holds now stands as the referrer sent it —
+         *     see `ReferralAmend` for what went and why a correction goes into the
+         *     form's "other information" answer instead.
          *
          *     A cancelled or rejected referral cannot be amended **or moved** — a move
          *     is an amendment, and nothing reinstates a referral, so relocating a dead
          *     one only moves a dead record.
+         *
+         *     **Neither can a referral on a confirmed session**, whichever direction
+         *     it would go: once a session is confirmed nothing on it changes. Moving a
+         *     household off one is the case worth naming, because it would leave them
+         *     recorded against two sessions and change the figures of a session that
+         *     was already signed off.
          */
         patch: {
             parameters: {
@@ -1320,7 +1441,7 @@ export interface paths {
                         "application/json": components["schemas"]["Referral"];
                     };
                 };
-                /** @description Target session is full and not acknowledged, or the referral is cancelled or rejected */
+                /** @description Target session is full and not acknowledged, the referral is cancelled or rejected, or its current session has been confirmed */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -1345,6 +1466,8 @@ export interface paths {
         /**
          * Accept a referral awaiting review
          * @description Admin only. Moves `pending_review` to `active`. The referral already held its place on the session, so accepting it takes no further capacity and cannot fail for a full session.
+         *     **Accepting is not the same as having read it.** This settles the question the unrecognised address raised; `POST /referrals/{id}/review` is the separate pass that records an administrator having read the referral through, and it starts from `active`.
+         *     Send `authoriseReferrer` for the second accept button — accept this one and add the referrer's address to the authorised list at the same time.
          */
         post: {
             parameters: {
@@ -1357,7 +1480,7 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": components["schemas"]["ReferralReview"];
+                    "application/json": components["schemas"]["ReferralAccept"];
                 };
             };
             responses: {
@@ -1371,8 +1494,15 @@ export interface paths {
                     };
                 };
                 404: components["responses"]["NotFound"];
-                /** @description That referral is not awaiting review */
+                /** @description That referral is not awaiting review, or `authoriseReferrer` was sent for an address already on the authorised list — in which case the referral has **not** been accepted either. */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description `authoriseReferrer` was sent for a referral with no referrer address to authorise. */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1441,6 +1571,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/referrals/{id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that an administrator has read a referral
+         * @description Admin only. Moves `active` to `reviewed`.
+         *     **Every referral is meant to be read**, not only the ones held up by an unrecognised address, and this is what makes "which has nobody looked at yet?" answerable — list `status=active` for the pile still to do.
+         *     Being reviewed changes nothing else: the household holds its place, it is picked, and it appears on the listener sheet exactly as before. The only thing it says is that somebody has read it.
+         *     No body. There is no comment here — `reviewComment` belongs to the accept/reject decision, and no separate review timestamp is kept.
+         *     A referral still `pending_review` is a `409`: decide it first. So is one already reviewed, rejected or cancelled.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Marked as read */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Referral"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+                /** @description That referral is not waiting to be read */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/referrals/{id}/cancel": {
         parameters: {
             query?: never;
@@ -1456,6 +1641,7 @@ export interface paths {
          * Cancel a referral
          * @description Admin only. Idempotent. Frees its place in the session.
          *     A **rejected** referral is a `409`, not a cancellation. The two are different things that happened, and `reviewComment` is the only record of why the charity turned the household away — relabelling the status would leave that comment on a referral that no longer says a review took place.
+         *     A referral on a **confirmed** session is also a `409`: the session is closed to every kind of change, cancellation included.
          */
         post: {
             parameters: {
@@ -1483,13 +1669,441 @@ export interface paths {
                         "application/json": components["schemas"]["Referral"];
                     };
                 };
-                /** @description That referral was rejected */
+                /** @description That referral was rejected, or its session has been confirmed */
                 409: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content?: never;
                 };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{sessionId}/sms-reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Text every household on this session that has not been texted
+         * @description The **Send SMS Reminders** button on the run-session screen. Team leader
+         *     or admin. No body.
+         *
+         *     **Who gets one:** every household holding a place — `pending_review`,
+         *     `active` and `reviewed` alike. Pick-list generation uses the same rule,
+         *     so the run-session client has a named parcel for every household it can
+         *     remind. Cancelled and rejected households are left out.
+         *
+         *     **Sending twice is safe.** A household already reminded for this session
+         *     is skipped however many times the button is pressed, so a second press
+         *     reaches only households referred since the first — and households whose
+         *     first attempt failed.
+         *
+         *     **A failure does not count as reminded.** No number held, a number that
+         *     turns out not to be a mobile, or the provider refusing it all produce a
+         *     `failure` message against that household and leave them unreminded, so
+         *     the next press tries again. A permanently wrong number therefore fails
+         *     on every press; that is the food bank being told the number is no good.
+         *
+         *     Two wordings, and the client chooses neither: a collection reminder
+         *     carries the date, the time and the place, a delivery reminder carries
+         *     the date and the session's `deliveryTime` and **no address**.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: components["parameters"]["SessionId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description What happened */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Texts that went. */
+                            reminded: number;
+                            /** @description Households left unreminded, each with a `failure` message on their line saying why. */
+                            failed: number;
+                            /** @description Skipped because they had already been texted for this session. */
+                            alreadyReminded: number;
+                        };
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{sessionId}/sms-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Message counts for the run-session screen
+         * @description **This is the polling target.** Cheap enough to call every few seconds
+         *     while the screen is open, which is how the unread total and the
+         *     per-household counts stay current. There is no push channel.
+         *
+         *     `unreadTotal` is the number the screen is meant to make prominent.
+         *
+         *     **Counts are of what came in** — replies and failures — and never of
+         *     what the food bank sent. A count that went up when staff answered a
+         *     message would be counting their own work back at them.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: components["parameters"]["SessionId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Counts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            sessionId: string;
+                            unreadTotal: number;
+                            households: {
+                                /** Format: uuid */
+                                referralId: string;
+                                /**
+                                 * Format: date-time
+                                 * @description Null means this household has not been texted.
+                                 */
+                                reminderSentAt: string | null;
+                                messageCount: number;
+                                unreadCount: number;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/referrals/{id}/sms-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One household's conversation
+         * @description The whole thread, oldest first, **both directions** — the reminder that went, the household's replies, any failures, and anything staff sent back. Read-only: it marks nothing read, so it is safe to prefetch and safe to retry.
+         *     Open to a team leader, which is a deliberate exception of the same kind as the listener sheet: a household may text something as personal as their reason for referral, and the person running the session is the one who can act on it.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The thread */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            referralId: string;
+                            messages: components["schemas"]["SmsMessage"][];
+                        };
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        /**
+         * Text this household back
+         * @description Sends a reply and records it on the thread. It does not change any count — the counts are of what came in.
+         *     **The no-identifying-data rule applies to what a human types here.** The provider is given the number and nothing that says whose it is, so a reply must not carry the household's name or address. No code can enforce that on free text; say so on the screen.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        body: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Sent */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SmsMessage"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+                /** @description The household has no number, sending is not configured, or the provider would not take it. **Nothing is recorded** — unlike a reminder, a staff reply that did not go leaves no `failure` on the thread, because it would read as something the household should see. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/referrals/{id}/sms-messages/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark this household's messages read
+         * @description Fire this when the user expands the household's line — opening the messages is what marks them read, and there is nothing further for anybody to press.
+         *     Separate from the `GET` on purpose: a `GET` that writes gets retried by browsers and cleared by any prefetch, and somebody's unread count would vanish without anyone having looked.
+         *     Idempotent. Only inbound messages are ever unread, so this never touches what the food bank sent.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Marked */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            markedRead: number;
+                        };
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sms-messages/unmatched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Replies from numbers with no upcoming referral
+         * @description **Admin only.** Somebody texted the food bank from a number held against no session still to come — a household whose session was yesterday, a wrong number, or somebody the food bank has never heard of.
+         *     These are never thrown away. A reply that cannot be matched is still somebody who texted, and a system that silently swallowed them would be worse than one that took no replies at all.
+         *     `phone` is present here and nowhere else, because acting on one of these means ringing back.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Loose replies, newest first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            messages: components["schemas"]["SmsMessage"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sms-messages/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark one loose reply read
+         * @description Admin only. The unmatched screen's equivalent of expanding a household.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Marked */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SmsMessage"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/sms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inbound message from TheSMSWorks
+         * @description **Not for the client.** Documented because it exists and because it is
+         *     the second unauthenticated write in the system — the provider posts
+         *     here, authenticated with HTTP basic credentials and rate limited.
+         *
+         *     A reply is matched by phone number to the referral for the **soonest
+         *     session still to come**; a session already past is not a candidate, so a
+         *     reply the morning after becomes a loose reply. Unmatched replies are
+         *     kept, never dropped.
+         *
+         *     **Idempotent by `messageid`.** The provider retries anything it did not
+         *     get a `200` for, and the second delivery must not put the same text on a
+         *     volunteer's screen twice.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        messageid: string;
+                        from: string;
+                        to?: string;
+                        content: string;
+                        messagetype?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Recorded */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Missing or wrong credentials */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                429: components["responses"]["RateLimited"];
             };
         };
         delete?: never;
@@ -1726,7 +2340,7 @@ export interface paths {
         };
         trace?: never;
     };
-    "/api/v1/stock/purchases": {
+    "/api/v1/stock/take": {
         parameters: {
             query?: never;
             header?: never;
@@ -1736,82 +2350,34 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Record a shop
-         * @description Admin or team lead — shopping is a warehouse job. Adds to existing stock
-         *     rather than replacing it. If any line names an unknown item, **nothing
-         *     at all is written**.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** Format: date-time */
-                        purchasedAt?: string;
-                        note?: string | null;
-                        lines: {
-                            /** Format: uuid */
-                            stockItemId: string;
-                            quantity: number;
-                        }[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Recorded */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** Format: uuid */
-                            purchaseId?: string;
-                            lines?: number;
-                        };
-                    };
-                };
-                /** @description A line names an unknown item; nothing was written */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/stock/adjustments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Correct stock by hand
-         * @description Admin or team lead. Always requires a reason — a hand correction is the
-         *     only movement that does not explain itself, and it is where a
-         *     mis-recorded attendance gets fixed, which is the team lead's own mistake
-         *     to correct.
+         * Save one page of a stock take
+         * @description The weekly count is the **single source of truth**. For every item in
+         *     the body, whatever the ledger held is discarded and replaced by one
+         *     `opening_balance` at the counted figure — so the item's level afterwards
+         *     *is* the number that was typed. There is no variance and nothing to
+         *     reconcile.
          *
-         *     All six ways stock moves are offered, including the two the app usually
-         *     writes for itself: stock arriving without a recorded shop, or a parcel
-         *     handed over outside a session, both happen in a warehouse and both need
-         *     a way onto the ledger. Food thrown away is `wastage`, whatever the
-         *     reason it was thrown away.
+         *     **Send only the items whose number the volunteer changed.** An item left
+         *     out is not touched. That means an untouched item is either
+         *     counted-and-correct or never counted, and the charity has accepted not
+         *     being able to tell those apart — do not send unchanged rows to resolve
+         *     it, because that would delete history they expect to keep.
+         *
+         *     There is no stock take resource: no id, no open/commit lifecycle, no
+         *     record that one started or finished. Each page save stands alone, which
+         *     is why there is **no `409`** — there is no state to conflict with.
+         *
+         *     **Repeating a save is safe.** The delete removes what the previous save
+         *     wrote, so sending the same page twice leaves the same rows behind. It is
+         *     last-write-wins rather than apply-once: a stale page saved late will
+         *     overwrite a newer count, which is what `levels` in the response is for.
+         *
+         *     A `countedQuantity` of `0` is legitimate and means the shelf is empty.
+         *     It writes no ledger row at all — a zero delta is forbidden — and the
+         *     level reads as zero because nothing is summed.
+         *
+         *     Locking is by process: the charity arranges that nothing else changes
+         *     during a count, and the server does not enforce it.
          */
         post: {
             parameters: {
@@ -1823,131 +2389,7 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /** Format: uuid */
-                        stockItemId: string;
-                        /** @description Signed, never zero. Negative removes stock. */
-                        quantityDelta: number;
-                        /** @enum {string} */
-                        movementType: "opening_balance" | "purchase" | "donation" | "parcel_issued" | "wastage" | "correction";
-                        reason: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Recorded */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/stock/takes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List stock takes */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            stockTakes: components["schemas"]["StockTake"][];
-                        };
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Open a stock take
-         * @description Admin or team lead.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        note?: string | null;
-                    };
-                };
-            };
-            responses: {
-                /** @description Opened */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** Format: uuid */
-                            id?: string;
-                            /** @enum {string} */
-                            status?: "open";
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/stock/takes/{id}/counts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Record counted quantities
-         * @description Admin or team lead. Can be called repeatedly while the take is open; a later count for the same item replaces the earlier one.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
+                        /** @description The changed items only. 200 is a cap on one request, not the page size — the client chooses that, and the screen shows 40. */
                         counts: {
                             /** Format: uuid */
                             stockItemId: string;
@@ -1957,85 +2399,32 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Recorded */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description The stock take has already been committed */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/stock/takes/{id}/commit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Commit the count
-         * @description Admin or team lead. Writes an adjustment **only for items whose count
-         *     differs** from the derived level, so the variance is visible rather than
-         *     silently absorbed. The response lists exactly what moved.
-         *
-         *     The variance lands on the ledger as a `correction` carrying the id of
-         *     this stock take, so it can still be found — but the movement type does
-         *     not distinguish it from a hand correction.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Committed */
+                /** @description Applied */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": {
-                            /** Format: uuid */
-                            id?: string;
-                            /** @enum {string} */
-                            status?: "committed";
-                            /** Format: date-time */
-                            committedAt?: string;
-                            adjustments?: {
+                            applied: number;
+                            /** @description The resulting level of each item in the request. */
+                            levels: {
                                 /** Format: uuid */
-                                stockItemId?: string;
-                                expected?: number;
-                                counted?: number;
-                                delta?: number;
+                                stockItemId: string;
+                                quantityOnHand: number;
                             }[];
                         };
                     };
                 };
-                /** @description Already committed */
-                409: {
+                /** @description Empty `counts`, a quantity out of range, or the same `stockItemId` twice — two counts for one item is ambiguous and is refused rather than resolved. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description An unknown stock item. Nothing is written. */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2377,8 +2766,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The session's pick list, generating it if absent
-         * @description Generates on first view, exactly as POST does. Safe to call repeatedly.
+         * The existing session pick list
+         * @description Read-only. POST the same path to generate or reconcile before reading.
          */
         get: {
             parameters: {
@@ -2403,17 +2792,27 @@ export interface paths {
                         };
                     };
                 };
+                404: components["responses"]["NotFound"];
             };
         };
         put?: never;
         /**
-         * Generate the pick list
-         * @description Idempotent — calling again returns the existing list with
-         *     `parcelsCreated: 0`. Contents are **copied** from the model parcels, so
-         *     later rule edits cannot change this list.
+         * Generate or reconcile the pick list
+         * @description Idempotent — calling again creates parcels for the session's households
+         *     holding a place (`pending_review`, `active` and `reviewed`) which do not
+         *     already have one, and reports that number in `parcelsCreated`. Existing
+         *     parcels are never changed: their household
+         *     snapshot and any manual line changes stay intact. Once confirmed, the
+         *     list is locked and creates nothing.
          *
-         *     `skipped` lists referrals with no model parcel for their household size;
-         *     the rest are still picked.
+         *     A non-zero `parcelsCreated` after the list was printed means the
+         *     client must offer to print again so the new households have sheets.
+         *     Contents are **copied** from the model parcels, so later rule edits
+         *     cannot change any existing parcel.
+         *
+         *     Generation is all-or-nothing. If any household due a parcel has no
+         *     configured model parcel, no new parcels are created and the administrator must
+         *     complete the household grid first.
          */
         post: {
             parameters: {
@@ -2426,7 +2825,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Generated, or already existed */
+                /** @description Generated, reconciled, or already complete */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -2435,15 +2834,10 @@ export interface paths {
                         "application/json": components["schemas"]["PickList"] & {
                             parcelsCreated?: number;
                             linesCreated?: number;
-                            skipped?: {
-                                /** Format: uuid */
-                                referralId?: string;
-                                reason?: string;
-                            }[];
                         };
                     };
                 };
-                /** @description No model parcels have been set up */
+                /** @description A model parcel is not configured for every booked household size */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -2641,8 +3035,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * What has changed since generation
-         * @description Reported, never applied automatically — a picker may already be holding the printed sheet. Show it as a warning and let a human decide.
+         * What still differs from the pick list
+         * @description Household-size changes and cancelled referrals are reported, never applied automatically. While the list is editable, POSTing its session pick-list reconciles referrals that have no parcel yet — `pending_review`, `active` and `reviewed` alike; a confirmed list remains locked and can still report missing referrals.
          */
         get: {
             parameters: {
@@ -2662,7 +3056,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Referrals that arrived after generation. */
+                            /** @description Households holding a place without a parcel. An editable list reconciles these when its session pick-list is POSTed; a confirmed list remains locked. */
                             missingParcels?: string[];
                             changedHouseholds?: {
                                 /** Format: uuid */
@@ -2799,6 +3193,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/parcels/{id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a parcel's pick list reviewed */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Reviewed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            reviewedAt: string;
+                        };
+                    };
+                };
+                /** @description The pick list has been confirmed */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parcels/{id}/lines/{stockItemId}": {
         parameters: {
             query?: never;
@@ -2864,12 +3310,29 @@ export interface paths {
          *     delivery these are the same two outcomes under the driver's names:
          *     delivered and not in.
          *
+         *     **The parcel's pick list must have been reviewed first.** Call
+         *     `POST /parcels/{id}/review` before this, or it is refused with a `409`
+         *     — an outcome recorded against a list nobody checked moves stock that may
+         *     not match what went in the bag. `Parcel.reviewedAt` tells you whether it
+         *     has been.
+         *
          *     Safe to submit repeatedly: `alreadyRecorded: true` means the outcome was
          *     already in place and stock did not move again.
          *
-         *     **The outcome is final.** Submitting the *other* outcome afterwards is
-         *     refused with `409`; a mis-tap is put right with a stock adjustment
-         *     (`POST /stock/adjustments`), which leaves the correction on the record.
+         *     **An outcome can be taken back while the session is open.** Marking a
+         *     household a no-show after marking them attended deletes that parcel's
+         *     stock movements and puts the goods back — nothing left the building, so
+         *     nothing should have come off the shelves. Marking them attended again
+         *     takes it again. Flip as often as needed; the level is always the sum of
+         *     what is actually there.
+         *
+         *     This is the only way to fix a mis-tap: the hand correction that used to
+         *     do it went with the stock simplification.
+         *
+         *     **Confirming the session ends it.** After `POST /sessions/{id}/confirm`
+         *     an outcome can no longer be changed and this returns `409`, because a
+         *     session that has been signed off must not have its figures move
+         *     underneath it.
          */
         post: {
             parameters: {
@@ -2904,7 +3367,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description The other outcome is already recorded */
+                /** @description The pick list has not been reviewed yet, the session has been confirmed, or somebody else recorded this household at the same moment. */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -3304,6 +3767,12 @@ export interface components {
             startsAtUtc: string;
             durationMinutes: number;
             location: string;
+            /**
+             * @description False means this session takes no deliveries — nobody is driving, so **do not offer delivery on the referral form for it**.
+             *     The server does not enforce this yet: a referral with `isDelivery: true` to such a session is still accepted. The gap is recorded rather than accidental (see `STATUS.md`), and the form is the only thing standing in the way meanwhile.
+             *     No `deliveryTime` here — an unauthenticated caller has no need of it, and this response is deliberately the narrowest in the API.
+             */
+            deliveriesAllowed: boolean;
         };
         Session: {
             /** Format: uuid */
@@ -3315,11 +3784,18 @@ export interface components {
             startsAtUtc: string;
             durationMinutes: number;
             location: string;
+            /** @description `HH:MM` London, or null for "the same as `startTime`". The van does not go out when the hall opens, so a household expecting a delivery is told a different time from one collecting — and that is all this is. **Nothing is scheduled or routed from it**, which is why there is no `deliversAtUtc` beside it. The SMS reminder is what reads it. */
+            deliveryTime: string | null;
+            /**
+             * @description False means this session takes no deliveries — nobody is driving.
+             *     **The server does not enforce it yet.** A referral with `isDelivery: true` to such a session is still accepted, so the referral form is what has to stop offering it. That gap is recorded rather than accidental; see `STATUS.md`.
+             */
+            deliveriesAllowed: boolean;
             /** @description Counts households, not people. A session of capacity 25 takes 25 referrals however large the households are. */
             capacity: number;
             /**
              * @description Referrals holding a place on this session — households, so directly comparable with `capacity`. Derived by summing referrals, never stored.
-             *     **A referral awaiting review counts.** It has not been looked at yet, but the household may well turn up, so it holds its place; cancelled and rejected referrals give theirs back. An admin may deliberately exceed capacity when moving someone, so this can be greater than `capacity`.
+             *     **A referral awaiting review counts**, and so does a reviewed one. An unreviewed household may well turn up, so it holds its place, and reading a referral changes nothing about it; only cancelled and rejected referrals give their place back. An admin may deliberately exceed capacity when moving someone, so this can be greater than `capacity`.
              */
             booked: number;
             /** @enum {string} */
@@ -3339,6 +3815,10 @@ export interface components {
             startTime: components["schemas"]["LocalTime"];
             durationMinutes: number;
             location: string;
+            /** @description Copied onto every occurrence. Null means the session time. */
+            deliveryTime: string | null;
+            /** @description Copied onto every occurrence. */
+            deliveriesAllowed: boolean;
             capacity: number;
             /** Format: date */
             activeFrom: string;
@@ -3395,32 +3875,64 @@ export interface components {
             };
         };
         /**
-         * @description Any subset. **Admin only** — there is no self-service amendment; a referrer who needs a change phones the food bank.
-         *     `referrerEmail` is deliberately absent. It is what the authorisation decision was made on, so editing it would leave a referral whose status no longer follows from its address.
+         * @description **The answers, and nothing else.** Admin only — there is no self-service amendment; a referrer who needs a change phones the food bank, and an administrator writes the correction into the form's "other information" answer.
+         *     The fixed fields — the names, date of birth, address, postcode, phones, household counts, delivery and fuel flags, and the reason — are no longer amendable. A referral records what the referrer asked for, and a correction typed into the form is read by the people who act on it: the answers appear beside the parcel on the picking screen and on the listener sheet, which is where somebody acting on a corrected address is standing. **A previously-shipped client sending any other field now gets a `400`.**
+         *     Which key counts as "other information" belongs to the form, which is the client's — so the server takes the answers as a set and does not police which of them changed.
+         *     `referrerEmail` is absent for a second reason on top of that: it is what the authorisation decision was made on, so editing it would leave a referral whose status no longer follows from its address.
          */
         ReferralAmend: {
-            referrerName?: string;
-            referrerPhone?: string | null;
-            refereeFirstName?: string;
-            refereeSurname?: string;
-            /** Format: date */
-            refereeDateOfBirth?: string;
-            refereeAddress?: string;
-            refereePostcode?: string;
-            refereePhone?: string | null;
-            adults?: number;
-            children?: number;
-            isDelivery?: boolean;
-            needsFuelHelp?: boolean;
-            /** Format: uuid */
-            reasonId?: string;
             answers?: {
                 [key: string]: unknown;
             };
         };
-        /** @description The administrator's note on why a referral was let through or turned away. One short line; it replaces any earlier note, and there is no review history and no review timestamp. `Referral.referredAt` is the timestamp the charity asked for — when the referrer submitted. */
+        /** @description The administrator's note on why a referral was let through or turned away. One short line; it replaces any earlier note, and there is no decision history and no decision timestamp. `Referral.referredAt` is the timestamp the charity asked for — when the referrer submitted. */
         ReferralReview: {
             comment?: string;
+        };
+        /**
+         * @description The accept body. `authoriseReferrer` is the **second accept button**: let this referral through *and* put its referrer on the authorised list, so the next referral from that address is not held up.
+         *     It adds **the referrer's own address and never the domain**. One person the charity has decided to trust is not everybody who works where they work, and a domain rule taken from a single referral would quietly authorise a whole council.
+         *     `organisationName` is required with it and is **the administrator's to type and confirm on the screen** — it is not taken from `referrerOrganisation`, which is free text the referrer chose. The authorised list is the key organisations are reported on, and free text fills it with three spellings of one council.
+         *     A `409` if that address is already on the list, in which case nothing has happened: the referral is **not** accepted either, so plain accept is the next step.
+         */
+        ReferralAccept: {
+            comment?: string;
+            authoriseReferrer?: {
+                organisationName: string;
+            };
+        };
+        /**
+         * @description One message on a household's thread, or one loose reply.
+         *
+         *     **`body` is personal data of the most sensitive kind here** — a
+         *     household's own words about why they need help. It is deleted thirty
+         *     days after `occurredAt`, along with everything else on this table, so a
+         *     client must not treat a thread as a permanent record.
+         */
+        SmsMessage: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description Null on a loose reply — a text with no upcoming referral behind it.
+             */
+            referralId: string | null;
+            /**
+             * @description `reminder` — what the food bank sent about the session.
+             *     `household_reply` — what the household texted back. **The only kind that is ever unread.**
+             *     `staff_reply` — a person answering from the session screen.
+             *     `failure` — the reminder did not go: no number, a number that is not a mobile, or the provider refused it. Not a message anybody sent, but it belongs where somebody will see it, and it arrives already read because it is not somebody waiting for an answer.
+             * @enum {string}
+             */
+            kind: "reminder" | "staff_reply" | "household_reply" | "failure";
+            /** @description For a `failure`, the reason rather than a message. */
+            body: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /** Format: date-time */
+            readAt: string | null;
+            /** @description **Only on the unmatched screen.** Acting on a loose reply means ringing the number back; everywhere else the household is already identified by the referral, so it is withheld. */
+            phone?: string;
         };
         /** @description What the referrer gets back. This is the whole of their relationship with the system now: there is no key and no window, so show it as a confirmation. **Read `status`** — `pending_review` means the referral is waiting to be looked at, not that a place is booked and settled. */
         ReferralReceipt: {
@@ -3456,11 +3968,15 @@ export interface components {
             /** Format: uuid */
             sessionId: string;
             /**
-             * @description `pending_review` — the referrer's address was not recognised and an administrator has not yet looked at it. It **holds its place** on the session, so it counts against capacity, but it never reaches a pick list, a printed sheet or the household grid.
+             * @description One pipeline: `pending_review → active → reviewed`, with `rejected` off the first step and `cancelled` reachable from any of them.
+             *     `pending_review` — the referrer's address was not recognised and an administrator has not yet decided it. It **holds its place** on the session, so it counts against capacity and receives a parcel on the pick list and printed sheet.
+             *     `active` — it is coming, and **nobody has read it through yet**. A referral from a recognised address starts here.
+             *     `reviewed` — an administrator has read it. Identical to `active` in every other respect: it holds its place, it is picked, it is on the listener sheet. **Filter on `active` and `reviewed` together wherever you mean "coming"** — treating `active` alone as the live set takes read households off the session.
              *     `rejected` — an administrator turned it away. Its place is released.
+             *     `cancelled` — withdrawn. A referral cancelled after being read reads as `cancelled` and no longer records that anybody read it; the charity accepted that when it chose one column over two.
              * @enum {string}
              */
-            status: "pending_review" | "active" | "rejected" | "cancelled";
+            status: "pending_review" | "active" | "reviewed" | "rejected" | "cancelled";
             /**
              * Format: date-time
              * @description When the referrer submitted. There is no separate review timestamp.
@@ -3511,8 +4027,22 @@ export interface components {
             isActive: boolean;
         };
         StockLevel: components["schemas"]["StockItem"] & {
-            /** @description Derived by summing the ledger. May be negative after a correction. */
+            /** @description Derived by summing the ledger. **May be negative** — parcels go out between counts, and nothing stops an item going below what the last count said was there. */
             quantityOnHand: number;
+        };
+        /** @description One household on the listener sheet. The narrowest response in the API, and the only one carrying the reason for referral to a team leader. */
+        ListenerSheetHousehold: {
+            /** Format: uuid */
+            referralId: string;
+            refereeFirstName: string | null;
+            refereeSurname: string | null;
+            /** @description The reason's **label**, not its id. It **survives a purge** — the reason is outside the PII block so reporting still works once nobody is identifiable. A reason the charity has since retired still appears, because the referral was made under it. */
+            reason: string | null;
+            needsFuelHelp: boolean;
+            /** @description The dynamic answers, whole. Extract *Cause Details* here; the server does not know which key it is. `{}` once purged. */
+            answers: {
+                [key: string]: unknown;
+            };
         };
         ParcelContentLine: {
             /** Format: uuid */
@@ -3560,9 +4090,16 @@ export interface components {
             referralId: string;
             /** @description The number on the printed sheet, 1..N within the session. */
             pickNumber: number;
+            /** @description The household name for the session workspace; never a referral reason. */
+            refereeFirstName: string | null;
+            refereeSurname: string | null;
+            /** @description Chooses delivery attendance labels. Address and phone stay out of this response. */
+            isDelivery: boolean;
             adults: number;
             children: number;
             householdSize: number;
+            /** Format: date-time */
+            reviewedAt: string | null;
             /** @enum {string} */
             attendance: "pending" | "attended" | "no_show" | "cancelled";
             notes: string | null;

@@ -6,6 +6,14 @@ import { RouteError } from './components/route-error';
 import { HomeScreen } from './features/home/home-screen';
 import { LoginScreen } from './features/auth/login-screen';
 import { PublicReferralScreen } from './features/referrals/components/public-referral-screen';
+import {
+  PickListPrintScreen,
+  RunSessionClientScreen,
+  RunSessionDetailScreen,
+  RunSessionsScreen,
+} from './features/pick-lists/components/run-sessions-screen';
+import { ListenerSheetScreen } from './features/pick-lists/components/listener-sheet-screen';
+import { UnmatchedSmsScreen } from './features/pick-lists/components/sms-panel';
 import { ReferralDetailScreen } from './features/referrals/components/referral-detail-screen';
 import { ReferralsScreen } from './features/referrals/components/referrals-screen';
 import { AmendRecurringSessionScreen } from './features/sessions/components/amend-recurring-session-screen';
@@ -24,10 +32,8 @@ import { AmendModelParcelScreen } from './features/model-parcels/components/amen
 import { CreateModelParcelScreen } from './features/model-parcels/components/create-model-parcel-screen';
 import { HouseholdGridScreen } from './features/model-parcels/components/household-grid-screen';
 import { ModelParcelsScreen } from './features/model-parcels/components/model-parcels-screen';
-import { AdjustStockScreen } from './features/stock/components/adjust-stock-screen';
 import { AmendStockItemScreen } from './features/stock/components/amend-stock-item-screen';
 import { CreateStockItemScreen } from './features/stock/components/create-stock-item-screen';
-import { RecordShopScreen } from './features/stock/components/record-shop-screen';
 import { StockItemsScreen } from './features/stock/components/stock-items-screen';
 import { StockLevelsScreen } from './features/stock/components/stock-levels-screen';
 import { StockTakeScreen } from './features/stock/components/stock-take-screen';
@@ -121,19 +127,22 @@ export const routes: RouteObject[] = [
        */
       { path: 'referrals', element: <ReferralsScreen /> },
       { path: 'referrals/:referralId', element: <ReferralDetailScreen /> },
+      { path: 'run-sessions', element: <RunSessionsScreen /> },
+      { path: 'run-sessions/:sessionId/print', element: <PickListPrintScreen /> },
+      { path: 'run-sessions/:sessionId/listener', element: <ListenerSheetScreen /> },
+      { path: 'sms/unmatched', element: <UnmatchedSmsScreen /> },
+      { path: 'run-sessions/:sessionId/clients/:parcelId', element: <RunSessionClientScreen /> },
+      { path: 'run-sessions/:sessionId', element: <RunSessionDetailScreen /> },
       /*
        * Stock, and the role split inside it is the one that is easy to invert:
-       * **moving stock is both roles, changing what stock items exist is admin
-       * only.** Levels, shops, stock takes and adjustments are a team lead's
-       * work — they are the person standing in the warehouse — while
+       * **taking stock is both roles, changing what stock items exist is admin
+       * only.** Levels and stock takes are warehouse work, while
        * `stock/items*` is admin maintenance. No route is role-guarded either
        * way; a team lead who types an item URL makes the request and gets a
        * real 403.
        */
       { path: 'stock', element: <StockLevelsScreen /> },
-      { path: 'stock/shop', element: <RecordShopScreen /> },
       { path: 'stock/take', element: <StockTakeScreen /> },
-      { path: 'stock/adjust/:stockItemId', element: <AdjustStockScreen /> },
       { path: 'stock/items', element: <StockItemsScreen /> },
       { path: 'stock/items/new', element: <CreateStockItemScreen /> },
       { path: 'stock/items/:stockItemId', element: <AmendStockItemScreen /> },
