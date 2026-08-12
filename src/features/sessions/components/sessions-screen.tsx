@@ -10,7 +10,6 @@ import {
   SESSION_STATUS_LABELS,
   SESSION_STATUS_OPTIONS,
   describeOccupancy,
-  groupByDate,
   isSessionStatus,
   occupancy,
 } from '../sessions.logic';
@@ -117,18 +116,11 @@ export function SessionsScreen() {
             }
           />
         ) : (
-          <div className={styles.groups}>
-            {groupByDate(sessions.data).map((group) => (
-              <section className={styles.group} key={group.date}>
-                <h2 className={styles.date}>{formatSessionDate(group.date)}</h2>
-                <ul className={styles.list}>
-                  {group.sessions.map((session) => (
-                    <SessionRow key={session.id} session={session} />
-                  ))}
-                </ul>
-              </section>
+          <ul className={styles.list}>
+            {sessions.data.map((session) => (
+              <SessionRow key={session.id} session={session} />
             ))}
-          </div>
+          </ul>
         ))}
     </>
   );
@@ -139,6 +131,7 @@ function SessionRow({ session }: { session: Session }) {
 
   return (
     <li className={styles.row}>
+      <span className={styles.date}>{formatSessionDate(session.sessionDate)}</span>
       <Link className={styles.when} to={`/sessions/${session.id}`}>
         {formatTimeRange(session.startTime, session.durationMinutes)}
       </Link>

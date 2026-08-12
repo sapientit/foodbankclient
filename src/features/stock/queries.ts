@@ -28,18 +28,18 @@ export type StockTakeCount = StockTakeBody['counts'][number];
 export type StockTakeResult =
   paths['/api/v1/stock/take']['post']['responses']['200']['content']['application/json'];
 
-export interface StockItemInput {
-  readonly name: string;
-  readonly shelfNumber: string;
-}
+export type StockItemCreateInput =
+  paths['/api/v1/stock/items']['post']['requestBody']['content']['application/json'];
+export type StockItemPatch =
+  paths['/api/v1/stock/items/{id}']['patch']['requestBody']['content']['application/json'];
 
 async function fetchStockItems(): Promise<StockItem[]> {
   const { items } = await unwrap(
     api.GET('/api/v1/stock/items', { params: { query: { includeInactive: 'true' } } }),
   );
 
-  // The API orders by shelf. Preserve that order instead of duplicating its
-  // shelf-sort rule in the browser.
+  // The API now orders by category then item name. Preserve that order rather
+  // than duplicating its sort rule in the browser.
   return [...items];
 }
 
@@ -85,7 +85,8 @@ export function useCreateStockItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: StockItemInput) => unwrap(api.POST('/api/v1/stock/items', { body: input })),
+    mutationFn: (input: StockItemCreateInput) =>
+      unwrap(api.POST('/api/v1/stock/items', { body: input })),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: stockKeys.all });
     },
@@ -96,7 +97,7 @@ export function useAmendStockItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: StockItemInput | { isActive: boolean } }) =>
+    mutationFn: ({ id, patch }: { id: string; patch: StockItemPatch }) =>
       unwrap(api.PATCH('/api/v1/stock/items/{id}', { params: { path: { id } }, body: patch })),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: stockKeys.all });

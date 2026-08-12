@@ -70,6 +70,24 @@ beforeEach(() => {
 });
 
 describe('the referrals list', () => {
+  it('highlights an active referral so it stands out from reviewed referrals', async () => {
+    server.use(
+      http.get(REFERRALS, () =>
+        HttpResponse.json({
+          referrals: [
+            referral({ id: 'active', status: 'active', refereeSurname: 'Active' }),
+            referral({ id: 'reviewed', status: 'reviewed', refereeSurname: 'Reviewed' }),
+          ],
+        }),
+      ),
+    );
+
+    renderApp('/referrals');
+
+    expect((await screen.findByRole('row', { name: /Active/ })).dataset.active).toBe('true');
+    expect(screen.getByRole('row', { name: /Reviewed/ }).dataset.active).toBeUndefined();
+  });
+
   it('lists a referral with its household size, organisation and status', async () => {
     server.use(
       http.get(REFERRALS, () => HttpResponse.json({ referrals: [referral({ id: 'r1' })] })),
@@ -108,6 +126,21 @@ describe('the referrals list', () => {
     expect(await screen.findByRole('rowheader', { name: 'Details removed' })).toBeInTheDocument();
     expect(screen.queryByText('undefined')).toBeNull();
     expect(screen.queryByText('null')).toBeNull();
+  });
+
+  it('marks pending-review referrals as needing attention', async () => {
+    server.use(
+      http.get(REFERRALS, () =>
+        HttpResponse.json({ referrals: [referral({ id: 'r1', status: 'pending_review' })] }),
+      ),
+    );
+
+    renderApp('/referrals');
+
+    expect(await screen.findByRole('row', { name: /Rowe, Jamie/ })).toHaveAttribute(
+      'data-pending-review',
+      'true',
+    );
   });
 
   it('shows an empty state when nothing matches', async () => {

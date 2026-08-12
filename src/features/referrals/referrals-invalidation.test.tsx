@@ -174,7 +174,7 @@ describe('moving a referral away and the session it left', () => {
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     await screen.findByRole('option', { name: /Spare Hall/ });
-    await user.selectOptions(screen.getByLabelText('Session'), 's2');
+    await user.selectOptions(screen.getByLabelText('Choose session to move to'), 's2');
     await user.click(screen.getByRole('button', { name: 'Move to this session' }));
 
     // The static "Session" line only shows Spare Hall once `referral.sessionId`

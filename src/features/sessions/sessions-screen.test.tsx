@@ -84,7 +84,7 @@ describe('an admin’s planning view', () => {
     expect(url.searchParams.has('to')).toBe(false);
   });
 
-  it('groups sessions under a heading per date, in the order the server sent them', async () => {
+  it('puts each session date on its own line, in the order the server sent them', async () => {
     server.use(
       http.get(SESSIONS, () =>
         HttpResponse.json({
@@ -114,9 +114,9 @@ describe('an admin’s planning view', () => {
 
     renderApp('/sessions');
 
-    const firstHeading = await screen.findByRole('heading', { name: /4 Aug 2026/ });
-    expect(firstHeading).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /11 Aug 2026/ })).toBeInTheDocument();
+    expect(await screen.findAllByText('Tue, 4 Aug 2026')).toHaveLength(2);
+    expect(screen.getByText('Tue, 11 Aug 2026')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /4 Aug 2026/ })).toBeNull();
     // Scoped to <main>: the nav is also a <ul> of <li>s.
     expect(within(screen.getByRole('main')).getAllByRole('listitem')).toHaveLength(3);
   });

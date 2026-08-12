@@ -20,6 +20,25 @@ export type SmsSummary =
 export type SmsThread =
   paths['/api/v1/referrals/{id}/sms-messages']['get']['responses'][200]['content']['application/json'];
 export type SmsMessage = components['schemas']['SmsMessage'];
+export type SessionReferralDetails = components['schemas']['SessionReferralDetails'];
+
+export function useSessionReferralDetails(sessionId: string) {
+  return useQuery({
+    queryKey: [...pickListKeys.session(sessionId), 'referral-details'] as const,
+    enabled: sessionId !== '',
+    queryFn: (): Promise<SessionReferralDetails> =>
+      unwrap(
+        api.GET('/api/v1/sessions/{sessionId}/referral-details', {
+          params: { path: { sessionId } },
+        }),
+      ),
+  });
+}
+type PreferenceLines = NonNullable<
+  NonNullable<
+    paths['/api/v1/sessions/{sessionId}/pick-list']['post']['requestBody']
+  >['content']['application/json']['preferenceLines']
+>;
 
 function fetchSessionPickList(sessionId: string): Promise<SessionPickList> {
   return unwrap(
@@ -144,10 +163,17 @@ export function useMarkUnmatchedSmsRead() {
 export function useReconcilePickList(onPickListReady?: (sessionId: string) => void) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (sessionId: string): Promise<Reconciliation> =>
+    mutationFn: ({
+      sessionId,
+      preferenceLines,
+    }: {
+      sessionId: string;
+      preferenceLines: PreferenceLines;
+    }): Promise<Reconciliation> =>
       unwrap(
         api.POST('/api/v1/sessions/{sessionId}/pick-list', {
           params: { path: { sessionId } },
+          body: { preferenceLines },
         }),
       ),
     onSuccess: async (result) => {

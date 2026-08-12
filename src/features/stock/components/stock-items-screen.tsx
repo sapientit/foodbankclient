@@ -58,7 +58,8 @@ export function StockItemsScreen() {
         }
       />
       <p className={styles.intro}>
-        Maintain the names and shelf locations used throughout stock work and pick lists.
+        Maintain the names, categories, descriptions and shelf locations used throughout stock work
+        and pick lists.
       </p>
       {amend.error !== null && <ErrorNotice error={amend.error} />}
       <p>
@@ -92,6 +93,8 @@ export function StockItemsScreen() {
           <thead>
             <tr>
               <th scope="col">Name</th>
+              <th scope="col">Category</th>
+              <th scope="col">Description</th>
               <th scope="col">Shelf</th>
               <th scope="col">Status</th>
               <th scope="col">Actions</th>
@@ -101,6 +104,8 @@ export function StockItemsScreen() {
             {visible.map((item) => (
               <tr key={item.id}>
                 <th scope="row">{item.name}</th>
+                <td>{item.category}</td>
+                <td>{item.description ?? ''}</td>
                 <td>{item.shelfNumber}</td>
                 <td>{item.isActive ? 'Active' : 'Retired'}</td>
                 <td className={styles.actions}>

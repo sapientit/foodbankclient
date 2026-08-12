@@ -20,6 +20,8 @@ import type { StockLevel } from './queries';
 const BEANS: StockLevel = {
   id: 's2',
   name: 'Baked beans',
+  category: 'Tinned goods',
+  description: null,
   shelfNumber: 'A2',
   isActive: true,
   quantityOnHand: 12,

@@ -8,6 +8,11 @@ import {
   type TextQuestion,
 } from './referral-form-definition';
 import { keyFieldSchema } from './referral-key-fields';
+import {
+  emptyHouseholdComposition,
+  isHouseholdComposition,
+  type HouseholdComposition,
+} from './household-composition';
 
 /**
  * Turns a `ReferralFormDefinition` into a Zod schema, so the questions and
@@ -33,7 +38,9 @@ import { keyFieldSchema } from './referral-key-fields';
  */
 
 /** What React Hook Form holds for the whole form: a string per field, a list per choice group. */
-export type RawAnswers = Readonly<Record<string, string | readonly string[]>>;
+export type RawAnswers = Readonly<
+  Record<string, string | readonly string[] | HouseholdComposition>
+>;
 
 export function buildFormSchema(definition: ReferralFormDefinition) {
   return buildSchemaFor(definition.pages.flatMap((page) => page.questions));
@@ -44,7 +51,10 @@ export function buildPageSchema(page: FormPage) {
 }
 
 function buildSchemaFor(questions: readonly FormQuestion[]) {
-  const shape: Record<string, z.ZodType<string> | z.ZodType<string[]>> = {};
+  const shape: Record<
+    string,
+    z.ZodType<string> | z.ZodType<string[]> | z.ZodType<HouseholdComposition>
+  > = {};
   for (const question of questions) {
     shape[question.key] = questionFieldSchema(question);
   }
@@ -55,7 +65,9 @@ function buildSchemaFor(questions: readonly FormQuestion[]) {
   return z.object(shape).strict();
 }
 
-function questionFieldSchema(question: FormQuestion): z.ZodType<string> | z.ZodType<string[]> {
+function questionFieldSchema(
+  question: FormQuestion,
+): z.ZodType<string> | z.ZodType<string[]> | z.ZodType<HouseholdComposition> {
   switch (question.type) {
     case 'keyField':
       return keyFieldSchema(question.field, question);
@@ -65,6 +77,25 @@ function questionFieldSchema(question: FormQuestion): z.ZodType<string> | z.ZodT
       return numberFieldSchema(question);
     case 'choice':
       return choiceFieldSchema(question);
+    case 'householdComposition':
+      return z
+        .custom<HouseholdComposition>(isHouseholdComposition, {
+          message: `${question.label}: enter a whole number from 0 to 30 in every cell.`,
+        })
+        .superRefine((composition, ctx) => {
+          const adults =
+            composition['working-age'].female +
+            composition['working-age'].male +
+            composition['working-age'].other +
+            composition['state-pension-age'].female +
+            composition['state-pension-age'].male +
+            composition['state-pension-age'].other;
+          if (adults === 0)
+            ctx.addIssue({
+              code: 'custom',
+              message: 'A household must include at least one adult.',
+            });
+        });
   }
 }
 
@@ -199,12 +230,17 @@ function describeIntegerProblem(question: NumberQuestion, problem: IntegerAnswer
  */
 export function defaultAnswers(
   definition: ReferralFormDefinition,
-): Record<string, string | string[]> {
-  const answers: Record<string, string | string[]> = {};
+): Record<string, string | string[] | HouseholdComposition> {
+  const answers: Record<string, string | string[] | HouseholdComposition> = {};
 
   for (const page of definition.pages) {
     for (const question of page.questions) {
-      answers[question.key] = question.type === 'choice' ? [...(question.default ?? [])] : '';
+      answers[question.key] =
+        question.type === 'choice'
+          ? [...(question.default ?? [])]
+          : question.type === 'householdComposition'
+            ? emptyHouseholdComposition()
+            : '';
     }
   }
 

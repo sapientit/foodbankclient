@@ -5,6 +5,7 @@ import type {
   ReferralFormDefinition,
 } from './referral-form-definition';
 import { YES } from './referral-key-fields';
+import type { HouseholdComposition } from './household-composition';
 
 /**
  * What a page of the referral form does on screen: the instruction under a
@@ -20,7 +21,7 @@ import { YES } from './referral-key-fields';
  */
 
 /** One answer's worth of what React Hook Form holds — a string for an input, a list for a choice. */
-export type AnswerValue = string | readonly string[];
+export type AnswerValue = string | readonly string[] | HouseholdComposition;
 
 export type FormAnswers = Readonly<Record<string, AnswerValue>>;
 
@@ -112,7 +113,7 @@ export function isEnabled(question: FormQuestion, answers: FormAnswers): boolean
 
   return typeof value === 'string'
     ? value === condition.hasAnswer
-    : value.includes(condition.hasAnswer);
+    : Array.isArray(value) && value.includes(condition.hasAnswer);
 }
 
 /**
@@ -150,7 +151,9 @@ export function clearDisabledAnswers(
 
 function isEmptyAnswer(value: AnswerValue | undefined): boolean {
   if (value === undefined) return true;
-  return typeof value === 'string' ? value.trim() === '' : value.length === 0;
+  return typeof value === 'string'
+    ? value.trim() === ''
+    : Array.isArray(value) && value.length === 0;
 }
 
 /** The questions on a page that are not greyed out — what a page's validation applies to. */

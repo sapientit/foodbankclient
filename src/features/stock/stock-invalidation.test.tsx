@@ -26,8 +26,22 @@ const REFRESH = '/api/v1/auth/refresh';
 const ITEMS = '/api/v1/stock/items';
 const LEVELS = '/api/v1/stock/levels';
 
-const BEANS: StockItem = { id: 's1', name: 'Baked beans', shelfNumber: 'A2', isActive: true };
-const PASTA: StockItem = { id: 's2', name: 'Pasta', shelfNumber: 'A10', isActive: true };
+const BEANS: StockItem = {
+  id: 's1',
+  name: 'Baked beans',
+  category: 'Tinned goods',
+  description: null,
+  shelfNumber: 'A2',
+  isActive: true,
+};
+const PASTA: StockItem = {
+  id: 's2',
+  name: 'Pasta',
+  category: 'Dry goods',
+  description: null,
+  shelfNumber: 'A10',
+  isActive: true,
+};
 
 function level(item: StockItem, quantityOnHand: number): StockLevel {
   return { ...item, quantityOnHand };

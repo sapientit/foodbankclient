@@ -8,8 +8,22 @@ import {
   splitByStatus,
 } from './stock.logic';
 
-const BEANS: StockItem = { id: 's1', name: 'Baked beans', shelfNumber: 'A1', isActive: true };
-const RICE: StockItem = { id: 's2', name: 'Rice', shelfNumber: 'A10', isActive: false };
+const BEANS: StockItem = {
+  id: 's1',
+  name: 'Baked beans',
+  category: 'Tinned goods',
+  description: null,
+  shelfNumber: 'A1',
+  isActive: true,
+};
+const RICE: StockItem = {
+  id: 's2',
+  name: 'Rice',
+  category: 'Dry goods',
+  description: null,
+  shelfNumber: 'A10',
+  isActive: false,
+};
 const ITEMS: readonly StockItem[] = [BEANS, RICE];
 
 describe('normaliseStockItemName', () => {
@@ -85,6 +99,8 @@ describe('countableLevels', () => {
   const level = (id: string, isActive: boolean, quantityOnHand: number): StockLevel => ({
     id,
     name: id,
+    category: 'Test',
+    description: null,
     shelfNumber: 'A1',
     isActive,
     quantityOnHand,

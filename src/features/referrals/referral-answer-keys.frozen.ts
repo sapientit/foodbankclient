@@ -55,4 +55,6 @@ export const FROZEN_ANSWER_KEYS: readonly FrozenAnswerKey[] = [
   { key: 'Pre-Payment', type: 'choice' },
   { key: 'Contact approved', type: 'choice' },
   { key: 'Other', type: 'text' },
+  // Version 3 — one composition table replaces the reverted separate age bands.
+  { key: 'Household composition', type: 'householdComposition' },
 ];

@@ -1,5 +1,4 @@
 import { screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { server } from '../../../test/msw/server';
@@ -17,6 +16,8 @@ const LEVELS = '/api/v1/stock/levels';
 const CEREAL: StockLevel = {
   id: 's1',
   name: 'Cereal',
+  category: 'Breakfast',
+  description: null,
   shelfNumber: 'A1',
   isActive: true,
   quantityOnHand: 95,
@@ -24,6 +25,8 @@ const CEREAL: StockLevel = {
 const BEANS: StockLevel = {
   id: 's2',
   name: 'Baked beans',
+  category: 'Tinned goods',
+  description: null,
   shelfNumber: 'A2',
   isActive: true,
   // Negative after a correction. Real, and not an error.
@@ -32,6 +35,8 @@ const BEANS: StockLevel = {
 const PASTA: StockLevel = {
   id: 's3',
   name: 'Pasta',
+  category: 'Dry goods',
+  description: null,
   shelfNumber: 'A10',
   isActive: true,
   quantityOnHand: 0,
@@ -39,6 +44,8 @@ const PASTA: StockLevel = {
 const SOUP: StockLevel = {
   id: 's4',
   name: 'Soup',
+  category: 'Tinned goods',
+  description: null,
   shelfNumber: 'B1',
   isActive: false,
   quantityOnHand: 7,
@@ -90,15 +97,14 @@ describe('stock levels', () => {
     expect(within(row).getByText('0')).toBeInTheDocument();
   });
 
-  it('keeps retired items behind a count that says how many are hidden', async () => {
+  it('shows active stock only, without a retired-items control', async () => {
     renderApp('/stock');
 
     expect(await screen.findByRole('row', { name: /Cereal/ })).toBeInTheDocument();
     expect(screen.queryByText('Soup')).toBeNull();
 
-    await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show retired items (1)' }));
-
-    expect(await screen.findByRole('row', { name: /Soup/ })).toHaveTextContent('retired');
+    expect(screen.queryByRole('checkbox', { name: /Show retired items/ })).toBeNull();
+    expect(screen.queryByText(/weekly stock take resets/)).toBeNull();
   });
 
   it('does not offer a hand adjustment', async () => {

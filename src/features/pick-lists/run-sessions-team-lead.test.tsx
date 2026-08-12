@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 import type { Session } from '../sessions/queries';
@@ -58,9 +58,9 @@ const PARCEL: Parcel = {
     {
       stockItemId: 'stock-1',
       name: 'Baked beans',
+      description: 'In tomato sauce',
       shelfNumber: 'A2',
       quantity: 2,
-      source: 'model',
     },
   ],
 };
@@ -72,6 +72,21 @@ beforeEach(() => {
         accessToken: 'fresh-token',
         expiresAt: Math.floor(Date.now() / 1000) + 900,
         user: { id: 'u3', email: 'lead@x.com', displayName: 'Ada Lead', role: 'team_lead' },
+      }),
+    ),
+    http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
+    http.get('/api/v1/stock/items', () =>
+      HttpResponse.json({
+        items: [
+          {
+            id: 'stock-1',
+            name: 'Baked beans',
+            category: 'Tinned goods',
+            description: 'In tomato sauce',
+            shelfNumber: 'A2',
+            isActive: true,
+          },
+        ],
       }),
     ),
   );
@@ -90,7 +105,14 @@ describe('a team lead running a session', () => {
         HttpResponse.json({
           sessionId: SESSION.id,
           unreadTotal: 1,
-          households: [{ referralId: PARCEL.referralId, reminderSentAt: null, messageCount: 1, unreadCount: 1 }],
+          households: [
+            {
+              referralId: PARCEL.referralId,
+              reminderSentAt: null,
+              messageCount: 1,
+              unreadCount: 1,
+            },
+          ],
         }),
       ),
       http.post('/api/v1/sessions/:sessionId/sms-reminders', () => {
@@ -98,9 +120,23 @@ describe('a team lead running a session', () => {
         return HttpResponse.json({ reminded: 1, failed: 0, alreadyReminded: 0 });
       }),
       http.get('/api/v1/referrals/:id/sms-messages', () =>
-        HttpResponse.json({ referralId: PARCEL.referralId, messages: [{ id: 'sms-1', referralId: PARCEL.referralId, kind: 'household_reply', body: 'Running late', occurredAt: '2026-08-06T09:00:00.000Z', readAt: null }] }),
+        HttpResponse.json({
+          referralId: PARCEL.referralId,
+          messages: [
+            {
+              id: 'sms-1',
+              referralId: PARCEL.referralId,
+              kind: 'household_reply',
+              body: 'Running late',
+              occurredAt: '2026-08-06T09:00:00.000Z',
+              readAt: null,
+            },
+          ],
+        }),
       ),
-      http.post('/api/v1/referrals/:id/sms-messages/read', () => HttpResponse.json({ markedRead: 1 })),
+      http.post('/api/v1/referrals/:id/sms-messages/read', () =>
+        HttpResponse.json({ markedRead: 1 }),
+      ),
     );
     renderApp(`/run-sessions/${SESSION.id}`);
     const user = userEvent.setup();
@@ -124,9 +160,67 @@ describe('a team lead running a session', () => {
     expect(await screen.findByRole('link', { name: /St Mary’s Hall/ })).toBeInTheDocument();
   });
 
+  /**
+   * The screen used to hide anything dated before today, which is exactly the
+   * session with work left on it: outcomes and details are routinely completed
+   * after the event. `screenDetails.md`, "#Run a session".
+   */
+  it('lists an open session in the past, and leaves out the completed and cancelled', async () => {
+    const past = (id: string, status: Session['status'], location: string): Session => ({
+      ...SESSION,
+      id,
+      status,
+      location,
+      sessionDate: '2020-01-04',
+      startsAtUtc: '2020-01-04T10:00:00.000Z',
+    });
+
+    server.use(
+      http.get('/api/v1/sessions', () =>
+        HttpResponse.json({
+          sessions: [
+            past('past-planned', 'planned', 'The Old Hall'),
+            past('past-in-progress', 'in_progress', 'The Annexe'),
+            past('past-confirmed', 'confirmed', 'The Signed Off Room'),
+            past('past-cancelled', 'cancelled', 'The Called Off Room'),
+            SESSION,
+          ],
+        }),
+      ),
+    );
+
+    renderApp('/run-sessions');
+
+    // Both kinds of open session, however long ago they were.
+    expect(await screen.findByRole('link', { name: /The Old Hall/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /The Annexe/ })).toBeInTheDocument();
+    // And the future one still, which is the behaviour that already worked.
+    expect(screen.getByRole('link', { name: /St Mary’s Hall/ })).toBeInTheDocument();
+
+    // A confirmed session is signed off and a cancelled one is not being run.
+    expect(screen.queryByRole('link', { name: /The Signed Off Room/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /The Called Off Room/ })).toBeNull();
+  });
+
+  it('does not describe an empty list as having no upcoming sessions', async () => {
+    server.use(
+      http.get('/api/v1/sessions', () =>
+        HttpResponse.json({ sessions: [{ ...SESSION, status: 'confirmed' }] }),
+      ),
+    );
+
+    renderApp('/run-sessions');
+
+    // "No upcoming sessions" would be a claim about the future on a screen
+    // that is no longer about the future.
+    expect(await screen.findByText('No sessions to run')).toBeInTheDocument();
+    expect(screen.queryByText(/upcoming/i)).toBeNull();
+  });
+
   it('reconciles the selected session and opens the client pick-list workflow', async () => {
     let reconciled = false;
     let savedLines = 0;
+    let markedReviewed = false;
     server.use(
       http.get('/api/v1/sessions/:id', ({ params }) => {
         expect(params.id).toBe(SESSION.id);
@@ -140,12 +234,34 @@ describe('a team lead running a session', () => {
         expect(params.sessionId).toBe(SESSION.id);
         return HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL] });
       }),
-      http.get('/api/v1/stock/items', () => HttpResponse.json({ items: [] })),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.get('/api/v1/stock/items', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'stock-1',
+              name: 'Baked beans',
+              category: 'Tinned goods',
+              description: 'In tomato sauce',
+              shelfNumber: 'A2',
+              isActive: true,
+            },
+          ],
+        }),
+      ),
       http.put('/api/v1/parcels/:id/lines', async ({ request, params }) => {
         expect(params.id).toBe(PARCEL.id);
         expect(await request.json()).toEqual({ stockItemId: 'stock-1', quantity: 3 });
         savedLines += 1;
         return new HttpResponse(null, { status: 204 });
+      }),
+      http.post('/api/v1/parcels/:id/review', ({ params }) => {
+        expect(params.id).toBe(PARCEL.id);
+        expect(savedLines).toBe(1);
+        markedReviewed = true;
+        return HttpResponse.json({});
       }),
     );
 
@@ -154,24 +270,97 @@ describe('a team lead running a session', () => {
 
     expect(await screen.findByText(/St Mary’s Hall/)).toBeInTheDocument();
     expect(reconciled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Print all pick lists' })).toBeDisabled();
+    expect(screen.getByText(/Review every pick list before printing/)).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Review Pick list' }));
 
-    const panel = screen.getByRole('heading', { name: 'Pick #1: Sam Taylor' }).parentElement;
+    const panel = screen.getByRole('heading', { name: /Pick #1: Sam Taylor/ }).parentElement;
     expect(panel).not.toBeNull();
     if (!(panel instanceof HTMLElement)) throw new Error('Pick-list panel was not rendered');
+    expect(within(panel).getByText('Adults/children: 1/1')).toBeInTheDocument();
     expect(within(panel).getByText('Baked beans')).toBeInTheDocument();
     expect(within(panel).getByText('Vegetarian')).toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'Mark pick list reviewed' })).toBeEnabled();
-    expect(within(panel).getByRole('button', { name: 'Attended' })).toBeDisabled();
-    expect(within(panel).getByRole('button', { name: 'No show' })).toBeDisabled();
+    expect(within(panel).queryByRole('button', { name: 'Attended' })).toBeNull();
+    expect(within(panel).queryByRole('button', { name: 'No show' })).toBeNull();
+    expect(within(panel).queryByRole('button', { name: 'Complete session' })).toBeNull();
 
     const quantity = within(panel).getByRole('spinbutton', { name: /Baked beans/ });
     await user.click(quantity);
     await user.keyboard('{Control>}a{/Control}3');
-    await user.click(within(panel).getByRole('button', { name: 'Save pick list' }));
+    await user.click(within(panel).getByRole('button', { name: 'Mark pick list reviewed' }));
     await waitFor(() => {
       expect(savedLines).toBe(1);
+      expect(markedReviewed).toBe(true);
     });
+  });
+
+  it('offers every active item and a retired parcel line in category and name order', async () => {
+    const apples = {
+      id: 'stock-apples',
+      name: 'Apples',
+      category: 'Fresh food',
+      description: null,
+      shelfNumber: 'C1',
+      isActive: true,
+    };
+    const beans = {
+      id: 'stock-1',
+      name: 'Baked beans',
+      category: 'Tinned goods',
+      description: 'In tomato sauce',
+      shelfNumber: 'A2',
+      isActive: true,
+    };
+    const oats = {
+      id: 'stock-oats',
+      name: 'Oats',
+      category: 'Breakfast',
+      description: null,
+      shelfNumber: 'D2',
+      isActive: false,
+    };
+    const parcelWithRetiredLine: Parcel = {
+      ...PARCEL,
+      lines: [
+        ...PARCEL.lines,
+        {
+          stockItemId: oats.id,
+          name: oats.name,
+          description: oats.description,
+          shelfNumber: oats.shelfNumber,
+          quantity: 1,
+        },
+      ],
+    };
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [parcelWithRetiredLine] }),
+      ),
+      http.get('/api/v1/stock/items', () => HttpResponse.json({ items: [oats, apples, beans] })),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+
+    const panel = (await screen.findByRole('heading', { name: /Pick #1: Sam Taylor/ }))
+      .parentElement;
+    if (!(panel instanceof HTMLElement)) throw new Error('Pick-list panel was not rendered');
+
+    const quantities = await within(panel).findAllByRole('spinbutton');
+    expect(quantities).toHaveLength(3);
+    expect(
+      within(panel)
+        .getAllByRole('heading', { level: 4 })
+        .map((heading) => heading.textContent),
+    ).toEqual(['Breakfast', 'Fresh food', 'Tinned goods']);
+    expect(quantities[0]).toHaveAccessibleName('Oats (retired)');
+    expect(quantities[0]).toHaveValue(1);
+    expect(quantities[1]).toHaveAccessibleName('Apples');
+    expect(quantities[1]).toHaveValue(null);
+    expect(quantities[2]).toHaveAccessibleName(/^Baked beans/);
+    expect(quantities[2]).toHaveValue(2);
   });
 
   it('loads the pick list when a client workspace is opened directly', async () => {
@@ -201,11 +390,15 @@ describe('a team lead running a session', () => {
     };
     server.use(
       http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json({
           pickList: PICK_LIST,
           parcels: [{ ...reviewedParcel, attendance }],
         }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
       ),
       http.get('/api/v1/stock/items', () => HttpResponse.json({ items: [] })),
       http.post('/api/v1/parcels/:id/attendance', async ({ request, params }) => {
@@ -224,16 +417,11 @@ describe('a team lead running a session', () => {
       }),
     );
 
-    renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+    renderApp(`/run-sessions/${SESSION.id}`);
     const user = userEvent.setup();
 
-    const panel = (await screen.findByRole('heading', { name: 'Pick #1: Sam Taylor' }))
-      .parentElement;
-    expect(panel).not.toBeNull();
-    if (!(panel instanceof HTMLElement)) throw new Error('Pick-list panel was not rendered');
-
-    expect(within(panel).getByRole('button', { name: 'Attended' })).toBeEnabled();
-    await user.click(within(panel).getByRole('button', { name: 'No show' }));
+    expect(await screen.findByRole('button', { name: 'Attended' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'No show' }));
 
     await waitFor(() => {
       expect(requestedOutcome).toBe('no_show');
@@ -241,7 +429,7 @@ describe('a team lead running a session', () => {
     expect(screen.queryByText(/cannot be undone/i)).toBeNull();
   });
 
-  it('disables attendance controls after a session is confirmed', async () => {
+  it('does not offer attendance controls after a session is confirmed', async () => {
     const confirmedSession: Session = { ...SESSION, status: 'confirmed' };
     const reviewedPendingParcel: Parcel = {
       ...PARCEL,
@@ -249,20 +437,90 @@ describe('a team lead running a session', () => {
     };
     server.use(
       http.get('/api/v1/sessions/:id', () => HttpResponse.json(confirmedSession)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json({ pickList: PICK_LIST, parcels: [reviewedPendingParcel] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
       ),
       http.get('/api/v1/stock/items', () => HttpResponse.json({ items: [] })),
     );
 
-    renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+    renderApp(`/run-sessions/${SESSION.id}`);
 
-    const panel = (await screen.findByRole('heading', { name: 'Pick #1: Sam Taylor' }))
-      .parentElement;
-    expect(panel).not.toBeNull();
-    if (!(panel instanceof HTMLElement)) throw new Error('Pick-list panel was not rendered');
+    await screen.findByRole('heading', { name: 'Clients' });
+    expect(screen.queryByRole('button', { name: 'Attended' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'No show' })).toBeNull();
+  });
 
-    expect(within(panel).getByRole('button', { name: 'Attended' })).toBeDisabled();
-    expect(within(panel).getByRole('button', { name: 'No show' })).toBeDisabled();
+  it('does not fetch, mark or open print sheets through a copied print URL before review', async () => {
+    let printFetched = false;
+    let markedPrinted = false;
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL] }),
+      ),
+      http.get('/api/v1/pick-lists/:id/print', () => {
+        printFetched = true;
+        return HttpResponse.json({ pickList: PICK_LIST, parcels: [] });
+      }),
+      http.post('/api/v1/pick-lists/:id/print', () => {
+        markedPrinted = true;
+        return HttpResponse.json(PICK_LIST);
+      }),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/print`);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Review every pick list before printing.',
+    );
+    expect(printFetched).toBe(false);
+    expect(markedPrinted).toBe(false);
+    expect(printSpy).not.toHaveBeenCalled();
+    printSpy.mockRestore();
+  });
+
+  it('prints only after every parcel has been reviewed', async () => {
+    let markedPrinted = false;
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    const reviewedParcel: Parcel = { ...PARCEL, reviewedAt: '2026-08-05T10:00:00.000Z' };
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [reviewedParcel] }),
+      ),
+      http.get('/api/v1/pick-lists/:id/print', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [
+            {
+              pickNumber: 1,
+              refereeFirstName: 'Sam',
+              refereeSurname: 'Taylor',
+              isDelivery: false,
+              deliveryAddress: null,
+              deliveryPostcode: null,
+              deliveryPhone: null,
+              notes: null,
+              lines: [],
+            },
+          ],
+        }),
+      ),
+      http.post('/api/v1/pick-lists/:id/print', () => {
+        markedPrinted = true;
+        return HttpResponse.json(PICK_LIST);
+      }),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/print`);
+
+    await waitFor(() => {
+      expect(markedPrinted).toBe(true);
+      expect(printSpy).toHaveBeenCalledOnce();
+    });
+    printSpy.mockRestore();
   });
 });

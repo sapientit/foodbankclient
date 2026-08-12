@@ -8,20 +8,17 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
-import {
-  useAmendStockItem,
-  useStockItem,
-  useStockItems,
-  type StockItem,
-  type StockItemInput,
-} from '../queries';
+import { useAmendStockItem, useStockItem, useStockItems, type StockItem } from '../queries';
 import { findStockItemByName } from '../stock.logic';
 import styles from './stock-item-form.module.css';
 
 const stockItemSchema = z.object({
   name: z.string().trim().min(1, 'Enter an item name.').max(120, 'Use 120 characters or fewer.'),
+  category: z.string().trim().min(1, 'Enter a category.').max(40, 'Use 40 characters or fewer.'),
+  description: z.string().trim().max(200, 'Use 200 characters or fewer.'),
   shelfNumber: z.string().trim().min(1, 'Enter the shelf.').max(20, 'Use 20 characters or fewer.'),
 });
+type StockItemFormValues = z.infer<typeof stockItemSchema>;
 
 export function AmendStockItemScreen() {
   const { stockItemId = '' } = useParams();
@@ -63,6 +60,10 @@ function AmendStockItemForm({ item }: { item: StockItem }) {
   const amend = useAmendStockItem();
   const nameId = useId();
   const nameErrorId = useId();
+  const categoryId = useId();
+  const categoryErrorId = useId();
+  const descriptionId = useId();
+  const descriptionErrorId = useId();
   const shelfId = useId();
   const shelfErrorId = useId();
   const duplicateId = useId();
@@ -72,9 +73,14 @@ function AmendStockItemForm({ item }: { item: StockItem }) {
     handleSubmit,
     register,
     setError,
-  } = useForm<StockItemInput>({
+  } = useForm<StockItemFormValues>({
     resolver: zodResolver(stockItemSchema),
-    defaultValues: { name: item.name, shelfNumber: item.shelfNumber },
+    defaultValues: {
+      name: item.name,
+      category: item.category,
+      description: item.description ?? '',
+      shelfNumber: item.shelfNumber,
+    },
   });
 
   /*
@@ -98,7 +104,11 @@ function AmendStockItemForm({ item }: { item: StockItem }) {
     if (duplicate !== undefined) return;
 
     try {
-      await amend.mutateAsync({ id: item.id, patch: values });
+      const { description, ...patch } = values;
+      await amend.mutateAsync({
+        id: item.id,
+        patch: { ...patch, description: description || null },
+      });
       await navigate('/stock/items');
     } catch (error) {
       applyFieldErrors(error, setError);
@@ -141,6 +151,39 @@ function AmendStockItemForm({ item }: { item: StockItem }) {
           )}
         </div>
         <div className={styles.field}>
+          <label htmlFor={categoryId}>Category</label>
+          <input
+            {...register('category')}
+            aria-describedby={errors.category === undefined ? undefined : categoryErrorId}
+            aria-invalid={errors.category === undefined ? undefined : true}
+            autoComplete="off"
+            className={styles.input}
+            id={categoryId}
+            type="text"
+          />
+          {errors.category !== undefined && (
+            <p className={styles.fieldError} id={categoryErrorId}>
+              {errors.category.message}
+            </p>
+          )}
+        </div>
+        <div className={styles.field}>
+          <label htmlFor={descriptionId}>Description (optional)</label>
+          <textarea
+            {...register('description')}
+            aria-describedby={errors.description === undefined ? undefined : descriptionErrorId}
+            aria-invalid={errors.description === undefined ? undefined : true}
+            className={styles.input}
+            id={descriptionId}
+            rows={3}
+          />
+          {errors.description !== undefined && (
+            <p className={styles.fieldError} id={descriptionErrorId}>
+              {errors.description.message}
+            </p>
+          )}
+        </div>
+        <div className={styles.field}>
           <label htmlFor={shelfId}>Shelf</label>
           <input
             {...register('shelfNumber')}
@@ -177,9 +220,10 @@ function isFieldFailure(error: unknown): boolean {
   return error instanceof ApiError && error.status === 400;
 }
 
-function applyFieldErrors(error: unknown, setError: UseFormSetError<StockItemInput>): void {
+function applyFieldErrors(error: unknown, setError: UseFormSetError<StockItemFormValues>): void {
   if (!isFieldFailure(error) || !(error instanceof ApiError)) return;
   for (const [path, message] of Object.entries(issuesToFieldErrors(error))) {
-    if (path === 'name' || path === 'shelfNumber') setError(path, { message });
+    if (path === 'name' || path === 'category' || path === 'description' || path === 'shelfNumber')
+      setError(path, { message });
   }
 }

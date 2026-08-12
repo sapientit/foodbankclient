@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { menuFor } from '../../auth/menu';
 import { PageHeader } from '../../components/page-header';
@@ -20,6 +20,11 @@ export function HomeScreen() {
   if (state.status !== 'signed-in') return null;
 
   const { displayName, role } = state.user;
+
+  // A fuel administrator has one screen rather than a staff dashboard with
+  // everything removed. This is navigation only; the server remains the access
+  // control for every endpoint and route.
+  if (role === 'fuel_admin') return <Navigate replace to="/fuel-help" />;
 
   return (
     <>

@@ -44,4 +44,7 @@ export const referralKeys = {
   lists: () => [...referralKeys.all, 'list'] as const,
   list: (filters: ReferralListFilters) => [...referralKeys.lists(), filters] as const,
   detail: (id: string) => [...referralKeys.all, 'detail', id] as const,
+  repeatReferrals: (id: string, excludePostcode: boolean) =>
+    [...referralKeys.all, 'repeat-referrals', id, { excludePostcode }] as const,
+  search: (input: unknown) => [...referralKeys.all, 'search', input] as const,
 };

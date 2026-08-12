@@ -174,7 +174,8 @@ export function CreateUserScreen() {
           <label htmlFor={roleId}>Role</label>
           <p className={styles.help} id={`${roleId}-help`}>
             A team lead runs sessions and does the stock work. An administrator can also change
-            sessions, referrals, users and why someone was referred.
+            sessions, referrals, users and why someone was referred. A fuel administrator can only
+            use the fuel help list.
           </p>
           <select
             {...register('role')}

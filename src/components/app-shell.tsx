@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { useAuth } from '../auth/auth-context';
-import { menuFor } from '../auth/menu';
+import { menuGroupsFor } from '../auth/menu';
 import styles from './app-shell.module.css';
 
 /**
@@ -26,6 +26,7 @@ export function AppShell() {
   const navId = useId();
   const [navOpen, setNavOpen] = useState(false);
   const disclosureRef = useRef<HTMLButtonElement>(null);
+  const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!navOpen) return undefined;
@@ -40,6 +41,21 @@ export function AppShell() {
     document.addEventListener('keydown', closeOnEscape);
     return () => {
       document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [navOpen]);
+
+  useEffect(() => {
+    if (!navOpen) return undefined;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!navRef.current?.contains(target) && !disclosureRef.current?.contains(target)) {
+        setNavOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
     };
   }, [navOpen]);
 
@@ -84,29 +100,37 @@ export function AppShell() {
           Menu
         </button>
 
-        <nav aria-label="Main" className={styles.nav} data-open={navOpen} id={navId}>
-          <ul className={styles.navList}>
-            {menuFor(role).map((item) => (
-              <li key={item.to}>
-                {/* NavLink sets aria-current="page" on the active link by
+        <nav aria-label="Main" className={styles.nav} data-open={navOpen} id={navId} ref={navRef}>
+          {menuGroupsFor(role).map((group, groupIndex) => (
+            <section
+              className={styles.menuGroup}
+              key={group.label || `ungrouped-${String(groupIndex)}`}
+            >
+              {group.label !== '' && <p className={styles.groupLabel}>{group.label}</p>}
+              <ul className={styles.navList}>
+                {group.items.map((item) => (
+                  <li key={item.to}>
+                    {/* NavLink sets aria-current="page" on the active link by
                     default, and the stylesheet selects on that attribute rather
                     than on a class — so what a screen reader announces and what
                     a volunteer sees cannot drift apart. `end` matters because
                     /stock would otherwise stay marked current on /stock/items. */}
-                <NavLink
-                  end
-                  onClick={() => {
-                    // Following a link on a phone would otherwise leave the
-                    // menu covering the screen it just navigated to.
-                    setNavOpen(false);
-                  }}
-                  to={item.to}
-                >
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+                    <NavLink
+                      end
+                      onClick={() => {
+                        // Following a link on a phone would otherwise leave the
+                        // menu covering the screen it just navigated to.
+                        setNavOpen(false);
+                      }}
+                      to={item.to}
+                    >
+                      {item.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
         </nav>
 
         <div className={styles.account}>

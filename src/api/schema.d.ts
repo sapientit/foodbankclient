@@ -1254,6 +1254,13 @@ export interface paths {
          *     The sheet's *Cause Details* is one of them, and **the client extracts
          *     it**: the client owns the form definition and the server holds none, so
          *     naming the key here would be a guess rather than a contract.
+         *     **Who is on it: the households coming to the session in person.**
+         *     `pending_review`, `active` and `reviewed` alike — whether an
+         *     administrator has read the referral says nothing about whether the
+         *     household is turning up. Cancelled and rejected households are left off
+         *     because they are not coming, and **deliveries are left off** because
+         *     nobody walks in for one, so a listener will never have that
+         *     conversation.
          */
         get: {
             parameters: {
@@ -1290,6 +1297,474 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{sessionId}/referral-details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Contact details for every household on a session
+         * @description For the **Run a session** screen, open to a team leader as well as an
+         *     administrator. The client owns the print view; this is the data behind
+         *     it.
+         *
+         *     **This is a contact list, not a listener sheet.** It carries the
+         *     household's address, postcode and phone number, and the referrer's name
+         *     and phone number — so the person running the session can find a door,
+         *     ring a household that has not arrived, or ring the professional who sent
+         *     them. It is the one place a team leader is given a household's phone
+         *     number outside the picking sheet for a delivery.
+         *
+         *     **What it deliberately leaves out:** date of birth, the reason for
+         *     referral, the form answers, the administrator's review comment, the
+         *     parcel contents, and the referrer's email address and organisation. The
+         *     reason in particular stays where it was — a team leader gets it on the
+         *     listener sheet and nowhere else.
+         *
+         *     **Who is on it:** every household holding a place — `pending_review`,
+         *     `active` and `reviewed` alike. Cancelled and rejected households are
+         *     left off, and nothing here puts a rejected referral back in front of a
+         *     team leader who is not shown the comment explaining it.
+         *
+         *     **Deliveries are included**, unlike the listener sheet. That drops them
+         *     because nobody walks in for a delivery and a listener will never have
+         *     that conversation; this is the list you ring people from, and a delivery
+         *     household is one the team most needs to be able to reach.
+         *
+         *     Ordered by surname then first name. A purged household sorts last and
+         *     comes back with nulls — the referral is still on the session, but there
+         *     is nothing left to contact them with.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: components["parameters"]["SessionId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The session and its households */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SessionReferralDetails"];
+                    };
+                };
+                /** @description No such session */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fuel-help-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Households to follow up about a fuel bill
+         * @description **A fuel administrator's only endpoint.** A `fuel_admin` account reaches
+         *     this and `GET /api/v1/auth/me` and nothing else at all — no sessions, no
+         *     referrals, no listener sheet, no stock, no user accounts. The role is a
+         *     boundary rather than a job title: it is what stops somebody brought in
+         *     to help with fuel bills from being able to read why every household in
+         *     the borough was referred. **Do not build a menu that treats it as a
+         *     lesser administrator**; it is not a subset of any other role.
+         *
+         *     An `admin` may read it too, so the charity is not locked out of its own
+         *     report when the person who normally runs it is away or their account has
+         *     been made inactive. A `team_lead` may **not** — it is not something that
+         *     happens on the day.
+         *
+         *     A household is listed when **all four** of these are true: they said
+         *     they needed help with fuel; they were **given their parcel**, whether
+         *     they collected it or it was delivered (a delivery counts as having
+         *     attended, here as everywhere else); the session those outcomes belong to
+         *     is **confirmed**, because until it is signed off an outcome can still be
+         *     taken back and nobody should be rung about their gas bill in the
+         *     meantime; and that session was **within the last two weeks** — fourteen
+         *     dates counting today.
+         *
+         *     Ordered by session date, **oldest first**, so whoever works through it
+         *     deals with the households closest to dropping off the end. The list is
+         *     laid out to be pasted straight into a spreadsheet: the people who deal
+         *     with fuel work in Excel, and the food bank would rather they pasted a
+         *     list than retyped one and got a phone number wrong.
+         *
+         *     The two questions that follow the fuel question — whether the household
+         *     is on a pre-payment meter, and whether they will let us ring them about
+         *     it — are ordinary questions on the referral form, so they arrive inside
+         *     `answers` and **the client extracts them**, exactly as it does *Cause
+         *     Details* on the listener sheet. **Nobody is left off the list on the
+         *     strength of them:** every household meeting the four conditions is
+         *     listed, and the person about to make the call reads the answers and
+         *     decides whether to make it. A household who said no to a call may still
+         *     be somebody worth writing to.
+         *
+         *     **No reason for referral, no date of birth, no household counts and no
+         *     delivery flag.** None of them bears on helping with a fuel bill, and the
+         *     row already holds enough to identify somebody.
+         *
+         *     A row is a **referral**, not a household. Being fed twice inside a
+         *     fortnight is not expected to happen and nothing de-duplicates it, so a
+         *     household who was would appear once per session.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The list, oldest session first. Empty when nothing qualifies. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            households: components["schemas"]["FuelHelpHousehold"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extracts/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which spreadsheet, and which Google OAuth client
+         * @description **Admin only.** What the browser needs before it can start an extract.
+         *
+         *     **The server never talks to Google.** It holds no service account, no
+         *     refresh token and no access token, and makes no request to any Google
+         *     API. The administrator's browser obtains its own Sheets consent against
+         *     their Google account and does every write itself. These two values are
+         *     the only Google-related thing the server knows.
+         *
+         *     Neither is a secret — an OAuth client id is public by design, and a
+         *     spreadsheet id is useless without access to the spreadsheet — but both
+         *     are handed only to an administrator, because nobody else starts an
+         *     extract. **Both differ per deployment**, so a test deployment cannot
+         *     write into the charity's real spreadsheet.
+         *
+         *     Read this **after** the administrator has confirmed they want to start
+         *     and that it may take some time, and only then ask Google for consent.
+         *
+         *     `configured: false` means the deployment has not set them; `spreadsheetId`
+         *     and `googleClientId` are then absent and every other route here is a
+         *     `422`. Say so rather than starting a flow that cannot finish.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The extract configuration */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ExtractConfig"];
+                    };
+                };
+                /** @description The caller is not an administrator */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How much is left to extract
+         * @description **Admin only.** Progress, for the screen and for the "carry on?"
+         *     question the browser asks after twenty sessions.
+         *
+         *     `remaining` counts confirmed sessions not yet extracted, **including
+         *     any another administrator currently holds a claim on** — from an
+         *     operator's point of view those are outstanding work, just not theirs
+         *     this minute.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Progress */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ExtractProgress"];
+                    };
+                };
+                /** @description The caller is not an administrator */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extracts/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve the next session and get its referrals
+         * @description **Admin only.** Reserves the oldest confirmed, unextracted, unclaimed
+         *     session and returns it with every referral on it.
+         *
+         *     **The reservation is made atomically, in one statement.** Two
+         *     administrators working the queue at the same time get different
+         *     sessions; neither can be handed one the other is already writing.
+         *
+         *     `claim: null` means nothing is waiting — the queue is empty, or
+         *     everything in it is claimed by somebody still working. **This is how a
+         *     batch ends and is not an error.**
+         *
+         *     The referrals come back with the claim rather than behind a second
+         *     call: the browser can do nothing with one without the other, and a
+         *     second round trip would only widen the window in which the claim can
+         *     expire before its rows have arrived.
+         *
+         *     `rows` carries **every referral on the session whatever its status** —
+         *     cancelled and rejected included, because a referral that was turned
+         *     away still happened and the spreadsheet is the record of what happened.
+         *
+         *     **The claim expires** (see `expiresAt`, 10 minutes). If the browser
+         *     closes, reloads or the machine sleeps, the claim lapses and the session
+         *     returns to the queue, so an abandoned extract cannot block it forever.
+         *     A claim is not renewed by activity; write the session and complete it.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A reserved session, or `claim: null` when none remain */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ExtractClaimResponse"];
+                    };
+                };
+                /** @description The caller is not an administrator */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The extract is not configured. Nothing was reserved. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extracts/claims/{claimId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claimId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that this claim's session has been written
+         * @description **Admin only.** Marks the claimed session extracted, after the browser
+         *     has written its rows to the spreadsheet.
+         *
+         *     **This never writes to Google and never can** — it is the browser
+         *     saying "that one is safely in the spreadsheet", nothing more. Call it
+         *     only once the Sheets write has actually succeeded.
+         *
+         *     **Safe to retry against this server.** A completion whose response was
+         *     lost can be sent again: the second call recognises the same claim
+         *     finishing the same session and returns `alreadyExtracted: true` without
+         *     changing anything. Retrying *this* is safe; retrying a timed-out
+         *     **Google** write is not, and must never be automatic — see below.
+         *
+         *     ### At-least-once, deliberately
+         *
+         *     The spreadsheet and this database cannot be one transaction. If the
+         *     Sheets write succeeds and this call then fails, the session stays
+         *     unextracted and a later batch sends it again — **duplicate rows are
+         *     possible and that is the intended failure direction.** A duplicate
+         *     carries `referralId` and can be found and deleted; a household that
+         *     quietly never arrived cannot be found at all.
+         *
+         *     So: **never retry a timed-out Google write automatically.** It may have
+         *     succeeded. Stop, tell the administrator, and let them check the
+         *     spreadsheet by `referralId` before extracting again.
+         *
+         *     ### The three ways it fails, and what each means
+         *
+         *     - **`404`** — no claim with this id. Either it was never issued, or the
+         *       session has since been reclaimed and carries somebody else's id now.
+         *     - **`409`, expired** — the browser was away longer than the claim
+         *       lasted. Its write may well have landed, so the server refuses to
+         *       stamp a session nobody can vouch for. `details.sessionId` says which.
+         *       If somebody else has since extracted it, rows may be duplicated.
+         *     - **`409`, another administrator's** — two people are working at once
+         *       and this one is finishing the other's session. Stamping it here would
+         *       mark a session extracted on the strength of a write this browser did
+         *       not do.
+         *
+         *     Show the message; the two `409`s are not the same event and an operator
+         *     needs to tell them apart.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    claimId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Marked extracted, or already was */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ExtractCompleteResponse"];
+                    };
+                };
+                /** @description The caller is not an administrator */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No such claim */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The claim has expired, or belongs to another administrator */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The extract is not configured */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1393,14 +1868,28 @@ export interface paths {
         head?: never;
         /**
          * Amend or move a referral
-         * @description Admin only, and **narrow on purpose: the session and the answers are
-         *     the only things that change.** Supplying `sessionId` moves it; moving
-         *     into a full session requires `acknowledgeOverCapacity: true`, which is
-         *     the server half of the warning the operator has to accept.
+         * @description Admin only. Corrects the household's own details, the answers, or the
+         *     session. Supplying `sessionId` moves it; moving into a full session
+         *     requires `acknowledgeOverCapacity: true`, which is the server half of
+         *     the warning the operator has to accept.
          *
-         *     Everything else a referral holds now stands as the referrer sent it —
-         *     see `ReferralAmend` for what went and why a correction goes into the
-         *     form's "other information" answer instead.
+         *     **Send only what changed.** Every field is optional and an omitted one
+         *     is left alone, so a one-field correction is a one-field request. The
+         *     exception is `answers`, which **replaces** the stored set outright —
+         *     you hold the form, so a key you leave out has been removed.
+         *
+         *     **The referrer's own details cannot be amended** — not `referrerEmail`
+         *     above all, which is what the accept-or-hold decision was made on. The
+         *     body is strict: sending a field that is not listed is a `400` naming it,
+         *     rather than a `200` that silently changed nothing.
+         *
+         *     **A correction overwrites and the original is not kept.** Nothing
+         *     records what a field used to say, deliberately — so there is no "what
+         *     did this used to say" to offer a user, and no undo. Confirm
+         *     destructive-looking corrections in the UI accordingly.
+         *
+         *     `reasonId` must be a reason the charity currently offers; a retired one
+         *     is a `422`. A referral already citing a retired reason keeps it.
          *
          *     A cancelled or rejected referral cannot be amended **or moved** — a move
          *     is an amendment, and nothing reinstates a referral, so relocating a dead
@@ -1448,8 +1937,245 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description The chosen reason for referral is no longer offered */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/referrals/{id}/repeat-referrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Every referral this household has had in the last twelve months
+         * @description **Admin only**, and the button behind `repeatReferrals` on the referral
+         *     itself. A team lead gets a `403`.
+         *
+         *     A food bank parcel is emergency support and not a way of living. A
+         *     household coming back again and again is not a fraud to be caught but a
+         *     sign that the emergency was never resolved, and the administrator
+         *     reviewing the referral is the person who should see that and decide what
+         *     to do about it. This is what they press to see who those households
+         *     were.
+         *
+         *     **The count is of referrals, not of parcels handed over.** Everything
+         *     except a cancelled or rejected referral counts — fed, did not turn up,
+         *     and still to come alike. That is deliberate and it is the point: a
+         *     household referred to two sessions in the same week is exactly what this
+         *     exists to catch, and counting only parcels actually received would hide
+         *     the second referral until after it had been picked, packed and given
+         *     out, which is the moment it is too late to do anything about it.
+         *     `outcome` on each row is how an administrator tells food given from
+         *     places booked, so **show it**.
+         *
+         *     Matching is on **date of birth, postcode and phone number, any one
+         *     sufficient**. Names are deliberately never matched on: different people
+         *     from the same household are referred at different times, and the same
+         *     name is typed differently by different referrers. An absent or
+         *     unrecognisable value matches nothing — two households with no phone
+         *     number share an absence, not a detail.
+         *
+         *     **`matchedOn` is not decoration.** A match on all three is almost
+         *     certainly the same household; a match on postcode alone may be nothing
+         *     more than two families in one block of flats, a hostel or a refuge —
+         *     which is exactly the housing these households live in. Show which it
+         *     was, or the number becomes one an administrator learns to ignore.
+         *
+         *     **Nothing is blocked and you must not add a block.** No refusal, no
+         *     warning banner, no "are you sure". The administrator is shown what was
+         *     found and makes the call; a rule that turned a household away on the
+         *     strength of a shared postcode would be the wrong kind of help. The
+         *     charity was explicit about this.
+         *
+         *     The lookback is twelve months, counted from when each referral was
+         *     made — the same clock the retention purge runs on, so a household whose
+         *     details have been forgotten cannot be found. That is accepted, not a
+         *     gap: there is nothing left on the row to match on.
+         *
+         *     Ordered by session date, **most recent first**. `matches` is empty when
+         *     the household has not been here before, or when this referral has
+         *     nothing matchable on it at all.
+         *
+         *     **`matches` holds at most 50 and `count` is not capped**, so
+         *     `count > matches.length` means there are more. That is not an error and
+         *     there is no paging: past fifty nobody reads on, and several hundred
+         *     other households' names and addresses on one screen — assembled because
+         *     somebody opened one unrelated referral — is not something the charity
+         *     wants built. A postcode shared by a hostel or a refuge is what produces
+         *     numbers like that, and the honest answer there is the count with a
+         *     sample of it. **Show both numbers** when they differ; a screen that
+         *     renders only the rows tells an administrator that fifty is all there is.
+         *
+         *     **`excludePostcode=true` takes the postcode out of the calculation**,
+         *     matching on date of birth and phone number only. It is the checkbox
+         *     beside the count, and it exists because a shared postcode in a hostel or
+         *     a refuge is useful to see by default and useless once you have seen it.
+         *     It recalculates everything — `count`, `mostRecentSessionDate` and
+         *     `matches` alike — so re-fetch this endpoint and use all three; do not
+         *     filter the rows you already hold, which would leave the count saying
+         *     something the list no longer shows. `matchedOn` can then only ever
+         *     contain `date_of_birth` and `phone`. A household with neither on file
+         *     comes back empty rather than matching everybody.
+         *
+         *     It changes nothing about the referral itself, and nothing is remembered:
+         *     it is a way of looking, not a correction.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description `true` matches on date of birth and phone number only. Omitted or `false` is the default three-way match. Sent as a string because it is a query parameter — any other value is a `400`. */
+                    excludePostcode?: "true" | "false";
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The matching referrals, in full */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RepeatReferralList"];
+                    };
+                };
+                /** @description The caller is a team lead */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No such referral */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/referrals/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find a referral by postcode, phone number or date of birth
+         * @description **Admin only.** The screen an administrator opens when somebody rings
+         *     up. A team lead gets a `403`.
+         *
+         *     **It is a `POST` with a body, and that is not a mistake.** A postcode, a
+         *     phone number and a date of birth are personal data, and a `GET` would
+         *     put them in the URL — where they reach access logs, browser history,
+         *     `Referer` headers and anything sitting in front of this API. Nothing in
+         *     this system puts personal data in a URL. Do not "fix" this to a `GET`
+         *     with query parameters, and do not build a bookmarkable search link.
+         *
+         *     **At least one of the three is required**; none is a `400`. Search is
+         *     on the same three identifiers the duplicate count matches on, settled by
+         *     the same rule — so a postcode typed with no space and one typed in lower
+         *     case are the same postcode. A value the rule cannot make sense of is
+         *     simply not searched on rather than being an error, exactly as it is not
+         *     matched on; a search whose only value is unrecognisable comes back
+         *     `count: 0` rather than matching everything.
+         *
+         *     **More than one identifier widens the search, it does not narrow it.**
+         *     Any one of the values matching is enough. Somebody ringing up gives the
+         *     details they have and often has one of them slightly wrong — a
+         *     transposed digit, last year's address — and a search that insisted on
+         *     all of them agreeing would fail at the moment it was most needed. Say
+         *     so in the UI if you offer more than one box, because the opposite is the
+         *     natural assumption.
+         *
+         *     **This reaches every referral the food bank still holds details for,
+         *     cancelled and rejected included** — "we turned that one away in March"
+         *     is exactly what the caller is ringing about — and there is no
+         *     twelve-month window here, unlike the duplicate count. It cannot reach a
+         *     referral whose details have been forgotten: the purge nulls the very
+         *     columns this searches on, so there is nothing left to match.
+         *
+         *     **What comes back is deliberately thin.** Enough to recognise a
+         *     household and open it, and no more: no postcode, no phone number, no
+         *     date of birth, no reason, no answers, no review comment, no referrer. A
+         *     postcode search in a hostel or a refuge returns a screen of other
+         *     people's households, and the administrator opens the one they wanted and
+         *     sees it in full there. Do not reconstruct a fuller row by fetching each
+         *     result — that is the same disclosure by another route.
+         *
+         *     **At most 50 results, newest session first, and `count` is not capped.**
+         *     `count > results.length` means there are more; show both numbers when
+         *     they differ.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReferralSearchRequest"];
+                };
+            };
+            responses: {
+                /** @description What was found */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReferralSearchResponse"];
+                    };
+                };
+                /** @description No identifier was supplied */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The caller is not an administrator */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/referrals/{id}/accept": {
@@ -1970,7 +2696,7 @@ export interface paths {
          * Replies from numbers with no upcoming referral
          * @description **Admin only.** Somebody texted the food bank from a number held against no session still to come — a household whose session was yesterday, a wrong number, or somebody the food bank has never heard of.
          *     These are never thrown away. A reply that cannot be matched is still somebody who texted, and a system that silently swallowed them would be worse than one that took no replies at all.
-         *     `phone` is present here and nowhere else, because acting on one of these means ringing back.
+         *     `phone` is on every message, but it is on these that it matters: acting on a loose reply means ringing the number back, and there is no referral behind it to look the household up by.
          */
         get: {
             parameters: {
@@ -2121,14 +2847,19 @@ export interface paths {
         };
         /**
          * Stock levels, ordered by shelf
-         * @description The picking and stock-take screen. Ordered so a picker walks the aisle
-         *     once: A1, A2, A10 — not alphabetically. Levels are derived by summing
-         *     the ledger; there is no stored balance.
+         * @description The stock-take screen. Ordered so a picker walks the aisle once: A1,
+         *     A2, A10 — not alphabetically. Levels are derived by summing the ledger;
+         *     there is no stored balance.
+         *
+         *     **Defaults to shelf order**, unlike `GET /stock/items`, because the
+         *     screen behind it is somebody walking the warehouse with a clipboard.
          */
         get: {
             parameters: {
                 query?: {
                     includeInactive?: "true";
+                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` follows the shelf numbers so a volunteer walks the warehouse once — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
+                    order?: components["parameters"]["StockOrder"];
                 };
                 header?: never;
                 path?: never;
@@ -2215,11 +2946,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List stock items */
+        /**
+         * List stock items
+         * @description **Defaults to category order** — category first, then item name within
+         *     the category. That is the order the maintenance screen shows and the
+         *     order the pick-list amendment screen offers items in. It changed from
+         *     shelf order when items gained a category; pass `order=shelf` for the
+         *     old behaviour.
+         */
         get: {
             parameters: {
                 query?: {
                     includeInactive?: "true";
+                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` follows the shelf numbers so a volunteer walks the warehouse once — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
+                    order?: components["parameters"]["StockOrder"];
                 };
                 header?: never;
                 path?: never;
@@ -2227,7 +2967,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Items, by shelf */
+                /** @description Items, by category then name unless `order` says otherwise */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -2243,7 +2983,9 @@ export interface paths {
         put?: never;
         /**
          * Add a stock item
-         * @description Admin only.
+         * @description Admin only. **A category is required** — an item cannot exist without
+         *     one, because it is what the maintenance and pick-list amendment screens
+         *     are ordered by.
          */
         post: {
             parameters: {
@@ -2256,6 +2998,12 @@ export interface paths {
                 content: {
                     "application/json": {
                         name: string;
+                        /**
+                         * @description Required. Stored with its capitalisation settled, so `tinned goods` comes back as `Tinned Goods`.
+                         * @example Tinned Goods
+                         */
+                        category: string;
+                        description?: string;
                         /**
                          * @example A1
                          * @example 12b
@@ -2321,6 +3069,9 @@ export interface paths {
                 content: {
                     "application/json": {
                         name?: string;
+                        category?: string;
+                        /** @description `null` clears it, and so does an empty string — the two are the same thing and both read back as `null`. */
+                        description?: string | null;
                         shelfNumber?: string;
                         isActive?: boolean;
                     };
@@ -2445,7 +3196,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List model parcels */
+        /**
+         * List model parcels
+         * @description Admin only, **reading included**. A team lead never sees a model parcel: the picking sheet already carries the contents that were copied from it, and the model itself is charity policy rather than picking information.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -2610,7 +3364,9 @@ export interface paths {
         };
         /**
          * The household grid
-         * @description Thirty cells: 1-5 adults by 0-5 children, keyed `adults-children`. Each
+         * @description Admin only, **reading included** — see `GET /model-parcels`.
+         *
+         *     Thirty cells: 1-5 adults by 0-5 children, keyed `adults-children`. Each
          *     holds the **name** of a model parcel. `cells` lists every key that must
          *     be filled, so an empty grid can still be rendered.
          */
@@ -2706,7 +3462,7 @@ export interface paths {
         put?: never;
         /**
          * What would this household receive?
-         * @description Runs the same lookup generation uses, so a preview cannot diverge from what gets picked. Households larger than the grid clamp into its corner.
+         * @description Admin only, like the grid it reads. Runs the same lookup generation uses, so a preview cannot diverge from what gets picked. Households larger than the grid clamp into its corner.
          */
         post: {
             parameters: {
@@ -2813,6 +3569,16 @@ export interface paths {
          *     Generation is all-or-nothing. If any household due a parcel has no
          *     configured model parcel, no new parcels are created and the administrator must
          *     complete the household grid first.
+         *
+         *     **Preference lines are optional and belong to the client.** The body may
+         *     carry the stock items your own preference rules resolved, per referral —
+         *     the server holds no form definition and never reads your rule
+         *     configuration. They are merged into the parcels **this call creates**,
+         *     and a preference asks for *at least* its quantity: where the model
+         *     parcel already contains the item, the higher of the two wins, so a
+         *     preference can never cut a larger household's share. Send the whole
+         *     session's lines every time; entries for households that already have a
+         *     parcel are ignored and counted, not refused.
          */
         post: {
             parameters: {
@@ -2823,7 +3589,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["GeneratePickListRequest"];
+                };
+            };
             responses: {
                 /** @description Generated, reconciled, or already complete */
                 200: {
@@ -2834,10 +3604,23 @@ export interface paths {
                         "application/json": components["schemas"]["PickList"] & {
                             parcelsCreated?: number;
                             linesCreated?: number;
+                            /** @description Lines merged into parcels this call created. */
+                            preferenceLinesApplied?: number;
+                            /** @description Lines whose stock item has been deactivated since you loaded the catalogue. Dropped rather than refused, so a retired item cannot stop a session generating. */
+                            preferenceLinesDropped?: number;
+                            /** @description Supplied referrals that already had a parcel, or are not owed one. Expected on every reconciliation. */
+                            preferenceReferralsIgnored?: number;
                         };
                     };
                 };
-                /** @description A model parcel is not configured for every booked household size */
+                /** @description Malformed body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description A model parcel is not configured for every booked household size, or a preference line names a stock item that does not exist (`details.unknownStockItemIds`). Nothing is created either way. */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -2913,6 +3696,9 @@ export interface paths {
          *     unless it is a delivery. A sheet gets carried round a hall and left on
          *     tables. Dietary notes *are* included: the picker is the only person who
          *     can act on them.
+         *
+         *     Refused with `409` until every parcel on the pick list has been
+         *     reviewed.
          */
         get: {
             parameters: {
@@ -2937,12 +3723,19 @@ export interface paths {
                         };
                     };
                 };
+                /** @description One or more parcels have not been reviewed */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         put?: never;
         /**
          * Mark as printed
-         * @description Only the first print is stamped. **Lines can still be edited after printing** — the list locks on confirm, not on print.
+         * @description Only the first print is stamped. Refused with `409` until every parcel has been reviewed — on a reprint too, because reconciling a late referral adds its parcel unreviewed. **Lines can still be edited after printing** — the list locks on confirm, not on print.
          */
         post: {
             parameters: {
@@ -2964,7 +3757,7 @@ export interface paths {
                         "application/json": components["schemas"]["PickList"];
                     };
                 };
-                /** @description Already confirmed */
+                /** @description The pick list is confirmed or has an unreviewed parcel */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -3058,11 +3851,18 @@ export interface paths {
                         "application/json": {
                             /** @description Households holding a place without a parcel. An editable list reconciles these when its session pick-list is POSTed; a confirmed list remains locked. */
                             missingParcels?: string[];
+                            /** @description Parcels whose household has been corrected since the list was generated. `was` is the snapshot the picker is packing to; `now` is the referral as it currently stands. **The parcel is never rewritten** — rewriting it underneath somebody mid-pick is what the snapshot exists to prevent — so this is a warning for a team leader to act on, by editing the parcel or leaving it. */
                             changedHouseholds?: {
                                 /** Format: uuid */
-                                parcelId?: string;
-                                was?: Record<string, never>;
-                                now?: Record<string, never>;
+                                parcelId: string;
+                                was: {
+                                    adults: number;
+                                    children: number;
+                                };
+                                now: {
+                                    adults: number;
+                                    children: number;
+                                };
                             }[];
                             cancelledReferrals?: string[];
                         };
@@ -3147,9 +3947,11 @@ export interface paths {
         get?: never;
         /**
          * Add an item or change its quantity
-         * @description Marked as a manual change so it is distinguishable from what the model
-         *     parcel decided. **A quantity of 0 removes the line**, which is how a
-         *     picker records "we had none".
+         * @description **A quantity of 0 removes the line**, which is how a picker records "we
+         *     had none". This is also how a needs-attention line is settled: send the
+         *     quantity the team leader decided, or `0` to drop the item. The body
+         *     accepts `0` and above only — `-1` is created by the preference rules at
+         *     generation and cannot be set by hand.
          */
         put: {
             parameters: {
@@ -3204,7 +4006,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Mark a parcel's pick list reviewed */
+        /**
+         * Mark a parcel's pick list reviewed
+         * @description The team leader's decision that this parcel is right. Required **before the list is printed** and before this parcel's attendance outcome; both refuse with a `409` until it is done. Idempotent, and it freezes nothing — lines stay editable until the list is confirmed.
+         *     Refused with a `409` while any line is still `-1`. That single rule is what keeps an unsettled item off a printed sheet and out of the stock ledger, since both wait on review.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -3230,7 +4036,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description The pick list has been confirmed */
+                /** @description The pick list has been confirmed, or a line still needs attention */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -3721,10 +4527,10 @@ export interface components {
             };
         };
         /**
-         * @description `volunteer` exists in the database but is unused, and is not assignable. Use this to choose a menu, never for access control — the server re-checks on every request.
+         * @description Three roles, and **none of them is a rank**. An administrator runs the food bank, a team leader runs the sessions, and a fuel administrator reaches `GET /api/v1/fuel-help-list` and `GET /api/v1/auth/me` and nothing else at all. `fuel_admin` is a boundary rather than a lesser administrator, so a menu built on "which subset of admin is this" will be wrong for it. Use this to choose a menu, never for access control — the server re-checks on every request.
          * @enum {string}
          */
-        Role: "admin" | "team_lead";
+        Role: "admin" | "team_lead" | "fuel_admin";
         /** @description A staff account. Not a referee — no personal data of the people fed. */
         User: {
             /** Format: uuid */
@@ -3875,12 +4681,30 @@ export interface components {
             };
         };
         /**
-         * @description **The answers, and nothing else.** Admin only — there is no self-service amendment; a referrer who needs a change phones the food bank, and an administrator writes the correction into the form's "other information" answer.
-         *     The fixed fields — the names, date of birth, address, postcode, phones, household counts, delivery and fuel flags, and the reason — are no longer amendable. A referral records what the referrer asked for, and a correction typed into the form is read by the people who act on it: the answers appear beside the parcel on the picking screen and on the listener sheet, which is where somebody acting on a corrected address is standing. **A previously-shipped client sending any other field now gets a `400`.**
-         *     Which key counts as "other information" belongs to the form, which is the client's — so the server takes the answers as a set and does not police which of them changed.
-         *     `referrerEmail` is absent for a second reason on top of that: it is what the authorisation decision was made on, so editing it would leave a referral whose status no longer follows from its address.
+         * @description **The household's own details, and the answers.** Admin only — there is no self-service amendment; a referrer who needs a change phones the food bank and an administrator makes it.
+         *     Every field is optional and **only what you send is written**, so a one-field correction stays a one-field request. `answers` is the exception: it **replaces** the stored set rather than merging into it, because you hold the form and a key you omit has been removed. Which key counts as "other information" is yours to know — the server holds no form definition and does not police which of them changed.
+         *     **The referrer's own details are not here and cannot be amended.** `referrerEmail` above all: it is what the authorisation decision was made on, so editing it would leave a referral whose accepted-or-held status no longer follows from its address. Name, phone and organisation stay fixed too — who sent a referral is a matter of record.
+         *     **A correction overwrites and the original is not kept.** Nothing records what a field used to say, so there is nothing to show a user as "previously" and no undo.
+         *     Corrections are still worth writing into the form's "other information" answer as well, and often should be: a corrected address reaches the driver, while a note saying why reaches the person handing the bag over — the answers appear beside the parcel on the picking screen and on the listener sheet.
          */
         ReferralAmend: {
+            refereeFirstName?: string;
+            refereeSurname?: string;
+            /** Format: date */
+            refereeDateOfBirth?: string;
+            refereeAddress?: string;
+            refereePostcode?: string;
+            /** @description Explicitly `null` to remove a number the household no longer has. */
+            refereePhone?: string | null;
+            adults?: number;
+            children?: number;
+            isDelivery?: boolean;
+            needsFuelHelp?: boolean;
+            /**
+             * Format: uuid
+             * @description Must be a reason the charity currently offers; a retired one is a `422`. A referral already citing a retired reason keeps it.
+             */
+            reasonId?: string;
             answers?: {
                 [key: string]: unknown;
             };
@@ -3931,7 +4755,7 @@ export interface components {
             occurredAt: string;
             /** Format: date-time */
             readAt: string | null;
-            /** @description **Only on the unmatched screen.** Acting on a loose reply means ringing the number back; everywhere else the household is already identified by the referral, so it is withheld. */
+            /** @description The household's number, in E.164 where it could be normalised. Present on every message: on a loose reply it is the only way to act on one, and on a thread it is the same number the referral already carries, so withholding it there would buy nothing. */
             phone?: string;
         };
         /** @description What the referrer gets back. This is the whole of their relationship with the system now: there is no key and no window, so show it as a confirmation. **Read `status`** — `pending_review` means the referral is waiting to be looked at, not that a place is booked and settled. */
@@ -3953,8 +4777,132 @@ export interface components {
             /** Format: date-time */
             referredAt: string;
         };
+        /** @description The two values the browser needs. Neither is a secret, and neither is a Google credential — the server has none. */
+        ExtractConfig: {
+            /** @description False when the deployment has set neither value. `spreadsheetId` and `googleClientId` are then absent and the other extract routes are `422`. */
+            configured: boolean;
+            /** @description The spreadsheet to write into. Differs per deployment, so a test deployment cannot touch the charity's real one. */
+            spreadsheetId?: string;
+            /** @description The public Google OAuth client id to request Sheets consent against, using the administrator's own Google account in the browser. */
+            googleClientId?: string;
+        };
+        ExtractProgress: {
+            /** @description Confirmed sessions not yet extracted, including any another administrator currently holds a claim on. */
+            remaining: number;
+            /** @description Confirmed sessions already extracted. For a progress display. */
+            extracted: number;
+        };
         /**
-         * @description The staff view. **The last four fields are admin-only** — a team lead
+         * @description One referral, as one spreadsheet row.
+         *     The named fields are the fixed columns. `answers` is an **object, not a JSON string**, because the spreadsheet's hidden metadata sheet owns the `answerKey → column` mapping: the browser reads that mapping, puts each key's answer in that key's column, and updates the metadata sheet when it meets a new key. **That mapping is spreadsheet state and is not stored in this database** — the server neither knows nor cares which column anything lands in.
+         */
+        ExtractRow: {
+            /**
+             * Format: uuid
+             * @description **Put this in the sheet.** It is how a duplicate row is found and removed after an at-least-once retry, and the only key anyone reconciling the spreadsheet against the system has.
+             */
+            referralId: string;
+            /** @enum {string} */
+            status: "pending_review" | "active" | "reviewed" | "rejected" | "cancelled";
+            /** Format: date-time */
+            referredAt: string;
+            referrerOrganisation: string;
+            /** Format: date */
+            refereeDateOfBirth: string | null;
+            refereePostcode: string | null;
+            adults: number;
+            children: number;
+            isDelivery: boolean;
+            needsFuelHelp: boolean;
+            /** @description The label, not the id. A UUID in a spreadsheet helps nobody. */
+            reason: string | null;
+            /** @description **Admin-only inside the system**, because it can name a referrer or record a suspicion about one. On the spreadsheet everyone it is shared with can read it. The charity decided that knowingly. */
+            reviewComment: string | null;
+            /** @description Answer key to answer, exactly as submitted. */
+            answers: {
+                [key: string]: unknown;
+            };
+        };
+        ExtractClaim: {
+            /**
+             * Format: uuid
+             * @description Present this to complete. Valid until `expiresAt`.
+             */
+            claimId: string;
+            /**
+             * Format: date-time
+             * @description When the reservation lapses and the session returns to the queue. Ten minutes. Not extended by activity — write the session and complete it.
+             */
+            expiresAt: string;
+            /**
+             * Format: uuid
+             * @description For completing the claim and for reconciling a duplicate. **Not a spreadsheet column** — a UUID in a spreadsheet helps nobody, which is the same reason `ExtractRow.reason` is the label and not the id. Write `sessionLocation` instead.
+             */
+            sessionId: string;
+            /** Format: date */
+            sessionDate: string;
+            /** @description Where the session is held. This is the session column the spreadsheet gets, alongside `sessionDate`. */
+            sessionLocation: string;
+            /** @description Every referral on the session, whatever its status — cancelled and rejected included. */
+            rows: components["schemas"]["ExtractRow"][];
+        };
+        ExtractClaimResponse: components["schemas"]["ExtractProgress"] & {
+            /** @description `null` when nothing is waiting, or everything waiting is claimed by somebody still working. That is how a batch ends, not an error. */
+            claim: components["schemas"]["ExtractClaim"] | null;
+        };
+        ExtractCompleteResponse: components["schemas"]["ExtractProgress"] & {
+            /** Format: uuid */
+            sessionId: string;
+            /** Format: date-time */
+            extractedAt: string;
+            /** @description True when this claim had already completed and this call changed nothing — a safe retry, not a problem. */
+            alreadyExtracted: boolean;
+        };
+        /** @description How many times this household has been referred in the last twelve months, and the session date of the most recent of those. */
+        RepeatReferralSummary: {
+            /** @description Referrals, not parcels: everything except a cancelled or rejected one. Excludes the referral being looked at. **Never capped** — on the list route it can exceed the 50 rows in `matches`, which is how an administrator is told there are more. */
+            count: number;
+            /**
+             * Format: date
+             * @description The session the most recent matching referral is on — `null` when `count` is 0.
+             *     **This may be a date in the future.** It is the day the household was fed or is to be fed, not a submission date and not an attendance date, so a household booked in for next Tuesday reports next Tuesday. Do not label it "last attended" or assume it is in the past.
+             */
+            mostRecentSessionDate: string | null;
+        };
+        /** @description One earlier referral from what looks like the same household. Carries that household's own details, which is why the route returning it is admin-only. No reason for referral, no answers and no review comment — the charity named what this shows and this is it. */
+        RepeatReferralMatch: {
+            /** Format: uuid */
+            referralId: string;
+            /** Format: uuid */
+            sessionId: string;
+            /**
+             * Format: date
+             * @description The session this referral is on, London. May be in the future, for the same reason `mostRecentSessionDate` may be.
+             */
+            sessionDate: string;
+            /**
+             * @description What became of this referral. `attended` — they were given their parcel, collected or delivered. `no_show` — they were booked in and did not turn up. `booked` — still to come, covering both "picked but not yet marked" and "no pick list generated yet".
+             *     The same three words attendance already uses, rather than a second vocabulary for the same states.
+             * @enum {string}
+             */
+            outcome: "attended" | "no_show" | "booked";
+            /** @description Which of the three this referral shares with the one being reviewed. Never empty, and never worth hiding — see the route. */
+            matchedOn: ("date_of_birth" | "postcode" | "phone")[];
+            refereeFirstName: string | null;
+            refereeSurname: string | null;
+            /** Format: date */
+            refereeDateOfBirth: string | null;
+            refereeAddress: string | null;
+            /** @description As the referrer wrote it. The settled form used for matching is not returned; putting a value into a settled form never rewrites the value itself. */
+            refereePostcode: string | null;
+            refereePhone: string | null;
+        };
+        RepeatReferralList: components["schemas"]["RepeatReferralSummary"] & {
+            /** @description The 50 most recent, at most. Compare against `count` to know whether there are more; there is no paging and no further page to ask for. */
+            matches: components["schemas"]["RepeatReferralMatch"][];
+        };
+        /**
+         * @description The staff view. **The last five fields are admin-only** — a team lead
          *     receives the object without them, so treat them as optional.
          *
          *     **A team lead does not see rejected referrals at all.** They are absent
@@ -4018,11 +4966,26 @@ export interface components {
             referrerPhone?: string | null;
             /** @description **Admin only.** The reviewing administrator's one line. It can name a referrer or record a suspicion, which is not a team lead's business. Who reviewed is stored but never returned — no screen asks. */
             reviewComment?: string | null;
+            /**
+             * @description **Admin only, and on `GET /referrals/{id}` only** — it is not on the list, where it would cost a query per row.
+             *     Present for an administrator fetching one referral, absent for a team lead, whose read costs nothing extra. `GET /referrals/{id}/repeat-referrals` is the button behind it; **do not call that route just to render this count.** It returns other households' names, addresses, phone numbers and dates of birth, and those should not cross the wire until an administrator asks for them.
+             */
+            repeatReferrals?: components["schemas"]["RepeatReferralSummary"];
         };
         StockItem: {
             /** Format: uuid */
             id: string;
             name: string;
+            /**
+             * @description Free text, and the first sort key on the maintenance and pick-list amendment screens. **Its capitalisation is settled by the server**, so `tinned goods` is stored and returned as `Tinned Goods` and one category cannot split into two over casing. Nothing else about it is matched or corrected — `Tins` and `Tinned` are two categories.
+             * @example Tinned Goods
+             */
+            category: string;
+            /**
+             * @description What the item is, in the charity's words. Printed on the pick list under the item name. `null` where the name says everything.
+             * @example Half a kilo counts as one unit when rice is also given
+             */
+            description: string | null;
             shelfNumber: string;
             isActive: boolean;
         };
@@ -4040,6 +5003,90 @@ export interface components {
             reason: string | null;
             needsFuelHelp: boolean;
             /** @description The dynamic answers, whole. Extract *Cause Details* here; the server does not know which key it is. `{}` once purged. */
+            answers: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description The session, and contact details for every household on it. See the route for what is deliberately absent. */
+        SessionReferralDetails: {
+            /** Format: uuid */
+            sessionId: string;
+            /** Format: date */
+            sessionDate: string;
+            /** @description `HH:MM`, Europe/London wall clock. Print it as it stands. */
+            startTime: string;
+            location: string;
+            referrals: components["schemas"]["ReferralDetailsHousehold"][];
+        };
+        /** @description One household's contact details for the session being run. Every field below is nullable because the referee and referrer columns are nulled by the retention purge — a purged household is still on the session and still has to appear, with nothing left to reach it by. */
+        ReferralDetailsHousehold: {
+            /** Format: uuid */
+            referralId: string;
+            refereeFirstName: string | null;
+            refereeSurname: string | null;
+            refereeAddress: string | null;
+            refereePostcode: string | null;
+            /** @description Null when the household has no number as well as when it has been purged. A household nobody can ring is one somebody may need to call at, which is why the address is here too. */
+            refereePhone: string | null;
+            /** @description The professional who sent them. **Survives a purge** — the point of forgetting is to stop holding details of the household, not of the referrer. */
+            referrerName: string | null;
+            referrerPhone: string | null;
+        };
+        /** @description At least one of the three is required; a body with none of them is a `400`. Send what the caller gave you and let the server settle it — do not normalise or pad a partial postcode yourself. */
+        ReferralSearchRequest: {
+            /** @description Settled the same way the duplicate match settles it: uppercased, whitespace removed, kept only if it looks like a UK postcode. One that does not is not searched on rather than refused. */
+            postcode?: string;
+            /** @description Settled to UK E.164, as the duplicate match settles it. One the rule cannot read is not searched on. */
+            phone?: string;
+            /**
+             * Format: date
+             * @description `YYYY-MM-DD`. Compared exactly; there is nothing to settle.
+             */
+            dateOfBirth?: string;
+        };
+        ReferralSearchResponse: {
+            /** @description How many referrals matched, **uncapped**. `results` holds at most 50, so `count > results.length` means there are more and there is no paging to fetch them — narrow the search instead. */
+            count: number;
+            results: components["schemas"]["ReferralSearchResult"][];
+        };
+        /** @description Enough to recognise a household and open it, and nothing else. No postcode, phone number or date of birth — not even the ones searched on — and no reason, answers, review comment or referrer. A postcode search in a hostel returns other people's households, and this is the row that keeps that cheap. */
+        ReferralSearchResult: {
+            /**
+             * Format: uuid
+             * @description Open it with `GET /referrals/{id}` for the full authorised view.
+             */
+            referralId: string;
+            refereeFirstName: string | null;
+            refereeSurname: string | null;
+            refereeAddress: string | null;
+            /** Format: date */
+            sessionDate: string;
+            sessionLocation: string;
+            /**
+             * @description Cancelled and rejected referrals are searchable and returned. "We turned that one away in March" is what the caller is ringing about.
+             * @enum {string}
+             */
+            status: "pending_review" | "active" | "reviewed" | "rejected" | "cancelled";
+            /** @description Which of the supplied values this referral matched. Never empty, and worth showing: a postcode match alone may be nothing more than two families in one block of flats. */
+            matchedOn: ("date_of_birth" | "postcode" | "phone")[];
+        };
+        /** @description One household to ring about a fuel bill, at one session they were fed at. Who is being helped, where they live, how to ring them, when it was, and the form answers whole — and deliberately nothing else. */
+        FuelHelpHousehold: {
+            /** Format: uuid */
+            referralId: string;
+            /**
+             * Format: date
+             * @description The session's own `YYYY-MM-DD`, London wall clock — **the session the parcel was issued at**, which is not always the session the referral now points at if it was moved after picking. The list is sorted by this, oldest first.
+             */
+            sessionDate: string;
+            refereeFirstName: string | null;
+            refereeSurname: string | null;
+            /** @description Where the household lives. A delivery goes here too. */
+            refereeAddress: string | null;
+            refereePostcode: string | null;
+            /** @description Here because the follow-up is a phone call. Free text as the referrer typed it — it is **not** normalised on the way in, so format it for display rather than assuming a shape. Null when the referral gave no number. */
+            refereePhone: string | null;
+            /** @description The dynamic answers, whole. Extract the pre-payment-meter and permission-to-ring answers here; the server does not know which keys they are and will not guess. */
             answers: {
                 [key: string]: unknown;
             };
@@ -4071,17 +5118,38 @@ export interface components {
             /** Format: date-time */
             confirmedAt: string | null;
         };
+        GeneratePickListRequest: {
+            /** @description One entry per household, each naming a referral and the stock items your rules resolved for it. A referral must not appear twice. */
+            preferenceLines?: components["schemas"]["PreferenceLineEntry"][];
+        };
+        PreferenceLineEntry: {
+            /**
+             * Format: uuid
+             * @description The referral, not the parcel — the parcel does not exist yet. Get it from `GET /referrals?sessionId=`, which also carries the `adults`, `children` and `answers` your rules evaluate against.
+             *     **It must be a referral on this session.** One that is not refuses the whole request with a `422` and `details.offSessionReferralIds` — a stale tab or the wrong session is a bug in your view of it, not something to write parcels around. A referral that *is* on the session but is not owed a parcel — cancelled, rejected, or already picked — is fine to send and is counted in `preferenceReferralsIgnored`.
+             */
+            referralId: string;
+            /** @description A stock item must not appear twice for one referral. */
+            lines: components["schemas"]["PreferenceLine"][];
+        };
+        PreferenceLine: {
+            /**
+             * Format: uuid
+             * @description Resolved by you from the item name your rule configuration holds. **Ids, never names** — the server does not match on text. An id it does not know refuses the whole request; an item deactivated since you loaded the catalogue is dropped and counted.
+             */
+            stockItemId: string;
+            /** @description A positive quantity, or `-1` for an item your rules could not put a number on and a team leader must decide. `-1` beats any model quantity, so the request cannot be lost behind one. */
+            quantity: number;
+        };
         ParcelLine: {
             /** Format: uuid */
             stockItemId: string;
             name: string;
+            /** @description The stock item's description, for printing under the name. No `category` here: the sheet is walked in shelf order, and the amendment screen takes its grouping from `GET /stock/items`. */
+            description: string | null;
             shelfNumber: string;
+            /** @description A positive count, or **`-1`** for an item a team leader must still settle: the household asked for it and the rules could not put a number on it. Render `-1` as *needs attention*, never as a quantity — it is the absence of one. Replace it with a positive quantity, or send `0` to remove the line. A parcel holding one cannot be reviewed, so it can reach neither a printed sheet nor the stock ledger. */
             quantity: number;
-            /**
-             * @description `manual` means a human changed it after generation.
-             * @enum {string}
-             */
-            source: "model" | "manual";
         };
         Parcel: {
             /** Format: uuid */
@@ -4224,6 +5292,8 @@ export interface components {
     parameters: {
         Id: string;
         SessionId: string;
+        /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` follows the shelf numbers so a volunteer walks the warehouse once — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
+        StockOrder: "category" | "shelf";
     };
     requestBodies: never;
     headers: never;

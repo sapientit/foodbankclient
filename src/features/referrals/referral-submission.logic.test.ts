@@ -4,6 +4,7 @@ import type {
   KeyFieldName,
   ReferralFormDefinition,
 } from './referral-form-definition';
+import type { ReferralLookups } from './referral-lookups';
 import {
   describeSubmission,
   preferenceQuestions,
@@ -17,6 +18,24 @@ function form(...questions: FormQuestion[]): ReferralFormDefinition {
 function keyField(field: KeyFieldName, required = true): FormQuestion {
   return { key: field, type: 'keyField', field, label: field, required };
 }
+
+const SESSION_ID = '00000000-0000-4000-8000-000000000001';
+const REASON_ID = '00000000-0000-4000-8000-000000000002';
+
+const lookups: ReferralLookups = {
+  sessions: [
+    {
+      id: SESSION_ID,
+      sessionDate: '2026-08-11',
+      startTime: '10:00',
+      location: "St Mary's Hall",
+    },
+  ],
+  referralReasons: [{ id: REASON_ID, label: 'Low income' }],
+};
+
+/** Neither list arrived. The fallback path, not the normal one. */
+const noLookups: ReferralLookups = { sessions: [], referralReasons: [] };
 
 describe('splitSubmission', () => {
   it('puts key fields at the top level and everything else in the answers bag', () => {
@@ -204,8 +223,39 @@ describe('describeSubmission', () => {
     });
 
     expect(
-      describeSubmission(definition, { refereeSurname: 'Robinson', Dietary: 'No nuts' }),
+      describeSubmission(definition, { refereeSurname: 'Robinson', Dietary: 'No nuts' }, lookups),
     ).toEqual([{ label: 'refereeSurname', value: 'Robinson' }]);
+  });
+
+  /**
+   * The session and the reason are the two answers a referrer cannot check
+   * against an id, and checking is the only thing this screen is for.
+   */
+  it('shows the session and the reason as words, never as the ids that were sent', () => {
+    const definition = form(keyField('sessionId'), keyField('reasonId'));
+
+    const lines = describeSubmission(
+      definition,
+      { sessionId: SESSION_ID, reasonId: REASON_ID },
+      lookups,
+    );
+
+    expect(lines).toEqual([
+      { label: 'sessionId', value: "Tue, 11 Aug 2026 at 10:00 — St Mary's Hall" },
+      { label: 'reasonId', value: 'Low income' },
+    ]);
+    expect(JSON.stringify(lines)).not.toContain(SESSION_ID);
+    expect(JSON.stringify(lines)).not.toContain(REASON_ID);
+  });
+
+  it('falls back to what was sent if a lookup is unexpectedly unavailable', () => {
+    // Not the normal path and not worth a blank line where the session should
+    // be: something unhelpful still tells them to ring.
+    const definition = form(keyField('sessionId'));
+
+    expect(describeSubmission(definition, { sessionId: SESSION_ID }, noLookups)).toEqual([
+      { label: 'sessionId', value: SESSION_ID },
+    ]);
   });
 
   it('leaves out a mandatory question that is greyed out', () => {
@@ -219,7 +269,9 @@ describe('describeSubmission', () => {
       enabledWhen: { questionKey: 'needsFuelHelp', hasAnswer: 'Yes' },
     });
 
-    expect(describeSubmission(definition, { needsFuelHelp: '', 'Pre-Payment': 'Yes' })).toEqual([]);
+    expect(
+      describeSubmission(definition, { needsFuelHelp: '', 'Pre-Payment': 'Yes' }, lookups),
+    ).toEqual([]);
   });
 });
 

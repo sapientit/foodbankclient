@@ -45,7 +45,9 @@ export function SessionSmsPanel({ sessionId, parcels }: { sessionId: string; par
           if (sending.current) return;
           sending.current = true;
           send.mutate(sessionId, {
-            onSuccess: (response) => setResult(response),
+            onSuccess: (response) => {
+              setResult(response);
+            },
             onSettled: () => {
               sending.current = false;
             },
@@ -107,7 +109,7 @@ function SmsConversation({
       >
         <summary className={unreadCount > 0 ? styles.unreadButton : undefined}>
           {name}: {messageCount} {messageCount === 1 ? 'message' : 'messages'}
-          {unreadCount > 0 && `, ${unreadCount} unread`}
+          {unreadCount > 0 && `, ${String(unreadCount)} unread`}
         </summary>
         {thread.isPending && <Spinner label="Loading messages…" />}
         {thread.isError && (
@@ -129,7 +131,9 @@ function SmsConversation({
           Reply by SMS
           <textarea
             maxLength={480}
-            onChange={(event) => setBody(event.target.value)}
+            onChange={(event) => {
+              setBody(event.target.value);
+            }}
             value={body}
           />
         </label>
@@ -139,7 +143,14 @@ function SmsConversation({
         <button
           disabled={body.trim() === '' || reply.isPending}
           onClick={() => {
-            reply.mutate({ referralId, body: body.trim() }, { onSuccess: () => setBody('') });
+            reply.mutate(
+              { referralId, body: body.trim() },
+              {
+                onSuccess: () => {
+                  setBody('');
+                },
+              },
+            );
           }}
           type="button"
         >
@@ -160,11 +171,11 @@ export function UnmatchedSmsScreen() {
   return (
     <section aria-labelledby="unmatched-sms-heading">
       <h1 id="unmatched-sms-heading">Unmatched SMS replies</h1>
-      {messages.data?.messages.length === 0 ? (
+      {messages.data.messages.length === 0 ? (
         <p>No unmatched replies.</p>
       ) : (
         <ul className={styles.thread}>
-          {messages.data?.messages.map((message) => (
+          {messages.data.messages.map((message) => (
             <li key={message.id}>
               <p>
                 <strong>{message.phone ?? 'No phone number'}</strong> — {message.body}
@@ -177,7 +188,9 @@ export function UnmatchedSmsScreen() {
               {message.readAt === null && (
                 <button
                   disabled={markRead.isPending}
-                  onClick={() => markRead.mutate(message.id)}
+                  onClick={() => {
+                    markRead.mutate(message.id);
+                  }}
                   type="button"
                 >
                   Mark read

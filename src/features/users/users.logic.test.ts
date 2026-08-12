@@ -45,7 +45,8 @@ describe('ROLE_LABELS', () => {
   it('recognises only the roles it can label', () => {
     expect(isRole('admin')).toBe(true);
     expect(isRole('team_lead')).toBe(true);
-    // The database still permits `volunteer`, but no route grants one anything.
+    expect(isRole('fuel_admin')).toBe(true);
+    // Removed from the API: offering it would now submit a 400.
     expect(isRole('volunteer')).toBe(false);
     expect(isRole(undefined)).toBe(false);
   });
@@ -225,7 +226,7 @@ describe('classifyLockoutConflict', () => {
 
 describe('the role type', () => {
   it('is the generated union, so a new server role fails to compile here first', () => {
-    const roles: Role[] = ['admin', 'team_lead'];
+    const roles: Role[] = ['admin', 'team_lead', 'fuel_admin'];
 
     expect(roles.every(isRole)).toBe(true);
   });

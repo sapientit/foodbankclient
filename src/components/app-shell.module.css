@@ -23,6 +23,7 @@
 }
 
 .header {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -38,25 +39,20 @@
   text-decoration: none;
 }
 
-/* Shown only under the narrow breakpoint. */
 .disclosure {
-  display: none;
   margin-inline-start: auto;
   padding: 0.45rem 0.85rem;
   font: inherit;
 }
 
 .navList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.75rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .navList a {
-  display: inline-block;
+  display: block;
   padding: 0.4rem 0.5rem;
   border-radius: 0.25rem;
   /* #444 on white is 9.7:1. */
@@ -79,6 +75,40 @@
   margin-inline-start: auto;
 }
 
+.nav {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: calc(100% - 0.25rem);
+  inset-inline-end: 1rem;
+  display: none;
+  inline-size: min(22rem, calc(100vw - 2rem));
+  max-block-size: calc(100dvh - 5rem);
+  overflow-y: auto;
+  padding: 0.5rem;
+  background: #ffffff;
+  border: 1px solid #a0a0a0;
+  border-radius: 0.25rem;
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 20%);
+}
+
+.nav[data-open='true'] {
+  display: block;
+}
+
+.menuGroup {
+  padding: 0.5rem;
+}
+
+.menuGroup + .menuGroup {
+  border-block-start: 1px solid #d4d4d4;
+}
+
+.groupLabel {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
 .userName {
   font-weight: 600;
 }
@@ -96,39 +126,9 @@
   padding: 1.5rem 1rem;
 }
 
-/*
- * Volunteers are on phones. Below this the nav collapses behind the disclosure
- * button, and the DOM order already puts the menu directly under it — so the
- * visual order and the tab order agree without any `order` juggling, which is
- * the usual way a responsive header becomes unusable with a keyboard.
- */
 @media (max-width: 700px) {
-  .disclosure {
-    display: inline-block;
-  }
-
-  .nav {
-    display: none;
-    flex-basis: 100%;
-  }
-
-  .nav[data-open='true'] {
-    display: block;
-  }
-
-  .navList {
-    flex-direction: column;
-    gap: 0;
-  }
-
   .navList a {
-    display: block;
     padding: 0.65rem 0.5rem;
-  }
-
-  .account {
-    flex-basis: 100%;
-    margin-inline-start: 0;
   }
 }
 

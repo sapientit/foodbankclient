@@ -1,6 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useId, useMemo, useState } from 'react';
-import { useForm, type UseFormSetError } from 'react-hook-form';
+import {
+  useForm,
+  type FieldError,
+  type UseFormRegister,
+  type UseFormSetError,
+} from 'react-hook-form';
 import { Link, useParams } from 'react-router';
 import * as z from 'zod';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
@@ -22,15 +27,16 @@ import { referralFormDefinition } from '../referral-form-config';
 import {
   useAmendReferral,
   useCancelReferral,
+  useMarkReferralReviewed,
   useReferral,
   useReviewReferral,
+  useRepeatReferrals,
   type AmendReferralInput,
   type Referral,
+  type RepeatReferralMatch,
   type ReviewDecision,
 } from '../queries';
 import {
-  ADULTS_BOUNDS,
-  CHILDREN_BOUNDS,
   MAX_CANCEL_REASON_LENGTH,
   MAX_REVIEW_COMMENT_LENGTH,
   MAX_REFEREE_ADDRESS_LENGTH,
@@ -39,12 +45,14 @@ import {
   REFERRAL_STATUS_LABELS,
   describeLockedReferral,
   hasAdminFields,
+  hasRepeatReferralSummary,
   isAwaitingReview,
   isPurged,
   moveCapacityWarning,
   parseWholeNumber,
   refereeName,
 } from '../referrals.logic';
+import { ADULTS_BOUNDS, CHILDREN_BOUNDS } from '../referral-key-fields';
 import styles from './referral-detail-screen.module.css';
 
 /**
@@ -112,6 +120,10 @@ function ReferralDetail({ referral }: { referral: Referral }) {
     <>
       <PageHeader title={title} />
 
+      {isAdminView && referral.status === 'active' && (
+        <MarkReviewedButton referralId={referral.id} />
+      )}
+
       <dl className={styles.static}>
         <dt>Status</dt>
         <dd>
@@ -176,15 +188,17 @@ function ReferralDetail({ referral }: { referral: Referral }) {
         </p>
       )}
 
-      {/* Above the amend form on purpose: whether this household is coming at
-          all is the first question somebody opening a pending referral has. */}
-      {isAdminView && isAwaitingReview(referral) && <ReviewPanel referral={referral} />}
+      {hasRepeatReferralSummary(referral) && <PreviousReferralsPanel referral={referral} />}
 
-      {/* Every answer, not only the preferences — this is the referral, and an
-          administrator taking a correction by phone needs all of it. The
-          preferences-only view is the pick-list screen's job. */}
-      <h2>Answers from the referral form</h2>
-      <AnswersList display={answers} />
+      {/* A decision about whether the household is coming belongs near the
+          matching-referral context, before the editable household details. */}
+      {!purged && (
+        <section className={styles.section}>
+          <h2>Referral actions</h2>
+          {isAdminView && isAwaitingReview(referral) && <ReviewPanel referral={referral} />}
+          <CancelPanel locked={locked} lockedId={lockedId} referral={referral} />
+        </section>
+      )}
 
       {!purged &&
         (isAdminView && reasons.isPending ? (
@@ -213,8 +227,171 @@ function ReferralDetail({ referral }: { referral: Referral }) {
         sessions={sessions.data ?? []}
       />
 
-      <CancelPanel locked={locked} lockedId={lockedId} referral={referral} />
+      {/* Every answer, not only the preferences — this is the referral, and an
+          administrator taking a correction by phone needs all of it. The
+          preferences-only view is the pick-list screen's job. */}
+      <section className={styles.section}>
+        <h2>Answers from the referral form</h2>
+        <AnswersList display={answers} />
+      </section>
+
+      {isAdminView && referral.status === 'active' && (
+        <MarkReviewedButton referralId={referral.id} />
+      )}
     </>
+  );
+}
+
+function MarkReviewedButton({ referralId }: { referralId: string }) {
+  const review = useMarkReferralReviewed();
+
+  return (
+    <div className={styles.reviewAction}>
+      {review.error !== null && <ErrorNotice error={review.error} />}
+      <button
+        aria-disabled={review.isPending}
+        className={styles.submit}
+        onClick={() => {
+          review.mutate(referralId);
+        }}
+        type="button"
+      >
+        {review.isPending ? 'Marking reviewed…' : 'Mark reviewed'}
+      </button>
+    </div>
+  );
+}
+
+const REPEAT_REFERRAL_OUTCOME_LABELS: Record<RepeatReferralMatch['outcome'], string> = {
+  attended: 'Attended',
+  no_show: 'Did not attend',
+  booked: 'Booked',
+};
+
+const REPEAT_REFERRAL_MATCH_LABELS: Record<RepeatReferralMatch['matchedOn'][number], string> = {
+  date_of_birth: 'Date of birth',
+  postcode: 'Postcode',
+  phone: 'Phone number',
+};
+
+/**
+ * The summary comes with the referral, but match details wait for this action:
+ * they are another household's personal data and must not cross the wire until
+ * an administrator asks for them. The results inform a decision; they never
+ * disable any of the review actions above.
+ */
+function PreviousReferralsPanel({ referral }: { referral: Referral }) {
+  const [showMatches, setShowMatches] = useState(false);
+  const [excludePostcode, setExcludePostcode] = useState(false);
+  const repeatReferrals = useRepeatReferrals(referral.id, excludePostcode, showMatches);
+  const summary = referral.repeatReferrals;
+
+  if (summary === undefined) return null;
+
+  // Until the filtered request has returned, keep the original summary on
+  // screen rather than pretending that an in-flight request found no matches.
+  const displayedSummary = repeatReferrals.data ?? summary;
+
+  return (
+    <section className={styles.section}>
+      <h2>Previous referrals</h2>
+      {displayedSummary.count === 0 ? (
+        <p>No previous referrals were found in the last twelve months.</p>
+      ) : (
+        <>
+          <p>
+            {`${String(displayedSummary.count)} previous possible ${displayedSummary.count === 1 ? 'referral' : 'referrals'} in the last twelve months.`}
+            {displayedSummary.mostRecentSessionDate !== null && (
+              <>
+                {' '}
+                Most recent session: {formatSessionDate(displayedSummary.mostRecentSessionDate)}.
+              </>
+            )}
+          </p>
+          {!showMatches && (
+            <button
+              className={styles.submit}
+              onClick={() => {
+                setShowMatches(true);
+              }}
+              type="button"
+            >
+              Show previous referrals
+            </button>
+          )}
+        </>
+      )}
+
+      <label>
+        <input
+          checked={excludePostcode}
+          onChange={(event) => {
+            setExcludePostcode(event.target.checked);
+            setShowMatches(true);
+          }}
+          type="checkbox"
+        />{' '}
+        Exclude postcode matches
+      </label>
+
+      {showMatches && repeatReferrals.isPending && <Spinner label="Loading previous referrals…" />}
+
+      {showMatches && repeatReferrals.isError && (
+        <ErrorNotice
+          error={repeatReferrals.error}
+          onRetry={() => {
+            void repeatReferrals.refetch();
+          }}
+        />
+      )}
+
+      {showMatches && repeatReferrals.isSuccess && (
+        <PreviousReferralsTable matches={repeatReferrals.data.matches} />
+      )}
+    </section>
+  );
+}
+
+function PreviousReferralsTable({ matches }: { matches: readonly RepeatReferralMatch[] }) {
+  if (matches.length === 0) return <p>No matching previous referrals were found.</p>;
+
+  return (
+    <div className={styles.tableWrap}>
+      <table className={styles.previousReferralsTable}>
+        <thead>
+          <tr>
+            <th scope="col">Household</th>
+            <th scope="col">Date of birth</th>
+            <th scope="col">Address</th>
+            <th scope="col">Postcode</th>
+            <th scope="col">Phone</th>
+            <th scope="col">Session</th>
+            <th scope="col">Outcome</th>
+            <th scope="col">Matched on</th>
+          </tr>
+        </thead>
+        <tbody>
+          {matches.map((match) => (
+            <tr key={match.referralId}>
+              <td>{refereeName(match) ?? '—'}</td>
+              <td>
+                {match.refereeDateOfBirth === null
+                  ? '—'
+                  : formatCalendarDate(match.refereeDateOfBirth)}
+              </td>
+              <td>{match.refereeAddress ?? '—'}</td>
+              <td>{match.refereePostcode ?? '—'}</td>
+              <td>{match.refereePhone ?? '—'}</td>
+              <td>{formatSessionDate(match.sessionDate)}</td>
+              <td>{REPEAT_REFERRAL_OUTCOME_LABELS[match.outcome]}</td>
+              <td>
+                {match.matchedOn.map((field) => REPEAT_REFERRAL_MATCH_LABELS[field]).join(', ')}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -250,8 +427,8 @@ function ReviewPanel({ referral }: { referral: Referral }) {
   };
 
   return (
-    <section className={styles.section}>
-      <h2>This referral is awaiting review</h2>
+    <div className={styles.actionPanel}>
+      <h3>This referral is awaiting review</h3>
       <p>
         We do not recognise{' '}
         {referral.referrerEmail === null ? 'the referrer’s email address' : referral.referrerEmail},
@@ -286,7 +463,7 @@ function ReviewPanel({ referral }: { referral: Referral }) {
           }}
           type="button"
         >
-          Accept this referral
+          Approve this referral
         </button>
         <button
           aria-disabled={review.isPending}
@@ -303,12 +480,12 @@ function ReviewPanel({ referral }: { referral: Referral }) {
       {confirming !== null && (
         <ConfirmDialog
           busy={review.isPending}
-          confirmLabel={confirming === 'accept' ? 'Accept referral' : 'Reject referral'}
+          confirmLabel={confirming === 'accept' ? 'Approve referral' : 'Reject referral'}
           onCancel={() => {
             setConfirming(null);
           }}
           onConfirm={() => void decide(confirming)}
-          title={confirming === 'accept' ? 'Accept this referral?' : 'Reject this referral?'}
+          title={confirming === 'accept' ? 'Approve this referral?' : 'Reject this referral?'}
         >
           <p>
             {confirming === 'accept'
@@ -317,7 +494,7 @@ function ReviewPanel({ referral }: { referral: Referral }) {
           </p>
         </ConfirmDialog>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -346,16 +523,9 @@ function AnswersList({ display }: { display: AnswersDisplay }) {
   }
 }
 
-const ADULTS_MESSAGES: Record<string, string> = {
-  empty: 'Enter how many adults are in the household.',
+const AGE_BAND_MESSAGES: Record<string, string> = {
+  empty: 'Enter a number — use 0 if none.',
   'not-a-whole-number': 'Use a whole number, for example 2.',
-  'below-minimum': 'Every referral needs at least one adult.',
-  'above-maximum': 'Use 30 or fewer.',
-};
-
-const CHILDREN_MESSAGES: Record<string, string> = {
-  empty: 'Enter how many children are in the household — 0 if none.',
-  'not-a-whole-number': 'Use a whole number, for example 0.',
   'below-minimum': 'Cannot be negative.',
   'above-maximum': 'Use 30 or fewer.',
 };
@@ -381,7 +551,10 @@ function buildDetailsFormSchema(isAdminView: boolean) {
       .max(MAX_NAME_PART_LENGTH, `Use ${String(MAX_NAME_PART_LENGTH)} characters or fewer.`),
     refereeDateOfBirth: z.string().superRefine((value, ctx) => {
       if (!isCalendarDate(value)) {
-        ctx.addIssue({ code: 'custom', message: 'Enter a date of birth as day, month and year.' });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Enter a date of birth as day, month and year.',
+        });
         return;
       }
       if (value > londonToday()) {
@@ -406,17 +579,18 @@ function buildDetailsFormSchema(isAdminView: boolean) {
       ),
     refereePhone: z.string(),
     referrerPhone: z.string(),
-    adults: z.string().superRefine((value, ctx) => {
-      const parsed = parseWholeNumber(value, ADULTS_BOUNDS);
-      if (!parsed.ok) ctx.addIssue({ code: 'custom', message: ADULTS_MESSAGES[parsed.problem] });
-    }),
-    children: z.string().superRefine((value, ctx) => {
-      const parsed = parseWholeNumber(value, CHILDREN_BOUNDS);
-      if (!parsed.ok) ctx.addIssue({ code: 'custom', message: CHILDREN_MESSAGES[parsed.problem] });
-    }),
+    adults: countSchema(ADULTS_BOUNDS),
+    children: countSchema(CHILDREN_BOUNDS),
     isDelivery: z.boolean(),
     needsFuelHelp: z.boolean(),
     reasonId: isAdminView ? z.string().min(1, 'Choose a reason.') : z.string(),
+  });
+}
+
+function countSchema(bounds: typeof ADULTS_BOUNDS | typeof CHILDREN_BOUNDS) {
+  return z.string().superRefine((value, ctx) => {
+    const parsed = parseWholeNumber(value, bounds);
+    if (!parsed.ok) ctx.addIssue({ code: 'custom', message: AGE_BAND_MESSAGES[parsed.problem] });
   });
 }
 
@@ -446,6 +620,7 @@ function DetailsForm({
   lockedId: string;
 }) {
   const amend = useAmendReferral();
+  const [editing, setEditing] = useState(false);
   const schema = useMemo(() => buildDetailsFormSchema(isAdminView), [isAdminView]);
 
   const nameId = useId();
@@ -503,7 +678,19 @@ function DetailsForm({
     const children = parseWholeNumber(values.children, CHILDREN_BOUNDS);
     if (!adults.ok || !children.ok) return;
 
-    const patch: AmendReferralInput = { answers: referral.answers };
+    const patch: AmendReferralInput = {
+      refereeFirstName: values.refereeFirstName,
+      refereeSurname: values.refereeSurname,
+      refereeDateOfBirth: values.refereeDateOfBirth,
+      refereeAddress: values.refereeAddress,
+      refereePostcode: values.refereePostcode,
+      refereePhone: values.refereePhone === '' ? null : values.refereePhone,
+      adults: adults.value,
+      children: children.value,
+      isDelivery: values.isDelivery,
+      needsFuelHelp: values.needsFuelHelp,
+    };
+    if (isAdminView) patch.reasonId = values.reasonId;
 
     try {
       await amend.mutateAsync({ id: referral.id, patch });
@@ -512,9 +699,61 @@ function DetailsForm({
     }
   });
 
+  if (!editing) {
+    const reason = reasons.find((candidate) => candidate.id === referral.reasonId);
+    return (
+      <section className={styles.section}>
+        <h2>Referral details</h2>
+        <dl className={styles.static}>
+          <dt>Name</dt>
+          <dd>{refereeName(referral) ?? '—'}</dd>
+          <dt>Date of birth</dt>
+          <dd>
+            {referral.refereeDateOfBirth === null
+              ? '—'
+              : formatCalendarDate(referral.refereeDateOfBirth)}
+          </dd>
+          <dt>Address</dt>
+          <dd>{referral.refereeAddress ?? '—'}</dd>
+          <dt>Postcode</dt>
+          <dd>{referral.refereePostcode ?? '—'}</dd>
+          <dt>Phone</dt>
+          <dd>{referral.refereePhone ?? '—'}</dd>
+          <dt>Adults</dt>
+          <dd>{referral.adults}</dd>
+          <dt>Children</dt>
+          <dd>{referral.children}</dd>
+          <dt>Delivery</dt>
+          <dd>{referral.isDelivery ? 'Yes' : 'No'}</dd>
+          <dt>Fuel help</dt>
+          <dd>{referral.needsFuelHelp ? 'Yes' : 'No'}</dd>
+          {isAdminView && (
+            <>
+              <dt>Reason for referral</dt>
+              <dd>{reason?.label ?? '—'}</dd>
+              <dt>Referrer phone</dt>
+              <dd>{referral.referrerPhone ?? '—'}</dd>
+            </>
+          )}
+        </dl>
+        <button
+          aria-describedby={locked === null ? undefined : lockedId}
+          aria-disabled={locked !== null}
+          className={styles.submit}
+          onClick={() => {
+            if (locked === null) setEditing(true);
+          }}
+          type="button"
+        >
+          Edit details
+        </button>
+      </section>
+    );
+  }
+
   return (
-    <>
-      <h2>Amend details</h2>
+    <section className={styles.section}>
+      <h2>Edit referral details</h2>
 
       {amend.error !== null && !isFieldFailure(amend.error) && <ErrorNotice error={amend.error} />}
 
@@ -629,43 +868,22 @@ function DetailsForm({
           </div>
         )}
 
-        <div className={styles.field}>
-          <label htmlFor={adultsId}>Adults</label>
-          <input
-            {...register('adults')}
-            aria-describedby={errors.adults === undefined ? undefined : adultsErrorId}
-            aria-invalid={errors.adults === undefined ? undefined : true}
-            autoComplete="off"
-            className={styles.input}
-            id={adultsId}
-            inputMode="numeric"
-            type="text"
-          />
-          {errors.adults !== undefined && (
-            <p className={styles.fieldError} id={adultsErrorId}>
-              {errors.adults.message}
-            </p>
-          )}
-        </div>
-
-        <div className={styles.field}>
-          <label htmlFor={childrenId}>Children</label>
-          <input
-            {...register('children')}
-            aria-describedby={errors.children === undefined ? undefined : childrenErrorId}
-            aria-invalid={errors.children === undefined ? undefined : true}
-            autoComplete="off"
-            className={styles.input}
-            id={childrenId}
-            inputMode="numeric"
-            type="text"
-          />
-          {errors.children !== undefined && (
-            <p className={styles.fieldError} id={childrenErrorId}>
-              {errors.children.message}
-            </p>
-          )}
-        </div>
+        <AgeBandField
+          label="Adults"
+          field="adults"
+          id={adultsId}
+          errorId={adultsErrorId}
+          register={register}
+          error={errors.adults}
+        />
+        <AgeBandField
+          label="Children"
+          field="children"
+          id={childrenId}
+          errorId={childrenErrorId}
+          register={register}
+          error={errors.children}
+        />
 
         <div className={styles.checkboxField}>
           <label>
@@ -689,6 +907,7 @@ function DetailsForm({
               {...register('reasonId')}
               aria-describedby={errors.reasonId === undefined ? undefined : reasonErrorId}
               aria-invalid={errors.reasonId === undefined ? undefined : true}
+              className={styles.select}
               id={reasonSelectId}
             >
               <option value="">Choose a reason</option>
@@ -716,9 +935,17 @@ function DetailsForm({
           >
             {isSubmitting ? 'Saving…' : 'Save changes'}
           </button>
+          <button
+            onClick={() => {
+              setEditing(false);
+            }}
+            type="button"
+          >
+            Cancel editing
+          </button>
         </div>
       </form>
-    </>
+    </section>
   );
 }
 
@@ -790,9 +1017,10 @@ function MovePanel({
         }}
       >
         <div className={styles.field}>
-          <label htmlFor={selectId}>Session</label>
+          <label htmlFor={selectId}>Choose session to move to</label>
           <select
             aria-describedby={formError === null ? undefined : formErrorId}
+            className={styles.select}
             id={selectId}
             onChange={(event) => {
               setTargetSessionId(event.target.value);
@@ -862,8 +1090,8 @@ function CancelPanel({
   };
 
   return (
-    <section className={styles.section}>
-      <h2>Cancel this referral</h2>
+    <div className={styles.actionPanel}>
+      <h3>Cancel this referral</h3>
 
       {cancel.error !== null && <ErrorNotice error={cancel.error} />}
 
@@ -906,12 +1134,49 @@ function CancelPanel({
           </div>
         </ConfirmDialog>
       )}
-    </section>
+    </div>
   );
 }
 
 function isFieldFailure(error: unknown): boolean {
   return error instanceof ApiError && error.status === 400;
+}
+
+function AgeBandField({
+  label,
+  field,
+  id,
+  errorId,
+  register,
+  error,
+}: {
+  readonly label: string;
+  readonly field: 'adults' | 'children';
+  readonly id: string;
+  readonly errorId: string;
+  readonly register: UseFormRegister<DetailsFormValues>;
+  readonly error: FieldError | undefined;
+}) {
+  return (
+    <div className={styles.field}>
+      <label htmlFor={id}>{label}</label>
+      <input
+        {...register(field)}
+        aria-describedby={error === undefined ? undefined : errorId}
+        aria-invalid={error === undefined ? undefined : true}
+        autoComplete="off"
+        className={styles.input}
+        id={id}
+        inputMode="numeric"
+        type="text"
+      />
+      {error !== undefined && (
+        <p className={styles.fieldError} id={errorId}>
+          {error.message}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function applyFieldErrors(error: unknown, setError: UseFormSetError<DetailsFormValues>): void {

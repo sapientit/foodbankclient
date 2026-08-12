@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string) => {
     const user = await startSession(email);
     setState({ status: 'signed-in', user });
+    return user;
   }, []);
 
   const signOut = useCallback(async () => {

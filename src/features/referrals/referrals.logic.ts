@@ -123,6 +123,13 @@ export function hasAdminFields(referral: Referral): referral is Referral & {
   return Object.hasOwn(referral, 'reasonId');
 }
 
+/** The previous-referral summary is withheld with the rest of the admin review data. */
+export function hasRepeatReferralSummary(
+  referral: Referral,
+): referral is Referral & { repeatReferrals: NonNullable<Referral['repeatReferrals']> } {
+  return Object.hasOwn(referral, 'repeatReferrals');
+}
+
 export function isPurged(referral: Pick<Referral, 'piiPurgedAt'>): boolean {
   return referral.piiPurgedAt !== null;
 }

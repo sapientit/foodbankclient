@@ -13,11 +13,11 @@ function envelope(status: number, code: string, message: string) {
   return HttpResponse.json({ error: { code, message, requestId: 'r1' } }, { status });
 }
 
-function signedIn() {
+function signedIn(role: 'admin' | 'fuel_admin' = 'admin') {
   return HttpResponse.json({
     accessToken: 'fresh-token',
     expiresAt: Math.floor(Date.now() / 1000) + 900,
-    user: { id: 'u1', email: 'pete@x.com', displayName: 'Pete Bennett', role: 'admin' },
+    user: { id: 'u1', email: 'pete@x.com', displayName: 'Pete Bennett', role },
   });
 }
 
@@ -28,6 +28,7 @@ function renderLogin(entry = '/login') {
         <Routes>
           <Route path="/login" element={<LoginScreen />} />
           <Route path="/sessions" element={<p>Sessions</p>} />
+          <Route path="/fuel-help" element={<p>Fuel help list</p>} />
           <Route path="/" element={<p>Home</p>} />
         </Routes>
       </AuthProvider>
@@ -46,6 +47,12 @@ afterEach(() => {
 });
 
 describe('sign-in screen', () => {
+  it('shows the Foodbank banner above the sign-in form', () => {
+    renderLogin();
+
+    expect(screen.getByRole('img', { name: 'Foodbank logo' })).toBeInTheDocument();
+  });
+
   it('returns to the page that asked for a sign-in', async () => {
     server.use(http.post(DEV_LOGIN, () => signedIn()));
     renderLogin('/login?next=%2Fsessions');
@@ -64,6 +71,15 @@ describe('sign-in screen', () => {
     await submit('pete@x.com');
 
     expect(await screen.findByText('Home')).toBeInTheDocument();
+  });
+
+  it('takes a fuel administrator straight to the fuel help list', async () => {
+    server.use(http.post(DEV_LOGIN, () => signedIn('fuel_admin')));
+    renderLogin();
+
+    await submit('fuel@x.com');
+
+    expect(await screen.findByText('Fuel help list')).toBeInTheDocument();
   });
 
   it('shows the same message for an unknown address as for a bad credential', async () => {

@@ -79,6 +79,7 @@ const dynamicQuestionSchema = z.object({
       optionsFrom: z.literal('referralReasons').optional(),
       maxAnswerLength: z.number().int().positive().optional(),
     }),
+    z.object({ type: z.literal('HouseholdComposition') }),
   ]),
   answers: z.array(z.string().min(1)).optional(),
   default: z.array(z.string().min(1)).optional(),
@@ -259,6 +260,9 @@ function toQuestion(raw: RawQuestion): FormQuestion {
 
     case 'CheckBox':
       return toChoiceQuestion(base, raw.validation, raw);
+
+    case 'HouseholdComposition':
+      return { ...base, type: 'householdComposition' };
   }
 }
 

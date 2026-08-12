@@ -4,6 +4,7 @@ import { AppShell } from './components/app-shell';
 import { NotFound } from './components/not-found';
 import { RouteError } from './components/route-error';
 import { HomeScreen } from './features/home/home-screen';
+import { FuelHelpListScreen } from './features/fuel-help/components/fuel-help-list-screen';
 import { LoginScreen } from './features/auth/login-screen';
 import { PublicReferralScreen } from './features/referrals/components/public-referral-screen';
 import {
@@ -13,9 +14,12 @@ import {
   RunSessionsScreen,
 } from './features/pick-lists/components/run-sessions-screen';
 import { ListenerSheetScreen } from './features/pick-lists/components/listener-sheet-screen';
+import { SessionReferralDetailsScreen } from './features/pick-lists/components/session-referral-details-screen';
 import { UnmatchedSmsScreen } from './features/pick-lists/components/sms-panel';
+import { PreferenceRuleHealthScreen } from './features/pick-lists/components/preference-rule-health-screen';
 import { ReferralDetailScreen } from './features/referrals/components/referral-detail-screen';
 import { ReferralsScreen } from './features/referrals/components/referrals-screen';
+import { ReferralSearchScreen } from './features/referrals/components/referral-search-screen';
 import { AmendRecurringSessionScreen } from './features/sessions/components/amend-recurring-session-screen';
 import { CreateRecurringSessionScreen } from './features/sessions/components/create-recurring-session-screen';
 import { CreateSessionScreen } from './features/sessions/components/create-session-screen';
@@ -40,6 +44,7 @@ import { StockTakeScreen } from './features/stock/components/stock-take-screen';
 import { AmendUserScreen } from './features/users/components/amend-user-screen';
 import { CreateUserScreen } from './features/users/components/create-user-screen';
 import { UsersScreen } from './features/users/components/users-screen';
+import { ExtractScreen } from './features/extracts/components/extract-screen';
 
 /**
  * The route table, and the shape of it is the point.
@@ -126,13 +131,21 @@ export const routes: RouteObject[] = [
        * because a referral can only be created through the public flow.
        */
       { path: 'referrals', element: <ReferralsScreen /> },
+      { path: 'referrals/search', element: <ReferralSearchScreen /> },
       { path: 'referrals/:referralId', element: <ReferralDetailScreen /> },
       { path: 'run-sessions', element: <RunSessionsScreen /> },
       { path: 'run-sessions/:sessionId/print', element: <PickListPrintScreen /> },
       { path: 'run-sessions/:sessionId/listener', element: <ListenerSheetScreen /> },
+      {
+        path: 'run-sessions/:sessionId/referral-details',
+        element: <SessionReferralDetailsScreen />,
+      },
       { path: 'sms/unmatched', element: <UnmatchedSmsScreen /> },
       { path: 'run-sessions/:sessionId/clients/:parcelId', element: <RunSessionClientScreen /> },
       { path: 'run-sessions/:sessionId', element: <RunSessionDetailScreen /> },
+      { path: 'preference-rules', element: <PreferenceRuleHealthScreen /> },
+      { path: 'fuel-help', element: <FuelHelpListScreen /> },
+      { path: 'extracts', element: <ExtractScreen /> },
       /*
        * Stock, and the role split inside it is the one that is easy to invert:
        * **taking stock is both roles, changing what stock items exist is admin

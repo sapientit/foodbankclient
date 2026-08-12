@@ -27,7 +27,14 @@ const MODEL_PARCELS = '/api/v1/model-parcels';
 const PARCEL_GRID = '/api/v1/parcel-grid';
 const STOCK_ITEMS = '/api/v1/stock/items';
 
-const BEANS: StockItem = { id: 's1', name: 'Baked beans', shelfNumber: 'A1', isActive: true };
+const BEANS: StockItem = {
+  id: 's1',
+  name: 'Baked beans',
+  category: 'Tinned goods',
+  description: null,
+  shelfNumber: 'A1',
+  isActive: true,
+};
 
 const SINGLE: ModelParcel = {
   id: 'p1',

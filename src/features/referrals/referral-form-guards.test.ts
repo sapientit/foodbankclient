@@ -55,7 +55,13 @@ describe('checkDefinitionLimits', () => {
         label: 'Address',
         required: true,
       },
-      { key: 'adults', type: 'keyField', field: 'adults', label: 'Adults', required: true },
+      {
+        key: 'adults',
+        type: 'keyField',
+        field: 'adults',
+        label: 'Adults',
+        required: true,
+      },
     );
 
     expect(checkDefinitionLimits(definition)).toEqual([]);

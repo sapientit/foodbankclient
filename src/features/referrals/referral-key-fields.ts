@@ -3,14 +3,15 @@ import { isCalendarDate, londonToday } from '../../lib/london-time';
 import { formatPostcode } from '../../lib/postcode';
 import type { KeyFieldName } from './referral-form-definition';
 import {
-  ADULTS_BOUNDS,
-  CHILDREN_BOUNDS,
   MAX_NAME_PART_LENGTH,
   MAX_REFEREE_ADDRESS_LENGTH,
   MAX_REFERRER_NAME_LENGTH,
   PHONE_BOUNDS,
   parseWholeNumber,
 } from './referrals.logic';
+
+export const ADULTS_BOUNDS = { minimum: 1, maximum: 30 };
+export const CHILDREN_BOUNDS = { minimum: 0, maximum: 30 };
 
 /**
  * The typed columns, and the rules the JSON config is deliberately not allowed

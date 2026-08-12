@@ -1,0 +1,31 @@
+.intro {
+  max-inline-size: 70ch;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+  vertical-align: top;
+  border-block-end: 1px solid #d4d4d4;
+  white-space: pre-wrap;
+}
+
+.table thead th {
+  border-block-end: 2px solid #1a1a1a;
+}
+
+/* Permission is the decision needed just before a call, so it must not recede
+   into the rest of the spreadsheet-shaped row. */
+.permission {
+  font-weight: 700;
+}

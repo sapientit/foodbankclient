@@ -18,6 +18,8 @@ const REFERRAL = '/api/v1/referrals/r1';
 const REFERRAL_CANCEL = '/api/v1/referrals/r1/cancel';
 const REFERRAL_ACCEPT = '/api/v1/referrals/r1/accept';
 const REFERRAL_REJECT = '/api/v1/referrals/r1/reject';
+const REFERRAL_REVIEW = '/api/v1/referrals/r1/review';
+const REPEAT_REFERRALS = '/api/v1/referrals/r1/repeat-referrals';
 const SESSIONS = '/api/v1/sessions';
 const REASONS = '/api/v1/referral-reasons';
 
@@ -45,6 +47,7 @@ function referral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral
     referrerEmail: 'referrer@riverside.org',
     referrerPhone: null,
     reviewComment: null,
+    repeatReferrals: { count: 0, mostRecentSessionDate: null },
     ...overrides,
   };
 }
@@ -99,6 +102,30 @@ beforeEach(() => {
 });
 
 describe('the admin referral detail screen', () => {
+  it('marks an active referral reviewed from either end of the detail screen', async () => {
+    let reviews = 0;
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'active' }))),
+      http.post(REFERRAL_REVIEW, ({ request }) => {
+        reviews += 1;
+        expect(request.headers.get('content-type')).toBeNull();
+        return HttpResponse.json(referral({ id: 'r1', status: 'reviewed' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    expect(await screen.findAllByRole('button', { name: 'Mark reviewed' })).toHaveLength(2);
+    await user.click(screen.getAllByRole('button', { name: 'Mark reviewed' })[0]!);
+
+    await waitFor(() => {
+      expect(reviews).toBe(1);
+    });
+    expect(screen.getByText('Reviewed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Mark reviewed' })).toBeNull();
+  });
+
   it('renders the fixed fields, the reason (admin only) and the referrer email (admin only)', async () => {
     server.use(http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1' }))));
 
@@ -107,7 +134,7 @@ describe('the admin referral detail screen', () => {
     expect(await screen.findByRole('heading', { name: 'Jamie Rowe' })).toBeInTheDocument();
     expect(screen.getByText('referrer@riverside.org')).toBeInTheDocument();
     expect(screen.getByText('Riverside Church')).toBeInTheDocument();
-    expect(await screen.findByLabelText('Reason for referral')).toHaveValue('q1');
+    expect(await screen.findByText('Financial hardship')).toBeInTheDocument();
   });
 
   it('shows a known answer by its label and an unknown key still, flagged as older', async () => {
@@ -149,6 +176,8 @@ describe('the admin referral detail screen', () => {
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     // Waits for the reasons query too — the form does not render until it
     // settles, since the reason field's options come from it.
+    await screen.findByRole('button', { name: 'Edit details' });
+    await user.click(screen.getByRole('button', { name: 'Edit details' }));
     const nameField = await screen.findByLabelText('Surname');
     await user.clear(nameField);
     await user.type(nameField, 'Rowe-Smith');
@@ -200,7 +229,7 @@ describe('the admin referral detail screen', () => {
     // Waits for the sessions query itself, not just the referral — selecting
     // before the option list has loaded is a race, not a real interaction.
     await screen.findByRole('option', { name: /Community Centre/ });
-    await user.selectOptions(screen.getByLabelText('Session'), 's2');
+    await user.selectOptions(screen.getByLabelText('Choose session to move to'), 's2');
 
     expect(await screen.findByText(/already has 25 of 25 places booked/)).toBeInTheDocument();
 
@@ -236,7 +265,7 @@ describe('the admin referral detail screen', () => {
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     await screen.findByRole('option', { name: /Spare Hall/ });
-    await user.selectOptions(screen.getByLabelText('Session'), 's3');
+    await user.selectOptions(screen.getByLabelText('Choose session to move to'), 's3');
     await user.click(screen.getByRole('button', { name: 'Move to this session' }));
 
     await waitFor(() => {
@@ -274,9 +303,134 @@ describe('the admin referral detail screen', () => {
     expect(screen.getByText('These were removed by the retention process.')).toBeInTheDocument();
     expect(screen.queryByLabelText('Name')).toBeNull();
     expect(screen.queryByText('undefined')).toBeNull();
-    // The screen still isn't broken elsewhere: moving and cancelling remain offered.
+    // The screen still isn't broken elsewhere: moving remains available.
     expect(screen.getByRole('heading', { name: 'Move to another session' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Cancel this referral' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Cancel this referral' })).toBeNull();
+  });
+
+  it('shows the previous-referral summary without requesting household details', async () => {
+    const matchesRequested = vi.fn();
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({
+            id: 'r1',
+            repeatReferrals: { count: 2, mostRecentSessionDate: '2026-08-11' },
+          }),
+        ),
+      ),
+      http.get(REPEAT_REFERRALS, () => {
+        matchesRequested();
+        return HttpResponse.json({ count: 2, mostRecentSessionDate: '2026-08-11', matches: [] });
+      }),
+    );
+
+    renderApp('/referrals/r1');
+
+    expect(await screen.findByRole('heading', { name: 'Previous referrals' })).toBeInTheDocument();
+    expect(screen.getByText(/2 previous possible referrals/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element !== null &&
+          element.tagName === 'P' &&
+          element.textContent.includes('Most recent session: Tue, 11 Aug 2026'),
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show previous referrals' })).toBeInTheDocument();
+    expect(matchesRequested).not.toHaveBeenCalled();
+  });
+
+  it('shows matching previous referrals only after an administrator asks', async () => {
+    const excludePostcodeRequests: string[] = [];
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({
+            id: 'r1',
+            repeatReferrals: { count: 2, mostRecentSessionDate: '2026-08-11' },
+          }),
+        ),
+      ),
+      http.get(REPEAT_REFERRALS, ({ request }) => {
+        excludePostcodeRequests.push(
+          new URL(request.url).searchParams.get('excludePostcode') ?? '',
+        );
+        return HttpResponse.json({
+          count: 2,
+          mostRecentSessionDate: '2026-08-11',
+          matches: [
+            {
+              referralId: 'r0',
+              sessionId: 's0',
+              sessionDate: '2026-08-11',
+              outcome: 'booked',
+              matchedOn: ['date_of_birth', 'postcode', 'phone'],
+              refereeFirstName: 'Jamie',
+              refereeSurname: 'Rowe',
+              refereeDateOfBirth: '1985-03-12',
+              refereeAddress: '1 Elm Street',
+              refereePostcode: 'AB1 2CD',
+              refereePhone: null,
+            },
+            {
+              referralId: 'r-older',
+              sessionId: 's-older',
+              sessionDate: '2026-07-04',
+              outcome: 'no_show',
+              matchedOn: ['postcode'],
+              refereeFirstName: null,
+              refereeSurname: null,
+              refereeDateOfBirth: null,
+              refereeAddress: null,
+              refereePostcode: null,
+              refereePhone: '07123 456789',
+            },
+          ],
+        });
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('button', { name: 'Show previous referrals' });
+    await user.click(screen.getByRole('button', { name: 'Show previous referrals' }));
+
+    expect(await screen.findByText('Booked')).toBeInTheDocument();
+    expect(screen.getByText('Did not attend')).toBeInTheDocument();
+    expect(screen.getByText('Date of birth, Postcode, Phone number')).toBeInTheDocument();
+    expect(screen.getByText('Tue, 11 Aug 2026')).toBeInTheDocument();
+    expect(screen.getByText('07123 456789')).toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+    expect(excludePostcodeRequests).toEqual(['false']);
+    await user.click(screen.getByRole('checkbox', { name: 'Exclude postcode matches' }));
+    await waitFor(() => {
+      expect(excludePostcodeRequests).toEqual(['false', 'true']);
+    });
+  });
+
+  it('shows an honest empty previous-referrals summary without offering a detail request', async () => {
+    const matchesRequested = vi.fn();
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({ id: 'r1', repeatReferrals: { count: 0, mostRecentSessionDate: null } }),
+        ),
+      ),
+      http.get(REPEAT_REFERRALS, () => {
+        matchesRequested();
+        return HttpResponse.json({ count: 0, mostRecentSessionDate: null, matches: [] });
+      }),
+    );
+
+    renderApp('/referrals/r1');
+
+    expect(
+      await screen.findByText('No previous referrals were found in the last twelve months.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show previous referrals' })).toBeNull();
+    expect(matchesRequested).not.toHaveBeenCalled();
   });
 
   it('offers accept and reject only while a referral is awaiting review', async () => {
@@ -285,7 +439,7 @@ describe('the admin referral detail screen', () => {
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     // An active referral has nothing to review.
-    expect(screen.queryByRole('button', { name: 'Accept this referral' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Approve this referral' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Reject this referral' })).toBeNull();
   });
 
@@ -306,16 +460,16 @@ describe('the admin referral detail screen', () => {
     expect(screen.getByText(/This referral is awaiting review/)).toBeInTheDocument();
 
     await user.type(screen.getByLabelText('Comment (optional)'), 'Rang the school, they are real.');
-    await user.click(screen.getByRole('button', { name: 'Accept this referral' }));
-    const dialog = within(screen.getByRole('dialog', { name: 'Accept this referral?' }));
-    await user.click(dialog.getByRole('button', { name: 'Accept referral' }));
+    await user.click(screen.getByRole('button', { name: 'Approve this referral' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Approve this referral?' }));
+    await user.click(dialog.getByRole('button', { name: 'Approve referral' }));
 
     await waitFor(() => {
       expect(body).toEqual({ comment: 'Rang the school, they are real.' });
     });
     // The panel goes once there is nothing left to decide.
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: 'Accept this referral' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Approve this referral' })).toBeNull();
     });
   });
 
@@ -365,9 +519,9 @@ describe('the admin referral detail screen', () => {
     const user = userEvent.setup();
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
-    await user.click(screen.getByRole('button', { name: 'Accept this referral' }));
-    const dialog = within(screen.getByRole('dialog', { name: 'Accept this referral?' }));
-    await user.click(dialog.getByRole('button', { name: 'Accept referral' }));
+    await user.click(screen.getByRole('button', { name: 'Approve this referral' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Approve this referral?' }));
+    await user.click(dialog.getByRole('button', { name: 'Approve referral' }));
 
     // A 409 carries the one useful sentence; a generic apology throws it away.
     expect(await screen.findByRole('alert')).toHaveTextContent(

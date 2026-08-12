@@ -53,6 +53,15 @@ async function fillIn({ email, name }: { email: string; name: string }) {
 }
 
 describe('adding a user', () => {
+  it('offers the fuel administrator role from the current server contract', async () => {
+    renderApp('/users/new');
+
+    expect(await screen.findByRole('option', { name: 'Fuel administrator' })).toHaveValue(
+      'fuel_admin',
+    );
+    expect(screen.queryByRole('option', { name: 'Volunteer' })).toBeNull();
+  });
+
   it('creates the account and comes back to the list showing it', async () => {
     let posted: unknown = null;
     const created: User = {

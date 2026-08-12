@@ -6,7 +6,13 @@ import {
 } from './referral-form-definition';
 import { parseIntegerAnswer } from './referral-form-schema';
 import { isEnabled, type FormAnswers } from './referral-form.logic';
-import { keyFieldValue } from './referral-key-fields';
+import { keyFieldSpec, keyFieldValue } from './referral-key-fields';
+import { lookupLabel, type ReferralLookups } from './referral-lookups';
+import {
+  isHouseholdComposition,
+  operationalHouseholdCounts,
+  type HouseholdComposition,
+} from './household-composition';
 
 /**
  * Takes a filled-in form apart into what `POST /public/referrals` wants: the
@@ -38,7 +44,9 @@ import { keyFieldValue } from './referral-key-fields';
 export type KeyFieldValues = Readonly<Record<string, string | number | boolean | null>>;
 
 /** The dynamic answers. A choice with more than one answer stays an array; the server stores whatever JSON it is given. */
-export type AnswersPayload = Readonly<Record<string, string | number | readonly string[]>>;
+export type AnswersPayload = Readonly<
+  Record<string, string | number | readonly string[] | HouseholdComposition>
+>;
 
 export interface ReferralSubmissionParts {
   readonly keyFields: KeyFieldValues;
@@ -55,7 +63,7 @@ export function splitSubmission(
   answers: FormAnswers,
 ): ReferralSubmissionParts {
   const keyFields: Record<string, string | number | boolean | null> = {};
-  const dynamic: Record<string, string | number | readonly string[]> = {};
+  const dynamic: Record<string, string | number | readonly string[] | HouseholdComposition> = {};
 
   for (const page of definition.pages) {
     for (const question of page.questions) {
@@ -73,6 +81,10 @@ export function splitSubmission(
       const value = toAnswerValue(question, held);
       if (value === null) continue;
       dynamic[question.key] = value;
+
+      if (question.type === 'householdComposition' && isHouseholdComposition(value)) {
+        Object.assign(keyFields, operationalHouseholdCounts(value));
+      }
     }
   }
 
@@ -82,12 +94,12 @@ export function splitSubmission(
 /** `null` means "leave this question out of `answers` entirely". */
 function toAnswerValue(
   question: DynamicQuestion,
-  held: string | readonly string[] | undefined,
-): string | number | readonly string[] | null {
+  held: string | readonly string[] | HouseholdComposition | undefined,
+): string | number | readonly string[] | HouseholdComposition | null {
   if (question.type === 'choice') {
     // Not `Array.isArray`: it widens a `readonly string[]` to `any[]`, which
     // costs the payload's type all the way out.
-    const selected: readonly string[] = held === undefined || typeof held === 'string' ? [] : held;
+    const selected: readonly string[] = Array.isArray(held) ? held : [];
     // The "None" case, and the only reason an empty array is not stored: it is
     // how the form renders "not asked for", not an answer of "nothing".
     if (selected.length === 0) return null;
@@ -96,6 +108,7 @@ function toAnswerValue(
     return question.answerMax === 1 ? (selected[0] ?? null) : [...selected];
   }
 
+  if (question.type === 'householdComposition') return isHouseholdComposition(held) ? held : null;
   if (typeof held !== 'string') return null;
   const trimmed = held.trim();
   if (trimmed === '') return null;
@@ -125,6 +138,7 @@ export interface ConfirmationLine {
 export function describeSubmission(
   definition: ReferralFormDefinition,
   answers: FormAnswers,
+  lookups: ReferralLookups,
 ): readonly ConfirmationLine[] {
   const lines: ConfirmationLine[] = [];
 
@@ -132,7 +146,7 @@ export function describeSubmission(
     for (const question of page.questions) {
       if (!question.required || !isEnabled(question, answers)) continue;
 
-      const value = confirmationValue(question, answers[question.key]);
+      const value = confirmationValue(question, answers[question.key], lookups);
       if (value === '') continue;
 
       lines.push({ label: question.label, value });
@@ -147,17 +161,36 @@ export function describeSubmission(
  * the difference matter: somebody types `gu234xx` and the referral stores
  * `GU23 4XX`, and a confirmation showing the first would be showing them
  * something that is not on their referral.
+ *
+ * **The two lookups are the exception, and they go the other way.** The session
+ * and the reason are sent as ids, and an id is exactly what a referrer cannot
+ * check — "is the session right?" is unanswerable against a UUID, and it is the
+ * question this screen exists to let them ask. So they read back as the words
+ * the dropdown offered. Falling back to the id is deliberate but is only ever
+ * reached if a lookup went missing between choosing and sending; something
+ * unhelpful beats a blank line where the session should be.
  */
 function confirmationValue(
   question: FormQuestion,
-  held: string | readonly string[] | undefined,
+  held: string | readonly string[] | HouseholdComposition | undefined,
+  lookups: ReferralLookups,
 ): string {
   if (question.type === 'keyField') {
     const sent = keyFieldValue(question.field, typeof held === 'string' ? held : '');
-    return sent === null ? '' : String(sent);
+    if (sent === null) return '';
+
+    const { control } = keyFieldSpec(question.field);
+    if (control.kind === 'lookup')
+      return lookupLabel(lookups, control.source, String(sent)) ?? String(sent);
+
+    return String(sent);
   }
 
-  return typeof held === 'string' ? held.trim() : (held ?? []).join(', ');
+  if (question.type === 'householdComposition' && isHouseholdComposition(held)) {
+    const { adults, children } = operationalHouseholdCounts(held);
+    return `${String(adults)} adults, ${String(children)} children`;
+  }
+  return typeof held === 'string' ? held.trim() : (Array.isArray(held) ? held : []).join(', ');
 }
 
 /** The preference answers on a submitted referral, in the order the form asks them — what the pick-list screen shows. */

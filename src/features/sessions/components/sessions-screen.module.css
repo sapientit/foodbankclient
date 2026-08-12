@@ -17,19 +17,8 @@
   margin-block-end: 1.5rem;
 }
 
-.groups {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.group {
-  border-block-start: 1px solid #d4d4d4;
-  padding-block-start: 0.75rem;
-}
-
 .date {
-  margin: 0 0 0.5rem;
-  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .list {

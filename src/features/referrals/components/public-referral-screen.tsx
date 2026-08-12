@@ -1,4 +1,5 @@
 import { useId, useMemo, useState } from 'react';
+import foodbankLogo from '../../../assets/foodbank-logo.webp';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
@@ -20,6 +21,7 @@ import {
   type AnswerValue,
   type FormAnswers,
 } from '../referral-form.logic';
+import type { ReferralLookups } from '../referral-lookups';
 import { describeSubmission, splitSubmission } from '../referral-submission.logic';
 import {
   buildSubmissionBody,
@@ -135,12 +137,13 @@ export function PublicReferralScreen() {
   }
 
   if (receipt !== null) {
-    return <Confirmation answers={answers} receipt={receipt} />;
+    return <Confirmation answers={answers} lookups={lookups} receipt={receipt} />;
   }
 
   if (sessions.isPending || reasons.isPending || organisations.isPending) {
     return (
       <main className={styles.screen}>
+        <FoodbankBanner />
         <PageHeader title="Refer someone to the food bank" />
         <Spinner label="Loading the form…" />
       </main>
@@ -152,6 +155,7 @@ export function PublicReferralScreen() {
   if (sessions.isError) {
     return (
       <main className={styles.screen}>
+        <FoodbankBanner />
         <PageHeader title="Refer someone to the food bank" />
         <ErrorNotice
           error={sessions.error}
@@ -250,6 +254,7 @@ export function PublicReferralScreen() {
 
   return (
     <main className={styles.screen}>
+      <FoodbankBanner />
       <PageHeader title="Refer someone to the food bank" />
 
       <p className={styles.progress} id={summaryId} tabIndex={-1}>
@@ -367,6 +372,10 @@ function ReferrerNotice({ verdict }: { verdict: ReferrerVerdict }) {
   );
 }
 
+function FoodbankBanner() {
+  return <img alt="Foodbank logo" className={styles.banner} src={foodbankLogo} />;
+}
+
 /**
  * What the referrer is left with, and the whole of their relationship with the
  * system from here.
@@ -375,13 +384,26 @@ function ReferrerNotice({ verdict }: { verdict: ReferrerVerdict }) {
  * no withdrawing, so this page shows back every answer that had to be given —
  * it is the only chance anybody has to notice that a surname or a session date
  * is wrong before it becomes a phone call.
+ *
+ * Which is why it takes the lookups: the session and the reason were submitted
+ * as ids, and a referrer cannot check a UUID. They read back as the words they
+ * were chosen by — see `confirmationValue`.
  */
-function Confirmation({ answers, receipt }: { answers: FormAnswers; receipt: ReferralReceipt }) {
-  const lines = describeSubmission(referralFormDefinition, answers);
+function Confirmation({
+  answers,
+  lookups,
+  receipt,
+}: {
+  answers: FormAnswers;
+  lookups: ReferralLookups;
+  receipt: ReferralReceipt;
+}) {
+  const lines = describeSubmission(referralFormDefinition, answers, lookups);
   const pending = receipt.status === 'pending_review';
 
   return (
     <main className={styles.screen}>
+      <FoodbankBanner />
       <PageHeader title={pending ? 'Referral sent for approval' : 'Referral sent'} />
 
       <div className={pending ? styles.pendingNotice : styles.sentNotice}>

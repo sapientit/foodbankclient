@@ -30,14 +30,18 @@ describe('the shipped referral form', () => {
     expect(reusedKeys(FROZEN_ANSWER_KEYS, referralFormDefinition)).toEqual([]);
   });
 
-  it('records nothing in the ledger that is not an answer key', () => {
+  it('keeps retired answer keys in the ledger but never treats them as typed columns', () => {
     // A key field in the ledger would mean a column had been treated as an
     // answer somewhere, which is the mistake the split exists to prevent.
     const answerKeys = new Set(dynamicQuestions(referralFormDefinition).map((q) => q.key));
     const stale = FROZEN_ANSWER_KEYS.filter((entry) => !answerKeys.has(entry.key));
 
-    // Retired questions are allowed to linger; nothing has been retired yet.
-    expect(stale).toEqual([]);
+    expect(stale).toEqual([
+      { key: 'Child 0-2', type: 'number' },
+      { key: 'Child 3-4', type: 'number' },
+      { key: 'Child 5-11', type: 'number' },
+      { key: 'Child 12-17', type: 'number' },
+    ]);
   });
 
   it('asks for every typed column the submission needs', () => {
@@ -54,12 +58,13 @@ describe('the shipped referral form', () => {
       'refereeAddress',
       'refereePostcode',
       'sessionId',
-      'adults',
-      'children',
       'reasonId',
     ]) {
       expect(asked).toContain(required);
     }
+    expect(dynamicQuestions(referralFormDefinition).map((question) => question.key)).toContain(
+      'Household composition',
+    );
   });
 
   it('asks for each typed column exactly once', () => {

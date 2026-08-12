@@ -26,6 +26,18 @@
   border-block-end: 2px solid #1a1a1a;
 }
 
+.pendingReview th,
+.pendingReview td {
+  background: #fff4e0;
+  border-block-color: #7a4b00;
+}
+
+.activeReferral th,
+.activeReferral td {
+  background: #e8f5ec;
+  border-block-color: #14532d;
+}
+
 .status {
   padding: 0.1rem 0.5rem;
   font-size: 0.85rem;

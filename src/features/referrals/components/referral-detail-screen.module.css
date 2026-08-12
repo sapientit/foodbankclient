@@ -86,6 +86,31 @@
   border-block-start: 1px solid #d4d4d4;
 }
 
+.reviewAction {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-block: 1.5rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.previousReferralsTable {
+  inline-size: 100%;
+  min-inline-size: 60rem;
+  border-collapse: collapse;
+}
+
+.previousReferralsTable th,
+.previousReferralsTable td {
+  padding: 0.5rem;
+  text-align: start;
+  vertical-align: top;
+  border-block-end: 1px solid #d4d4d4;
+}
+
 .form,
 .moveForm {
   max-inline-size: 34rem;
@@ -102,6 +127,14 @@
 }
 
 .input {
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  border: 1px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
+.select {
+  min-block-size: 2.75rem;
   padding: 0.6rem 0.75rem;
   font: inherit;
   border: 1px solid currentcolor;
@@ -176,4 +209,10 @@
 .actions button {
   padding: 0.6rem 1.25rem;
   font: inherit;
+}
+
+.actionPanel + .actionPanel {
+  margin-block-start: 1.5rem;
+  padding-block-start: 1.5rem;
+  border-block-start: 1px solid #d4d4d4;
 }

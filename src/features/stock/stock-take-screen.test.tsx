@@ -13,6 +13,8 @@ const TAKE = '/api/v1/stock/take';
 const BEANS: StockLevel = {
   id: 's1',
   name: 'Baked beans',
+  category: 'Tinned goods',
+  description: null,
   shelfNumber: 'A2',
   isActive: true,
   quantityOnHand: 12,
@@ -20,6 +22,8 @@ const BEANS: StockLevel = {
 const RICE: StockLevel = {
   id: 's2',
   name: 'Rice',
+  category: 'Dry goods',
+  description: null,
   shelfNumber: 'A10',
   isActive: true,
   quantityOnHand: 4,
@@ -29,6 +33,8 @@ function levels(count: number): StockLevel[] {
   return Array.from({ length: count }, (_, index) => ({
     id: `s${String(index + 1)}`,
     name: `Item ${String(index + 1)}`,
+    category: 'Test',
+    description: null,
     shelfNumber: `A${String(index + 1)}`,
     isActive: true,
     quantityOnHand: index + 1,

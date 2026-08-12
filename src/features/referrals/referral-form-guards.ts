@@ -118,6 +118,10 @@ function worstCaseValueBytes(question: DynamicQuestion): number {
         ? quoted
         : 2 + question.answerMax * quoted + (question.answerMax - 1);
     }
+    case 'householdComposition':
+      // Five age rows and three gender columns, all integer counts. The labels
+      // and braces are included so this stays a safe bound on JSON size.
+      return 500;
   }
 }
 

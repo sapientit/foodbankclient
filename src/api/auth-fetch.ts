@@ -153,7 +153,7 @@ function readTokenResponse(body: unknown): { accessToken: string; user: AuthUser
   if (typeof id !== 'string' || typeof email !== 'string' || typeof displayName !== 'string') {
     return null;
   }
-  if (role !== 'admin' && role !== 'team_lead') return null;
+  if (role !== 'admin' && role !== 'team_lead' && role !== 'fuel_admin') return null;
 
   return { accessToken, user: { id, email, displayName, role } };
 }

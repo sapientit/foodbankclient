@@ -142,6 +142,11 @@ export interface NumberQuestion extends BaseDynamicQuestion {
   readonly maximum?: number;
 }
 
+/** A single table answer, stored as JSON for reporting. */
+export interface HouseholdCompositionQuestion extends BaseDynamicQuestion {
+  readonly type: 'householdComposition';
+}
+
 /**
  * A set of choices with a floor and a ceiling, which is every "choose"
  * question in `Referral questions.csv` — "Choose exactly 1" is
@@ -182,7 +187,8 @@ export interface KeyFieldQuestion extends BaseQuestion {
 }
 
 /** A question whose answer is stored in the `answers` bag under `key`. */
-export type DynamicQuestion = TextQuestion | NumberQuestion | ChoiceQuestion;
+export type DynamicQuestion =
+  TextQuestion | NumberQuestion | ChoiceQuestion | HouseholdCompositionQuestion;
 
 export type FormQuestion = DynamicQuestion | KeyFieldQuestion;
 

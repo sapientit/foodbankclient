@@ -22,6 +22,7 @@ import type { Referral } from '../queries';
  */
 const REFRESH = '/api/v1/auth/refresh';
 const REFERRAL = '/api/v1/referrals/r1';
+const REPEAT_REFERRALS = '/api/v1/referrals/r1/repeat-referrals';
 const SESSIONS = '/api/v1/sessions';
 const REASONS = '/api/v1/referral-reasons';
 
@@ -87,12 +88,20 @@ beforeEach(() => {
 describe('a team lead’s referral detail view', () => {
   it('renders with reasonId, referrerEmail and referrerPhone absent, and never shows the string "undefined"', async () => {
     const reasonsRequested = vi.fn();
+    const repeatReferralsRequested = vi.fn();
     server.use(
       http.get(REFERRAL, () => HttpResponse.json(teamLeadReferral({ id: 'r1' }))),
       // Admin-only. If this is ever hit, that is a bug — the reason field
       // must not be reachable at all for a team lead, not merely refused.
       http.get(REASONS, () => {
         reasonsRequested();
+        return HttpResponse.json(
+          { error: { code: 'FORBIDDEN', message: 'admin only', requestId: 'r1' } },
+          { status: 403 },
+        );
+      }),
+      http.get(REPEAT_REFERRALS, () => {
+        repeatReferralsRequested();
         return HttpResponse.json(
           { error: { code: 'FORBIDDEN', message: 'admin only', requestId: 'r1' } },
           { status: 403 },
@@ -105,8 +114,8 @@ describe('a team lead’s referral detail view', () => {
     expect(await screen.findByRole('heading', { name: 'Jamie Rowe' })).toBeInTheDocument();
     // The household fields a team lead does receive are still there.
     expect(screen.getByText('Riverside Church')).toBeInTheDocument();
-    expect(await screen.findByLabelText('First name')).toHaveValue('Jamie');
-    expect(screen.getByLabelText('Surname')).toHaveValue('Rowe');
+    expect(screen.getAllByText('Jamie Rowe').length).toBeGreaterThan(1);
+    expect(screen.getByRole('button', { name: 'Edit details' })).toBeInTheDocument();
 
     // The three admin-only things are simply not on the page.
     expect(screen.queryByText('Referrer email')).toBeNull();
@@ -120,13 +129,12 @@ describe('a team lead’s referral detail view', () => {
     // a referrer or record a suspicion, which is not a team lead's business.
     expect(screen.queryByText('Review comment')).toBeNull();
     expect(screen.queryByText('null', { exact: false })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Previous referrals' })).toBeNull();
 
     // And the admin-only lookup this field would need is never even
     // requested — see the module comment on `useReferralReasons`.
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument();
-    });
     expect(reasonsRequested).not.toHaveBeenCalled();
+    expect(repeatReferralsRequested).not.toHaveBeenCalled();
   });
 
   it('can still amend the fields a team lead does have, and the request omits the admin-only ones', async () => {
@@ -146,6 +154,7 @@ describe('a team lead’s referral detail view', () => {
     const user = userEvent.setup();
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Edit details' }));
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => {

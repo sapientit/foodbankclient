@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { formatSessionDate, londonToday } from '../../../lib/london-time';
+import { londonToday } from '../../../lib/london-time';
 import type {
   ChoiceQuestion,
   FormOption,
@@ -18,6 +18,15 @@ import {
   type AnswerValue,
 } from '../referral-form.logic';
 import { keyFieldSpec, YES, type KeyFieldControl } from '../referral-key-fields';
+import {
+  HOUSEHOLD_AGE_BANDS,
+  HOUSEHOLD_GENDERS,
+  emptyHouseholdComposition,
+  isHouseholdComposition,
+  type HouseholdComposition,
+} from '../household-composition';
+import type { HouseholdCompositionQuestion } from '../referral-form-definition';
+import { describeSession } from '../referral-lookups';
 import type { PublicSession, ReferralReason } from '../queries';
 import styles from './referral-question-field.module.css';
 
@@ -81,6 +90,8 @@ export function ReferralQuestionField(props: FieldProps) {
     <div className={styles.field} data-disabled={enabled ? undefined : 'true'}>
       {question.type === 'choice' ? (
         <ChoiceField {...shared} question={question} />
+      ) : question.type === 'householdComposition' ? (
+        <HouseholdCompositionField {...shared} question={question} />
       ) : (
         <>
           <label className={styles.label} htmlFor={fieldId}>
@@ -120,9 +131,81 @@ function SingleControl(props: ControlProps) {
     case 'number':
       return <NumberControl {...props} question={props.question} />;
     case 'choice':
+    case 'householdComposition':
       // Handled above — a choice is a fieldset, not a labelled control.
       return null;
   }
+}
+
+function HouseholdCompositionField(
+  props: ControlProps & { question: HouseholdCompositionQuestion },
+) {
+  const composition = isHouseholdComposition(props.value)
+    ? props.value
+    : emptyHouseholdComposition();
+
+  const change = (
+    band: keyof HouseholdComposition,
+    gender: 'female' | 'male' | 'other',
+    value: string,
+  ) => {
+    const count = /^\d+$/.test(value) ? Number(value) : 0;
+    props.onChange({
+      ...composition,
+      [band]: { ...composition[band], [gender]: count },
+    });
+  };
+
+  return (
+    <fieldset className={styles.grid} disabled={!props.enabled}>
+      <legend className={styles.legend}>
+        {props.question.label}
+        {props.question.required && <span className={styles.required}> (required)</span>}
+      </legend>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Age</th>
+            {HOUSEHOLD_GENDERS.map((gender) => (
+              <th key={gender.key} scope="col">
+                {gender.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {HOUSEHOLD_AGE_BANDS.map((band) => (
+            <tr key={band.key}>
+              <th scope="row">{band.label}</th>
+              {HOUSEHOLD_GENDERS.map((gender) => {
+                const id = `${props.fieldId}-${band.key}-${gender.key}`;
+                return (
+                  <td key={gender.key}>
+                    <label className={styles.visuallyHidden} htmlFor={id}>
+                      {band.label}, {gender.label}
+                    </label>
+                    <input
+                      aria-describedby={props.describedBy}
+                      aria-invalid={props.error === undefined ? undefined : true}
+                      className={styles.gridInput}
+                      id={id}
+                      inputMode="numeric"
+                      min="0"
+                      onChange={(event) => {
+                        change(band.key, gender.key, event.target.value);
+                      }}
+                      type="text"
+                      value={composition[band.key][gender.key]}
+                    />
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </fieldset>
+  );
 }
 
 function KeyFieldControlField(props: ControlProps & { question: KeyFieldQuestion }) {
@@ -234,12 +317,11 @@ function YesNoControl(props: ControlProps) {
 function LookupControl(props: ControlProps & { source: 'sessions' | 'referralReasons' }) {
   const options =
     props.source === 'sessions'
-      ? props.lookups.sessions.map((session) => ({
+      ? // `describeSession`, not a format string spelled here: the confirmation
+        // screen shows the chosen session back and must show the same words.
+        props.lookups.sessions.map((session) => ({
           value: session.id,
-          // The date is a calendar day and the time a wall clock, printed as
-          // the charity typed them. No end time on a public page: a wrong
-          // closing time sends somebody to a locked hall.
-          label: `${formatSessionDate(session.sessionDate)} at ${session.startTime} — ${session.location}`,
+          label: describeSession(session),
         }))
       : props.lookups.referralReasons.map((reason) => ({ value: reason.id, label: reason.label }));
 
@@ -387,7 +469,7 @@ function NumberControl(props: ControlProps & { question: NumberQuestion }) {
  */
 function ChoiceField(props: ControlProps & { question: ChoiceQuestion }) {
   const { question, enabled, error } = props;
-  const selected = typeof props.value === 'string' ? [props.value] : props.value;
+  const selected = Array.isArray(props.value) ? props.value : [];
 
   const options: readonly FormOption[] =
     question.optionsFrom === 'referralReasons'

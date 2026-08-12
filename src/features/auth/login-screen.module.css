@@ -4,6 +4,13 @@
   padding: 2rem 1rem;
 }
 
+.banner {
+  display: block;
+  inline-size: min(100%, 28rem);
+  block-size: auto;
+  margin-block-end: 1.5rem;
+}
+
 .intro {
   margin-block-end: 1.5rem;
 }

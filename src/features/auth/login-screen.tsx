@@ -3,8 +3,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router';
 import * as z from 'zod';
+import foodbankLogo from '../../assets/foodbank-logo.webp';
 import { useAuth } from '../../auth/auth-context';
-import { safeNextPath } from '../../auth/next-path';
+import { postLoginPath } from '../../auth/next-path';
 import { ApiError, describeApiError, issuesToFieldErrors } from '../../lib/errors';
 import styles from './login-screen.module.css';
 
@@ -73,8 +74,8 @@ export function LoginScreen() {
     setFormError(null);
 
     try {
-      await signIn(email);
-      await navigate(safeNextPath(searchParams.get('next')), { replace: true });
+      const user = await signIn(email);
+      await navigate(postLoginPath(searchParams.get('next'), user.role), { replace: true });
     } catch (error) {
       setFormError(explain(error, setError));
     }
@@ -84,6 +85,7 @@ export function LoginScreen() {
 
   return (
     <main className={styles.screen}>
+      <img alt="Foodbank logo" className={styles.banner} src={foodbankLogo} />
       <h1>Sign in</h1>
 
       <p className={styles.intro}>

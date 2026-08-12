@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 3,
   "pages": [
     {
       "pageNum": 1,
@@ -108,49 +108,12 @@
       "questions": [
         {
           "questionNum": 1,
-          "questionKey": "adults",
-          "questionTitle": "Number of adults in client's family",
-          "keyField": "adults",
-          "required": true
-        },
-        {
-          "questionNum": 2,
-          "questionKey": "children",
-          "questionTitle": "Number of children in client's family",
-          "keyField": "children",
-          "required": true
-        },
-        {
-          "questionNum": 3,
-          "questionKey": "Child 0-2",
-          "questionTitle": "Number of children aged 0-2 (if unknown enter 0)",
+          "questionKey": "Household composition",
+          "questionTitle": "People in the client's household by age and gender",
+          "helpText": "Enter 0 where there is nobody in a group. Adults and children for the food parcel are calculated from this table.",
           "preference": false,
-          "required": false,
-          "validation": { "type": "Number", "minimum": 0, "maximum": 30 }
-        },
-        {
-          "questionNum": 4,
-          "questionKey": "Child 3-4",
-          "questionTitle": "Number of children aged 3-4 (if unknown enter 0)",
-          "preference": false,
-          "required": false,
-          "validation": { "type": "Number", "minimum": 0, "maximum": 30 }
-        },
-        {
-          "questionNum": 5,
-          "questionKey": "Child 5-11",
-          "questionTitle": "Number of children aged 5-11 (if unknown enter 0)",
-          "preference": false,
-          "required": false,
-          "validation": { "type": "Number", "minimum": 0, "maximum": 30 }
-        },
-        {
-          "questionNum": 6,
-          "questionKey": "Child 12-17",
-          "questionTitle": "Number of children aged 12-17 (if unknown enter 0)",
-          "preference": false,
-          "required": false,
-          "validation": { "type": "Number", "minimum": 0, "maximum": 30 }
+          "required": true,
+          "validation": { "type": "HouseholdComposition" }
         }
       ]
     },

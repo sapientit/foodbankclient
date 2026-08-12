@@ -74,6 +74,10 @@ function receipt(status: 'active' | 'pending_review') {
     status,
     adults: 2,
     children: 0,
+    infants: 0,
+    children4To11: 0,
+    teenagers12To17: 0,
+    adults18Plus: 2,
     isDelivery: false,
     needsFuelHelp: false,
     refereeFirstName: 'Ada',
@@ -82,6 +86,12 @@ function receipt(status: 'active' | 'pending_review') {
     refereePostcode: 'GU23 4XX',
     referredAt: '2026-08-01T10:00:00.000Z',
   };
+}
+
+async function fillHouseholdAgeBands(user: ReturnType<typeof userEvent.setup>) {
+  const adultFemale = screen.getByLabelText('18 to State Pension age, Female');
+  await user.clear(adultFemale);
+  await user.type(adultFemale, '2');
 }
 
 /** Counts every `POST /auth/refresh` the page causes. It must stay at zero. */
@@ -165,6 +175,12 @@ async function fillPageOne(user: ReturnType<typeof userEvent.setup>) {
 const next = () => screen.getByRole('button', { name: 'Next' });
 
 describe('the public referral form', () => {
+  it('shows the Foodbank banner above the public form', async () => {
+    renderRefer();
+
+    expect(await screen.findByRole('img', { name: 'Foodbank logo' })).toBeInTheDocument();
+  });
+
   it('issues no auth request for an unauthenticated visitor', async () => {
     renderRefer();
 
@@ -519,8 +535,7 @@ describe('the questions themselves', () => {
       await user.click(next());
       await screen.findByText(`Page ${String(page)} of 7`);
       if (page === 2) {
-        await user.type(screen.getByLabelText(/Number of adults in client's family/), '2');
-        await user.type(screen.getByLabelText(/Number of children in client's family/), '0');
+        await fillHouseholdAgeBands(user);
       }
       if (page === 3) {
         await user.selectOptions(
@@ -547,8 +562,7 @@ describe('the questions themselves', () => {
     await fillPageOne(user);
     await user.click(next());
     await screen.findByText('Page 2 of 7');
-    await user.type(screen.getByLabelText(/Number of adults in client's family/), '2');
-    await user.type(screen.getByLabelText(/Number of children in client's family/), '0');
+    await fillHouseholdAgeBands(user);
     await user.click(next());
     await screen.findByText('Page 3 of 7');
     await user.selectOptions(screen.getByRole('combobox', { name: /Main cause of crisis/ }), 'q1');
@@ -574,8 +588,7 @@ describe('submitting', () => {
     await user.click(next());
 
     await screen.findByText('Page 2 of 7');
-    await user.type(screen.getByLabelText(/Number of adults in client's family/), '2');
-    await user.type(screen.getByLabelText(/Number of children in client's family/), '0');
+    await fillHouseholdAgeBands(user);
     await user.click(next());
 
     await screen.findByText('Page 3 of 7');
@@ -636,7 +649,9 @@ describe('submitting', () => {
       Toiletries: ['Shower Gel', 'Deodorant', 'Conditioner'],
     });
     // A key field never leaks into the answers bag.
-    expect(body.answers).not.toHaveProperty('adults');
+    expect(body.answers).toMatchObject({
+      'Household composition': { 'working-age': { female: 2, male: 0, other: 0 } },
+    });
     expect(body.answers).not.toHaveProperty('refereePostcode');
   });
 
@@ -657,6 +672,33 @@ describe('submitting', () => {
 
     // No amend, no withdraw, no countdown. There is no edit window any more.
     expect(screen.queryByRole('button', { name: /amend|withdraw|change/i })).toBeNull();
+  });
+
+  /**
+   * The confirmation used to print the two ids the form submits. A referrer
+   * cannot check a UUID, and checking is the only thing the screen is for — so
+   * "did I pick the right session?" was unanswerable on the one page that had
+   * to answer it.
+   */
+  it('shows the chosen session and reason as words, not as the ids that were sent', async () => {
+    server.use(http.post(SUBMIT, () => HttpResponse.json(receipt('active'), { status: 201 })));
+    renderRefer();
+
+    await submitTheForm(userEvent.setup());
+    await screen.findByRole('heading', { name: 'Referral sent' });
+
+    const summary = screen.getByRole('heading', { name: 'What you sent' }).parentElement;
+    if (summary === null) throw new Error('The confirmation summary is not on the page');
+
+    // The same words the dropdown offered: date, wall-clock time, and where.
+    expect(
+      within(summary).getByText('Tue, 4 Aug 2026 at 10:00 — St Mary’s Hall'),
+    ).toBeInTheDocument();
+    expect(within(summary).getByText('Financial hardship')).toBeInTheDocument();
+
+    // Neither id reaches the page, under any label.
+    expect(summary.textContent).not.toContain('s-tue');
+    expect(summary.textContent).not.toContain('q1');
   });
 
   it('says plainly that a referral awaiting review is not a booking', async () => {

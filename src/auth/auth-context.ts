@@ -20,7 +20,7 @@ export interface AuthContextValue {
   readonly state: AuthState;
   /** Called by the route guard, not on mount. See `auth-provider.tsx`. */
   readonly restoreSession: () => void;
-  readonly signIn: (email: string) => Promise<void>;
+  readonly signIn: (email: string) => Promise<AuthUser>;
   readonly signOut: () => Promise<void>;
 }
 

@@ -110,6 +110,8 @@ function describeKnownValue(question: DynamicQuestion, value: unknown): string {
       return typeof value === 'number' ? String(value) : describeRawValue(value);
     case 'text':
       return typeof value === 'string' ? value : describeRawValue(value);
+    case 'householdComposition':
+      return describeRawValue(value);
   }
 }
 

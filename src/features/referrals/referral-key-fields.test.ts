@@ -43,7 +43,7 @@ describe('keyFieldSchema', () => {
     expect(accepts('refereeDateOfBirth', '1875-08-04')).toBe(false);
   });
 
-  it('keeps at least one adult on every referral, so it maps to a real grid cell', () => {
+  it('accepts each age band from zero through the server limit', () => {
     expect(accepts('adults', '0')).toBe(false);
     expect(accepts('adults', '1')).toBe(true);
     expect(accepts('children', '0')).toBe(true);

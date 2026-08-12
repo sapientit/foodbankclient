@@ -19,6 +19,7 @@ import type { Role, User } from './queries';
 export const ROLE_LABELS: Record<Role, string> = {
   admin: 'Administrator',
   team_lead: 'Team lead',
+  fuel_admin: 'Fuel administrator',
 };
 
 export interface RoleOption {

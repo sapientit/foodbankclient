@@ -5,9 +5,10 @@ import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
-import { formatSessionDate, formatTimeRange, londonToday } from '../../../lib/london-time';
+import { formatSessionDate, formatTimeRange } from '../../../lib/london-time';
 import { useSession, useSessions, type Session } from '../../sessions/queries';
-import { useStockItems } from '../../stock/queries';
+import { useStockItems, type StockItem } from '../../stock/queries';
+import { useReferrals } from '../../referrals/queries';
 import { describeAnswers } from '../../referrals/referral-answers.logic';
 import { referralFormDefinition } from '../../referrals/referral-form-config';
 import {
@@ -23,12 +24,27 @@ import {
 } from '../queries';
 import styles from './run-sessions-screen.module.css';
 import { SessionSmsPanel } from './sms-panel';
+import { resolvePreferenceLines } from '../preference-rules';
 
-/** The operational view: no session or referral maintenance controls live here. */
+/**
+ * The operational view: no session or referral maintenance controls live here.
+ *
+ * **Every open session, including ones already in the past.** `screenDetails.md`:
+ * outcomes and details are routinely completed after the event — the Saturday
+ * session gets its no-shows recorded on the Monday — so a list that stopped at
+ * today would hide exactly the sessions with work left on them. The server
+ * agrees: it caps only how far forward a team lead may look and applies no
+ * lower bound at all.
+ *
+ * Open means `planned` or `in_progress`. A `confirmed` session is signed off
+ * and cannot be changed, and a `cancelled` one is not being run; neither has
+ * anything left for this screen to do, and listing them would grow without
+ * limit as the weeks pass.
+ */
 export function RunSessionsScreen() {
   const sessions = useSessions();
-  const upcoming = (sessions.data ?? []).filter(
-    (session) => session.sessionDate >= londonToday() && session.status !== 'cancelled',
+  const open = (sessions.data ?? []).filter(
+    (session) => session.status === 'planned' || session.status === 'in_progress',
   );
 
   return (
@@ -40,14 +56,14 @@ export function RunSessionsScreen() {
         <ErrorNotice error={sessions.error} onRetry={() => void sessions.refetch()} />
       )}
       {sessions.isSuccess &&
-        (upcoming.length === 0 ? (
+        (open.length === 0 ? (
           <EmptyState
-            headline="No upcoming sessions"
-            sentence="There are no sessions ready to run."
+            headline="No sessions to run"
+            sentence="Every session has been completed or cancelled."
           />
         ) : (
           <ul>
-            {upcoming.map((session) => (
+            {open.map((session) => (
               <li key={session.id}>
                 <Link to={`/run-sessions/${session.id}`}>
                   {formatSessionDate(session.sessionDate)},{' '}
@@ -65,7 +81,8 @@ export function RunSessionsScreen() {
 export function PickListPrintScreen() {
   const { sessionId = '' } = useParams();
   const list = useSessionPickList(sessionId);
-  const print = usePrintPickList(list.data?.pickList.id ?? '');
+  const readyToPrint = list.data !== undefined && allParcelsReviewed(list.data.parcels);
+  const print = usePrintPickList(readyToPrint ? list.data.pickList.id : '');
   const markPrinted = useMarkPickListPrinted();
   const printed = useRef<string | null>(null);
 
@@ -77,10 +94,19 @@ export function PickListPrintScreen() {
     }
   }, [markPrinted, print.data]);
 
-  if (list.isPending || print.isPending) return <Spinner label="Preparing print sheets…" />;
+  if (list.isPending || (readyToPrint && print.isPending))
+    return <Spinner label="Preparing print sheets…" />;
   if (list.isError) return <ErrorNotice error={list.error} onRetry={() => void list.refetch()} />;
+  if (!readyToPrint)
+    return (
+      <>
+        <PageHeader title="Pick lists" />
+        <p role="alert">Review every pick list before printing.</p>
+      </>
+    );
   if (print.isError)
     return <ErrorNotice error={print.error} onRetry={() => void print.refetch()} />;
+  if (print.data === undefined) return <Spinner label="Preparing print sheets…" />;
   return (
     <>
       <PageHeader title="Pick lists" />
@@ -107,6 +133,7 @@ export function PickListPrintScreen() {
               {parcel.lines.map((line) => (
                 <li key={line.stockItemId}>
                   {line.name}: {line.quantity}
+                  {line.description !== null && <div>{line.description}</div>}
                 </li>
               ))}
             </ul>
@@ -120,23 +147,35 @@ export function PickListPrintScreen() {
 export function RunSessionDetailScreen() {
   const { sessionId = '' } = useParams();
   const session = useSession(sessionId);
+  const referrals = useReferrals({ sessionId });
+  const stockItems = useStockItems();
   const requested = useRef<string | null>(null);
   const [pickListSessionId, setPickListSessionId] = useState('');
   const reconcile = useReconcilePickList(setPickListSessionId);
 
   useEffect(() => {
-    if (sessionId !== '' && requested.current !== sessionId) {
+    if (
+      sessionId !== '' &&
+      requested.current !== sessionId &&
+      referrals.data !== undefined &&
+      stockItems.data !== undefined
+    ) {
       requested.current = sessionId;
       setPickListSessionId('');
-      reconcile.mutate(sessionId);
+      reconcile.mutate({
+        sessionId,
+        preferenceLines: resolvePreferenceLines(referrals.data, stockItems.data),
+      });
     }
-  }, [reconcile, sessionId]);
+  }, [reconcile, referrals.data, sessionId, stockItems.data]);
 
   const pickList = useSessionPickList(pickListSessionId);
   const complete = useConfirmSession();
 
   if (
     session.isPending ||
+    referrals.isPending ||
+    stockItems.isPending ||
     (reconcile.isPending && pickList.data === undefined) ||
     (reconcile.isSuccess && pickList.isPending)
   ) {
@@ -152,6 +191,20 @@ export function RunSessionDetailScreen() {
       <>
         <PageHeader title="Run a session" />
         <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />
+      </>
+    );
+  if (referrals.isError)
+    return (
+      <>
+        <PageHeader title="Run a session" />
+        <ErrorNotice error={referrals.error} onRetry={() => void referrals.refetch()} />
+      </>
+    );
+  if (stockItems.isError)
+    return (
+      <>
+        <PageHeader title="Run a session" />
+        <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
       </>
     );
   if (reconcile.isError)
@@ -172,6 +225,7 @@ export function RunSessionDetailScreen() {
   const allOutcomesRecorded = pickList.data.parcels.every(
     (parcel) => parcel.attendance !== 'pending',
   );
+  const readyToPrint = allParcelsReviewed(pickList.data.parcels);
 
   return (
     <>
@@ -192,9 +246,20 @@ export function RunSessionDetailScreen() {
       )}
       <h2>Clients</h2>
       <p>
-        <Link to={`/run-sessions/${sessionId}/print`}>Print all pick lists</Link>
+        {readyToPrint ? (
+          <Link to={`/run-sessions/${sessionId}/print`}>Print all pick lists</Link>
+        ) : (
+          <>
+            <button disabled type="button">
+              Print all pick lists
+            </button>{' '}
+            Review every pick list before printing.
+          </>
+        )}
         {' · '}
         <Link to={`/run-sessions/${sessionId}/listener`}>Listener sheet</Link>
+        {' · '}
+        <Link to={`/run-sessions/${sessionId}/referral-details`}>Referral details</Link>
       </p>
       <button
         disabled={session.data.status === 'confirmed' || !allOutcomesRecorded || complete.isPending}
@@ -306,6 +371,7 @@ export function RunSessionClientScreen() {
       void navigate(path);
     });
   };
+  const readyToPrint = allParcelsReviewed(pickList.data.parcels);
 
   return (
     <>
@@ -320,12 +386,21 @@ export function RunSessionClientScreen() {
           Back to clients
         </Link>{' '}
         ·{' '}
-        <Link
-          onClick={linkTo(`/run-sessions/${sessionId}/print`)}
-          to={`/run-sessions/${sessionId}/print`}
-        >
-          Print all pick lists
-        </Link>
+        {readyToPrint ? (
+          <Link
+            onClick={linkTo(`/run-sessions/${sessionId}/print`)}
+            to={`/run-sessions/${sessionId}/print`}
+          >
+            Print all pick lists
+          </Link>
+        ) : (
+          <>
+            <button disabled type="button">
+              Print all pick lists
+            </button>{' '}
+            Review every pick list before printing.
+          </>
+        )}
       </p>
       <ParcelPanel
         onDirtyChange={setHasUnsavedChanges}
@@ -334,7 +409,6 @@ export function RunSessionClientScreen() {
         }}
         parcel={parcel}
         pendingAction={pendingAction}
-        sessionId={sessionId}
         sessionStatus={session.data.status}
       />
     </>
@@ -343,35 +417,25 @@ export function RunSessionClientScreen() {
 
 function ParcelPanel({
   parcel,
-  sessionId,
   sessionStatus,
   pendingAction,
   onPendingActionHandled,
   onDirtyChange,
 }: {
   parcel: Parcel;
-  sessionId: string;
   sessionStatus: Session['status'];
   pendingAction: (() => void) | null;
   onPendingActionHandled: () => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
-  const attendance = useRecordAttendance();
   const review = useReviewParcel();
-  const complete = useConfirmSession();
   const saveLines = useSetParcelLines();
   const stockItems = useStockItems();
-  const [confirmSession, setConfirmSession] = useState(false);
   const [savedLines, setSavedLines] = useState(() => toDraftLines(parcel.lines));
   const [draftLines, setDraftLines] = useState(() => toDraftLines(parcel.lines));
-  const [newStockItemId, setNewStockItemId] = useState('');
-  const [saveBeforeAction, setSaveBeforeAction] = useState<(() => void) | null>(null);
   // A recorded outcome stops the parcel changing, but does not stop it being
   // corrected. Only confirming the containing session locks both.
   const parcelLocked = parcel.attendance !== 'pending' || sessionStatus === 'confirmed';
-  const attendanceLocked = sessionStatus === 'confirmed';
-  const attendedLabel = parcel.isDelivery ? 'Delivered' : 'Attended';
-  const absentLabel = parcel.isDelivery ? 'Not in' : 'No show';
   const answers = describeAnswers(referralFormDefinition, {
     answers: parcel.answers,
     piiPurgedAt: null,
@@ -403,90 +467,111 @@ function ParcelPanel({
       },
     );
   };
-  const requestAction = (action: () => void) => {
-    if (isDirty) setSaveBeforeAction(() => action);
-    else action();
-  };
-  const availableStockItems = (stockItems.data ?? []).filter(
-    (item) => !draftLines.some((line) => line.stockItemId === item.id),
+  const draftLineIds = new Set(draftLines.map((line) => line.stockItemId));
+  const displayedStockItems = (stockItems.data ?? []).filter(
+    (item) => item.isActive || draftLineIds.has(item.id),
   );
+  const needsAttention = draftLines.some((line) => line.quantity === -1);
 
   return (
     <section className={styles.parcelPanel}>
-      <h2>
-        Pick #{parcel.pickNumber}: {parcel.refereeFirstName ?? 'Unknown'}{' '}
-        {parcel.refereeSurname ?? ''}
+      <h2 className={styles.parcelHeading}>
+        <span>
+          Pick #{parcel.pickNumber}: {parcel.refereeFirstName ?? 'Unknown'}{' '}
+          {parcel.refereeSurname ?? ''}
+        </span>
+        <span className={styles.householdSize}>
+          Adults/children: {parcel.adults}/{parcel.children}
+        </span>
       </h2>
-      <div className={styles.editorColumns}>
-        <section className={styles.editorPane}>
-          <h3>Pick list</h3>
-          <ul>
-            {draftLines.map((line) => (
-              <li key={line.stockItemId}>
-                <LineEditor
-                  line={line}
-                  locked={parcelLocked}
-                  onChange={(quantity) => {
-                    setDraftLines((lines) =>
-                      lines.map((current) =>
-                        current.stockItemId === line.stockItemId
-                          ? { ...current, quantity }
-                          : current,
-                      ),
-                    );
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
-          <label>
-            Add item{' '}
-            <select
-              disabled={parcelLocked || stockItems.isPending || availableStockItems.length === 0}
-              onChange={(event) => {
-                setNewStockItemId(event.target.value);
-              }}
-              value={newStockItemId}
-            >
-              <option value="">Choose an item</option>
-              {availableStockItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({item.shelfNumber})
-                </option>
-              ))}
-            </select>
-          </label>{' '}
+      <div className={styles.reviewAction}>
+        <button
+          className={styles.reviewButton}
+          disabled={parcelLocked || !isDirty || saveLines.isPending || review.isPending}
+          onClick={() => {
+            save();
+          }}
+          type="button"
+        >
+          {saveLines.isPending ? 'Saving…' : 'Save pick list'}
+        </button>
+        {parcel.reviewedAt === null && sessionStatus !== 'confirmed' && (
           <button
-            disabled={parcelLocked || newStockItemId === ''}
+            className={styles.reviewButton}
+            disabled={saveLines.isPending || review.isPending || needsAttention}
             onClick={() => {
-              const item = availableStockItems.find((candidate) => candidate.id === newStockItemId);
-              if (item === undefined) return;
-              setDraftLines((lines) => [
-                ...lines,
-                {
-                  stockItemId: item.id,
-                  name: item.name,
-                  shelfNumber: item.shelfNumber,
-                  quantity: 1,
-                },
-              ]);
-              setNewStockItemId('');
+              save(() => {
+                review.mutate(parcel.id);
+              });
             }}
             type="button"
           >
-            Add
+            {review.isPending ? 'Marking reviewed…' : 'Mark pick list reviewed'}
           </button>
-          <p>
-            <button
-              disabled={parcelLocked || !isDirty || saveLines.isPending}
-              onClick={() => {
-                save();
-              }}
-              type="button"
-            >
-              {saveLines.isPending ? 'Saving…' : 'Save pick list'}
-            </button>
+        )}
+        {needsAttention && (
+          <p role="alert">
+            Set a quantity for every item marked “Needs attention” before reviewing.
           </p>
+        )}
+      </div>
+      <div className={styles.editorColumns}>
+        <section className={styles.editorPane}>
+          {stockItems.isPending ? (
+            <Spinner label="Loading stock items…" />
+          ) : stockItems.isError ? (
+            <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
+          ) : (
+            <ul className={styles.itemList}>
+              {groupStockItemsByCategory(displayedStockItems).map(({ category, items }) => (
+                <li className={styles.categoryGroup} key={category}>
+                  <h4 className={styles.categoryHeading}>{category}</h4>
+                  <ul className={styles.categoryItems}>
+                    {items.map((item) => {
+                      const line = draftLines.find(
+                        (candidate) => candidate.stockItemId === item.id,
+                      );
+                      return (
+                        <li key={item.id}>
+                          <LineEditor
+                            item={item}
+                            line={line}
+                            locked={parcelLocked}
+                            onChange={(quantity) => {
+                              setDraftLines((lines) => {
+                                const current = lines.find(
+                                  (candidate) => candidate.stockItemId === item.id,
+                                );
+                                if (quantity === null)
+                                  return lines.filter(
+                                    (candidate) => candidate.stockItemId !== item.id,
+                                  );
+                                if (current === undefined)
+                                  return [
+                                    ...lines,
+                                    {
+                                      stockItemId: item.id,
+                                      name: item.name,
+                                      shelfNumber: item.shelfNumber,
+                                      quantity,
+                                    },
+                                  ];
+                                return lines.map((candidate) =>
+                                  candidate.stockItemId === item.id
+                                    ? { ...candidate, quantity }
+                                    : candidate,
+                                );
+                              });
+                            }}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          )}
           {saveLines.error !== null && <ErrorNotice error={saveLines.error} />}
         </section>
         <section className={styles.editorPane}>
@@ -513,67 +598,6 @@ function ParcelPanel({
           )}
         </section>
       </div>
-      {attendance.error !== null && <ErrorNotice error={attendance.error} />}
-      {parcel.reviewedAt === null && sessionStatus !== 'confirmed' && (
-        <button
-          disabled={review.isPending}
-          onClick={() => {
-            review.mutate(parcel.id);
-          }}
-          type="button"
-        >
-          {review.isPending ? 'Marking reviewed…' : 'Mark pick list reviewed'}
-        </button>
-      )}{' '}
-      <button
-        disabled={attendanceLocked || parcel.reviewedAt === null || attendance.isPending}
-        onClick={() => {
-          requestAction(() => {
-            attendance.mutate({ id: parcel.id, attendance: 'attended' });
-          });
-        }}
-        type="button"
-      >
-        {attendedLabel}
-      </button>{' '}
-      <button
-        disabled={attendanceLocked || parcel.reviewedAt === null || attendance.isPending}
-        onClick={() => {
-          requestAction(() => {
-            attendance.mutate({ id: parcel.id, attendance: 'no_show' });
-          });
-        }}
-        type="button"
-      >
-        {absentLabel}
-      </button>{' '}
-      <button
-        disabled={sessionStatus === 'confirmed' || complete.isPending}
-        onClick={() => {
-          requestAction(() => {
-            setConfirmSession(true);
-          });
-        }}
-        type="button"
-      >
-        Complete session
-      </button>
-      {confirmSession && (
-        <ConfirmDialog
-          busy={complete.isPending}
-          confirmLabel="Complete session"
-          onCancel={() => {
-            setConfirmSession(false);
-          }}
-          onConfirm={() => {
-            complete.mutate(sessionId);
-            setConfirmSession(false);
-          }}
-          title="Complete this session?"
-        >
-          <p>Every client must already be marked. No further changes will be possible.</p>
-        </ConfirmDialog>
-      )}
       {pendingAction !== null && (
         <ConfirmDialog
           busy={saveLines.isPending}
@@ -590,54 +614,65 @@ function ParcelPanel({
           <p>Save your pick-list changes before continuing?</p>
         </ConfirmDialog>
       )}
-      {saveBeforeAction !== null && (
-        <ConfirmDialog
-          busy={saveLines.isPending}
-          confirmLabel="Save changes"
-          onCancel={() => {
-            setSaveBeforeAction(null);
-          }}
-          onConfirm={() => {
-            save(() => {
-              const action = saveBeforeAction;
-              setSaveBeforeAction(null);
-              action();
-            });
-          }}
-          title="Save pick list changes?"
-        >
-          <p>Save your pick-list changes before continuing?</p>
-        </ConfirmDialog>
-      )}
     </section>
   );
 }
 
 function LineEditor({
+  item,
   line,
   locked,
   onChange,
 }: {
-  line: DraftLine;
+  item: StockItem;
+  line: DraftLine | undefined;
   locked: boolean;
-  onChange: (quantity: number) => void;
+  onChange: (quantity: number | null) => void;
 }) {
   return (
     <label>
-      {line.name}{' '}
+      <span className={styles.itemName}>
+        {item.name}
+        {!item.isActive && ' (retired)'}
+      </span>
+      {item.description !== null && (
+        <span className={styles.itemDescription}>{item.description}</span>
+      )}{' '}
+      {line?.quantity === -1 && (
+        <strong>Needs attention — choose a quantity or remove this item.</strong>
+      )}
       <input
         disabled={locked}
         min="0"
         onChange={(event) => {
+          if (event.target.value === '') {
+            onChange(null);
+            return;
+          }
           const parsed = Number(event.target.value);
-          if (event.target.value !== '' && Number.isInteger(parsed) && parsed >= 0)
-            onChange(parsed);
+          if (Number.isInteger(parsed) && parsed >= 0) onChange(parsed === 0 ? null : parsed);
         }}
         type="number"
-        value={line.quantity}
+        value={line?.quantity === -1 ? '' : (line?.quantity ?? '')}
       />
     </label>
   );
+}
+
+function groupStockItemsByCategory(items: readonly StockItem[]) {
+  const groups: { category: string; items: StockItem[] }[] = [];
+
+  for (const item of items) {
+    const current = groups.at(-1);
+    if (current?.category === item.category) current.items.push(item);
+    else groups.push({ category: item.category, items: [item] });
+  }
+
+  return groups;
+}
+
+function allParcelsReviewed(parcels: readonly Parcel[]): boolean {
+  return parcels.every((parcel) => parcel.reviewedAt !== null);
 }
 
 type DraftLine = Pick<Parcel['lines'][number], 'stockItemId' | 'name' | 'shelfNumber' | 'quantity'>;

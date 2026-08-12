@@ -1,13 +1,9 @@
-import { useSearchParams } from 'react-router';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { useStockLevels } from '../queries';
-import { splitByStatus } from '../stock.logic';
 import styles from './stock-levels-screen.module.css';
-
-const RETIRED_PARAM = 'retired';
 
 /**
  * What is on the shelves. Visible to both roles — a team lead is the person
@@ -21,7 +17,6 @@ const RETIRED_PARAM = 'retired';
  *   counts, so it is rendered as the real number rather than as an error.
  */
 export function StockLevelsScreen() {
-  const [searchParams, setSearchParams] = useSearchParams();
   const levels = useStockLevels();
 
   if (levels.isPending)
@@ -39,36 +34,13 @@ export function StockLevelsScreen() {
       </>
     );
 
-  const showRetired = searchParams.get(RETIRED_PARAM) === '1';
-  const { active, retired } = splitByStatus(levels.data);
-  const visible = showRetired ? levels.data : active;
+  const visible = levels.data.filter((level) => level.isActive);
 
   return (
     <>
       <PageHeader title="Stock" />
       <p className={styles.intro}>
-        What the system says is on each shelf, in the order you would walk them. The weekly stock
-        take resets a changed item to the number counted on its shelf.
-      </p>
-      <p>
-        <label className={styles.toggle}>
-          <input
-            checked={showRetired}
-            onChange={(event) => {
-              setSearchParams(
-                (current) => {
-                  const next = new URLSearchParams(current);
-                  if (event.target.checked) next.set(RETIRED_PARAM, '1');
-                  else next.delete(RETIRED_PARAM);
-                  return next;
-                },
-                { replace: true },
-              );
-            }}
-            type="checkbox"
-          />
-          Show retired items ({retired.length})
-        </label>
+        What the system says is on each shelf, in the order you would walk them.
       </p>
       {visible.length === 0 ? (
         <EmptyState

@@ -151,7 +151,7 @@ export type SubmissionBuild =
 
 export function buildSubmissionBody(
   keyFields: Readonly<Record<string, string | number | boolean | null>>,
-  answers: Readonly<Record<string, string | number | readonly string[]>>,
+  answers: Readonly<Record<string, unknown>>,
 ): SubmissionBuild {
   const missing: string[] = [];
 
@@ -244,6 +244,8 @@ export function useSubmitReferral() {
  */
 
 export type Referral = components['schemas']['Referral'];
+export type RepeatReferralList = components['schemas']['RepeatReferralList'];
+export type RepeatReferralMatch = components['schemas']['RepeatReferralMatch'];
 
 /**
  * One PATCH shape covers both an ordinary amend and a move: `sessionId` and
@@ -255,6 +257,8 @@ export type Referral = components['schemas']['Referral'];
 type ReferralPatchBody =
   paths['/api/v1/referrals/{id}']['patch']['requestBody']['content']['application/json'];
 export type AmendReferralInput = ReferralPatchBody;
+export type ReferralSearchRequest = components['schemas']['ReferralSearchRequest'];
+export type ReferralSearchResponse = components['schemas']['ReferralSearchResponse'];
 
 async function fetchReferrals(filters: ReferralListFilters): Promise<Referral[]> {
   const { referrals } = await unwrap(api.GET('/api/v1/referrals', { params: { query: filters } }));
@@ -277,6 +281,32 @@ export function useReferral(id: string) {
   return useQuery({
     queryKey: referralKeys.detail(id),
     queryFn: () => unwrap(api.GET('/api/v1/referrals/{id}', { params: { path: { id } } })),
+  });
+}
+
+/**
+ * The count is part of `Referral`; the matching household details are a
+ * deliberately separate, admin-only request. Keeping this query disabled
+ * until the administrator asks means names, addresses, dates of birth and
+ * phone numbers are not fetched merely because a referral detail page opened.
+ */
+export function useRepeatReferrals(id: string, excludePostcode: boolean, enabled: boolean) {
+  return useQuery({
+    queryKey: referralKeys.repeatReferrals(id, excludePostcode),
+    queryFn: (): Promise<RepeatReferralList> =>
+      unwrap(
+        api.GET('/api/v1/referrals/{id}/repeat-referrals', {
+          params: { path: { id }, query: { excludePostcode: excludePostcode ? 'true' : 'false' } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+export function useReferralSearch() {
+  return useMutation({
+    mutationFn: (body: ReferralSearchRequest): Promise<ReferralSearchResponse> =>
+      unwrap(api.POST('/api/v1/referrals/search', { body })),
   });
 }
 
@@ -383,6 +413,24 @@ export function useReviewReferral() {
       void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(updated.sessionId) });
+    },
+  });
+}
+
+/**
+ * Records the separate reading pass for a referral whose booking was already
+ * accepted. Unlike accepting or rejecting, this changes no session capacity;
+ * it only removes the row from the administrator's active review pile.
+ */
+export function useMarkReferralReviewed() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string): Promise<Referral> =>
+      unwrap(api.POST('/api/v1/referrals/{id}/review', { params: { path: { id } } })),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(referralKeys.detail(updated.id), updated);
+      void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
     },
   });
 }

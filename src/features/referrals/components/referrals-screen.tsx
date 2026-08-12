@@ -159,7 +159,17 @@ function ReferralRow({ referral, sessions }: { referral: Referral; sessions: rea
   const purged = isPurged(referral);
 
   return (
-    <tr>
+    <tr
+      className={
+        referral.status === 'pending_review'
+          ? styles.pendingReview
+          : referral.status === 'active'
+            ? styles.activeReferral
+            : undefined
+      }
+      data-active={referral.status === 'active' || undefined}
+      data-pending-review={referral.status === 'pending_review' || undefined}
+    >
       <th scope="row">
         <Link to={`/referrals/${referral.id}`}>
           {purged ? 'Details removed' : (refereeNameForList(referral) ?? '—')}

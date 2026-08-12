@@ -98,3 +98,39 @@
   font-weight: 600;
   color: #b3261e;
 }
+
+.grid {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow-x: auto;
+}
+
+.grid table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.grid th,
+.grid td {
+  padding: 0.4rem;
+  border: 1px solid #c7c7c7;
+  text-align: start;
+}
+
+.gridInput {
+  box-sizing: border-box;
+  inline-size: 4.5rem;
+  padding: 0.4rem;
+  font: inherit;
+  font-size: max(1rem, 16px);
+}
+
+.visuallyHidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
