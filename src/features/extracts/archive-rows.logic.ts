@@ -1,4 +1,20 @@
 import type { ExtractRow } from './queries';
+import {
+  HOUSEHOLD_AGE_BANDS,
+  HOUSEHOLD_GENDERS,
+  HOUSEHOLD_COMPONENTS_KEY,
+  isHouseholdComposition,
+  type HouseholdAgeBand,
+  type HouseholdGender,
+} from '../referrals/household-composition';
+
+/**
+ * Stable hidden Sheet keys for the grid. Row two is freely editable, but these
+ * keys say which report value belongs in each column and must never be renamed.
+ */
+export const HOUSEHOLD_COMPOSITION_SHEET_COLUMNS = HOUSEHOLD_AGE_BANDS.flatMap((band) =>
+  HOUSEHOLD_GENDERS.map((gender) => `householdComposition.${band.key}.${gender.key}`),
+);
 
 /**
  * The fixed keys, in order, and the order is part of the format — the archive's
@@ -28,7 +44,20 @@ export const FIXED_HEADERS = [
 ] as const;
 
 export function answerKeys(rows: readonly ExtractRow[]): string[] {
-  return [...new Set(rows.flatMap((row) => Object.keys(row.answers)))].sort();
+  const ordinaryKeys = new Set<string>();
+  let hasComposition = false;
+
+  for (const row of rows) {
+    for (const [key, value] of Object.entries(row.answers)) {
+      if (key === HOUSEHOLD_COMPONENTS_KEY && isHouseholdComposition(value)) {
+        hasComposition = true;
+      } else {
+        ordinaryKeys.add(key);
+      }
+    }
+  }
+
+  return [...ordinaryKeys].sort().concat(hasComposition ? HOUSEHOLD_COMPOSITION_SHEET_COLUMNS : []);
 }
 export function valueForSheet(value: unknown): string | number | boolean {
   if (value === null || value === undefined) return '';
@@ -60,6 +89,8 @@ function fixedValue(
 ): string | number | boolean {
   if (header === 'sessionLocation') return session.sessionLocation;
   if (header === 'sessionDate') return session.sessionDate;
+  const compositionCell = compositionValue(header, row.answers[HOUSEHOLD_COMPONENTS_KEY]);
+  if (compositionCell !== null) return compositionCell;
   if (header in row.answers) return valueForSheet(row.answers[header]);
   const values: Record<string, string | number | boolean | null> = {
     referralId: row.referralId,
@@ -76,4 +107,21 @@ function fixedValue(
     reviewComment: row.reviewComment,
   };
   return valueForSheet(values[header]);
+}
+
+function compositionValue(header: string, value: unknown): number | '' | null {
+  const prefix = 'householdComposition.';
+  if (!header.startsWith(prefix)) return null;
+  if (!isHouseholdComposition(value)) return '';
+
+  const parts = header.slice(prefix.length).split('.');
+  const [ageBand, gender] = parts;
+  if (
+    parts.length !== 2 ||
+    !HOUSEHOLD_AGE_BANDS.some((band) => band.key === ageBand) ||
+    !HOUSEHOLD_GENDERS.some((column) => column.key === gender)
+  ) {
+    return '';
+  }
+  return value[ageBand as HouseholdAgeBand]?.[gender as HouseholdGender] ?? '';
 }

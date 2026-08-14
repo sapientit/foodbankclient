@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, publicApi } from '../../api/client';
 import type { components, paths } from '../../api/schema';
 import { unwrap } from '../../api/unwrap';
+import { pickListKeys } from '../pick-lists/keys';
 import { sessionKeys } from '../sessions/keys';
 import { publicReferralKeys, referralKeys, type ReferralListFilters } from './keys';
 import { looksLikeEmail, sortByStart } from './public-referral.logic';
@@ -413,6 +414,10 @@ export function useReviewReferral() {
       void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(updated.sessionId) });
+      // Rejection can leave an immutable parcel snapshot behind. The
+      // run-session screen can filter it only after this cached response has
+      // been refreshed.
+      void queryClient.invalidateQueries({ queryKey: pickListKeys.all });
     },
   });
 }
@@ -460,6 +465,10 @@ export function useCancelReferral() {
       void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(updated.sessionId) });
+      // Cancellation leaves an immutable parcel snapshot behind. The
+      // run-session screen can filter it only after this cached response has
+      // been refreshed.
+      void queryClient.invalidateQueries({ queryKey: pickListKeys.all });
     },
   });
 }

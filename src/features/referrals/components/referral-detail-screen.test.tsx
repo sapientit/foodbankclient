@@ -137,6 +137,114 @@ describe('the admin referral detail screen', () => {
     expect(await screen.findByText('Financial hardship')).toBeInTheDocument();
   });
 
+  it('shows the compact household composition grid for an administrator', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({
+            id: 'r1',
+            answers: { 'Household Components': { '0-4': { male: 1 } } },
+          }),
+        ),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+
+    const grid = await screen.findByRole('table', { name: 'Household composition' });
+    expect(within(grid).getByText('1')).toBeInTheDocument();
+    expect(within(grid).getByText('0–4, Male:', { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText('Generated')).toBeNull();
+  });
+
+  it('prefills stored page-one answers in their editing controls', async () => {
+    let receivedBody: unknown = null;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({
+            id: 'r1',
+            answers: {
+              gender: 'Female',
+              ethnicity: 'White -British',
+              languages: 'English',
+              'Household Components': { '0-4': { male: 1 }, 'working-age': { female: 1 } },
+              'Collection method': 'On Foot',
+            },
+          }),
+        ),
+      ),
+      http.patch(REFERRAL, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(referral({ id: 'r1' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+    await screen.findByRole('button', { name: 'Edit' });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Referrer and client details' }));
+
+    expect(await screen.findByLabelText("Client's gender")).toHaveValue('Female');
+    await user.clear(screen.getByLabelText('0–4, Male'));
+    await user.type(screen.getByLabelText('0–4, Male'), '2');
+    await user.selectOptions(
+      screen.getByLabelText('How will the parcel be collected'),
+      'Delivery Requested',
+    );
+    await user.selectOptions(
+      screen.getByLabelText('Please confirm the client meets these criteria'),
+      'Yes',
+    );
+    const surname = screen.getByLabelText(/Client.s surname/i);
+    await user.clear(surname);
+    await user.type(surname, 'Rowe-Smith');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => {
+      expect(receivedBody).toMatchObject({
+        refereeSurname: 'Rowe-Smith',
+        adults: 1,
+        children: 2,
+        isDelivery: true,
+        answers: {
+          gender: 'Female',
+          ethnicity: 'White -British',
+          languages: 'English',
+          'Household Components': { '0-4': { male: 2 }, 'working-age': { female: 1 } },
+          'Collection method': 'Delivery Requested',
+          deliveryConfirm: 'Yes',
+        },
+      });
+    });
+  });
+
+  it('edits administrator information separately from the form answers', async () => {
+    let receivedBody: unknown = null;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', adminInfo: 'Ring after 2pm' })),
+      ),
+      http.patch(REFERRAL, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', adminInfo: 'Use side entrance' }));
+      }),
+    );
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+    await screen.findByText('Ring after 2pm');
+    await user.click(screen.getByRole('button', { name: 'Edit administrator information' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Edit administrator information' }));
+    const input = dialog.getByLabelText('Administrator information');
+    await user.clear(input);
+    await user.type(input, 'Use side entrance');
+    await user.click(dialog.getByRole('button', { name: 'Save administrator information' }));
+    await waitFor(() => {
+      expect(receivedBody).toEqual({ adminInfo: 'Use side entrance' });
+    });
+  });
+
   it('shows a known answer by its label and an unknown key still, flagged as older', async () => {
     server.use(
       http.get(REFERRAL, () =>
@@ -158,15 +266,19 @@ describe('the admin referral detail screen', () => {
     expect(screen.getByText('(no longer on the form)')).toBeInTheDocument();
   });
 
-  it('amends the fixed fields and never logs the referral to the console', async () => {
+  it('edits one referral-form page and never logs the referral to the console', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     let receivedBody: unknown = null;
 
     server.use(
-      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1' }))),
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', answers: { legacy: 'kept' } })),
+      ),
       http.patch(REFERRAL, async ({ request }) => {
         receivedBody = await request.json();
-        return HttpResponse.json(referral({ id: 'r1', refereeSurname: 'Rowe-Smith' }));
+        return HttpResponse.json(
+          referral({ id: 'r1', answers: { legacy: 'kept', Other: 'Nut allergy' } }),
+        );
       }),
     );
 
@@ -176,19 +288,67 @@ describe('the admin referral detail screen', () => {
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     // Waits for the reasons query too — the form does not render until it
     // settles, since the reason field's options come from it.
-    await screen.findByRole('button', { name: 'Edit details' });
-    await user.click(screen.getByRole('button', { name: 'Edit details' }));
-    const nameField = await screen.findByLabelText('Surname');
-    await user.clear(nameField);
-    await user.type(nameField, 'Rowe-Smith');
+    await screen.findByRole('button', { name: 'Edit' });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Anything else' }));
+    const dietary = await screen.findByLabelText('Any additional information?');
+    await user.type(dietary, 'Nut allergy');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => {
-      expect(receivedBody).toMatchObject({ refereeSurname: 'Rowe-Smith' });
+      expect(receivedBody).toMatchObject({ answers: { legacy: 'kept', Other: 'Nut allergy' } });
     });
 
     logSpy.mockRestore();
     expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  it('edits a fixed field on its configured form page without sending referrer identity', async () => {
+    let receivedBody: unknown = null;
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1' }))),
+      http.patch(REFERRAL, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', refereeSurname: 'Rowe-Smith' }));
+      }),
+    );
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+    await screen.findByRole('button', { name: 'Edit' });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Referrer and client details' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Edit Referrer and client details' }),
+    ).toBeInTheDocument();
+    const surname = await screen.findByLabelText(/Client.s surname/i);
+    await user.clear(surname);
+    await user.type(surname, 'Rowe-Smith');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => {
+      expect(receivedBody).toMatchObject({ refereeSurname: 'Rowe-Smith', answers: {} });
+    });
+    expect(receivedBody).not.toHaveProperty('referrerEmail');
+  });
+
+  it('cancels a page edit without saving it', async () => {
+    let amendments = 0;
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1' }))),
+      http.patch(REFERRAL, () => {
+        amendments += 1;
+        return HttpResponse.json(referral({ id: 'r1' }));
+      }),
+    );
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+    await screen.findByRole('button', { name: 'Edit' });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Anything else' }));
+    await user.type(await screen.findByLabelText('Any additional information?'), 'Do not save');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByRole('heading', { name: 'Referral details' })).toBeInTheDocument();
+    expect(amendments).toBe(0);
   });
 
   it('cancels the referral through the confirm dialog', async () => {

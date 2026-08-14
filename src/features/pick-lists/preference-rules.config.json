@@ -1,3 +1,516 @@
 {
-  "rules": []
+  "rules": [
+    {
+      "when": {
+        "key": "Tea/Coffee"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "$selectedAnswer",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "$selectedAnswer",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Pasta/Rice",
+        "hasAnswer": "Pasta"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Pasta",
+            "quantity": 2
+          },
+          {
+            "stock": "Pasta sauce",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Pasta/Rice",
+        "hasAnswer": "Rice"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Rice",
+            "quantity": 2
+          },
+          {
+            "stock": "Curry sauce",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Pasta/Rice",
+        "hasAnswer": "Both"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Pasta",
+            "quantity": 1
+          },
+          {
+            "stock": "Pasta sauce",
+            "quantity": 1
+          },
+          {
+            "stock": "Rice",
+            "quantity": 1
+          },
+          {
+            "stock": "Curry sauce",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Sugar/Flour"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "$selectedAnswer",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "$selectedAnswer",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Spread"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "$selectedAnswer",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Pulses"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Pulses",
+            "quantity": -1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Porridge",
+        "hasAnswer": "Yes"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Porridge",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tampons",
+        "hasAnswer": "1"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Tampons",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tampons",
+        "hasAnswer": "2"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Tampons",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tampons",
+        "hasAnswer": "3"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Tampons",
+            "quantity": 3
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tampons",
+        "hasAnswer": "4"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Tampons",
+            "quantity": 4
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tampons",
+        "hasAnswer": "5"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Tampons",
+            "quantity": 5
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Sanitary Pads",
+        "hasAnswer": "1"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Sanitary pads",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Sanitary Pads",
+        "hasAnswer": "2"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Sanitary pads",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Sanitary Pads",
+        "hasAnswer": "3"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Sanitary pads",
+            "quantity": 3
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Sanitary Pads",
+        "hasAnswer": "4"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Sanitary pads",
+            "quantity": 4
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Sanitary Pads",
+        "hasAnswer": "5"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Sanitary pads",
+            "quantity": 5
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toiletries"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "$selectedAnswer",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Nappies"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "$selectedAnswer",
+            "quantity": 1
+          },
+          {
+            "stock": "Wipes",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Baby Food"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "$selectedAnswer",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Baby Milk"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "$selectedAnswer",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Household",
+        "hasAnswer": "Laundry powder"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "$selectedAnswer",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "$selectedAnswer",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Household"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "$selectedAnswer",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Cat food",
+        "hasAnswer": "Cat food - dry"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Cat food - dry",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Cat food",
+        "hasAnswer": "Cat food - wet"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Cat food - wet",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Cat food",
+        "hasAnswer": "Both"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Cat food - dry",
+            "quantity": 1
+          },
+          {
+            "stock": "Cat food - wet",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Dog food",
+        "hasAnswer": "Dog food - dry"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Dog food - dry",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Dog food",
+        "hasAnswer": "Dog food - wet"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Dog food - wet",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Dog food",
+        "hasAnswer": "Both"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Dog food - dry",
+            "quantity": 1
+          },
+          {
+            "stock": "Dog food - wet",
+            "quantity": 1
+          }
+        ]
+      }
+    }
+  ]
 }

@@ -1,29 +1,37 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useId, useMemo, useState } from 'react';
-import {
-  useForm,
-  type FieldError,
-  type UseFormRegister,
-  type UseFormSetError,
-} from 'react-hook-form';
+import { useId, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import * as z from 'zod';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
+import { HouseholdCompositionGrid } from '../../../components/household-composition-grid';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
-import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
 import {
   formatCalendarDate,
   formatLondonDateTime,
   formatSessionDate,
-  isCalendarDate,
-  londonToday,
 } from '../../../lib/london-time';
 import { useReferralReasons, type AdminReferralReason } from '../../admin-setup/queries';
 import { useSessions, type Session } from '../../sessions/queries';
 import { describeAnswers, type AnswersDisplay } from '../referral-answers.logic';
 import { referralFormDefinition } from '../referral-form-config';
+import {
+  dynamicQuestions,
+  isAnswerableQuestion,
+  isDynamicQuestion,
+  type DynamicQuestion,
+  type FormPage,
+  type KeyFieldName,
+  type KeyFieldQuestion,
+} from '../referral-form-definition';
+import { buildPageSchema } from '../referral-form-schema';
+import { HOUSEHOLD_COMPONENTS_KEY, isHouseholdComposition } from '../household-composition';
+import {
+  clearDisabledAnswers,
+  isEnabled,
+  type AnswerValue,
+  type FormAnswers,
+} from '../referral-form.logic';
+import { COLLECTION_METHOD_KEY, splitSubmission } from '../referral-submission.logic';
 import {
   useAmendReferral,
   useCancelReferral,
@@ -39,9 +47,6 @@ import {
 import {
   MAX_CANCEL_REASON_LENGTH,
   MAX_REVIEW_COMMENT_LENGTH,
-  MAX_REFEREE_ADDRESS_LENGTH,
-  MAX_NAME_PART_LENGTH,
-  REFEREE_POSTCODE_BOUNDS,
   REFERRAL_STATUS_LABELS,
   describeLockedReferral,
   hasAdminFields,
@@ -49,10 +54,10 @@ import {
   isAwaitingReview,
   isPurged,
   moveCapacityWarning,
-  parseWholeNumber,
   refereeName,
 } from '../referrals.logic';
-import { ADULTS_BOUNDS, CHILDREN_BOUNDS } from '../referral-key-fields';
+import { keyFieldValue } from '../referral-key-fields';
+import { ReferralQuestionField, type QuestionLookups } from './referral-question-field';
 import styles from './referral-detail-screen.module.css';
 
 /**
@@ -112,13 +117,21 @@ function ReferralDetail({ referral }: { referral: Referral }) {
   const reasons = useReferralReasons(isAdminView);
 
   const session = sessions.data?.find((candidate) => candidate.id === referral.sessionId);
-  const answers = describeAnswers(referralFormDefinition, referral);
+  // Household composition has its own compact grid in the referral details.
+  // Keeping it out of the generic list prevents the stored JSON appearing a
+  // second time under the form's historical label, "Generated".
+  const { [HOUSEHOLD_COMPONENTS_KEY]: _householdComposition, ...otherAnswers } = referral.answers;
+  const answers = describeAnswers(referralFormDefinition, { ...referral, answers: otherAnswers });
 
   const title = refereeName(referral) ?? 'Referral';
 
   return (
     <>
       <PageHeader title={title} />
+
+      {isAdminView && !purged && (
+        <AdminInfoPanel locked={locked} lockedId={lockedId} referral={referral} />
+      )}
 
       {isAdminView && referral.status === 'active' && (
         <MarkReviewedButton referralId={referral.id} />
@@ -239,6 +252,83 @@ function ReferralDetail({ referral }: { referral: Referral }) {
         <MarkReviewedButton referralId={referral.id} />
       )}
     </>
+  );
+}
+
+/** The office's household note is deliberately separate from form answers. */
+function AdminInfoPanel({
+  referral,
+  locked,
+  lockedId,
+}: {
+  referral: Referral;
+  locked: string | null;
+  lockedId: string;
+}) {
+  const amend = useAmendReferral();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const inputId = useId();
+
+  const open = () => {
+    setValue(referral.adminInfo ?? '');
+    setEditing(true);
+  };
+
+  const save = async () => {
+    if (locked !== null) return;
+    try {
+      await amend.mutateAsync({
+        id: referral.id,
+        patch: { adminInfo: value.trim() === '' ? null : value.trim() },
+      });
+      setEditing(false);
+    } catch {
+      // The error remains in the dialog, where the administrator can act on it.
+    }
+  };
+
+  return (
+    <section className={styles.adminInfo}>
+      <h2>Administrator information</h2>
+      <p>{referral.adminInfo ?? 'No administrator information.'}</p>
+      <button
+        aria-describedby={locked === null ? undefined : lockedId}
+        aria-disabled={locked !== null}
+        className={styles.editButton}
+        onClick={() => {
+          if (locked === null) open();
+        }}
+        type="button"
+      >
+        Edit administrator information
+      </button>
+      {editing && (
+        <ConfirmDialog
+          busy={amend.isPending}
+          confirmLabel="Save administrator information"
+          onCancel={() => {
+            setEditing(false);
+          }}
+          onConfirm={() => void save()}
+          title="Edit administrator information"
+        >
+          {amend.error !== null && <ErrorNotice error={amend.error} />}
+          <label htmlFor={inputId}>Administrator information</label>
+          <textarea
+            className={styles.textarea}
+            id={inputId}
+            maxLength={2000}
+            onChange={(event) => {
+              setValue(event.target.value);
+            }}
+            rows={6}
+            value={value}
+          />
+          <p className={styles.hint}>Leave blank to remove this information.</p>
+        </ConfirmDialog>
+      )}
+    </section>
   );
 }
 
@@ -523,78 +613,264 @@ function AnswersList({ display }: { display: AnswersDisplay }) {
   }
 }
 
-const AGE_BAND_MESSAGES: Record<string, string> = {
-  empty: 'Enter a number — use 0 if none.',
-  'not-a-whole-number': 'Use a whole number, for example 2.',
-  'below-minimum': 'Cannot be negative.',
-  'above-maximum': 'Use 30 or fewer.',
-};
-
-/**
- * Built per render rather than at module scope, because whether `reasonId` is
- * required depends on `isAdminView` — a team lead's form never shows that
- * field, so nothing should block submission on it being empty. Both branches
- * produce the same shape (`z.string()` either way; `.min` only adds a check),
- * so `DetailsFormValues` is stable regardless of which branch ran.
- */
-function buildDetailsFormSchema(isAdminView: boolean) {
-  return z.object({
-    refereeFirstName: z
-      .string()
-      .trim()
-      .min(1, 'Enter the client’s first name.')
-      .max(MAX_NAME_PART_LENGTH, `Use ${String(MAX_NAME_PART_LENGTH)} characters or fewer.`),
-    refereeSurname: z
-      .string()
-      .trim()
-      .min(1, 'Enter the client’s surname.')
-      .max(MAX_NAME_PART_LENGTH, `Use ${String(MAX_NAME_PART_LENGTH)} characters or fewer.`),
-    refereeDateOfBirth: z.string().superRefine((value, ctx) => {
-      if (!isCalendarDate(value)) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Enter a date of birth as day, month and year.',
-        });
-        return;
-      }
-      if (value > londonToday()) {
-        ctx.addIssue({ code: 'custom', message: 'That date is in the future.' });
-      }
-    }),
-    refereeAddress: z
-      .string()
-      .trim()
-      .min(1, 'Enter an address.')
-      .max(
-        MAX_REFEREE_ADDRESS_LENGTH,
-        `Use ${String(MAX_REFEREE_ADDRESS_LENGTH)} characters or fewer.`,
-      ),
-    refereePostcode: z
-      .string()
-      .trim()
-      .min(REFEREE_POSTCODE_BOUNDS.minLength, 'Enter a postcode.')
-      .max(
-        REFEREE_POSTCODE_BOUNDS.maxLength,
-        `Use ${String(REFEREE_POSTCODE_BOUNDS.maxLength)} characters or fewer.`,
-      ),
-    refereePhone: z.string(),
-    referrerPhone: z.string(),
-    adults: countSchema(ADULTS_BOUNDS),
-    children: countSchema(CHILDREN_BOUNDS),
-    isDelivery: z.boolean(),
-    needsFuelHelp: z.boolean(),
-    reasonId: isAdminView ? z.string().min(1, 'Choose a reason.') : z.string(),
-  });
+function storedEditorAnswer(question: DynamicQuestion, value: unknown): AnswerValue {
+  switch (question.type) {
+    case 'choice':
+      if (typeof value === 'string') return [value];
+      return Array.isArray(value)
+        ? value.filter((entry): entry is string => typeof entry === 'string')
+        : [];
+    case 'number':
+      return typeof value === 'number' ? String(value) : typeof value === 'string' ? value : '';
+    case 'text':
+      return typeof value === 'string' ? value : '';
+    case 'householdComposition':
+      return isHouseholdComposition(value) ? value : '';
+  }
 }
 
-function countSchema(bounds: typeof ADULTS_BOUNDS | typeof CHILDREN_BOUNDS) {
-  return z.string().superRefine((value, ctx) => {
-    const parsed = parseWholeNumber(value, bounds);
-    if (!parsed.ok) ctx.addIssue({ code: 'custom', message: AGE_BAND_MESSAGES[parsed.problem] });
-  });
+function keyFieldAnswer(referral: Referral, field: KeyFieldName): string {
+  switch (field) {
+    case 'referrerName':
+      return referral.referrerName ?? '';
+    case 'referrerEmail':
+      return referral.referrerEmail ?? '';
+    case 'referrerOrganisation':
+      return referral.referrerOrganisation;
+    case 'referrerPhone':
+      return referral.referrerPhone ?? '';
+    case 'refereeFirstName':
+      return referral.refereeFirstName ?? '';
+    case 'refereeSurname':
+      return referral.refereeSurname ?? '';
+    case 'refereeDateOfBirth':
+      return referral.refereeDateOfBirth ?? '';
+    case 'refereeAddress':
+      return referral.refereeAddress ?? '';
+    case 'refereePostcode':
+      return referral.refereePostcode ?? '';
+    case 'refereePhone':
+      return referral.refereePhone ?? '';
+    case 'sessionId':
+      return referral.sessionId;
+    case 'adults':
+      return String(referral.adults);
+    case 'children':
+      return String(referral.children);
+    case 'isDelivery':
+      return referral.isDelivery ? 'Yes' : '';
+    case 'needsFuelHelp':
+      return referral.needsFuelHelp ? 'Yes' : '';
+    case 'reasonId':
+      return referral.reasonId ?? '';
+  }
 }
 
-type DetailsFormValues = z.infer<ReturnType<typeof buildDetailsFormSchema>>;
+function editableKeyField(field: KeyFieldName): boolean {
+  return ![
+    'referrerName',
+    'referrerEmail',
+    'referrerOrganisation',
+    'referrerPhone',
+    'sessionId',
+  ].includes(field);
+}
+
+function addKeyFieldPatch(
+  patch: AmendReferralInput,
+  question: KeyFieldQuestion,
+  value: string,
+): void {
+  const parsed = keyFieldValue(question.field, value);
+  switch (question.field) {
+    case 'refereeFirstName':
+      if (typeof parsed === 'string') patch.refereeFirstName = parsed;
+      break;
+    case 'refereeSurname':
+      if (typeof parsed === 'string') patch.refereeSurname = parsed;
+      break;
+    case 'refereeDateOfBirth':
+      if (typeof parsed === 'string') patch.refereeDateOfBirth = parsed;
+      break;
+    case 'refereeAddress':
+      if (typeof parsed === 'string') patch.refereeAddress = parsed;
+      break;
+    case 'refereePostcode':
+      if (typeof parsed === 'string') patch.refereePostcode = parsed;
+      break;
+    case 'refereePhone':
+      if (typeof parsed === 'string' || parsed === null) patch.refereePhone = parsed;
+      break;
+    case 'adults':
+      if (typeof parsed === 'number') patch.adults = parsed;
+      break;
+    case 'children':
+      if (typeof parsed === 'number') patch.children = parsed;
+      break;
+    case 'isDelivery':
+      if (typeof parsed === 'boolean') patch.isDelivery = parsed;
+      break;
+    case 'needsFuelHelp':
+      if (typeof parsed === 'boolean') patch.needsFuelHelp = parsed;
+      break;
+    case 'reasonId':
+      if (typeof parsed === 'string') patch.reasonId = parsed;
+      break;
+    case 'referrerName':
+    case 'referrerEmail':
+    case 'referrerOrganisation':
+    case 'referrerPhone':
+    case 'sessionId':
+      break;
+  }
+}
+
+function AnswerPageEditor({
+  page,
+  referral,
+  reasons,
+  onCancel,
+}: {
+  page: FormPage;
+  referral: Referral;
+  reasons: readonly AdminReferralReason[];
+  onCancel: () => void;
+}) {
+  const amend = useAmendReferral();
+  const [answers, setAnswers] = useState<FormAnswers>(() => ({
+    ...Object.fromEntries(
+      dynamicQuestions(referralFormDefinition).map((question) => [
+        question.key,
+        storedEditorAnswer(question, referral.answers[question.key]),
+      ]),
+    ),
+    ...Object.fromEntries(
+      page.questions
+        .filter((question): question is KeyFieldQuestion => question.type === 'keyField')
+        .map((question) => [question.key, keyFieldAnswer(referral, question.field)]),
+    ),
+  }));
+  const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
+  const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
+  const questions = page.questions.filter(isAnswerableQuestion);
+  const dynamic = questions.filter(isDynamicQuestion);
+  const lookups: QuestionLookups = { sessions: [], referralReasons: reasons, organisations: [] };
+
+  const save = async () => {
+    const shown = questions.filter((question) => isEnabled(question, answers));
+    // A stored referral can predate a newly required question. Keep skipped
+    // questions skipped; only validate values already held or changed here.
+    const toValidate = shown.filter((question) => {
+      const value = answers[question.key];
+      return (
+        touched.has(question.key) ||
+        (typeof value === 'string' && value !== '') ||
+        (Array.isArray(value) && value.length > 0) ||
+        isHouseholdComposition(value)
+      );
+    });
+    const validation = buildPageSchema({ ...page, questions: toValidate }).safeParse(
+      Object.fromEntries(toValidate.map((question) => [question.key, answers[question.key] ?? ''])),
+    );
+    if (!validation.success) {
+      const nextErrors: Record<string, string> = {};
+      for (const issue of validation.error.issues) {
+        const key = issue.path[0];
+        if (typeof key === 'string' && nextErrors[key] === undefined)
+          nextErrors[key] = issue.message;
+      }
+      setErrors(nextErrors);
+      return;
+    }
+    let next: Record<string, unknown> = { ...referral.answers };
+    const submitted = splitSubmission(referralFormDefinition, answers);
+    for (const question of dynamic) {
+      // Unchanged answers keep their exact stored form. In particular, a
+      // single-choice answer is stored as a string but represented as a
+      // one-item array by the edit control. Disabled answers must still be
+      // removed when a changed controlling answer hides them.
+      if (!touched.has(question.key) && isEnabled(question, answers)) continue;
+      const value = submitted.answers[question.key];
+      if (value === undefined) {
+        const { [question.key]: _removed, ...remaining } = next;
+        next = remaining;
+      } else {
+        next[question.key] = value;
+      }
+    }
+    const patch: AmendReferralInput = { answers: next };
+    // These operational columns are derived from dynamic questions. They need
+    // the same update when their source is changed in an amendment as when it
+    // is first submitted.
+    if (touched.has(HOUSEHOLD_COMPONENTS_KEY)) {
+      if (typeof submitted.keyFields.adults === 'number') patch.adults = submitted.keyFields.adults;
+      if (typeof submitted.keyFields.children === 'number')
+        patch.children = submitted.keyFields.children;
+    }
+    if (touched.has(COLLECTION_METHOD_KEY) && typeof submitted.keyFields.isDelivery === 'boolean') {
+      patch.isDelivery = submitted.keyFields.isDelivery;
+    }
+    for (const question of shown) {
+      if (question.type === 'keyField' && editableKeyField(question.field)) {
+        const value = answers[question.key];
+        if (typeof value === 'string') addKeyFieldPatch(patch, question, value);
+      }
+    }
+    try {
+      await amend.mutateAsync({ id: referral.id, patch });
+      onCancel();
+    } catch {
+      // Keep the page open with its values and show the server error below.
+    }
+  };
+
+  return (
+    <section className={styles.section}>
+      <h2>Edit {page.pageTitle}</h2>
+      {amend.error !== null && <ErrorNotice error={amend.error} />}
+      <form
+        className={styles.form}
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        {questions.map((question) => (
+          <ReferralQuestionField
+            enabled={
+              isEnabled(question, answers) &&
+              (question.type !== 'keyField' || editableKeyField(question.field))
+            }
+            error={errors[question.key]}
+            key={question.key}
+            lookups={lookups}
+            onChange={(value) => {
+              setTouched((current) => new Set(current).add(question.key));
+              setAnswers((current) =>
+                clearDisabledAnswers(referralFormDefinition, { ...current, [question.key]: value }),
+              );
+              setErrors((current) => {
+                const { [question.key]: _cleared, ...rest } = current;
+                return rest;
+              });
+            }}
+            question={question}
+            value={answers[question.key] ?? ''}
+          />
+        ))}
+        <div className={styles.formActions}>
+          <button aria-disabled={amend.isPending} className={styles.submit} type="submit">
+            {amend.isPending ? 'Saving…' : 'Save changes'}
+          </button>
+          <button onClick={onCancel} type="button">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
 
 /**
  * Edits the fixed personal-detail fields. **There is no editor for the dynamic
@@ -619,332 +895,94 @@ function DetailsForm({
   locked: string | null;
   lockedId: string;
 }) {
-  const amend = useAmendReferral();
-  const [editing, setEditing] = useState(false);
-  const schema = useMemo(() => buildDetailsFormSchema(isAdminView), [isAdminView]);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [showEditMenu, setShowEditMenu] = useState(false);
 
-  const nameId = useId();
-  const nameErrorId = useId();
-  const surnameId = useId();
-  const surnameErrorId = useId();
-  const dobId = useId();
-  const dobErrorId = useId();
-  const fuelId = useId();
-  const addressId = useId();
-  const addressErrorId = useId();
-  const postcodeId = useId();
-  const postcodeErrorId = useId();
-  const phoneId = useId();
-  const referrerPhoneId = useId();
-  const adultsId = useId();
-  const adultsErrorId = useId();
-  const childrenId = useId();
-  const childrenErrorId = useId();
-  const reasonSelectId = useId();
-  const reasonErrorId = useId();
-
-  const {
-    formState: { errors, isSubmitting },
-    handleSubmit,
-    register,
-    setError,
-  } = useForm<DetailsFormValues>({
-    resolver: zodResolver(schema),
-    // Not reset on failure, so whatever was typed survives a 400. The three
-    // admin-only fields default from `?? ''` rather than a branch on
-    // `isAdminView`: when they are genuinely absent (a team lead) the field is
-    // never rendered anyway, so an unused default of `''` costs nothing and
-    // sidesteps narrowing a value TypeScript has no way to know is safe here.
-    defaultValues: {
-      refereeFirstName: referral.refereeFirstName ?? '',
-      refereeSurname: referral.refereeSurname ?? '',
-      refereeDateOfBirth: referral.refereeDateOfBirth ?? '',
-      refereeAddress: referral.refereeAddress ?? '',
-      refereePostcode: referral.refereePostcode ?? '',
-      refereePhone: referral.refereePhone ?? '',
-      referrerPhone: referral.referrerPhone ?? '',
-      adults: String(referral.adults),
-      children: String(referral.children),
-      isDelivery: referral.isDelivery,
-      needsFuelHelp: referral.needsFuelHelp,
-      reasonId: referral.reasonId ?? '',
-    },
-  });
-
-  const submit = handleSubmit(async (values) => {
-    if (locked !== null) return;
-
-    const adults = parseWholeNumber(values.adults, ADULTS_BOUNDS);
-    const children = parseWholeNumber(values.children, CHILDREN_BOUNDS);
-    if (!adults.ok || !children.ok) return;
-
-    const patch: AmendReferralInput = {
-      refereeFirstName: values.refereeFirstName,
-      refereeSurname: values.refereeSurname,
-      refereeDateOfBirth: values.refereeDateOfBirth,
-      refereeAddress: values.refereeAddress,
-      refereePostcode: values.refereePostcode,
-      refereePhone: values.refereePhone === '' ? null : values.refereePhone,
-      adults: adults.value,
-      children: children.value,
-      isDelivery: values.isDelivery,
-      needsFuelHelp: values.needsFuelHelp,
-    };
-    if (isAdminView) patch.reasonId = values.reasonId;
-
-    try {
-      await amend.mutateAsync({ id: referral.id, patch });
-    } catch (error) {
-      applyFieldErrors(error, setError);
-    }
-  });
-
-  if (!editing) {
-    const reason = reasons.find((candidate) => candidate.id === referral.reasonId);
+  if (editing !== null) {
+    const page = referralFormDefinition.pages[editing];
+    if (page === undefined) return null;
     return (
-      <section className={styles.section}>
-        <h2>Referral details</h2>
-        <dl className={styles.static}>
-          <dt>Name</dt>
-          <dd>{refereeName(referral) ?? '—'}</dd>
-          <dt>Date of birth</dt>
-          <dd>
-            {referral.refereeDateOfBirth === null
-              ? '—'
-              : formatCalendarDate(referral.refereeDateOfBirth)}
-          </dd>
-          <dt>Address</dt>
-          <dd>{referral.refereeAddress ?? '—'}</dd>
-          <dt>Postcode</dt>
-          <dd>{referral.refereePostcode ?? '—'}</dd>
-          <dt>Phone</dt>
-          <dd>{referral.refereePhone ?? '—'}</dd>
-          <dt>Adults</dt>
-          <dd>{referral.adults}</dd>
-          <dt>Children</dt>
-          <dd>{referral.children}</dd>
-          <dt>Delivery</dt>
-          <dd>{referral.isDelivery ? 'Yes' : 'No'}</dd>
-          <dt>Fuel help</dt>
-          <dd>{referral.needsFuelHelp ? 'Yes' : 'No'}</dd>
-          {isAdminView && (
-            <>
-              <dt>Reason for referral</dt>
-              <dd>{reason?.label ?? '—'}</dd>
-              <dt>Referrer phone</dt>
-              <dd>{referral.referrerPhone ?? '—'}</dd>
-            </>
-          )}
-        </dl>
+      <AnswerPageEditor
+        onCancel={() => {
+          setEditing(null);
+        }}
+        page={page}
+        reasons={reasons}
+        referral={referral}
+      />
+    );
+  }
+
+  const reason = reasons.find((candidate) => candidate.id === referral.reasonId);
+  const householdComposition = referral.answers[HOUSEHOLD_COMPONENTS_KEY];
+  return (
+    <section className={styles.section}>
+      <h2>Referral details</h2>
+      <dl className={styles.static}>
+        <dt>Name</dt>
+        <dd>{refereeName(referral) ?? '—'}</dd>
+        <dt>Date of birth</dt>
+        <dd>
+          {referral.refereeDateOfBirth === null
+            ? '—'
+            : formatCalendarDate(referral.refereeDateOfBirth)}
+        </dd>
+        <dt>Address</dt>
+        <dd>{referral.refereeAddress ?? '—'}</dd>
+        <dt>Postcode</dt>
+        <dd>{referral.refereePostcode ?? '—'}</dd>
+        <dt>Phone</dt>
+        <dd>{referral.refereePhone ?? '—'}</dd>
+        <dt>Adults</dt>
+        <dd>{referral.adults}</dd>
+        <dt>Children</dt>
+        <dd>{referral.children}</dd>
+        <dt>Delivery</dt>
+        <dd>{referral.isDelivery ? 'Yes' : 'No'}</dd>
+        <dt>Fuel help</dt>
+        <dd>{referral.needsFuelHelp ? 'Yes' : 'No'}</dd>
+        {isAdminView && (
+          <>
+            <dt>Reason for referral</dt>
+            <dd>{reason?.label ?? '—'}</dd>
+            <dt>Referrer phone</dt>
+            <dd>{referral.referrerPhone ?? '—'}</dd>
+          </>
+        )}
+      </dl>
+      {isAdminView && isHouseholdComposition(householdComposition) && (
+        <section aria-label="Household composition" className={styles.householdComposition}>
+          <HouseholdCompositionGrid composition={householdComposition} />
+        </section>
+      )}
+      {isAdminView && (
         <button
           aria-describedby={locked === null ? undefined : lockedId}
           aria-disabled={locked !== null}
           className={styles.submit}
           onClick={() => {
-            if (locked === null) setEditing(true);
+            if (locked === null) setShowEditMenu(true);
           }}
           type="button"
         >
-          Edit details
+          Edit
         </button>
-      </section>
-    );
-  }
-
-  return (
-    <section className={styles.section}>
-      <h2>Edit referral details</h2>
-
-      {amend.error !== null && !isFieldFailure(amend.error) && <ErrorNotice error={amend.error} />}
-
-      <form className={styles.form} noValidate onSubmit={(event) => void submit(event)}>
-        <div className={styles.field}>
-          <label htmlFor={nameId}>First name</label>
-          <input
-            {...register('refereeFirstName')}
-            aria-describedby={errors.refereeFirstName === undefined ? undefined : nameErrorId}
-            aria-invalid={errors.refereeFirstName === undefined ? undefined : true}
-            className={styles.input}
-            id={nameId}
-            maxLength={MAX_NAME_PART_LENGTH}
-            type="text"
-          />
-          {errors.refereeFirstName !== undefined && (
-            <p className={styles.fieldError} id={nameErrorId}>
-              {errors.refereeFirstName.message}
-            </p>
-          )}
-        </div>
-
-        <div className={styles.field}>
-          <label htmlFor={surnameId}>Surname</label>
-          <input
-            {...register('refereeSurname')}
-            aria-describedby={errors.refereeSurname === undefined ? undefined : surnameErrorId}
-            aria-invalid={errors.refereeSurname === undefined ? undefined : true}
-            className={styles.input}
-            id={surnameId}
-            maxLength={MAX_NAME_PART_LENGTH}
-            type="text"
-          />
-          {errors.refereeSurname !== undefined && (
-            <p className={styles.fieldError} id={surnameErrorId}>
-              {errors.refereeSurname.message}
-            </p>
-          )}
-        </div>
-
-        <div className={styles.field}>
-          <label htmlFor={dobId}>Date of birth</label>
-          <input
-            {...register('refereeDateOfBirth')}
-            aria-describedby={errors.refereeDateOfBirth === undefined ? undefined : dobErrorId}
-            aria-invalid={errors.refereeDateOfBirth === undefined ? undefined : true}
-            className={styles.input}
-            id={dobId}
-            max={londonToday()}
-            type="date"
-          />
-          {errors.refereeDateOfBirth !== undefined && (
-            <p className={styles.fieldError} id={dobErrorId}>
-              {errors.refereeDateOfBirth.message}
-            </p>
-          )}
-        </div>
-
-        <div className={styles.field}>
-          <label htmlFor={addressId}>Address</label>
-          <textarea
-            {...register('refereeAddress')}
-            aria-describedby={errors.refereeAddress === undefined ? undefined : addressErrorId}
-            aria-invalid={errors.refereeAddress === undefined ? undefined : true}
-            className={styles.textarea}
-            id={addressId}
-            maxLength={MAX_REFEREE_ADDRESS_LENGTH}
-            rows={2}
-          />
-          {errors.refereeAddress !== undefined && (
-            <p className={styles.fieldError} id={addressErrorId}>
-              {errors.refereeAddress.message}
-            </p>
-          )}
-        </div>
-
-        <div className={styles.field}>
-          <label htmlFor={postcodeId}>Postcode</label>
-          <input
-            {...register('refereePostcode')}
-            aria-describedby={errors.refereePostcode === undefined ? undefined : postcodeErrorId}
-            aria-invalid={errors.refereePostcode === undefined ? undefined : true}
-            className={styles.input}
-            id={postcodeId}
-            maxLength={REFEREE_POSTCODE_BOUNDS.maxLength}
-            type="text"
-          />
-          {errors.refereePostcode !== undefined && (
-            <p className={styles.fieldError} id={postcodeErrorId}>
-              {errors.refereePostcode.message}
-            </p>
-          )}
-        </div>
-
-        <div className={styles.field}>
-          <label htmlFor={phoneId}>Referee phone (optional)</label>
-          <input {...register('refereePhone')} className={styles.input} id={phoneId} type="tel" />
-        </div>
-
-        {/* Admin only — see the module comment. Absent entirely from a team
-            lead's form, not merely disabled, because there is no value loaded
-            to show. */}
-        {isAdminView && (
-          <div className={styles.field}>
-            <label htmlFor={referrerPhoneId}>Referrer phone (optional)</label>
-            <input
-              {...register('referrerPhone')}
-              className={styles.input}
-              id={referrerPhoneId}
-              type="tel"
-            />
-          </div>
-        )}
-
-        <AgeBandField
-          label="Adults"
-          field="adults"
-          id={adultsId}
-          errorId={adultsErrorId}
-          register={register}
-          error={errors.adults}
-        />
-        <AgeBandField
-          label="Children"
-          field="children"
-          id={childrenId}
-          errorId={childrenErrorId}
-          register={register}
-          error={errors.children}
-        />
-
-        <div className={styles.checkboxField}>
-          <label>
-            <input {...register('isDelivery')} type="checkbox" /> This is a delivery
-          </label>
-        </div>
-
-        <div className={styles.checkboxField}>
-          <label htmlFor={fuelId}>
-            <input {...register('needsFuelHelp')} id={fuelId} type="checkbox" /> Needs help with gas
-            or electricity
-          </label>
-        </div>
-
-        {/* Admin only. The reason for referral is never shown to a team lead
-            (`API.md` §2), so this field simply is not in their form. */}
-        {isAdminView && (
-          <div className={styles.field}>
-            <label htmlFor={reasonSelectId}>Reason for referral</label>
-            <select
-              {...register('reasonId')}
-              aria-describedby={errors.reasonId === undefined ? undefined : reasonErrorId}
-              aria-invalid={errors.reasonId === undefined ? undefined : true}
-              className={styles.select}
-              id={reasonSelectId}
+      )}
+      {isAdminView && showEditMenu && (
+        <div className={styles.editMenu}>
+          {referralFormDefinition.pages.map((page, index) => (
+            <button
+              key={page.pageNum}
+              onClick={() => {
+                setEditing(index);
+              }}
+              type="button"
             >
-              <option value="">Choose a reason</option>
-              {reasons.map((reason) => (
-                <option key={reason.id} value={reason.id}>
-                  {reason.label}
-                  {reason.isActive ? '' : ' (retired)'}
-                </option>
-              ))}
-            </select>
-            {errors.reasonId !== undefined && (
-              <p className={styles.fieldError} id={reasonErrorId}>
-                {errors.reasonId.message}
-              </p>
-            )}
-          </div>
-        )}
-
-        <div className={styles.formActions}>
-          <button
-            aria-describedby={locked === null ? undefined : lockedId}
-            aria-disabled={locked !== null}
-            className={styles.submit}
-            type="submit"
-          >
-            {isSubmitting ? 'Saving…' : 'Save changes'}
-          </button>
-          <button
-            onClick={() => {
-              setEditing(false);
-            }}
-            type="button"
-          >
-            Cancel editing
-          </button>
+              {page.pageTitle}
+            </button>
+          ))}
         </div>
-      </form>
+      )}
     </section>
   );
 }
@@ -1136,68 +1174,4 @@ function CancelPanel({
       )}
     </div>
   );
-}
-
-function isFieldFailure(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 400;
-}
-
-function AgeBandField({
-  label,
-  field,
-  id,
-  errorId,
-  register,
-  error,
-}: {
-  readonly label: string;
-  readonly field: 'adults' | 'children';
-  readonly id: string;
-  readonly errorId: string;
-  readonly register: UseFormRegister<DetailsFormValues>;
-  readonly error: FieldError | undefined;
-}) {
-  return (
-    <div className={styles.field}>
-      <label htmlFor={id}>{label}</label>
-      <input
-        {...register(field)}
-        aria-describedby={error === undefined ? undefined : errorId}
-        aria-invalid={error === undefined ? undefined : true}
-        autoComplete="off"
-        className={styles.input}
-        id={id}
-        inputMode="numeric"
-        type="text"
-      />
-      {error !== undefined && (
-        <p className={styles.fieldError} id={errorId}>
-          {error.message}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function applyFieldErrors(error: unknown, setError: UseFormSetError<DetailsFormValues>): void {
-  if (!isFieldFailure(error) || !(error instanceof ApiError)) return;
-
-  for (const [path, message] of Object.entries(issuesToFieldErrors(error))) {
-    if (
-      path === 'refereeFirstName' ||
-      path === 'refereeSurname' ||
-      path === 'refereeDateOfBirth' ||
-      path === 'needsFuelHelp' ||
-      path === 'refereeAddress' ||
-      path === 'refereePostcode' ||
-      path === 'refereePhone' ||
-      path === 'referrerPhone' ||
-      path === 'adults' ||
-      path === 'children' ||
-      path === 'isDelivery' ||
-      path === 'reasonId'
-    ) {
-      setError(path, { message });
-    }
-  }
 }

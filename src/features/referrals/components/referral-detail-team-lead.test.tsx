@@ -1,5 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { screen } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../../test/msw/server';
@@ -115,7 +114,7 @@ describe('a team lead’s referral detail view', () => {
     // The household fields a team lead does receive are still there.
     expect(screen.getByText('Riverside Church')).toBeInTheDocument();
     expect(screen.getAllByText('Jamie Rowe').length).toBeGreaterThan(1);
-    expect(screen.getByRole('button', { name: 'Edit details' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
 
     // The three admin-only things are simply not on the page.
     expect(screen.queryByText('Referrer email')).toBeNull();
@@ -137,7 +136,7 @@ describe('a team lead’s referral detail view', () => {
     expect(repeatReferralsRequested).not.toHaveBeenCalled();
   });
 
-  it('can still amend the fields a team lead does have, and the request omits the admin-only ones', async () => {
+  it('does not offer a team lead any referral amendment controls', async () => {
     let receivedBody: unknown = null;
     server.use(
       http.get(REFERRAL, () => HttpResponse.json(teamLeadReferral({ id: 'r1' }))),
@@ -151,18 +150,8 @@ describe('a team lead’s referral detail view', () => {
     );
 
     renderApp('/referrals/r1');
-    const user = userEvent.setup();
-
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
-    await user.click(screen.getByRole('button', { name: 'Edit details' }));
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
-
-    await waitFor(() => {
-      expect(receivedBody).not.toBeNull();
-    });
-    expect(receivedBody).not.toHaveProperty('reasonId');
-    expect(receivedBody).not.toHaveProperty('referrerPhone');
-    // The 403 reads as a plain explanation, never a crash.
-    expect(await screen.findByRole('alert')).toHaveTextContent('You do not have access to this');
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(receivedBody).toBeNull();
   });
 });

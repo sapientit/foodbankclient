@@ -15,6 +15,23 @@
   border: 2px solid currentcolor;
 }
 
+.pickListInformation {
+  margin-block: 1rem;
+  padding: 0.75rem;
+  border: 3px solid currentcolor;
+}
+
+.pickListInformation h2,
+.pickListInformation p {
+  margin: 0;
+}
+
+.pickListInformation p {
+  margin-block-start: 0.25rem;
+  font-weight: 700;
+  white-space: pre-wrap;
+}
+
 .parcelPanel {
   min-block-size: 66vh;
 }
@@ -29,6 +46,23 @@
 .householdSize {
   font-size: 0.875rem;
   font-weight: 400;
+}
+
+.householdComposition {
+  margin-block: 0.75rem;
+}
+
+.pickListInformationEditor {
+  display: grid;
+  gap: 0.35rem;
+  margin-block: 0.75rem;
+}
+
+.pickListInformationEditor textarea {
+  box-sizing: border-box;
+  inline-size: 100%;
+  resize: vertical;
+  font: inherit;
 }
 
 .editorColumns {
@@ -52,6 +86,13 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.unselectedItemsToggle {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-block-end: 1rem;
 }
 
 .categoryGroup {

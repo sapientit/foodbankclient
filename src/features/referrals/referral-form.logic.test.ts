@@ -36,14 +36,12 @@ function form(...questions: FormQuestion[]): ReferralFormDefinition {
 }
 
 describe('choiceInstruction', () => {
-  it('says to choose one when exactly one is wanted', () => {
-    expect(choiceInstruction(choice({ answerMin: 1, answerMax: 1 }))).toBe('Choose one.');
+  it('has no instruction for a dropdown that allows at most one answer', () => {
+    expect(choiceInstruction(choice({ answerMin: 1, answerMax: 1 }))).toBeNull();
+    expect(choiceInstruction(choice({ answerMin: 0, answerMax: 1 }))).toBeNull();
   });
 
   it('offers None when none is allowed', () => {
-    expect(choiceInstruction(choice({ answerMin: 0, answerMax: 1 }))).toBe(
-      'Choose up to one, or None.',
-    );
     expect(choiceInstruction(choice({ answerMin: 0, answerMax: 3 }))).toBe(
       'Choose up to three, or None.',
     );
@@ -197,7 +195,11 @@ describe('enabledQuestions', () => {
     const [page] = definition.pages;
     expect(page).toBeDefined();
 
-    expect(enabledQuestions(page!, {}).map((q) => q.key)).toEqual(['needsFuelHelp']);
+    expect(
+      enabledQuestions(page!, {})
+        .filter((question) => question.type !== 'information')
+        .map((question) => question.key),
+    ).toEqual(['needsFuelHelp']);
     expect(enabledQuestions(page!, { needsFuelHelp: 'Yes' })).toHaveLength(2);
   });
 });

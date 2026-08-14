@@ -14,6 +14,10 @@ import {
   type HouseholdComposition,
 } from './household-composition';
 
+/** Stored in answers; the fixed flag remains available to every server workflow. */
+export const COLLECTION_METHOD_KEY = 'Collection method';
+export const DELIVERY_REQUESTED = 'Delivery Requested';
+
 /**
  * Takes a filled-in form apart into what `POST /public/referrals` wants: the
  * typed columns at the top level, everything else in the `answers` bag.
@@ -68,6 +72,7 @@ export function splitSubmission(
   for (const page of definition.pages) {
     for (const question of page.questions) {
       if (!isEnabled(question, answers)) continue;
+      if (question.type === 'information') continue;
 
       const held = answers[question.key];
 
@@ -86,6 +91,12 @@ export function splitSubmission(
         Object.assign(keyFields, operationalHouseholdCounts(value));
       }
     }
+  }
+
+  // Older definitions used an `isDelivery` key field.  Only the current
+  // questionnaire has a collection-method answer from which to derive it.
+  if (Object.hasOwn(dynamic, COLLECTION_METHOD_KEY)) {
+    keyFields.isDelivery = dynamic[COLLECTION_METHOD_KEY] === DELIVERY_REQUESTED;
   }
 
   return { keyFields, answers: dynamic };
@@ -144,6 +155,7 @@ export function describeSubmission(
 
   for (const page of definition.pages) {
     for (const question of page.questions) {
+      if (question.type === 'information') continue;
       if (!question.required || !isEnabled(question, answers)) continue;
 
       const value = confirmationValue(question, answers[question.key], lookups);

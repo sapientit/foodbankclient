@@ -3,6 +3,8 @@
  * derived adults and children for parcel sizing; this map is kept as one
  * answer for reporting, rather than as a second set of totals to maintain.
  */
+export const HOUSEHOLD_COMPONENTS_KEY = 'Household Components';
+
 export const HOUSEHOLD_AGE_BANDS = [
   { key: '0-4', label: '0–4' },
   { key: '5-11', label: '5–11' },
@@ -14,46 +16,47 @@ export const HOUSEHOLD_AGE_BANDS = [
 export const HOUSEHOLD_GENDERS = [
   { key: 'female', label: 'Female' },
   { key: 'male', label: 'Male' },
-  { key: 'other', label: 'Other / another gender' },
+  { key: 'non-binary', label: 'Non-Binary' },
+  { key: 'prefer-not-to-say', label: 'Prefer not to say' },
 ] as const;
 
 export type HouseholdAgeBand = (typeof HOUSEHOLD_AGE_BANDS)[number]['key'];
 export type HouseholdGender = (typeof HOUSEHOLD_GENDERS)[number]['key'];
 export type HouseholdComposition = Readonly<
-  Record<HouseholdAgeBand, Readonly<Record<HouseholdGender, number>>>
+  Partial<Record<HouseholdAgeBand, Readonly<Partial<Record<HouseholdGender, number>>>>>
 >;
 
 export function emptyHouseholdComposition(): HouseholdComposition {
-  return Object.fromEntries(
-    HOUSEHOLD_AGE_BANDS.map((band) => [
-      band.key,
-      Object.fromEntries(HOUSEHOLD_GENDERS.map((gender) => [gender.key, 0])),
-    ]),
-  ) as HouseholdComposition;
+  return {};
 }
 
 export function isHouseholdComposition(value: unknown): value is HouseholdComposition {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
 
   const record = value as Record<string, unknown>;
-  return HOUSEHOLD_AGE_BANDS.every((band) => {
-    const row = record[band.key];
+  return Object.entries(record).every(([ageBand, row]) => {
+    if (!HOUSEHOLD_AGE_BANDS.some((band) => band.key === ageBand)) return false;
+    if (typeof row !== 'object' || row === null || Array.isArray(row)) return false;
+    const entries = Object.entries(row);
     return (
-      typeof row === 'object' &&
-      row !== null &&
-      !Array.isArray(row) &&
-      HOUSEHOLD_GENDERS.every((gender) => {
-        const count = (row as Record<string, unknown>)[gender.key];
-        return (
-          Number.isSafeInteger(count) && typeof count === 'number' && count >= 0 && count <= 30
-        );
-      })
+      entries.length > 0 &&
+      entries.every(
+        ([gender, count]) =>
+          HOUSEHOLD_GENDERS.some((candidate) => candidate.key === gender) &&
+          Number.isSafeInteger(count) &&
+          typeof count === 'number' &&
+          count > 0 &&
+          count <= 30,
+      )
     );
   });
 }
 
 function rowTotal(composition: HouseholdComposition, band: HouseholdAgeBand): number {
-  return HOUSEHOLD_GENDERS.reduce((total, gender) => total + composition[band][gender.key], 0);
+  return HOUSEHOLD_GENDERS.reduce(
+    (total, gender) => total + (composition[band]?.[gender.key] ?? 0),
+    0,
+  );
 }
 
 /** The only counts the server uses to choose a model parcel. */

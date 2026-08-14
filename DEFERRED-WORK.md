@@ -113,3 +113,27 @@ Worth raising with the server repo directly rather than waiting to be asked: `op
 rule (`npm run check:openapi`, described in the server's `CLAUDE.md`) is that "a schema typed `object`
 must say which fields it holds", and all three of these are typed `object` in spirit — they just
 never got the `content:` block that would say so.
+
+---
+
+## W3 — Automate the questionnaire import before go-live
+
+`Raised: 2026-08-12` · `Risk: go-live prerequisite`
+
+The charity authors the questionnaire in the Google Sheet. Its Apps Script validates the Sheet and
+generates the client configuration JSON, but that JSON is not itself a release: the client ships a
+static `referral-form.config.json`. A new stored question also needs recording in the append-only
+`referral-answer-keys.frozen.ts` ledger, so old referrals can never be silently reinterpreted under
+a reused key.
+
+Before go-live, build a developer import command which takes the reviewed generated JSON and:
+
+- validates the configuration and writes `referral-form.config.json`;
+- detects genuinely new dynamic answer keys and appends their declared question types to the frozen
+  ledger, while refusing a key whose type has changed;
+- formats the affected files and runs the referral-form checks; and
+- reports that a normal client release is still required for the questionnaire to become live.
+
+This is deliberately an import-and-release workflow, not live Google-Sheet configuration: a
+questionnaire change must remain reviewed, tested and deployed before referrers see it. Until W3 is
+done, a developer must perform those same steps manually for each questionnaire change.

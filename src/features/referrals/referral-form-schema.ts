@@ -56,6 +56,7 @@ function buildSchemaFor(questions: readonly FormQuestion[]) {
     z.ZodType<string> | z.ZodType<string[]> | z.ZodType<HouseholdComposition>
   > = {};
   for (const question of questions) {
+    if (question.type === 'information') continue;
     shape[question.key] = questionFieldSchema(question);
   }
   // `.strict()`: an unexpected key means this client's own form sent something
@@ -80,22 +81,26 @@ function questionFieldSchema(
     case 'householdComposition':
       return z
         .custom<HouseholdComposition>(isHouseholdComposition, {
-          message: `${question.label}: enter a whole number from 0 to 30 in every cell.`,
+          message: `${question.label}: enter whole numbers from 1 to 30 where needed.`,
         })
         .superRefine((composition, ctx) => {
           const adults =
-            composition['working-age'].female +
-            composition['working-age'].male +
-            composition['working-age'].other +
-            composition['state-pension-age'].female +
-            composition['state-pension-age'].male +
-            composition['state-pension-age'].other;
+            Object.values(composition['working-age'] ?? {}).reduce(
+              (total, count) => total + count,
+              0,
+            ) +
+            Object.values(composition['state-pension-age'] ?? {}).reduce(
+              (total, count) => total + count,
+              0,
+            );
           if (adults === 0)
             ctx.addIssue({
               code: 'custom',
               message: 'A household must include at least one adult.',
             });
         });
+    case 'information':
+      return z.never();
   }
 }
 
@@ -235,6 +240,7 @@ export function defaultAnswers(
 
   for (const page of definition.pages) {
     for (const question of page.questions) {
+      if (question.type === 'information') continue;
       answers[question.key] =
         question.type === 'choice'
           ? [...(question.default ?? [])]

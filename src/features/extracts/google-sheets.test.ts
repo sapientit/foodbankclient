@@ -1,9 +1,13 @@
 import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '../../../test/msw/server';
-import { FIXED_HEADERS } from './archive-rows.logic';
+import { FIXED_HEADERS, HOUSEHOLD_COMPOSITION_SHEET_COLUMNS } from './archive-rows.logic';
 import { writeClaim } from './google-sheets';
 import type { ExtractClaim } from './queries';
+import {
+  emptyHouseholdComposition,
+  HOUSEHOLD_COMPONENTS_KEY,
+} from '../referrals/household-composition';
 
 const SESSION_ID = '00000000-0000-4000-8000-000000000099';
 const DYNAMIC_KEY = 'Cause Details';
@@ -117,5 +121,27 @@ describe('writing a claim to the spreadsheet', () => {
       values: [expect.arrayContaining(["St Mary's Hall", 'No money for food'])],
     });
     expect(JSON.stringify(writes)).not.toContain(SESSION_ID);
+  });
+
+  it('adds stable columns for a composition grid and writes individual counts', async () => {
+    const writes = stubSheets(FIXED_HEADERS, [['key', 'column']]);
+    const composition = {
+      ...emptyHouseholdComposition(),
+      '0-4': { female: 1 },
+      'state-pension-age': { male: 2 },
+    };
+
+    await writeClaim('sheet-1', 'google-token', {
+      ...claim,
+      rows: [{ ...extractRow, answers: { [HOUSEHOLD_COMPONENTS_KEY]: composition } }],
+    });
+
+    expect(writeAt(writes, '/v4/spreadsheets/sheet-1/values/archive!O1:AH1').body).toEqual({
+      values: [HOUSEHOLD_COMPOSITION_SHEET_COLUMNS],
+    });
+    expect(writeAt(writes, '/v4/spreadsheets/sheet-1/values/archive!A:ZZ:append').body).toEqual({
+      values: [expect.arrayContaining([1, 2])],
+    });
+    expect(JSON.stringify(writes)).not.toContain(JSON.stringify(composition));
   });
 });

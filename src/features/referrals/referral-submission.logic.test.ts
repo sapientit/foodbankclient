@@ -6,6 +6,8 @@ import type {
 } from './referral-form-definition';
 import type { ReferralLookups } from './referral-lookups';
 import {
+  COLLECTION_METHOD_KEY,
+  DELIVERY_REQUESTED,
   describeSubmission,
   preferenceQuestions,
   splitSubmission,
@@ -76,6 +78,32 @@ describe('splitSubmission', () => {
     // rather than say nothing at all.
     const result = splitSubmission(form(keyField('isDelivery', false)), { isDelivery: '' });
     expect(result.keyFields).toEqual({ isDelivery: false });
+  });
+
+  it('derives the delivery flag from the collection-method answer', () => {
+    const collectionMethod: FormQuestion = {
+      key: COLLECTION_METHOD_KEY,
+      type: 'choice',
+      label: 'Collection method',
+      required: true,
+      preference: false,
+      answerMin: 1,
+      answerMax: 1,
+      options: [
+        { value: 'Car', label: 'Car' },
+        { value: DELIVERY_REQUESTED, label: DELIVERY_REQUESTED },
+      ],
+    };
+
+    expect(
+      splitSubmission(form(collectionMethod), { [COLLECTION_METHOD_KEY]: [DELIVERY_REQUESTED] }),
+    ).toEqual({
+      keyFields: { isDelivery: true },
+      answers: { [COLLECTION_METHOD_KEY]: DELIVERY_REQUESTED },
+    });
+    expect(
+      splitSubmission(form(collectionMethod), { [COLLECTION_METHOD_KEY]: ['Car'] }).keyFields,
+    ).toEqual({ isDelivery: false });
   });
 
   it('omits an optional phone left blank rather than storing an empty string', () => {

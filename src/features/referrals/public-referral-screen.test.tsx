@@ -88,7 +88,7 @@ function receipt(status: 'active' | 'pending_review') {
   };
 }
 
-async function fillHouseholdAgeBands(user: ReturnType<typeof userEvent.setup>) {
+async function fillHouseholdComposition(user: ReturnType<typeof userEvent.setup>) {
   const adultFemale = screen.getByLabelText('18 to State Pension age, Female');
   await user.clear(adultFemale);
   await user.type(adultFemale, '2');
@@ -167,9 +167,22 @@ async function fillPageOne(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/Client's first name/), 'Ada');
   await user.type(screen.getByLabelText(/Client's surname/), 'Rowe');
   await user.type(screen.getByLabelText(/Client's date of birth/), '1985-03-12');
+  await user.selectOptions(screen.getByRole('combobox', { name: /Client's gender/ }), 'Female');
+  await user.selectOptions(screen.getByRole('combobox', { name: /^Ethnicity/ }), 'White -British');
+  await user.type(screen.getByLabelText(/Spoken Languages/), 'English');
   await user.type(screen.getByLabelText(/Client's address/), '1 Elm Street');
   await user.type(screen.getByLabelText(/Client's postcode/), 'gu234xx');
+  await fillHouseholdComposition(user);
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: /main source of income/i }),
+    'Benefits',
+  );
+  await user.selectOptions(screen.getByRole('combobox', { name: /Main cause of crisis/ }), 'q1');
   await user.selectOptions(screen.getByRole('combobox', { name: /Session date/ }), 's-tue');
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
+    'Car',
+  );
 }
 
 const next = () => screen.getByRole('button', { name: 'Next' });
@@ -247,6 +260,22 @@ describe('the public referral form', () => {
     expect(screen.getByText('Page 1 of 7')).toBeInTheDocument();
   });
 
+  it('requires a household composition with an adult before moving on', async () => {
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    const grid = screen.getByRole('group', { name: /^Household composition/ });
+    await user.clear(within(grid).getByLabelText('18 to State Pension age, Female'));
+    await user.type(within(grid).getByLabelText('0–4, Male'), '1');
+    await user.click(next());
+
+    expect(
+      await screen.findByText('A household must include at least one adult.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 7')).toBeInTheDocument();
+  });
+
   it('does not complain about a later page before the referrer has got there', async () => {
     renderRefer();
     const user = userEvent.setup();
@@ -254,7 +283,7 @@ describe('the public referral form', () => {
     await fillPageOne(user);
     await user.click(next());
 
-    // Page two demands the household counts. Page one must not have mentioned them.
+    // Page two has no mandatory questions, after page one's required household details.
     expect(await screen.findByText('Page 2 of 7')).toBeInTheDocument();
   });
 
@@ -526,6 +555,31 @@ describe('the referrer check', () => {
 });
 
 describe('the questions themselves', () => {
+  it('shows a conditional No Answer row as text, never as a response field', async () => {
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    expect(screen.queryByText('Delivery is restricted to people who…')).toBeNull();
+    expect(
+      screen.getByRole('combobox', { name: /Please confirm the client meets these criteria/ }),
+    ).toBeDisabled();
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
+      'Delivery Requested',
+    );
+    expect(screen.getByText('Delivery is restricted to people who…')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /Delivery is restricted/ })).toBeNull();
+    const confirmation = screen.getByRole('combobox', {
+      name: /Please confirm the client meets these criteria/,
+    });
+    expect(confirmation).toBeEnabled();
+    expect(confirmation).toHaveValue('');
+    await user.selectOptions(confirmation, 'Yes');
+    expect(confirmation).toHaveValue('Yes');
+  });
+
   it('greys out the fuel follow-ups until the fuel question is answered', async () => {
     renderRefer();
     const user = userEvent.setup();
@@ -534,50 +588,37 @@ describe('the questions themselves', () => {
     for (let page = 2; page <= 6; page += 1) {
       await user.click(next());
       await screen.findByText(`Page ${String(page)} of 7`);
-      if (page === 2) {
-        await fillHouseholdAgeBands(user);
-      }
-      if (page === 3) {
-        await user.selectOptions(
-          screen.getByRole('combobox', { name: /Main cause of crisis/ }),
-          'q1',
-        );
-      }
+      if (page === 2) await user.click(screen.getByLabelText('Oven'));
     }
 
-    const prePayment = screen.getByRole('group', { name: /pre-payment meters/ });
-    expect(prePayment).toHaveTextContent('Is the client on pre-payment meters');
+    const fuelPension = screen.getByRole('group', {
+      name: /people in the household over state pension age/,
+    });
+    expect(fuelPension).toHaveTextContent(
+      'Are there people in the household over state pension age',
+    );
     // Visible but not answerable — somebody has to be able to see what they
     // would be agreeing to if they said yes above.
-    expect(within(prePayment).getByRole('checkbox', { name: 'Yes' })).toBeDisabled();
+    expect(within(fuelPension).getByRole('combobox')).toBeDisabled();
 
-    await user.click(screen.getByLabelText(/gas and\/or electricity/));
-    expect(within(prePayment).getByRole('checkbox', { name: 'Yes' })).toBeEnabled();
+    await user.click(screen.getByLabelText(/help with Energy costs/));
+    expect(within(fuelPension).getByRole('combobox')).toBeEnabled();
   });
 
-  it('starts a preference question on its declared default, with None unticked', async () => {
+  it('starts a one-choice preference dropdown on its declared default and can clear it', async () => {
     renderRefer();
     const user = userEvent.setup();
 
     await fillPageOne(user);
     await user.click(next());
     await screen.findByText('Page 2 of 7');
-    await fillHouseholdAgeBands(user);
-    await user.click(next());
-    await screen.findByText('Page 3 of 7');
-    await user.selectOptions(screen.getByRole('combobox', { name: /Main cause of crisis/ }), 'q1');
-    await user.click(next());
-    await screen.findByText('Page 4 of 7');
 
     const pastaOrRice = within(screen.getByRole('group', { name: /pasta or rice/ }));
-    expect(pastaOrRice.getByRole('checkbox', { name: 'Both' })).toBeChecked();
-    expect(pastaOrRice.getByRole('checkbox', { name: 'None' })).not.toBeChecked();
-    expect(pastaOrRice.getByText('Choose up to one, or None.')).toBeInTheDocument();
+    expect(pastaOrRice.getByRole('combobox')).toHaveValue('Both');
+    expect(pastaOrRice.queryByText(/Choose up to one/)).not.toBeInTheDocument();
 
-    // None clears everything else, and is the only thing ticked afterwards.
-    await user.click(pastaOrRice.getByRole('checkbox', { name: 'None' }));
-    expect(pastaOrRice.getByRole('checkbox', { name: 'Both' })).not.toBeChecked();
-    expect(pastaOrRice.getByRole('checkbox', { name: 'None' })).toBeChecked();
+    await user.selectOptions(pastaOrRice.getByRole('combobox'), '');
+    expect(pastaOrRice.getByRole('combobox')).toHaveValue('');
   });
 });
 
@@ -588,11 +629,10 @@ describe('submitting', () => {
     await user.click(next());
 
     await screen.findByText('Page 2 of 7');
-    await fillHouseholdAgeBands(user);
+    await user.click(screen.getByLabelText('Oven'));
     await user.click(next());
 
     await screen.findByText('Page 3 of 7');
-    await user.selectOptions(screen.getByRole('combobox', { name: /Main cause of crisis/ }), 'q1');
     await user.click(next());
 
     for (const page of [4, 5, 6]) {
@@ -638,19 +678,24 @@ describe('submitting', () => {
     });
     expect(typeof body.adults).toBe('number');
 
-    // The defaults, under the charity's own keys, as single values rather than
-    // lists of one — `referral details.txt`: "there will be an eggs: 'Yes' entry".
-    expect(body.answers).toMatchObject({ 'Pasta/Rice': 'Both', Oil: 'Yes', Eggs: 'Yes' });
+    // One-choice defaults are a bare value; multi-choice defaults are lists.
+    expect(body.answers).toMatchObject({
+      'Pasta/Rice': 'Both',
+      Spread: ['Jam'],
+      'Tea/Coffee': ['Tea', 'Coffee'],
+    });
     // A question left on None records nothing at all.
     expect(body.answers).not.toHaveProperty('Porridge');
-    expect(body.answers).not.toHaveProperty('Sanitary');
+    expect(body.answers).not.toHaveProperty('Tampons');
     // A choice that takes several stays a list.
     expect(body.answers).toMatchObject({
-      Toiletries: ['Shower Gel', 'Deodorant', 'Conditioner'],
+      Toiletries: ['Shower gel', 'Deodorant', 'Conditioner'],
     });
     // A key field never leaks into the answers bag.
-    expect(body.answers).toMatchObject({
-      'Household composition': { 'working-age': { female: 2, male: 0, other: 0 } },
+    // The composition is one sparse reporting answer: untouched zero cells do
+    // not create a misleading second set of zero totals in stored JSON.
+    expect(body.answers).toHaveProperty('Household Components', {
+      'working-age': { female: 2 },
     });
     expect(body.answers).not.toHaveProperty('refereePostcode');
   });

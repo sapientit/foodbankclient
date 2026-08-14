@@ -106,6 +106,15 @@ interface BaseQuestion {
   /** Shown under the field, e.g. to explain why a question is being asked. */
   readonly helpText?: string;
   readonly enabledWhen?: EnabledWhen;
+  /** Marks answers which the fuel team may see on its dedicated screen. */
+  readonly forFuelTeam?: boolean;
+}
+
+/** Display-only text in the form. It deliberately has no answer key. */
+export interface InformationQuestion {
+  readonly type: 'information';
+  readonly label: string;
+  readonly enabledWhen?: EnabledWhen;
 }
 
 interface BaseDynamicQuestion extends BaseQuestion {
@@ -116,6 +125,8 @@ interface BaseDynamicQuestion extends BaseQuestion {
    * maintenance screen. Only preferences should be shown."
    */
   readonly preference: boolean;
+  /** Whether this answer is copied into the initial parcel-note snapshot. */
+  readonly pickListInformation?: boolean;
 }
 
 export interface TextQuestion extends BaseDynamicQuestion {
@@ -190,7 +201,8 @@ export interface KeyFieldQuestion extends BaseQuestion {
 export type DynamicQuestion =
   TextQuestion | NumberQuestion | ChoiceQuestion | HouseholdCompositionQuestion;
 
-export type FormQuestion = DynamicQuestion | KeyFieldQuestion;
+export type FormQuestion = DynamicQuestion | KeyFieldQuestion | InformationQuestion;
+export type AnswerableQuestion = DynamicQuestion | KeyFieldQuestion;
 
 /** The types the frozen-key ledger records. Dynamic only — key fields have no `answers` key to freeze. */
 export type FormFieldType = DynamicQuestion['type'];
@@ -241,14 +253,21 @@ export function keyFieldKey(
 }
 
 export function isDynamicQuestion(question: FormQuestion): question is DynamicQuestion {
-  return question.type !== 'keyField';
+  return question.type !== 'keyField' && question.type !== 'information';
+}
+
+export function isAnswerableQuestion(question: FormQuestion): question is AnswerableQuestion {
+  return question.type !== 'information';
 }
 
 export function findQuestion(
   definition: ReferralFormDefinition,
   key: string,
 ): FormQuestion | undefined {
-  return allQuestions(definition).find((question) => question.key === key);
+  return allQuestions(definition).find(
+    (question): question is DynamicQuestion | KeyFieldQuestion =>
+      'key' in question && question.key === key,
+  );
 }
 
 /** The choices a question offers, once a runtime list has been fetched for the ones that need one. */

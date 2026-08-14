@@ -1,7 +1,6 @@
 /**
- * Foodbank preference-rule workbook. Paste into Extensions > Apps Script.
- * This deliberately handles only the Rules tab; questionnaire authoring waits
- * for the outstanding charity decision.
+ * Foodbank Rules-sheet source. The Referral Form generator is the separate
+ * questionnaire.gs file; its menu is added below when both files are installed.
  */
 const RULES_SHEET = 'Rules';
 const GENERATED_SHEET = 'Generated Rules JSON';
@@ -25,6 +24,7 @@ function onOpen() {
     .addItem('Set up Rules tab', 'setupRulesSheet')
     .addItem('Generate JSON', 'generateRulesJson')
     .addToUi();
+  addQuestionnaireMenu_();
 }
 
 /** Creates or repairs the Rules tab. Row 1 keys are hidden and never edited. */
@@ -124,7 +124,11 @@ function parseRules_() {
     if (line.questionKey !== '') {
       finishRule();
       rule = { row: rowNumber, when: { key: line.questionKey }, cases: [], otherwise: null };
-      if (line.answer !== '') rule.when.hasAnswer = line.answer;
+      if (line.answer === '$selectedAnswer') {
+        errors.push(`Row ${rowNumber}: $selectedAnswer is only valid in Stock item.`);
+      } else if (line.answer !== '') {
+        rule.when.hasAnswer = line.answer;
+      }
       outcome = null;
     } else if (rule === null) {
       errors.push(`Row ${rowNumber}: the first rule row must name a preference key.`);

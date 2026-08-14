@@ -2,11 +2,14 @@ import { QueryClient } from '@tanstack/react-query';
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 import type { Session } from '../sessions/queries';
+import type { Parcel, PickList } from '../pick-lists/queries';
 import type { Referral } from './queries';
+
+vi.mock('../pick-lists/preference-rules.config.json', () => ({ default: { rules: [] } }));
 
 /**
  * **Why `useAmendReferral`/`useCancelReferral` invalidate `sessionKeys`, not
@@ -28,6 +31,30 @@ const SESSION = '/api/v1/sessions/s1';
 const REFERRAL = '/api/v1/referrals/r1';
 const REFERRAL_CANCEL = '/api/v1/referrals/r1/cancel';
 const REASONS = '/api/v1/referral-reasons';
+const PICK_LIST: PickList = {
+  id: 'pick-list-1',
+  sessionId: 's1',
+  status: 'draft',
+  generatedAt: '2026-08-14T09:00:00.000Z',
+  firstPrintedAt: null,
+  confirmedAt: null,
+};
+const PARCEL: Parcel = {
+  id: 'parcel-1',
+  referralId: 'r1',
+  pickNumber: 1,
+  refereeFirstName: 'Jamie',
+  refereeSurname: 'Rowe',
+  isDelivery: false,
+  adults: 1,
+  children: 0,
+  householdSize: 1,
+  reviewedAt: null,
+  attendance: 'pending',
+  notes: null,
+  answers: {},
+  lines: [],
+};
 
 let booked = 10;
 
@@ -136,6 +163,51 @@ describe('cancelling a referral and the sessions cache', () => {
     // would still answer from the cache holding the pre-cancel count of 10.
     renderApp('/sessions/s1', client);
     expect(await screen.findByText('9 of 25 booked')).toBeInTheDocument();
+  });
+
+  it('refreshes a cached session client list after cancellation', async () => {
+    const client = cachingClient();
+    let cancelled = false;
+
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referralRow({ id: 'r1' }))),
+      http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
+      http.get('/api/v1/stock/items', () => HttpResponse.json({ items: [] })),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [cancelled ? { ...PARCEL, attendance: 'cancelled' } : PARCEL],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: 's1', unreadTotal: 0, households: [] }),
+      ),
+      http.post(REFERRAL_CANCEL, () => {
+        cancelled = true;
+        return HttpResponse.json(referralRow({ id: 'r1', status: 'cancelled' }));
+      }),
+    );
+
+    renderApp('/run-sessions/s1', client);
+    expect(await screen.findByText(/#1 Jamie Rowe/)).toBeInTheDocument();
+    cleanup();
+
+    renderApp('/referrals/r1', client);
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Cancel this referral' }));
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Cancel this referral?' })).getByRole('button', {
+        name: 'Cancel the referral',
+      }),
+    );
+    await screen.findByText('Cancelled');
+    cleanup();
+
+    renderApp('/run-sessions/s1', client);
+    expect(await screen.findByRole('heading', { name: 'Clients' })).toBeInTheDocument();
+    expect(screen.queryByText(/#1 Jamie Rowe/)).toBeNull();
   });
 });
 

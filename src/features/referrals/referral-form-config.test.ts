@@ -4,6 +4,7 @@ import { FROZEN_ANSWER_KEYS } from './referral-answer-keys.frozen';
 import { parseReferralFormConfig, referralFormDefinition } from './referral-form-config';
 import { dynamicQuestions, keyFieldQuestions } from './referral-form-definition';
 import { checkDefinitionLimits, reusedKeys, unrecordedKeys } from './referral-form-guards';
+import { HOUSEHOLD_COMPONENTS_KEY } from './household-composition';
 
 /**
  * The charity's real form, checked against the guards. Everything else in this
@@ -37,10 +38,19 @@ describe('the shipped referral form', () => {
     const stale = FROZEN_ANSWER_KEYS.filter((entry) => !answerKeys.has(entry.key));
 
     expect(stale).toEqual([
+      { key: 'Collect', type: 'text' },
       { key: 'Child 0-2', type: 'number' },
       { key: 'Child 3-4', type: 'number' },
       { key: 'Child 5-11', type: 'number' },
       { key: 'Child 12-17', type: 'number' },
+      { key: 'Cause Details', type: 'text' },
+      { key: 'Oil', type: 'choice' },
+      { key: 'Eggs', type: 'choice' },
+      { key: 'Pets', type: 'text' },
+      { key: 'Sanitary', type: 'choice' },
+      { key: 'Pre-Payment', type: 'choice' },
+      { key: 'Contact approved', type: 'choice' },
+      { key: 'Household composition', type: 'householdComposition' },
     ]);
   });
 
@@ -63,7 +73,7 @@ describe('the shipped referral form', () => {
       expect(asked).toContain(required);
     }
     expect(dynamicQuestions(referralFormDefinition).map((question) => question.key)).toContain(
-      'Household composition',
+      HOUSEHOLD_COMPONENTS_KEY,
     );
   });
 
@@ -101,6 +111,92 @@ describe('parseReferralFormConfig', () => {
 
   it('accepts the config that ships', () => {
     expect(() => parseReferralFormConfig(rawConfig)).not.toThrow();
+  });
+
+  it('accepts a display-only No Answer row without an answer key', () => {
+    expect(
+      parseReferralFormConfig(
+        withQuestion({
+          questionNum: 1,
+          questionTitle: 'Delivery is restricted to eligible households.',
+          answerFormat: 'No Answer',
+        }),
+      ).pages[0]?.questions[0],
+    ).toMatchObject({
+      type: 'information',
+      label: 'Delivery is restricted to eligible households.',
+    });
+  });
+
+  it('retains the Sheet marker that permits a dynamic answer on the fuel screen', () => {
+    const definition = parseReferralFormConfig(
+      withQuestion({
+        ...choice,
+        forFuelTeam: true,
+      }),
+    );
+
+    expect(definition.pages[0]?.questions[0]).toMatchObject({ forFuelTeam: true });
+  });
+
+  it('retains a short label for saved pick-list information', () => {
+    const definition = parseReferralFormConfig(
+      withQuestion({ ...choice, pickListInformation: 'Yes' }),
+    );
+
+    expect(definition.pages[0]?.questions[0]).toMatchObject({ pickListInformation: true });
+  });
+
+  it('rejects pick-list information on a non-preference question', () => {
+    expect(() =>
+      parseReferralFormConfig(
+        withQuestion({ ...choice, preference: false, pickListInformation: 'Yes' }),
+      ),
+    ).toThrow(/pick-list information, so it must be a preference question/);
+  });
+
+  it('rejects configured information that could exceed the parcel note limit', () => {
+    expect(() =>
+      parseReferralFormConfig({
+        version: 1,
+        pages: [
+          {
+            pageNum: 1,
+            pageTitle: 'Page',
+            questions: [
+              {
+                ...choice,
+                questionKey: 'First',
+                pickListInformation: 'Yes',
+                validation: { type: 'String', maxLength: 700 },
+              },
+              {
+                ...choice,
+                questionNum: 2,
+                questionKey: 'Second',
+                pickListInformation: 'Yes',
+                validation: { type: 'String', maxLength: 700 },
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(/Pick-list information can be at most 1200 characters/);
+  });
+
+  it('refuses a household composition question under a different key', () => {
+    expect(() =>
+      parseReferralFormConfig(
+        withQuestion({
+          questionNum: 1,
+          questionKey: 'A different key',
+          questionTitle: 'Household',
+          preference: false,
+          required: true,
+          validation: { type: 'HouseholdComposition' },
+        }),
+      ),
+    ).toThrow(/household-composition question key/);
   });
 
   it('refuses a default that is not one of the offered answers', () => {

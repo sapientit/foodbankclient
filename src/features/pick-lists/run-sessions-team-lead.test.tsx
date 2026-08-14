@@ -7,6 +7,12 @@ import { renderApp } from '../../../test/render-app';
 import type { Session } from '../sessions/queries';
 import type { Parcel, PickList } from './queries';
 
+// These route tests exercise the team-lead workflow against a deliberately
+// small stock fixture. The shipped rules are separately unit-tested with their
+// own matching catalogue; loading them here would make unrelated navigation
+// assertions depend on every maintained stock name.
+vi.mock('./preference-rules.config.json', () => ({ default: { rules: [] } }));
+
 /**
  * A team lead starts their shift in the operational view. The screen creates
  * or reconciles its session pick list before it shows a household; it must not
@@ -53,7 +59,11 @@ const PARCEL: Parcel = {
   reviewedAt: null,
   attendance: 'pending',
   notes: null,
-  answers: { Dietary: 'Vegetarian' },
+  answers: {
+    Allergies: 'Gluten-free food for one person',
+    Dietary: 'Vegetarian',
+    'Household Components': { '0-4': { male: 1 }, 'working-age': { 'non-binary': 1 } },
+  },
   lines: [
     {
       stockItemId: 'stock-1',
@@ -220,14 +230,32 @@ describe('a team lead running a session', () => {
   it('reconciles the selected session and opens the client pick-list workflow', async () => {
     let reconciled = false;
     let savedLines = 0;
+    let savedNotes: string | null = null;
+    let generationBody: unknown;
     let markedReviewed = false;
     server.use(
       http.get('/api/v1/sessions/:id', ({ params }) => {
         expect(params.id).toBe(SESSION.id);
         return HttpResponse.json(SESSION);
       }),
-      http.post('/api/v1/sessions/:sessionId/pick-list', ({ params }) => {
+      http.get('/api/v1/referrals', () =>
+        HttpResponse.json({
+          referrals: [
+            {
+              id: PARCEL.referralId,
+              adults: PARCEL.adults,
+              children: PARCEL.children,
+              answers: {
+                Allergies: 'Gluten-free food for one person',
+                Pulses: 'Kidney beans please',
+              },
+            },
+          ],
+        }),
+      ),
+      http.post('/api/v1/sessions/:sessionId/pick-list', async ({ params, request }) => {
         reconciled = params.sessionId === SESSION.id;
+        generationBody = await request.json();
         return HttpResponse.json({ ...PICK_LIST, parcelsCreated: 1, linesCreated: 1 });
       }),
       http.get('/api/v1/sessions/:sessionId/pick-list', ({ params }) => {
@@ -257,6 +285,12 @@ describe('a team lead running a session', () => {
         savedLines += 1;
         return new HttpResponse(null, { status: 204 });
       }),
+      http.patch('/api/v1/parcels/:id', async ({ request, params }) => {
+        expect(params.id).toBe(PARCEL.id);
+        expect(await request.json()).toEqual({ notes: 'Allergies: no dairy' });
+        savedNotes = 'Allergies: no dairy';
+        return HttpResponse.json({ id: PARCEL.id, isActive: true });
+      }),
       http.post('/api/v1/parcels/:id/review', ({ params }) => {
         expect(params.id).toBe(PARCEL.id);
         expect(savedLines).toBe(1);
@@ -270,6 +304,15 @@ describe('a team lead running a session', () => {
 
     expect(await screen.findByText(/St Mary’s Hall/)).toBeInTheDocument();
     expect(reconciled).toBe(true);
+    expect(generationBody).toEqual({
+      preferenceLines: [],
+      pickListInformation: [
+        {
+          referralId: PARCEL.referralId,
+          notes: 'Allergies: Gluten-free food for one person\nPulses: Kidney beans please',
+        },
+      ],
+    });
     expect(screen.getByRole('button', { name: 'Print all pick lists' })).toBeDisabled();
     expect(screen.getByText(/Review every pick list before printing/)).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Review Pick list' }));
@@ -278,6 +321,7 @@ describe('a team lead running a session', () => {
     expect(panel).not.toBeNull();
     if (!(panel instanceof HTMLElement)) throw new Error('Pick-list panel was not rendered');
     expect(within(panel).getByText('Adults/children: 1/1')).toBeInTheDocument();
+    expect(within(panel).getByRole('table', { name: 'Household composition' })).toBeInTheDocument();
     expect(within(panel).getByText('Baked beans')).toBeInTheDocument();
     expect(within(panel).getByText('Vegetarian')).toBeInTheDocument();
     expect(within(panel).getByRole('button', { name: 'Mark pick list reviewed' })).toBeEnabled();
@@ -288,11 +332,57 @@ describe('a team lead running a session', () => {
     const quantity = within(panel).getByRole('spinbutton', { name: /Baked beans/ });
     await user.click(quantity);
     await user.keyboard('{Control>}a{/Control}3');
+    await user.type(
+      within(panel).getByRole('textbox', { name: 'Pick-list information' }),
+      'Allergies: no dairy',
+    );
     await user.click(within(panel).getByRole('button', { name: 'Mark pick list reviewed' }));
     await waitFor(() => {
       expect(savedLines).toBe(1);
+      expect(savedNotes).toBe('Allergies: no dairy');
       expect(markedReviewed).toBe(true);
     });
+  });
+
+  it('never lists a cancelled referral as a client for the session', async () => {
+    const cancelledParcel: Parcel = {
+      ...PARCEL,
+      id: 'parcel-cancelled',
+      referralId: 'referral-cancelled',
+      pickNumber: 2,
+      refereeFirstName: 'Cancelled',
+      refereeSurname: 'Casey',
+      attendance: 'cancelled',
+    };
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL, cancelledParcel] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    expect(await screen.findByText(/#1 Sam Taylor/)).toBeInTheDocument();
+    expect(screen.queryAllByText(/Cancelled Casey/)).toHaveLength(0);
+  });
+
+  it('does not open a cancelled referral through a direct client link', async () => {
+    const cancelledParcel: Parcel = { ...PARCEL, attendance: 'cancelled' };
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [cancelledParcel] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+
+    expect(await screen.findByText('Client not found')).toBeInTheDocument();
   });
 
   it('offers every active item and a retired parcel line in category and name order', async () => {
@@ -361,6 +451,153 @@ describe('a team lead running a session', () => {
     expect(quantities[1]).toHaveValue(null);
     expect(quantities[2]).toHaveAccessibleName(/^Baked beans/);
     expect(quantities[2]).toHaveValue(2);
+  });
+
+  it('keeps pick-list information editable after attendance until the session is confirmed', async () => {
+    const attendedParcel: Parcel = {
+      ...PARCEL,
+      attendance: 'attended',
+      notes: 'Allergies: no dairy',
+    };
+    let cleared = false;
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [attendedParcel] }),
+      ),
+      http.patch('/api/v1/parcels/:id', async ({ request }) => {
+        expect(await request.json()).toEqual({ notes: null });
+        cleared = true;
+        return HttpResponse.json({ id: PARCEL.id, isActive: true });
+      }),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+    const user = userEvent.setup();
+    const information = await screen.findByRole('textbox', { name: 'Pick-list information' });
+
+    expect(information).toHaveValue('Allergies: no dairy');
+    expect(information).toBeEnabled();
+    await user.clear(information);
+    await user.click(screen.getByRole('button', { name: 'Save pick list' }));
+
+    await waitFor(() => {
+      expect(cleared).toBe(true);
+    });
+  });
+
+  it('locks pick-list information once the session is confirmed', async () => {
+    const confirmedSession: Session = { ...SESSION, status: 'confirmed' };
+    const parcelWithInformation: Parcel = { ...PARCEL, notes: 'Allergies: no dairy' };
+    let noteRequests = 0;
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(confirmedSession)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: { ...PICK_LIST, status: 'confirmed' },
+          parcels: [parcelWithInformation],
+        }),
+      ),
+      http.patch('/api/v1/parcels/:id', () => {
+        noteRequests += 1;
+        return HttpResponse.json({ id: PARCEL.id, notes: null });
+      }),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+
+    expect(await screen.findByRole('textbox', { name: 'Pick-list information' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save pick list' })).toBeDisabled();
+    expect(noteRequests).toBe(0);
+  });
+
+  it('filters unselected stock items locally without hiding selected or retired parcel lines', async () => {
+    const beans = {
+      id: 'stock-1',
+      name: 'Baked beans',
+      category: 'Tinned goods',
+      description: 'In tomato sauce',
+      shelfNumber: 'A2',
+      isActive: true,
+    };
+    const apples = {
+      id: 'stock-apples',
+      name: 'Apples',
+      category: 'Fresh food',
+      description: null,
+      shelfNumber: 'C1',
+      isActive: true,
+    };
+    const oats = {
+      id: 'stock-oats',
+      name: 'Oats',
+      category: 'Breakfast',
+      description: null,
+      shelfNumber: 'D2',
+      isActive: false,
+    };
+    const parcelWithRetiredLine: Parcel = {
+      ...PARCEL,
+      lines: [
+        ...PARCEL.lines,
+        {
+          stockItemId: oats.id,
+          name: oats.name,
+          description: oats.description,
+          shelfNumber: oats.shelfNumber,
+          quantity: 1,
+        },
+      ],
+    };
+    let stockItemRequests = 0;
+    let mutations = 0;
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [parcelWithRetiredLine] }),
+      ),
+      http.get('/api/v1/stock/items', () => {
+        stockItemRequests += 1;
+        return HttpResponse.json({ items: [oats, apples, beans] });
+      }),
+      http.put('/api/v1/parcels/:id/lines', () => {
+        mutations += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.post('/api/v1/parcels/:id/review', () => {
+        mutations += 1;
+        return HttpResponse.json({});
+      }),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+    const user = userEvent.setup();
+    const panel = (await screen.findByRole('heading', { name: /Pick #1: Sam Taylor/ }))
+      .parentElement;
+    if (!(panel instanceof HTMLElement)) throw new Error('Pick-list panel was not rendered');
+
+    const toggle = within(panel).getByRole('checkbox', { name: 'Show unselected Stock items' });
+    expect(toggle).toBeChecked();
+    expect(await within(panel).findByRole('spinbutton', { name: 'Apples' })).toBeInTheDocument();
+    expect(within(panel).getByRole('spinbutton', { name: /Baked beans/ })).toBeInTheDocument();
+    expect(within(panel).getByRole('spinbutton', { name: 'Oats (retired)' })).toBeInTheDocument();
+
+    const stockItemRequestsBeforeToggle = stockItemRequests;
+    const mutationsBeforeToggle = mutations;
+    await user.click(toggle);
+
+    expect(toggle).not.toBeChecked();
+    expect(within(panel).queryByRole('spinbutton', { name: 'Apples' })).toBeNull();
+    expect(within(panel).getByRole('spinbutton', { name: /Baked beans/ })).toBeInTheDocument();
+    expect(within(panel).getByRole('spinbutton', { name: 'Oats (retired)' })).toBeInTheDocument();
+    expect(stockItemRequests).toBe(stockItemRequestsBeforeToggle);
+    expect(mutations).toBe(mutationsBeforeToggle);
+
+    await user.click(toggle);
+    expect(toggle).toBeChecked();
+    expect(within(panel).getByRole('spinbutton', { name: 'Apples' })).toBeInTheDocument();
+    expect(stockItemRequests).toBe(stockItemRequestsBeforeToggle);
+    expect(mutations).toBe(mutationsBeforeToggle);
   });
 
   it('loads the pick list when a client workspace is opened directly', async () => {
@@ -486,7 +723,11 @@ describe('a team lead running a session', () => {
   it('prints only after every parcel has been reviewed', async () => {
     let markedPrinted = false;
     const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
-    const reviewedParcel: Parcel = { ...PARCEL, reviewedAt: '2026-08-05T10:00:00.000Z' };
+    const reviewedParcel: Parcel = {
+      ...PARCEL,
+      reviewedAt: '2026-08-05T10:00:00.000Z',
+      answers: { ...PARCEL.answers, 'Reason for referral': 'Never print this either' },
+    };
     server.use(
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json({ pickList: PICK_LIST, parcels: [reviewedParcel] }),
@@ -503,7 +744,8 @@ describe('a team lead running a session', () => {
               deliveryAddress: null,
               deliveryPostcode: null,
               deliveryPhone: null,
-              notes: null,
+              notes: 'Allergies: Gluten-free food for one person',
+              reason: 'Never print this',
               lines: [],
             },
           ],
@@ -521,6 +763,13 @@ describe('a team lead running a session', () => {
       expect(markedPrinted).toBe(true);
       expect(printSpy).toHaveBeenCalledOnce();
     });
+    expect(screen.getByRole('table', { name: 'Household composition' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Pick-list information' })).toHaveTextContent(
+      'Allergies: Gluten-free food for one person',
+    );
+    expect(screen.queryByRole('region', { name: 'Allergies' })).toBeNull();
+    expect(screen.queryByText('Never print this')).toBeNull();
+    expect(screen.queryByText('Never print this either')).toBeNull();
     printSpy.mockRestore();
   });
 });

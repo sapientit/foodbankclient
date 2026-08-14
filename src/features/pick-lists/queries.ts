@@ -39,6 +39,11 @@ type PreferenceLines = NonNullable<
     paths['/api/v1/sessions/{sessionId}/pick-list']['post']['requestBody']
   >['content']['application/json']['preferenceLines']
 >;
+type PickListInformationEntries = NonNullable<
+  NonNullable<
+    paths['/api/v1/sessions/{sessionId}/pick-list']['post']['requestBody']
+  >['content']['application/json']['pickListInformation']
+>;
 
 function fetchSessionPickList(sessionId: string): Promise<SessionPickList> {
   return unwrap(
@@ -166,14 +171,19 @@ export function useReconcilePickList(onPickListReady?: (sessionId: string) => vo
     mutationFn: ({
       sessionId,
       preferenceLines,
+      pickListInformation,
     }: {
       sessionId: string;
       preferenceLines: PreferenceLines;
+      pickListInformation: PickListInformationEntries;
     }): Promise<Reconciliation> =>
       unwrap(
         api.POST('/api/v1/sessions/{sessionId}/pick-list', {
           params: { path: { sessionId } },
-          body: { preferenceLines },
+          body: {
+            preferenceLines,
+            ...(pickListInformation.length === 0 ? {} : { pickListInformation }),
+          },
         }),
       ),
     onSuccess: async (result) => {
@@ -254,12 +264,14 @@ export function useSetParcelLines() {
     mutationFn: async ({
       parcelId,
       lines,
+      notes,
     }: {
       parcelId: string;
       lines: readonly { stockItemId: string; quantity: number }[];
+      notes?: string | null;
     }) => {
-      await Promise.all(
-        lines.map((line) =>
+      await Promise.all([
+        ...lines.map((line) =>
           unwrapVoid(
             api.PUT('/api/v1/parcels/{id}/lines', {
               params: { path: { id: parcelId } },
@@ -267,7 +279,17 @@ export function useSetParcelLines() {
             }),
           ),
         ),
-      );
+        ...(notes === undefined
+          ? []
+          : [
+              unwrap(
+                api.PATCH('/api/v1/parcels/{id}', {
+                  params: { path: { id: parcelId } },
+                  body: { notes },
+                }),
+              ),
+            ]),
+      ]);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: pickListKeys.all });

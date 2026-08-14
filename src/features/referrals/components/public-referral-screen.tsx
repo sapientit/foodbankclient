@@ -12,7 +12,11 @@ import {
   type ReferrerVerdict,
 } from '../public-referral.logic';
 import { referralFormDefinition } from '../referral-form-config';
-import { keyFieldKey } from '../referral-form-definition';
+import {
+  isAnswerableQuestion,
+  keyFieldKey,
+  type AnswerableQuestion,
+} from '../referral-form-definition';
 import { buildPageSchema, defaultAnswers } from '../referral-form-schema';
 import {
   clearDisabledAnswers,
@@ -192,7 +196,10 @@ export function PublicReferralScreen() {
   const validatePage = (): boolean => {
     // Only what is on screen. A greyed-out question is not answerable, so
     // holding somebody to its rules would be a refusal they cannot act on.
-    const answerable = page.questions.filter((question) => isEnabled(question, answers));
+    const answerable = page.questions.filter(
+      (question): question is AnswerableQuestion =>
+        isAnswerableQuestion(question) && isEnabled(question, answers),
+    );
     const schema = buildPageSchema({ ...page, questions: answerable });
 
     const subject: Record<string, AnswerValue> = {};
@@ -294,15 +301,15 @@ export function PublicReferralScreen() {
         {page.questions.map((question) => (
           <ReferralQuestionField
             enabled={isEnabled(question, answers)}
-            error={errors[question.key]}
-            key={question.key}
+            error={question.type === 'information' ? undefined : errors[question.key]}
+            key={question.type === 'information' ? question.label : question.key}
             lookups={lookups}
             onChange={(value) => {
-              change(question.key, value);
+              if (question.type !== 'information') change(question.key, value);
             }}
             question={question}
-            value={answers[question.key] ?? ''}
-            {...(question.key === REFERRER_EMAIL_KEY
+            value={question.type === 'information' ? '' : (answers[question.key] ?? '')}
+            {...(question.type !== 'information' && question.key === REFERRER_EMAIL_KEY
               ? {
                   onBlur: () => {
                     setAddressLeft(true);

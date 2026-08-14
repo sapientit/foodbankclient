@@ -23,7 +23,8 @@ import {
   HOUSEHOLD_GENDERS,
   emptyHouseholdComposition,
   isHouseholdComposition,
-  type HouseholdComposition,
+  type HouseholdAgeBand,
+  type HouseholdGender,
 } from '../household-composition';
 import type { HouseholdCompositionQuestion } from '../referral-form-definition';
 import { describeSession } from '../referral-lookups';
@@ -73,8 +74,12 @@ export function ReferralQuestionField(props: FieldProps) {
   const errorId = useId();
   const helpId = useId();
 
+  // An informational row is useful only when its condition applies. Unlike a
+  // response control it has nothing meaningful to grey out while waiting.
+  if (question.type === 'information' && !enabled) return null;
+
   const describedBy = [
-    question.helpText === undefined ? null : helpId,
+    question.type === 'information' || question.helpText === undefined ? null : helpId,
     error === undefined ? null : errorId,
   ]
     .filter((id) => id !== null)
@@ -92,6 +97,8 @@ export function ReferralQuestionField(props: FieldProps) {
         <ChoiceField {...shared} question={question} />
       ) : question.type === 'householdComposition' ? (
         <HouseholdCompositionField {...shared} question={question} />
+      ) : question.type === 'information' ? (
+        <p className={styles.help}>{question.label}</p>
       ) : (
         <>
           <label className={styles.label} htmlFor={fieldId}>
@@ -102,7 +109,7 @@ export function ReferralQuestionField(props: FieldProps) {
         </>
       )}
 
-      {question.helpText !== undefined && (
+      {question.type !== 'information' && question.helpText !== undefined && (
         <p className={styles.help} id={helpId}>
           {question.helpText}
         </p>
@@ -132,6 +139,7 @@ function SingleControl(props: ControlProps) {
       return <NumberControl {...props} question={props.question} />;
     case 'choice':
     case 'householdComposition':
+    case 'information':
       // Handled above — a choice is a fieldset, not a labelled control.
       return null;
   }
@@ -144,16 +152,25 @@ function HouseholdCompositionField(
     ? props.value
     : emptyHouseholdComposition();
 
-  const change = (
-    band: keyof HouseholdComposition,
-    gender: 'female' | 'male' | 'other',
-    value: string,
-  ) => {
+  const change = (band: HouseholdAgeBand, gender: HouseholdGender, value: string) => {
     const count = /^\d+$/.test(value) ? Number(value) : 0;
-    props.onChange({
-      ...composition,
-      [band]: { ...composition[band], [gender]: count },
-    });
+    const row = HOUSEHOLD_GENDERS.reduce<Partial<Record<HouseholdGender, number>>>(
+      (updated, candidate) => {
+        const nextCount = candidate.key === gender ? count : composition[band]?.[candidate.key];
+        if (nextCount !== undefined && nextCount > 0) updated[candidate.key] = nextCount;
+        return updated;
+      },
+      {},
+    );
+    const next = HOUSEHOLD_AGE_BANDS.reduce<
+      Partial<Record<HouseholdAgeBand, Partial<Record<HouseholdGender, number>>>>
+    >((updated, candidate) => {
+      const nextRow = candidate.key === band ? row : composition[candidate.key];
+      if (nextRow !== undefined && Object.keys(nextRow).length > 0)
+        updated[candidate.key] = nextRow;
+      return updated;
+    }, {});
+    props.onChange(next);
   };
 
   return (
@@ -195,7 +212,7 @@ function HouseholdCompositionField(
                         change(band.key, gender.key, event.target.value);
                       }}
                       type="text"
-                      value={composition[band.key][gender.key]}
+                      value={composition[band.key]?.[gender.key] ?? ''}
                     />
                   </td>
                 );
@@ -469,7 +486,8 @@ function NumberControl(props: ControlProps & { question: NumberQuestion }) {
  */
 function ChoiceField(props: ControlProps & { question: ChoiceQuestion }) {
   const { question, enabled, error } = props;
-  const selected = Array.isArray(props.value) ? props.value : [];
+  const selected: readonly string[] =
+    typeof props.value === 'string' || isHouseholdComposition(props.value) ? [] : props.value;
 
   const options: readonly FormOption[] =
     question.optionsFrom === 'referralReasons'
@@ -478,13 +496,44 @@ function ChoiceField(props: ControlProps & { question: ChoiceQuestion }) {
 
   const full = !canSelectMore(question, selected);
 
+  if (question.answerMax === 1) {
+    const selectedValue = selected[0] ?? '';
+    return (
+      <fieldset aria-describedby={props.describedBy} className={styles.group}>
+        <legend className={styles.legend}>
+          {question.label}
+          {question.required && <span className={styles.required}> (required)</span>}
+        </legend>
+        <select
+          aria-label={question.label}
+          aria-invalid={error === undefined ? undefined : true}
+          className={styles.select}
+          disabled={!enabled}
+          onChange={(event) => {
+            props.onChange(event.target.value === '' ? [] : [event.target.value]);
+          }}
+          value={selectedValue}
+        >
+          <option value="">{question.answerMin === 1 ? '-- choose --' : 'None'}</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </fieldset>
+    );
+  }
+
+  const instruction = choiceInstruction(question);
+
   return (
     <fieldset aria-describedby={props.describedBy} className={styles.group}>
       <legend className={styles.legend}>
         {question.label}
         {question.required && <span className={styles.required}> (required)</span>}
       </legend>
-      <p className={styles.instruction}>{choiceInstruction(question)}</p>
+      {instruction !== null && <p className={styles.instruction}>{instruction}</p>}
 
       {options.map((option) => {
         const checked = selected.includes(option.value);

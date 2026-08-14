@@ -68,6 +68,14 @@ age-band answers on the referral: `children` is ages 4–11; `adults` is ages
 comparisons or arbitrary filter keys. No nesting, arithmetic, negation,
 substitutions or rule-to-rule references are permitted.
 
+Rules themselves also run in written order. Every rule that handles a selected
+answer consumes that answer, so later rules for the same question only see the
+answers not already handled. Put a specific rule — such as a household's
+large/small laundry-powder choice — before a broad `$selectedAnswer` rule.
+Every positive output is additive: two selected answers that each set one pack
+of Wipes result in two packs. **Needs team-leader attention** remains dominant
+over any positive quantity for that item.
+
 The collected fixed-field keys are `infants`, `children4To11`,
 `teenagers12To17` and `adults18Plus`. Every band is collected with zero when
 empty; the client derives the operational values above before model-parcel
@@ -79,8 +87,10 @@ Option 2 may be maintained in a Google Sheets workbook rather than by asking
 the charity to edit JSON. Its Apps Script validates the bounded picking rules
 and generates the client rule configuration. The generated file, rather than
 the spreadsheet, is committed and promoted through development and test as
-normal. The Rules tab is usable now; questionnaire authoring is deliberately
-deferred until the charity's outstanding question about that tab is settled.
+normal. The Rules and Questionnaire tabs are usable. Their Apps Script
+validates the charity-maintained rows and writes reviewed JSON to a separate
+generated tab; only that generated JSON enters the normal client review and
+release path.
 
 The **Questionnaire** tab has one row per answer option, with the page, stable
 question key, displayed question, type, required/preference flags, displayed
@@ -107,6 +117,9 @@ The generated configuration remains subject to the admin-only browser
 environment check. That check verifies the current questionnaire keys and
 stored answers and the active stock item names in the target environment; a
 spreadsheet alone cannot prove that its output matches development or test.
+If that check fails while a team lead opens a session, the client does not send
+a pick-list-generation request or describe the problem as a lost connection:
+it identifies the rules that an administrator needs to fix.
 
 ### Illustrative examples for the charity
 

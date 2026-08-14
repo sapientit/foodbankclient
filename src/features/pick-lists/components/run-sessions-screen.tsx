@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { HouseholdCompositionGrid } from '../../../components/household-composition-grid';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatSessionDate, formatTimeRange } from '../../../lib/london-time';
@@ -11,6 +12,10 @@ import { useStockItems, type StockItem } from '../../stock/queries';
 import { useReferrals } from '../../referrals/queries';
 import { describeAnswers } from '../../referrals/referral-answers.logic';
 import { referralFormDefinition } from '../../referrals/referral-form-config';
+import {
+  HOUSEHOLD_COMPONENTS_KEY,
+  isHouseholdComposition,
+} from '../../referrals/household-composition';
 import {
   useConfirmSession,
   useMarkPickListPrinted,
@@ -24,7 +29,8 @@ import {
 } from '../queries';
 import styles from './run-sessions-screen.module.css';
 import { SessionSmsPanel } from './sms-panel';
-import { resolvePreferenceLines } from '../preference-rules';
+import { resolvePreferenceLines, validatePreferenceRules } from '../preference-rules';
+import { buildPickListInformation } from '../pick-list-information';
 
 /**
  * The operational view: no session or referral maintenance controls live here.
@@ -81,7 +87,8 @@ export function RunSessionsScreen() {
 export function PickListPrintScreen() {
   const { sessionId = '' } = useParams();
   const list = useSessionPickList(sessionId);
-  const readyToPrint = list.data !== undefined && allParcelsReviewed(list.data.parcels);
+  const currentParcels = (list.data?.parcels ?? []).filter(isCurrentParcel);
+  const readyToPrint = list.data !== undefined && allParcelsReviewed(currentParcels);
   const print = usePrintPickList(readyToPrint ? list.data.pickList.id : '');
   const markPrinted = useMarkPickListPrinted();
   const printed = useRef<string | null>(null);
@@ -111,34 +118,55 @@ export function PickListPrintScreen() {
     <>
       <PageHeader title="Pick lists" />
       <div className={styles.printSheets}>
-        {print.data.parcels.map((parcel) => (
-          <section className={styles.printSheet} key={parcel.pickNumber}>
-            <h1 className={styles.pickNumber}>Pick #{parcel.pickNumber}</h1>
-            <p>
-              {parcel.refereeFirstName ?? 'Unknown'} {parcel.refereeSurname ?? ''}
-            </p>
-            {parcel.isDelivery && (
-              <p className={styles.delivery}>
-                DELIVERY
-                <br />
-                {parcel.deliveryAddress}
-                <br />
-                {parcel.deliveryPostcode}
-                <br />
-                {parcel.deliveryPhone}
-              </p>
-            )}
-            {parcel.notes !== null && <p>{parcel.notes}</p>}
-            <ul>
-              {parcel.lines.map((line) => (
-                <li key={line.stockItemId}>
-                  {line.name}: {line.quantity}
-                  {line.description !== null && <div>{line.description}</div>}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+        {print.data.parcels
+          .filter((parcel) =>
+            currentParcels.some((current) => current.pickNumber === parcel.pickNumber),
+          )
+          .map((parcel) => {
+            const sessionParcel = list.data.parcels.find(
+              (candidate) => candidate.pickNumber === parcel.pickNumber,
+            );
+            const householdComposition = sessionParcel?.answers[HOUSEHOLD_COMPONENTS_KEY];
+            return (
+              <section className={styles.printSheet} key={parcel.pickNumber}>
+                <h1 className={styles.pickNumber}>Pick #{parcel.pickNumber}</h1>
+                <p>
+                  {parcel.refereeFirstName ?? 'Unknown'} {parcel.refereeSurname ?? ''}
+                </p>
+                {parcel.isDelivery && (
+                  <p className={styles.delivery}>
+                    DELIVERY
+                    <br />
+                    {parcel.deliveryAddress}
+                    <br />
+                    {parcel.deliveryPostcode}
+                    <br />
+                    {parcel.deliveryPhone}
+                  </p>
+                )}
+                {parcel.notes !== null && parcel.notes.trim() !== '' && (
+                  <section
+                    aria-label="Pick-list information"
+                    className={styles.pickListInformation}
+                  >
+                    <h2>Pick-list information</h2>
+                    <p>{parcel.notes}</p>
+                  </section>
+                )}
+                {isHouseholdComposition(householdComposition) && (
+                  <HouseholdCompositionGrid composition={householdComposition} />
+                )}
+                <ul>
+                  {parcel.lines.map((line) => (
+                    <li key={line.stockItemId}>
+                      {line.name}: {line.quantity}
+                      {line.description !== null && <div>{line.description}</div>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
       </div>
     </>
   );
@@ -152,22 +180,28 @@ export function RunSessionDetailScreen() {
   const requested = useRef<string | null>(null);
   const [pickListSessionId, setPickListSessionId] = useState('');
   const reconcile = useReconcilePickList(setPickListSessionId);
+  const preferenceRuleHealth = useMemo(
+    () => (stockItems.data === undefined ? null : validatePreferenceRules(stockItems.data)),
+    [stockItems.data],
+  );
 
   useEffect(() => {
     if (
       sessionId !== '' &&
       requested.current !== sessionId &&
       referrals.data !== undefined &&
-      stockItems.data !== undefined
+      stockItems.data !== undefined &&
+      preferenceRuleHealth?.errors.length === 0
     ) {
       requested.current = sessionId;
       setPickListSessionId('');
       reconcile.mutate({
         sessionId,
         preferenceLines: resolvePreferenceLines(referrals.data, stockItems.data),
+        pickListInformation: buildPickListInformation(referrals.data),
       });
     }
-  }, [reconcile, referrals.data, sessionId, stockItems.data]);
+  }, [preferenceRuleHealth, reconcile, referrals.data, sessionId, stockItems.data]);
 
   const pickList = useSessionPickList(pickListSessionId);
   const complete = useConfirmSession();
@@ -207,6 +241,21 @@ export function RunSessionDetailScreen() {
         <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
       </>
     );
+  if (preferenceRuleHealth !== null && preferenceRuleHealth.errors.length > 0)
+    return (
+      <>
+        <PageHeader title="Run a session" />
+        <div role="alert">
+          <h2>Pick-list rules need attention</h2>
+          <p>Ask an administrator to fix these rules before preparing the pick lists:</p>
+          <ul>
+            {preferenceRuleHealth.errors.map((error) => (
+              <li key={error}>{error}</li>
+            ))}
+          </ul>
+        </div>
+      </>
+    );
   if (reconcile.isError)
     return (
       <>
@@ -222,10 +271,9 @@ export function RunSessionDetailScreen() {
       </>
     );
   if (pickList.data === undefined) return null;
-  const allOutcomesRecorded = pickList.data.parcels.every(
-    (parcel) => parcel.attendance !== 'pending',
-  );
-  const readyToPrint = allParcelsReviewed(pickList.data.parcels);
+  const currentParcels = pickList.data.parcels.filter(isCurrentParcel);
+  const allOutcomesRecorded = currentParcels.every((parcel) => parcel.attendance !== 'pending');
+  const readyToPrint = allParcelsReviewed(currentParcels);
 
   return (
     <>
@@ -271,7 +319,7 @@ export function RunSessionDetailScreen() {
         Complete session
       </button>
       <ul>
-        {pickList.data.parcels.map((parcel) => (
+        {currentParcels.map((parcel) => (
           <ClientRow
             key={parcel.id}
             parcel={parcel}
@@ -280,7 +328,7 @@ export function RunSessionDetailScreen() {
           />
         ))}
       </ul>
-      <SessionSmsPanel parcels={pickList.data.parcels} sessionId={sessionId} />
+      <SessionSmsPanel parcels={currentParcels} sessionId={sessionId} />
     </>
   );
 }
@@ -356,7 +404,9 @@ export function RunSessionClientScreen() {
     return <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />;
   if (pickList.isError)
     return <ErrorNotice error={pickList.error} onRetry={() => void pickList.refetch()} />;
-  const parcel = pickList.data.parcels.find((candidate) => candidate.id === parcelId);
+  const parcel = pickList.data.parcels.find(
+    (candidate) => candidate.id === parcelId && isCurrentParcel(candidate),
+  );
   if (parcel === undefined)
     return <EmptyState headline="Client not found" sentence="Return to the session client list." />;
 
@@ -371,7 +421,7 @@ export function RunSessionClientScreen() {
       void navigate(path);
     });
   };
-  const readyToPrint = allParcelsReviewed(pickList.data.parcels);
+  const readyToPrint = allParcelsReviewed(pickList.data.parcels.filter(isCurrentParcel));
 
   return (
     <>
@@ -433,9 +483,13 @@ function ParcelPanel({
   const stockItems = useStockItems();
   const [savedLines, setSavedLines] = useState(() => toDraftLines(parcel.lines));
   const [draftLines, setDraftLines] = useState(() => toDraftLines(parcel.lines));
+  const [savedNotes, setSavedNotes] = useState(parcel.notes ?? '');
+  const [draftNotes, setDraftNotes] = useState(parcel.notes ?? '');
+  const [showUnselectedStockItems, setShowUnselectedStockItems] = useState(true);
   // A recorded outcome stops the parcel changing, but does not stop it being
   // corrected. Only confirming the containing session locks both.
-  const parcelLocked = parcel.attendance !== 'pending' || sessionStatus === 'confirmed';
+  const parcelLinesLocked = parcel.attendance !== 'pending' || sessionStatus === 'confirmed';
+  const notesLocked = sessionStatus === 'confirmed';
   const answers = describeAnswers(referralFormDefinition, {
     answers: parcel.answers,
     piiPurgedAt: null,
@@ -443,7 +497,8 @@ function ParcelPanel({
   const preferences =
     answers.kind === 'answers' ? answers.lines.filter((line) => line.isPreference) : [];
   const changedLines = changedDraftLines(savedLines, draftLines);
-  const isDirty = changedLines.length > 0;
+  const notesChanged = savedNotes !== draftNotes;
+  const isDirty = changedLines.length > 0 || notesChanged;
 
   useEffect(() => {
     onDirtyChange(isDirty);
@@ -453,15 +508,20 @@ function ParcelPanel({
   }, [isDirty, onDirtyChange]);
 
   const save = (afterSave?: () => void) => {
-    if (changedLines.length === 0) {
+    if (!isDirty) {
       afterSave?.();
       return;
     }
     saveLines.mutate(
-      { parcelId: parcel.id, lines: changedLines },
+      {
+        parcelId: parcel.id,
+        lines: changedLines,
+        ...(notesChanged ? { notes: draftNotes.trim() === '' ? null : draftNotes } : {}),
+      },
       {
         onSuccess: () => {
           setSavedLines(draftLines);
+          setSavedNotes(draftNotes);
           afterSave?.();
         },
       },
@@ -469,9 +529,10 @@ function ParcelPanel({
   };
   const draftLineIds = new Set(draftLines.map((line) => line.stockItemId));
   const displayedStockItems = (stockItems.data ?? []).filter(
-    (item) => item.isActive || draftLineIds.has(item.id),
+    (item) => draftLineIds.has(item.id) || (item.isActive && showUnselectedStockItems),
   );
   const needsAttention = draftLines.some((line) => line.quantity === -1);
+  const householdComposition = parcel.answers[HOUSEHOLD_COMPONENTS_KEY];
 
   return (
     <section className={styles.parcelPanel}>
@@ -484,10 +545,28 @@ function ParcelPanel({
           Adults/children: {parcel.adults}/{parcel.children}
         </span>
       </h2>
+      {isHouseholdComposition(householdComposition) && (
+        <div className={styles.householdComposition}>
+          <HouseholdCompositionGrid composition={householdComposition} />
+        </div>
+      )}
+      <div className={styles.pickListInformationEditor}>
+        <label htmlFor={`pick-list-information-${parcel.id}`}>Pick-list information</label>
+        <textarea
+          disabled={notesLocked}
+          id={`pick-list-information-${parcel.id}`}
+          maxLength={1200}
+          onChange={(event) => {
+            setDraftNotes(event.target.value);
+          }}
+          rows={4}
+          value={draftNotes}
+        />
+      </div>
       <div className={styles.reviewAction}>
         <button
           className={styles.reviewButton}
-          disabled={parcelLocked || !isDirty || saveLines.isPending || review.isPending}
+          disabled={!isDirty || saveLines.isPending || review.isPending}
           onClick={() => {
             save();
           }}
@@ -517,6 +596,16 @@ function ParcelPanel({
       </div>
       <div className={styles.editorColumns}>
         <section className={styles.editorPane}>
+          <label className={styles.unselectedItemsToggle}>
+            <input
+              checked={showUnselectedStockItems}
+              onChange={(event) => {
+                setShowUnselectedStockItems(event.target.checked);
+              }}
+              type="checkbox"
+            />
+            Show unselected Stock items
+          </label>
           {stockItems.isPending ? (
             <Spinner label="Loading stock items…" />
           ) : stockItems.isError ? (
@@ -536,7 +625,7 @@ function ParcelPanel({
                           <LineEditor
                             item={item}
                             line={line}
-                            locked={parcelLocked}
+                            locked={parcelLinesLocked}
                             onChange={(quantity) => {
                               setDraftLines((lines) => {
                                 const current = lines.find(
@@ -673,6 +762,15 @@ function groupStockItemsByCategory(items: readonly StockItem[]) {
 
 function allParcelsReviewed(parcels: readonly Parcel[]): boolean {
   return parcels.every((parcel) => parcel.reviewedAt !== null);
+}
+
+/**
+ * Parcels are immutable operational snapshots, so cancelling a referral does
+ * not delete its rows. The API marks that snapshot as cancelled; it must no
+ * longer become a client, a print gate, or an SMS conversation.
+ */
+function isCurrentParcel(parcel: Parcel): boolean {
+  return parcel.attendance !== 'cancelled';
 }
 
 type DraftLine = Pick<Parcel['lines'][number], 'stockItemId' | 'name' | 'shelfNumber' | 'quantity'>;

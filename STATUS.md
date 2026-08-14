@@ -91,6 +91,10 @@ organisation name, is not derivable, and guessing could authorise an entire coun
 
 Tracked so it is not mistaken for finished work.
 
+- **Automated questionnaire import and release workflow.** Before go-live, build W3 in
+  `DEFERRED-WORK.md`: it must validate reviewed Sheet JSON, safely extend the immutable answer-key
+  ledger, run the form checks and make the required client release explicit. Until then, a developer
+  must integrate each questionnaire change manually.
 - **Turnstile on the public referral form.** `/refer` takes referrals and submits them, but no
   widget exists. The server verifies a token whenever a secret is configured and refuses to boot in
   production without one, so **the form works in development and would be refused in production**.

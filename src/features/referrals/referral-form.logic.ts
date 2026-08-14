@@ -33,9 +33,10 @@ export type FormAnswers = Readonly<Record<string, AnswerValue>>;
  * 3 entries' (answerMax = 3)." Generated rather than written into the config,
  * because an instruction that disagrees with the validation is worse than none.
  */
-export function choiceInstruction(question: ChoiceQuestion): string {
+export function choiceInstruction(question: ChoiceQuestion): string | null {
   const { answerMin: min, answerMax: max } = question;
 
+  if (max === 1) return null;
   if (min === max) return `Choose ${count(min)}.`;
   if (min === 0) return `Choose up to ${count(max)}, or None.`;
   return `Choose between ${count(min)} and ${count(max)}.`;
@@ -135,6 +136,7 @@ export function clearDisabledAnswers(
 
   for (const page of definition.pages) {
     for (const question of page.questions) {
+      if (question.type === 'information') continue;
       if (question.enabledWhen === undefined || isEnabled(question, answers)) continue;
 
       const empty: AnswerValue = question.type === 'choice' ? [] : '';

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { answerKeys, archiveRows, FIXED_HEADERS } from './archive-rows.logic';
+import {
+  answerKeys,
+  archiveRows,
+  FIXED_HEADERS,
+  HOUSEHOLD_COMPOSITION_SHEET_COLUMNS,
+} from './archive-rows.logic';
+import { emptyHouseholdComposition } from '../referrals/household-composition';
+import { HOUSEHOLD_COMPONENTS_KEY } from '../referrals/household-composition';
 import type { ExtractRow } from './queries';
 
 const row: ExtractRow = {
@@ -44,6 +51,25 @@ describe('spreadsheet archive rows', () => {
     expect(archiveRows(session, [row], headers)[0]).toEqual(
       expect.arrayContaining(['2026-08-07', "St Mary's Hall", 'No onions', '["Tea","Coffee"]']),
     );
+  });
+
+  it('expands household composition into its reporting columns, never one JSON cell', () => {
+    const composition = {
+      ...emptyHouseholdComposition(),
+      '0-4': { female: 1 },
+      'state-pension-age': { male: 2, 'prefer-not-to-say': 1 },
+    };
+    const compositionRow = { ...row, answers: { [HOUSEHOLD_COMPONENTS_KEY]: composition } };
+    const headers = [...FIXED_HEADERS, ...HOUSEHOLD_COMPOSITION_SHEET_COLUMNS];
+    const cells = archiveRows(session, [compositionRow], headers)[0] ?? [];
+
+    expect(answerKeys([compositionRow])).toEqual(HOUSEHOLD_COMPOSITION_SHEET_COLUMNS);
+    expect(cells[headers.indexOf('householdComposition.0-4.female')]).toBe(1);
+    expect(cells[headers.indexOf('householdComposition.state-pension-age.male')]).toBe(2);
+    expect(cells[headers.indexOf('householdComposition.state-pension-age.prefer-not-to-say')]).toBe(
+      1,
+    );
+    expect(cells).not.toContain(JSON.stringify(composition));
   });
 
   /**

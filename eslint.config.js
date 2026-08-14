@@ -195,7 +195,7 @@ export default tseslint.config(
   },
   {
     // Run by `npm run check` on a developer machine and in CI, never bundled.
-    files: ['scripts/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'tools/**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: {
       globals: { console: 'readonly', process: 'readonly' },

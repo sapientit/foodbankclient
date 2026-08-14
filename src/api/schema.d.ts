@@ -1319,17 +1319,18 @@ export interface paths {
          *     it.
          *
          *     **This is a contact list, not a listener sheet.** It carries the
-         *     household's address, postcode and phone number, and the referrer's name
-         *     and phone number — so the person running the session can find a door,
-         *     ring a household that has not arrived, or ring the professional who sent
-         *     them. It is the one place a team leader is given a household's phone
-         *     number outside the picking sheet for a delivery.
+         *     household's address, postcode and phone number, and the referrer's name,
+         *     organisation and phone number — so the person running the session can
+         *     find a door, ring a household that has not arrived, or ring the
+         *     professional who sent them and know where they are ringing. It is the
+         *     one place a team leader is given a household's phone number outside the
+         *     picking sheet for a delivery.
          *
          *     **What it deliberately leaves out:** date of birth, the reason for
          *     referral, the form answers, the administrator's review comment, the
-         *     parcel contents, and the referrer's email address and organisation. The
-         *     reason in particular stays where it was — a team leader gets it on the
-         *     listener sheet and nowhere else.
+         *     parcel contents, and the referrer's email address. The reason in
+         *     particular stays where it was — a team leader gets it on the listener
+         *     sheet and nowhere else.
          *
          *     **Who is on it:** every household holding a place — `pending_review`,
          *     `active` and `reviewed` alike. Cancelled and rejected households are
@@ -1784,6 +1785,10 @@ export interface paths {
          *     `referrerPhone` or `reviewComment`.** Why someone is hungry is not
          *     picking information.
          *
+         *     **Nobody receives `adminInfo` here**, an administrator included — the
+         *     note belongs to the referral you have open, so fetch
+         *     `GET /referrals/{id}` for it.
+         *
          *     **A team lead's list never contains rejected referrals**, whatever they
          *     filter by; asking for `status=rejected` returns an empty list rather
          *     than an error, because the status is simply not one of theirs. Pending
@@ -1877,6 +1882,11 @@ export interface paths {
          *     is left alone, so a one-field correction is a one-field request. The
          *     exception is `answers`, which **replaces** the stored set outright —
          *     you hold the form, so a key you leave out has been removed.
+         *
+         *     `adminInfo` — the administrators' own note about the household — is
+         *     amended here too, and is **not** part of `answers`: a string sets it,
+         *     `null` clears it, and omitting it leaves it. Replacing the answers
+         *     never touches it, which is the point of it being its own field.
          *
          *     **The referrer's own details cannot be amended** — not `referrerEmail`
          *     above all, which is what the accept-or-hold decision was made on. The
@@ -2088,7 +2098,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Find a referral by postcode, phone number or date of birth
+         * Find a referral by date of birth, postcode or phone number
          * @description **Admin only.** The screen an administrator opens when somebody rings
          *     up. A team lead gets a `403`.
          *
@@ -2099,7 +2109,8 @@ export interface paths {
          *     this system puts personal data in a URL. Do not "fix" this to a `GET`
          *     with query parameters, and do not build a bookmarkable search link.
          *
-         *     **At least one of the three is required**; none is a `400`. Search is
+         *     **At least one of date of birth, postcode and phone number is required**;
+         *     none is a `400`. Search is
          *     on the same three identifiers the duplicate count matches on, settled by
          *     the same rule — so a postcode typed with no space and one typed in lower
          *     case are the same postcode. A value the rule cannot make sense of is
@@ -2113,7 +2124,9 @@ export interface paths {
          *     transposed digit, last year's address — and a search that insisted on
          *     all of them agreeing would fail at the moment it was most needed. Say
          *     so in the UI if you offer more than one box, because the opposite is the
-         *     natural assumption.
+         *     natural assumption. `surnamePrefix` is an optional, case-insensitive
+         *     start-of-surname filter applied as an `AND` narrowing condition after
+         *     the identifier match, and cannot be used alone.
          *
          *     **This reaches every referral the food bank still holds details for,
          *     cancelled and rejected included** — "we turned that one away in March"
@@ -2122,13 +2135,17 @@ export interface paths {
          *     referral whose details have been forgotten: the purge nulls the very
          *     columns this searches on, so there is nothing left to match.
          *
-         *     **What comes back is deliberately thin.** Enough to recognise a
-         *     household and open it, and no more: no postcode, no phone number, no
-         *     date of birth, no reason, no answers, no review comment, no referrer. A
-         *     postcode search in a hostel or a refuge returns a screen of other
-         *     people's households, and the administrator opens the one they wanted and
-         *     sees it in full there. Do not reconstruct a fuller row by fetching each
-         *     result — that is the same disclosure by another route.
+         *     **What comes back is the administrator's working list:** session date,
+         *     referral status, first name, surname, postcode, phone number, the main
+         *     reason id, the referrer's name and organisation, and the dynamic
+         *     `answers` whole.
+         *     Resolve `reasonId` using the admin-only referral-reasons lookup. The
+         *     secondary cause and the additional crisis detail are answers, so they
+         *     arrive inside `answers` under the keys your form owns — the server does
+         *     not know which keys those are and will not guess. It does not return the
+         *     date of birth, the address, the review comment, the referrer email or
+         *     the referrer phone, and you should not reconstruct those by fetching
+         *     every result.
          *
          *     **At most 50 results, newest session first, and `count` is not capped.**
          *     `count > results.length` means there are more; show both numbers when
@@ -2368,6 +2385,7 @@ export interface paths {
          * @description Admin only. Idempotent. Frees its place in the session.
          *     A **rejected** referral is a `409`, not a cancellation. The two are different things that happened, and `reviewComment` is the only record of why the charity turned the household away — relabelling the status would leave that comment on a referral that no longer says a review took place.
          *     A referral on a **confirmed** session is also a `409`: the session is closed to every kind of change, cancellation included.
+         *     **If a pick list has already been generated, this marks that household's parcel `attendance: "cancelled"` in the same write.** The parcel is not deleted and its lines, notes and `pickNumber` are untouched — it stays the record of what was picked. What changes is that it stops reading as a household still to come: it no longer needs reviewing, no longer needs an attendance outcome, is left out of `GET /pick-lists/{id}/print`, and `POST /parcels/{id}/attendance` on it is a `409`. It is still returned by `GET /sessions/{sessionId}/pick-list`, so a session screen can show why that pick number is not coming.
          */
         post: {
             parameters: {
@@ -3579,6 +3597,15 @@ export interface paths {
          *     preference can never cut a larger household's share. Send the whole
          *     session's lines every time; entries for households that already have a
          *     parcel are ignored and counted, not refused.
+         *
+         *     **Pick-list information is optional and belongs to the client too.** The
+         *     body may carry the finished text to write onto each parcel — allergies,
+         *     what the household cannot eat, whatever your form marks as belonging on
+         *     a picking sheet. The server stores it as sent and never reads a
+         *     referral's answers to compose it. Like preference lines it reaches
+         *     **only parcels this call creates**: an existing parcel's note is a
+         *     snapshot the team leader may already have edited, and a reconciliation
+         *     never overwrites one. Send the whole session's information every time.
          */
         post: {
             parameters: {
@@ -3620,7 +3647,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description A model parcel is not configured for every booked household size, or a preference line names a stock item that does not exist (`details.unknownStockItemIds`). Nothing is created either way. */
+                /** @description A model parcel is not configured for every booked household size; or a preference line names a stock item that does not exist (`details.unknownStockItemIds`); or a preference line or a pick-list information entry names a referral that is not on this session (`details.offSessionReferralIds`). Nothing is created in any of those cases. */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -3694,11 +3721,19 @@ export interface paths {
          *
          *     **Never contains the reason for referral**, and no name or address
          *     unless it is a delivery. A sheet gets carried round a hall and left on
-         *     tables. Dietary notes *are* included: the picker is the only person who
-         *     can act on them.
+         *     tables. The parcel's pick-list information *is* included, as saved: the
+         *     picker is the only person who can act on it. The referral's answers
+         *     never are.
          *
          *     Refused with `409` until every parcel on the pick list has been
          *     reviewed.
+         *
+         *     **Parcels whose referral has been cancelled are left out** and are not
+         *     waited for: their household is not coming, so a sheet for one would be a
+         *     bag packed for nobody, and holding up the session's printing until
+         *     somebody reviews a parcel that will never be picked would be worse. They
+         *     are still returned by `GET /sessions/{sessionId}/pick-list`, reading
+         *     `attendance: "cancelled"`.
          */
         get: {
             parameters: {
@@ -3735,7 +3770,7 @@ export interface paths {
         put?: never;
         /**
          * Mark as printed
-         * @description Only the first print is stamped. Refused with `409` until every parcel has been reviewed — on a reprint too, because reconciling a late referral adds its parcel unreviewed. **Lines can still be edited after printing** — the list locks on confirm, not on print.
+         * @description Only the first print is stamped. Refused with `409` until every parcel has been reviewed — on a reprint too, because reconciling a late referral adds its parcel unreviewed. A parcel reading `attendance: "cancelled"` is not waited for. **Lines can still be edited after printing** — the list locks on confirm, not on print.
          */
         post: {
             parameters: {
@@ -3893,7 +3928,16 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Set a note on a parcel */
+        /**
+         * Set the pick-list information on a parcel
+         * @description Replaces the parcel's note outright; `null` clears it. Editable while
+         *     the pick list is draft or printed, on the same terms as its lines, and
+         *     refused with `409` once the pick list or the session is confirmed.
+         *
+         *     The note is the team leader's from the moment the parcel exists.
+         *     Whatever was written here survives every later reconciliation of the
+         *     session's pick list, and it is what the printed sheet carries.
+         */
         patch: {
             parameters: {
                 query?: never;
@@ -3906,6 +3950,7 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
+                        /** @description The same limit generation writes under, so a note created there can always be edited and put back. Trimmed before it is measured. */
                         notes: string | null;
                     };
                 };
@@ -3920,11 +3965,11 @@ export interface paths {
                         "application/json": {
                             /** Format: uuid */
                             id: string;
-                            isActive: boolean;
+                            notes: string | null;
                         };
                     };
                 };
-                /** @description The pick list has been confirmed */
+                /** @description The pick list or the session has been confirmed */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -4139,6 +4184,11 @@ export interface paths {
          *     an outcome can no longer be changed and this returns `409`, because a
          *     session that has been signed off must not have its figures move
          *     underneath it.
+         *
+         *     **A parcel reading `attendance: "cancelled"` is refused with a `409`.**
+         *     Its referral was cancelled, so the household is not coming; issuing it
+         *     would take stock off the shelves for somebody the charity already knows
+         *     will not collect. There is nothing that reinstates a referral.
          */
         post: {
             parameters: {
@@ -4173,7 +4223,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description The pick list has not been reviewed yet, the session has been confirmed, or somebody else recorded this household at the same moment. */
+                /** @description The pick list has not been reviewed yet, this household has cancelled, the session has been confirmed, or somebody else recorded this household at the same moment. */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -4681,7 +4731,7 @@ export interface components {
             };
         };
         /**
-         * @description **The household's own details, and the answers.** Admin only — there is no self-service amendment; a referrer who needs a change phones the food bank and an administrator makes it.
+         * @description **The household's own details, the answers, and the administrators' note.** Admin only — there is no self-service amendment; a referrer who needs a change phones the food bank and an administrator makes it.
          *     Every field is optional and **only what you send is written**, so a one-field correction stays a one-field request. `answers` is the exception: it **replaces** the stored set rather than merging into it, because you hold the form and a key you omit has been removed. Which key counts as "other information" is yours to know — the server holds no form definition and does not police which of them changed.
          *     **The referrer's own details are not here and cannot be amended.** `referrerEmail` above all: it is what the authorisation decision was made on, so editing it would leave a referral whose accepted-or-held status no longer follows from its address. Name, phone and organisation stay fixed too — who sent a referral is a matter of record.
          *     **A correction overwrites and the original is not kept.** Nothing records what a field used to say, so there is nothing to show a user as "previously" and no undo.
@@ -4708,6 +4758,12 @@ export interface components {
             answers?: {
                 [key: string]: unknown;
             };
+            /**
+             * @description The administrators' own note about the household. A string sets it, replacing whatever was there; explicit `null` clears it; omitting the key leaves it alone.
+             *     **An empty string is a `400`, not a clearance** — send `null`. It is trimmed, so whitespace alone is an empty string.
+             *     It is **not** part of `answers` and is not replaced when they are: saving a form page must send the complete answers map, and if the note is being changed at the same time it travels as this separate field.
+             */
+            adminInfo?: string | null;
         };
         /** @description The administrator's note on why a referral was let through or turned away. One short line; it replaces any earlier note, and there is no decision history and no decision timestamp. `Referral.referredAt` is the timestamp the charity asked for — when the referrer submitted. */
         ReferralReview: {
@@ -4795,6 +4851,7 @@ export interface components {
         /**
          * @description One referral, as one spreadsheet row.
          *     The named fields are the fixed columns. `answers` is an **object, not a JSON string**, because the spreadsheet's hidden metadata sheet owns the `answerKey → column` mapping: the browser reads that mapping, puts each key's answer in that key's column, and updates the metadata sheet when it meets a new key. **That mapping is spreadsheet state and is not stored in this database** — the server neither knows nor cares which column anything lands in.
+         *     **`adminInfo` is not a column here and must not be written into the sheet.** The purge cannot reach a spreadsheet, and the administrators' note is one of the things the purge removes.
          */
         ExtractRow: {
             /**
@@ -4902,8 +4959,12 @@ export interface components {
             matches: components["schemas"]["RepeatReferralMatch"][];
         };
         /**
-         * @description The staff view. **The last five fields are admin-only** — a team lead
+         * @description The staff view. **The last six fields are admin-only** — a team lead
          *     receives the object without them, so treat them as optional.
+         *
+         *     `adminInfo` is narrower again: admin-only **and** only on a response
+         *     carrying one referral. It is absent from the rows of `GET /referrals`
+         *     for everybody, an administrator included.
          *
          *     **A team lead does not see rejected referrals at all.** They are absent
          *     from the list, and fetching one by id is a `404`. Pending ones they do
@@ -4951,8 +5012,8 @@ export interface components {
             };
             /**
              * Format: date-time
-             * @description When set, the **referee's** fields above are null by design and `answers` is empty.
-             *     The referrer's own details are **not** purged — `referrerName`, `referrerEmail`, `referrerPhone` and `reviewComment` all survive. The retention period exists to forget the household that needed feeding, not the professional who referred them.
+             * @description When set, the **referee's** fields above are null by design, `answers` is empty and `adminInfo` is null.
+             *     The referrer's own details are **not** purged — `referrerName`, `referrerEmail`, `referrerPhone` and `reviewComment` all survive. The retention period exists to forget the household that needed feeding, not the professional who referred them. `adminInfo` is the one administrator-written field that goes: it describes the household rather than a decision about the referral.
              */
             piiPurgedAt: string | null;
             /**
@@ -4966,6 +5027,12 @@ export interface components {
             referrerPhone?: string | null;
             /** @description **Admin only.** The reviewing administrator's one line. It can name a referrer or record a suspicion, which is not a team lead's business. Who reviewed is stored but never returned — no screen asks. */
             reviewComment?: string | null;
+            /**
+             * @description **Admin only, and only on a response carrying one referral** — `GET /referrals/{id}`, `PATCH /referrals/{id}`, and the accept, reject, review and cancel routes. **Absent from the `GET /referrals` list rows**, absent from search results, and absent from every printed, exported or messaged payload: the listener sheet, the referral-details list, the repeat-referral list, the pick list, the fuel help list, SMS and the spreadsheet extract.
+             *     The administrators' own free-text note about the household — what the office learned from ringing them. It is **not** one of `answers`: the answers are the referrer's and you replace them wholesale from the form you own, and a note the office wrote must not be lost because a form page was saved without it. Amend it through `ReferralAmend.adminInfo`.
+             *     Null when there is no note. Cleared by the twelve-month purge along with the household's own fields and `answers` — unlike `reviewComment`, which survives it.
+             */
+            adminInfo?: string | null;
             /**
              * @description **Admin only, and on `GET /referrals/{id}` only** — it is not on the list, where it would cost a query per row.
              *     Present for an administrator fetching one referral, absent for a team lead, whose read costs nothing extra. `GET /referrals/{id}/repeat-referrals` is the button behind it; **do not call that route just to render this count.** It returns other households' names, addresses, phone numbers and dates of birth, and those should not cross the wire until an administrator asks for them.
@@ -5018,7 +5085,7 @@ export interface components {
             location: string;
             referrals: components["schemas"]["ReferralDetailsHousehold"][];
         };
-        /** @description One household's contact details for the session being run. Every field below is nullable because the referee and referrer columns are nulled by the retention purge — a purged household is still on the session and still has to appear, with nothing left to reach it by. */
+        /** @description One household's contact details for the session being run. Every field below is nullable except `referrerOrganisation`, because the referee columns are nulled by the retention purge — a purged household is still on the session and still has to appear, with nothing left to reach it by. */
         ReferralDetailsHousehold: {
             /** Format: uuid */
             referralId: string;
@@ -5030,6 +5097,8 @@ export interface components {
             refereePhone: string | null;
             /** @description The professional who sent them. **Survives a purge** — the point of forgetting is to stop holding details of the household, not of the referrer. */
             referrerName: string | null;
+            /** @description Where the referrer works — what the referrer said it was, so expect three spellings of the same council. **Never null**, here or after a purge: it is the one non-nullable field on this object. */
+            referrerOrganisation: string;
             referrerPhone: string | null;
         };
         /** @description At least one of the three is required; a body with none of them is a `400`. Send what the caller gave you and let the server settle it — do not normalise or pad a partial postcode yourself. */
@@ -5043,13 +5112,15 @@ export interface components {
              * @description `YYYY-MM-DD`. Compared exactly; there is nothing to settle.
              */
             dateOfBirth?: string;
+            /** @description An optional case-insensitive start-of-surname filter. It narrows the date-of-birth, postcode and/or phone-number result set and cannot be used as a search on its own. */
+            surnamePrefix?: string;
         };
         ReferralSearchResponse: {
             /** @description How many referrals matched, **uncapped**. `results` holds at most 50, so `count > results.length` means there are more and there is no paging to fetch them — narrow the search instead. */
             count: number;
             results: components["schemas"]["ReferralSearchResult"][];
         };
-        /** @description Enough to recognise a household and open it, and nothing else. No postcode, phone number or date of birth — not even the ones searched on — and no reason, answers, review comment or referrer. A postcode search in a hostel returns other people's households, and this is the row that keeps that cheap. */
+        /** @description The administrator's referral-search working row: the identifiers, the referral context, and the dynamic answers whole. Not the date of birth, the address, the review comment, the referrer email or the referrer phone. */
         ReferralSearchResult: {
             /**
              * Format: uuid
@@ -5058,17 +5129,27 @@ export interface components {
             referralId: string;
             refereeFirstName: string | null;
             refereeSurname: string | null;
-            refereeAddress: string | null;
+            refereePostcode: string | null;
+            refereePhone: string | null;
             /** Format: date */
             sessionDate: string;
-            sessionLocation: string;
             /**
              * @description Cancelled and rejected referrals are searchable and returned. "We turned that one away in March" is what the caller is ringing about.
              * @enum {string}
              */
             status: "pending_review" | "active" | "reviewed" | "rejected" | "cancelled";
-            /** @description Which of the supplied values this referral matched. Never empty, and worth showing: a postcode match alone may be nothing more than two families in one block of flats. */
-            matchedOn: ("date_of_birth" | "postcode" | "phone")[];
+            /**
+             * Format: uuid
+             * @description The main cause of crisis, and a fixed column rather than an answer. Resolve it through the admin referral-reasons lookup, including retired reasons. Never null — it is `NOT NULL` on the table and survives the purge.
+             */
+            reasonId: string;
+            referrerName: string | null;
+            /** @description Where the referral came from — what the referrer typed on the form, so expect three spellings of the same council. **Never null**: it is `NOT NULL` on the table and outside the PII block, so a purged referral still reports it. `referrerName` is unchanged and still returned. */
+            referrerOrganisation: string;
+            /** @description The referral's dynamic answers, whole and unfiltered, exactly as the listener sheet and a parcel hand them over. **The secondary cause of crisis and the additional crisis detail are in here**, under keys the referral form owns — the server holds no form definition, does not know which keys they are and will not guess. Extract them yourself, the same arrangement as *Cause Details* elsewhere. */
+            answers: {
+                [key: string]: unknown;
+            };
         };
         /** @description One household to ring about a fuel bill, at one session they were fed at. Who is being helped, where they live, how to ring them, when it was, and the form answers whole — and deliberately nothing else. */
         FuelHelpHousehold: {
@@ -5121,6 +5202,22 @@ export interface components {
         GeneratePickListRequest: {
             /** @description One entry per household, each naming a referral and the stock items your rules resolved for it. A referral must not appear twice. */
             preferenceLines?: components["schemas"]["PreferenceLineEntry"][];
+            /** @description One entry per household, each naming a referral and the finished text to write onto the parcel this call creates for it. A referral must not appear twice. Optional, and independent of `preferenceLines` — send either, both, or no body at all. */
+            pickListInformation?: components["schemas"]["PickListInformationEntry"][];
+        };
+        PickListInformationEntry: {
+            /**
+             * Format: uuid
+             * @description The referral, not the parcel — the parcel does not exist yet.
+             *     **It must be a referral on this session**, on the same terms as `PreferenceLineEntry.referralId`: one that is not refuses the whole request with a `422` and `details.offSessionReferralIds`. A referral that *is* on the session but gets no parcel — cancelled, rejected, or already picked — is fine to send and is quietly ignored.
+             */
+            referralId: string;
+            /**
+             * @description The pick-list information as it should read on the sheet, composed by you from the answers your form marks as belonging there — labels and all. The server holds no form definition, never inspects an answer and never understands a question key; it stores exactly what you send.
+             *     Trimmed before it is measured, and it must not be empty once trimmed. To clear a note, use `PATCH /parcels/{id}` with `null` rather than sending an empty one here.
+             *     **Written only onto a parcel this call creates.** Sending the same entry on a later reconciliation never overwrites what is already on a parcel — by then the note belongs to the team leader, who may have corrected it.
+             */
+            notes: string;
         };
         PreferenceLineEntry: {
             /**
@@ -5168,8 +5265,15 @@ export interface components {
             householdSize: number;
             /** Format: date-time */
             reviewedAt: string | null;
-            /** @enum {string} */
+            /**
+             * @description `cancelled` means the **referral** was cancelled after this parcel was generated. The parcel is kept as the record of what had been picked, but the household is no longer one the session is being run for: exclude it from the client list, from printing, from completion checks and from SMS conversations. It is neither pending attendance nor pending review, and `POST /parcels/{id}/attendance` on it is a `409`.
+             * @enum {string}
+             */
             attendance: "pending" | "attended" | "no_show" | "cancelled";
+            /**
+             * @description The parcel's pick-list information: snapshotted from your `pickListInformation` when the parcel was created, and the team leader's to edit through `PATCH /parcels/{id}` from then on. Show this rather than recomposing it from `answers`, which would hide any correction made to it.
+             *     Unlike `answers`, it is **not** emptied when the referral's personal data is purged — see `x-assumed` on `PickListInformationEntry.notes`.
+             */
             notes: string | null;
             /**
              * @description The referral's answers, **whole and unfiltered**, for the preferences half of the pick-list maintenance screen.
@@ -5199,6 +5303,7 @@ export interface components {
             deliveryPostcode: string | null;
             /** @description For the driver who cannot find the door. Null for a collection. */
             deliveryPhone: string | null;
+            /** @description The pick-list information as saved on the parcel — what the team leader meant the sheet to say, not the answers as they read today. */
             notes: string | null;
             lines: components["schemas"]["ParcelLine"][];
         };

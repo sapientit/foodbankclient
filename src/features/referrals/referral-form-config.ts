@@ -8,6 +8,7 @@ import {
   type FormQuestion,
   type ReferralFormDefinition,
 } from './referral-form-definition';
+import { HOUSEHOLD_COMPONENTS_KEY } from './household-composition';
 
 /**
  * Loads `referral-form.config.json` and checks it is a form.
@@ -52,6 +53,7 @@ const keyFieldQuestionSchema = z.object({
   required: z.boolean(),
   helpText: z.string().min(1).optional(),
   enabledWhen: enabledWhenSchema.optional(),
+  forFuelTeam: z.boolean().optional(),
 });
 
 const dynamicQuestionSchema = z.object({
@@ -59,9 +61,11 @@ const dynamicQuestionSchema = z.object({
   questionKey: z.string().min(1),
   questionTitle: z.string().min(1),
   preference: z.boolean(),
+  pickListInformation: z.literal('Yes').optional(),
   required: z.boolean(),
   helpText: z.string().min(1).optional(),
   enabledWhen: enabledWhenSchema.optional(),
+  forFuelTeam: z.boolean().optional(),
   validation: z.discriminatedUnion('type', [
     z.object({
       type: z.literal('String'),
@@ -85,7 +89,18 @@ const dynamicQuestionSchema = z.object({
   default: z.array(z.string().min(1)).optional(),
 });
 
-const questionSchema = z.union([keyFieldQuestionSchema, dynamicQuestionSchema]);
+const informationQuestionSchema = z.object({
+  questionNum: z.number().int().positive(),
+  questionTitle: z.string().min(1),
+  answerFormat: z.literal('No Answer'),
+  enabledWhen: enabledWhenSchema.optional(),
+});
+
+const questionSchema = z.union([
+  keyFieldQuestionSchema,
+  dynamicQuestionSchema,
+  informationQuestionSchema,
+]);
 
 const pageSchema = z.object({
   pageNum: z.number().int().positive(),
@@ -99,6 +114,7 @@ const configShape = z.object({
 });
 
 const configSchema = configShape.superRefine(checkTheWholeForm);
+export const PICK_LIST_INFORMATION_MAX_LENGTH = 1200;
 
 type RawConfig = z.infer<typeof configShape>;
 type RawQuestion = z.infer<typeof questionSchema>;
@@ -108,12 +124,30 @@ function isRawKeyField(question: RawQuestion): question is z.infer<typeof keyFie
   return 'keyField' in question;
 }
 
+function isRawInformation(
+  question: RawQuestion,
+): question is z.infer<typeof informationQuestionSchema> {
+  return 'answerFormat' in question;
+}
+
 function checkTheWholeForm(config: RawConfig, ctx: z.RefinementCtx) {
   const questions = config.pages.flatMap((page) => page.questions);
-  const byKey = new Map(questions.map((question) => [question.questionKey, question]));
+  const byKey = new Map(
+    questions
+      .filter(
+        (question): question is Exclude<RawQuestion, z.infer<typeof informationQuestionSchema>> =>
+          !isRawInformation(question),
+      )
+      .map((question) => [question.questionKey, question]),
+  );
 
   const seen = new Set<string>();
   for (const question of questions) {
+    if (isRawInformation(question)) {
+      if (question.enabledWhen !== undefined)
+        checkEnabledWhen(question.questionTitle, question.enabledWhen.questionKey, byKey, ctx);
+      continue;
+    }
     const at = question.questionKey;
 
     if (seen.has(at)) {
@@ -128,6 +162,39 @@ function checkTheWholeForm(config: RawConfig, ctx: z.RefinementCtx) {
     if (isRawKeyField(question)) continue;
     checkDynamicQuestion(question, ctx);
   }
+
+  const pickListInformationLength = questions.reduce(
+    (total, question) => {
+      if (isRawInformation(question) || isRawKeyField(question)) return total;
+      if (question.pickListInformation === undefined) return total;
+      return total + question.questionKey.length + 2 + maximumAnswerLength(question);
+    },
+    Math.max(
+      0,
+      questions.filter(
+        (question) =>
+          'pickListInformation' in question && question.pickListInformation !== undefined,
+      ).length - 1,
+    ),
+  );
+  if (pickListInformationLength > PICK_LIST_INFORMATION_MAX_LENGTH) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `Pick-list information can be at most ${String(PICK_LIST_INFORMATION_MAX_LENGTH)} characters.`,
+    });
+  }
+}
+
+function maximumAnswerLength(question: RawDynamicQuestion): number {
+  if (question.validation.type === 'String') return question.validation.maxLength;
+  if (question.validation.type === 'Number') return 20;
+  if (question.validation.type === 'HouseholdComposition') return 0;
+  if (question.validation.optionsFrom !== undefined)
+    return question.validation.answerMax * (question.validation.maxAnswerLength ?? 0);
+  const longest = Math.max(0, ...(question.answers ?? []).map((answer) => answer.length));
+  return (
+    question.validation.answerMax * longest + Math.max(0, question.validation.answerMax - 1) * 2
+  );
 }
 
 /**
@@ -163,6 +230,20 @@ function checkEnabledWhen(
 function checkDynamicQuestion(question: RawDynamicQuestion, ctx: z.RefinementCtx) {
   const at = question.questionKey;
   const { validation } = question;
+
+  if (question.pickListInformation === 'Yes' && !question.preference) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `"${at}" is pick-list information, so it must be a preference question.`,
+    });
+  }
+
+  if (validation.type === 'HouseholdComposition' && at !== HOUSEHOLD_COMPONENTS_KEY) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `The household-composition question key must be "${HOUSEHOLD_COMPONENTS_KEY}".`,
+    });
+  }
 
   if (validation.type !== 'CheckBox') {
     if (question.answers !== undefined || question.default !== undefined) {
@@ -232,19 +313,31 @@ function toPage(raw: z.infer<typeof pageSchema>): FormPage {
 }
 
 function toQuestion(raw: RawQuestion): FormQuestion {
+  if (isRawInformation(raw)) {
+    return {
+      type: 'information',
+      label: raw.questionTitle,
+      ...(raw.enabledWhen === undefined ? {} : { enabledWhen: raw.enabledWhen }),
+    };
+  }
   const shared = {
     key: raw.questionKey,
     label: raw.questionTitle,
     required: raw.required,
     ...(raw.helpText === undefined ? {} : { helpText: raw.helpText }),
     ...(raw.enabledWhen === undefined ? {} : { enabledWhen: raw.enabledWhen }),
+    ...(raw.forFuelTeam === undefined ? {} : { forFuelTeam: raw.forFuelTeam }),
   };
 
   if (isRawKeyField(raw)) {
     return { ...shared, type: 'keyField', field: raw.keyField };
   }
 
-  const base = { ...shared, preference: raw.preference };
+  const base = {
+    ...shared,
+    preference: raw.preference,
+    ...(raw.pickListInformation === undefined ? {} : { pickListInformation: true }),
+  };
 
   switch (raw.validation.type) {
     case 'String':
