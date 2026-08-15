@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Referral } from './queries';
 import {
+  cameFromSearch,
   describeHousehold,
   describeLockedReferral,
   hasAdminFields,
@@ -116,6 +117,23 @@ describe('describeLockedReferral', () => {
 
   it('names the reason for a cancelled one', () => {
     expect(describeLockedReferral({ status: 'cancelled' })).toContain('cancelled');
+  });
+});
+
+describe('cameFromSearch', () => {
+  it('is true only for the flag a search result link sets', () => {
+    expect(cameFromSearch({ fromSearch: true })).toBe(true);
+  });
+
+  it('reads anything else out of the browser’s history as no', () => {
+    // Router state is whatever the history entry holds — a restored session, a
+    // hand-edited entry, something a previous version of this app wrote.
+    expect(cameFromSearch(null)).toBe(false);
+    expect(cameFromSearch(undefined)).toBe(false);
+    expect(cameFromSearch({})).toBe(false);
+    expect(cameFromSearch({ fromSearch: 'yes' })).toBe(false);
+    expect(cameFromSearch('fromSearch')).toBe(false);
+    expect(cameFromSearch(['fromSearch'])).toBe(false);
   });
 });
 

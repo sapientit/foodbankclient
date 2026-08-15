@@ -54,6 +54,7 @@ const keyFieldQuestionSchema = z.object({
   helpText: z.string().min(1).optional(),
   enabledWhen: enabledWhenSchema.optional(),
   forFuelTeam: z.boolean().optional(),
+  forListenerSheet: z.boolean().optional(),
 });
 
 const dynamicQuestionSchema = z.object({
@@ -66,6 +67,7 @@ const dynamicQuestionSchema = z.object({
   helpText: z.string().min(1).optional(),
   enabledWhen: enabledWhenSchema.optional(),
   forFuelTeam: z.boolean().optional(),
+  forListenerSheet: z.boolean().optional(),
   validation: z.discriminatedUnion('type', [
     z.object({
       type: z.literal('String'),
@@ -327,6 +329,7 @@ function toQuestion(raw: RawQuestion): FormQuestion {
     ...(raw.helpText === undefined ? {} : { helpText: raw.helpText }),
     ...(raw.enabledWhen === undefined ? {} : { enabledWhen: raw.enabledWhen }),
     ...(raw.forFuelTeam === undefined ? {} : { forFuelTeam: raw.forFuelTeam }),
+    ...(raw.forListenerSheet === undefined ? {} : { forListenerSheet: raw.forListenerSheet }),
   };
 
   if (isRawKeyField(raw)) {

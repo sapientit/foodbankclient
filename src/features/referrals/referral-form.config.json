@@ -41,7 +41,8 @@
           "questionTitle": "Client's first name",
           "required": true,
           "forFuelTeam": true,
-          "keyField": "refereeFirstName"
+          "keyField": "refereeFirstName",
+          "forListenerSheet": true
         },
         {
           "questionNum": 6,
@@ -49,7 +50,8 @@
           "questionTitle": "Client's surname",
           "required": true,
           "forFuelTeam": true,
-          "keyField": "refereeSurname"
+          "keyField": "refereeSurname",
+          "forListenerSheet": true
         },
         {
           "questionNum": 7,
@@ -70,7 +72,11 @@
             "answerMin": 1,
             "answerMax": 1
           },
-          "answers": ["Male", "Female", "Other"]
+          "answers": [
+            "Male",
+            "Female",
+            "Other"
+          ]
         },
         {
           "questionNum": 9,
@@ -92,7 +98,7 @@
             "Mixed - White and Black Caribbean",
             "Mixed - White and Black African",
             "Mixed - White and Asian",
-            "Mixed - Other (Splease specify",
+            "Mixed - Other (Please specify",
             "Asian - Indian",
             "Asian - Pakistani",
             "Asian - Bangladeshi",
@@ -166,7 +172,7 @@
         {
           "questionNum": 16,
           "questionKey": "Household Components",
-          "questionTitle": "Household composition",
+          "questionTitle": "Household Composition",
           "required": true,
           "preference": false,
           "validation": {
@@ -201,7 +207,8 @@
           "questionKey": "reasonId",
           "questionTitle": "Main cause of crisis",
           "required": true,
-          "keyField": "reasonId"
+          "keyField": "reasonId",
+          "forListenerSheet": true
         },
         {
           "questionNum": 19,
@@ -212,7 +219,8 @@
           "validation": {
             "type": "String",
             "maxLength": 500
-          }
+          },
+          "forListenerSheet": true
         },
         {
           "questionNum": 20,
@@ -226,7 +234,8 @@
             "answerMax": 1,
             "optionsFrom": "referralReasons",
             "maxAnswerLength": 200
-          }
+          },
+          "forListenerSheet": true
         },
         {
           "questionNum": 21,
@@ -271,7 +280,9 @@
             "answerMin": 1,
             "answerMax": 1
           },
-          "answers": ["Yes"]
+          "answers": [
+            "Yes"
+          ]
         },
         {
           "questionNum": 24,
@@ -309,7 +320,13 @@
             "answerMin": 1,
             "answerMax": 4
           },
-          "answers": ["Oven", "Hob", "Microwave", "Kettle", "None"]
+          "answers": [
+            "Oven",
+            "Hob",
+            "Microwave",
+            "Kettle",
+            "None"
+          ]
         },
         {
           "questionNum": 3,
@@ -333,8 +350,14 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["Pasta", "Rice", "Both"],
-          "default": ["Both"]
+          "answers": [
+            "Pasta",
+            "Rice",
+            "Both"
+          ],
+          "default": [
+            "Both"
+          ]
         },
         {
           "questionNum": 5,
@@ -347,7 +370,11 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["Sugar", "Flour: Plain", "Flour: SR"]
+          "answers": [
+            "Sugar",
+            "Flour: Plain",
+            "Flour: SR"
+          ]
         },
         {
           "questionNum": 6,
@@ -360,8 +387,16 @@
             "answerMin": 0,
             "answerMax": 2
           },
-          "answers": ["Jam", "Marmalade", "Honey", "Peanut butter", "Chocolate spread"],
-          "default": ["Jam"]
+          "answers": [
+            "Jam",
+            "Marmalade",
+            "Honey",
+            "Peanut butter",
+            "Chocolate spread"
+          ],
+          "default": [
+            "Jam"
+          ]
         },
         {
           "questionNum": 7,
@@ -386,8 +421,16 @@
             "answerMin": 0,
             "answerMax": 2
           },
-          "answers": ["Tea", "Coffee", "Decaf Coffee", "Hot Chocolate"],
-          "default": ["Tea", "Coffee"]
+          "answers": [
+            "Tea",
+            "Coffee",
+            "Decaf Coffee",
+            "Hot Chocolate"
+          ],
+          "default": [
+            "Tea",
+            "Coffee"
+          ]
         },
         {
           "questionNum": 9,
@@ -400,7 +443,9 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["Yes"]
+          "answers": [
+            "Yes"
+          ]
         }
       ]
     },
@@ -419,7 +464,13 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["1", "2", "3", "4", "5"]
+          "answers": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5"
+          ]
         },
         {
           "questionNum": 2,
@@ -432,7 +483,13 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["1", "2", "3", "4", "5"]
+          "answers": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5"
+          ]
         },
         {
           "questionNum": 3,
@@ -456,7 +513,11 @@
             "Razors",
             "Shaving foam"
           ],
-          "default": ["Shower gel", "Deodorant", "Conditioner"]
+          "default": [
+            "Shower gel",
+            "Deodorant",
+            "Conditioner"
+          ]
         },
         {
           "questionNum": 4,
@@ -494,7 +555,11 @@
             "answerMin": 0,
             "answerMax": 3
           },
-          "answers": ["Baby Jars/Pouches", "Baby formula - Stage 1", "Baby formula - Stage 2"]
+          "answers": [
+            "Baby Jars/Pouches",
+            "Baby formula - Stage 1",
+            "Baby formula - Stage 2"
+          ]
         },
         {
           "questionNum": 6,
@@ -507,7 +572,11 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["First Infant Milk", "Follow-On Milk", "Hungry Baby Milk"]
+          "answers": [
+            "First Infant Milk",
+            "Follow-On Milk",
+            "Hungry Baby Milk"
+          ]
         }
       ]
     },
@@ -536,7 +605,11 @@
             "Cloths",
             "Sponges"
           ],
-          "default": ["Laundry powder", "Spray cleaner", "Washing up liquid"]
+          "default": [
+            "Laundry powder",
+            "Spray cleaner",
+            "Washing up liquid"
+          ]
         }
       ]
     },
@@ -555,7 +628,11 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["Cat food - dry", "Cat food - wet", "Both"]
+          "answers": [
+            "Cat food - dry",
+            "Cat food - wet",
+            "Both"
+          ]
         },
         {
           "questionNum": 2,
@@ -568,7 +645,11 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["Dog food - dry", "Dog food - wet", "Both"]
+          "answers": [
+            "Dog food - dry",
+            "Dog food - wet",
+            "Both"
+          ]
         }
       ]
     },
@@ -581,8 +662,8 @@
           "questionKey": "needsFuelHelp",
           "questionTitle": "Does the client need help with Energy costs?",
           "required": false,
-          "forFuelTeam": true,
-          "keyField": "needsFuelHelp"
+          "keyField": "needsFuelHelp",
+          "forListenerSheet": true
         },
         {
           "questionNum": 2,
@@ -600,7 +681,9 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["Yes"]
+          "answers": [
+            "Yes"
+          ]
         },
         {
           "questionNum": 3,
@@ -634,7 +717,9 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["Yes"]
+          "answers": [
+            "Yes"
+          ]
         },
         {
           "questionNum": 5,
@@ -668,7 +753,9 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["Yes"]
+          "answers": [
+            "Yes"
+          ]
         },
         {
           "questionNum": 7,
@@ -686,7 +773,9 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["Yes"]
+          "answers": [
+            "Yes"
+          ]
         },
         {
           "questionNum": 8,
@@ -704,7 +793,9 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["Yes"]
+          "answers": [
+            "Yes"
+          ]
         },
         {
           "questionNum": 9,
@@ -722,7 +813,9 @@
             "answerMin": 0,
             "answerMax": 1
           },
-          "answers": ["Yes"]
+          "answers": [
+            "Yes"
+          ]
         }
       ]
     },

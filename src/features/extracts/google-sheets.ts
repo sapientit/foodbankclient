@@ -13,29 +13,47 @@ export async function writeClaim(
   accessToken: string,
   claim: ExtractClaim,
 ): Promise<void> {
-  const keys = await archiveKeys(spreadsheetId, accessToken);
+  const { keys, isEmpty } = await archiveKeys(spreadsheetId, accessToken);
   await readMappings(spreadsheetId, accessToken, keys);
   const additions = answerKeys(claim.rows).filter((key) => !keys.includes(key));
   const allKeys = [...keys, ...additions];
-  if (additions.length > 0 || keys.length === 0) {
-    const startingColumn = keys.length + 1;
+
+  /*
+   * A spreadsheet nobody has extracted to yet has no key row at all, and
+   * `archiveKeys` answers with the fixed keys it *should* have. They then have
+   * to actually be written, from column A, alongside any new ones.
+   *
+   * Writing only the additions in that case — from column O, where they belong
+   * on an established sheet — leaves A to N blank. The run looks like it worked,
+   * and the next one reads a key row whose first fourteen cells are empty,
+   * fails the format check and refuses for good. With no additions to write it
+   * is worse still: nothing is written, and the appended data row lands in row
+   * one and becomes the key row.
+   */
+  const headerKeys = isEmpty ? allKeys : additions;
+  const startingColumn = isEmpty ? 1 : keys.length + 1;
+  if (headerKeys.length > 0) {
     await putValues(
       spreadsheetId,
       accessToken,
-      archiveHeaderRange(startingColumn, additions.length, 1),
-      [additions],
+      archiveHeaderRange(startingColumn, headerKeys.length, 1),
+      [headerKeys],
     );
     await putValues(
       spreadsheetId,
       accessToken,
-      archiveHeaderRange(startingColumn, additions.length, 2),
-      [additions],
+      archiveHeaderRange(startingColumn, headerKeys.length, 2),
+      [headerKeys],
     );
+  }
+  if (additions.length > 0) {
     await appendValues(
       spreadsheetId,
       accessToken,
       `${MAPPING}!A:B`,
-      additions.map((key, index) => [key, startingColumn + index]),
+      // The column an addition lands in is its place in `allKeys`, which is
+      // where it sits whether or not the fixed keys were written this run.
+      additions.map((key, index) => [key, keys.length + 1 + index]),
     );
   }
   await appendValues(
@@ -52,16 +70,24 @@ export async function writeClaim(
   );
 }
 
-async function archiveKeys(id: string, token: string): Promise<string[]> {
+/**
+ * The hidden key row, and whether it was there at all. `isEmpty` is what the
+ * caller needs to know: the keys returned for a blank sheet are what it *ought*
+ * to hold, not what it does, and they still have to be written.
+ */
+async function archiveKeys(
+  id: string,
+  token: string,
+): Promise<{ keys: string[]; isEmpty: boolean }> {
   const values = await getValues(id, token, `${ARCHIVE}!1:1`);
   const row = values[0];
-  if (row === undefined || row.length === 0) return [...FIXED_HEADERS];
+  if (row === undefined || row.length === 0) return { keys: [...FIXED_HEADERS], isEmpty: true };
   const keys = row.map(String);
   if (FIXED_HEADERS.some((header, index) => keys[index] !== header))
     throw new GoogleSheetsError(
       'The hidden archive key row does not match the extract format. Nothing was written.',
     );
-  return keys;
+  return { keys, isEmpty: false };
 }
 function archiveHeaderRange(startColumn: number, width: number, row: number): string {
   const first = columnName(startColumn);

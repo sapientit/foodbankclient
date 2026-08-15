@@ -34,6 +34,11 @@ into.
   `Object.hasOwn`.
 - **Do not `console.log` a referral, a parcel with a name on it, or a form payload.** Not even
   temporarily — that is exactly the line that gets committed.
+- **The spreadsheet extract is the one sanctioned way household data leaves this system**, and the
+  charity accepted it on 2026-08-14 — including that Google's identity script runs in a page holding
+  referrals. Recorded in
+  [`docs/engineering/personal-data.md`](../../docs/engineering/personal-data.md). That acceptance
+  covers `/extracts` and nothing else; anything new that sends data off-origin needs its own.
 - **No third-party analytics, error reporting or session replay without asking first.** A stack trace
   or a replay from the referral form ships somebody's name, address and reason for referral to a
   company the charity has no agreement with. If error reporting is ever added it must scrub request
@@ -59,5 +64,8 @@ into.
 - **Nothing else about them, unless `isDelivery` is true.** Then the sheet says `DELIVERY` and
   carries the address, postcode and phone, where that is the entire point. **Never on a collection
   sheet.**
-- Show `dietaryNotes` prominently: the picker is the only person who can act on them, and the
-  alternative is a parcel the household cannot eat.
+- Show the parcel's `notes` — the pick-list information — prominently: the picker is the only person
+  in a position to act on it, and the alternative is a parcel the household cannot eat. It is a
+  snapshot this client composed when the pick list was created, not the referral's live answers, so
+  it is also the only place a marked answer is allowed onto paper. There is no `dietaryNotes`; see
+  [`.claude/rules/printing.md`](./printing.md).

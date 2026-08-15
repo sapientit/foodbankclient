@@ -43,6 +43,13 @@ export async function signIn(email: string): Promise<AuthUser> {
   );
 
   setAccessToken(accessToken);
+
+  // A sign-in is the one moment the app knows the person may have changed, so
+  // it is the last place to catch a cache the sign-out path somehow left behind
+  // — signing in as somebody else without signing out first, say. Clearing an
+  // already-empty cache costs nothing.
+  queryClient.clear();
+
   return user;
 }
 

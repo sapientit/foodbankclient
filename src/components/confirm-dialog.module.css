@@ -29,9 +29,18 @@
 }
 
 .cancel,
+.secondary,
 .confirm {
   padding: 0.5rem 1.1rem;
   font: inherit;
+}
+
+/* The third answer sits between staying and confirming, and is styled as
+   neither: it is not the safe default and not the action the dialog is named
+   after. `margin-inline-end: auto` pushes the confirm button to the far edge so
+   the two ways of saying no do not read as one pair of buttons. */
+.secondary {
+  margin-inline-end: auto;
 }
 
 .confirm {

@@ -90,13 +90,6 @@
   margin-block: 1rem 1.5rem;
 }
 
-.reviewAction {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-block: 1.5rem;
-}
-
 .tableWrap {
   overflow-x: auto;
 }
@@ -116,10 +109,6 @@
 }
 
 .form,
-.moveForm {
-  max-inline-size: 34rem;
-}
-
 .field {
   display: grid;
   gap: 0.375rem;

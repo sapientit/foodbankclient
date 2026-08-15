@@ -23,6 +23,8 @@ import styles from './confirm-dialog.module.css';
 export function ConfirmDialog({
   title,
   confirmLabel,
+  cancelLabel = 'Cancel',
+  secondary,
   busy = false,
   onConfirm,
   onCancel,
@@ -30,6 +32,22 @@ export function ConfirmDialog({
 }: {
   title: string;
   confirmLabel: string;
+  /**
+   * What refusing is called. "Cancel" is right for a yes/no question, and
+   * ambiguous once `secondary` gives two ways of saying no — see below.
+   */
+  cancelLabel?: string;
+  /**
+   * A third answer, for the questions that genuinely have one: leaving a form
+   * with unsaved work can be answered save, discard, or stay, and collapsing
+   * discard and stay into "Cancel" leaves somebody with no way out of a screen
+   * except to save work they did not mean to keep.
+   *
+   * Optional, and most callers should not want it. A confirmation with three
+   * answers is a prompt, not a confirmation, and adding one to a question that
+   * only has two makes the destructive answer easier to hit by accident.
+   */
+  secondary?: { label: string; onClick: () => void };
   busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -83,8 +101,18 @@ export function ConfirmDialog({
 
       <div className={styles.actions}>
         <button className={styles.cancel} onClick={onCancel} ref={cancelRef} type="button">
-          Cancel
+          {cancelLabel}
         </button>
+        {secondary !== undefined && (
+          <button
+            className={styles.secondary}
+            disabled={busy}
+            onClick={secondary.onClick}
+            type="button"
+          >
+            {secondary.label}
+          </button>
+        )}
         <button className={styles.confirm} disabled={busy} onClick={onConfirm} type="button">
           {busy ? 'Working…' : confirmLabel}
         </button>

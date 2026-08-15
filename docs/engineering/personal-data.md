@@ -67,21 +67,61 @@ purged referral is told apart from one that genuinely answered nothing, and a sc
 state as _purged_ rather than as an empty section a volunteer would read as a bug.
 
 The purge job exists and is scheduled server-side, but **purges nothing until a retention period is
-configured**, which is `OPEN-QUESTIONS.md` Q2 and only Pete can close. Two related questions are also
-open: Q12 (may any answers survive a purge) and Q17, raised by this repo (does a purge clear
-`reasonId`, `referrerEmail` and `referrerPhone`, or only the referee's own fields). This client's
-purged-referral rendering is written to be correct either way.
+configured**. The period itself is settled — twelve months — so what remains is a deployment step:
+`PII_RETENTION_DAYS=365` on the server. Q12 is still open (may any answers survive a purge), as is
+Q27 (when a referral is forgotten, is it anonymised or deleted) and Q32 (does forgetting also clear
+its parcel's pick-list information). This client's purged-referral rendering is written to be correct
+whichever way each falls.
 
 ## Printing
 
 Reason for referral never appears on a picking sheet, not even for an admin, because those sheets get
 carried round halls and left on tables. The listener sheet is the one deliberate exception: selected
-listeners receive one sensitive, session-wide sheet containing only name, reason, Cause Details and
-fuel-help status for the non-delivery households the server returned. Its dedicated API response is
-the access-control boundary; do not reuse it for another screen.
+listeners receive one sensitive, session-wide sheet for the non-delivery households the server
+returned. **What is on it is chosen by the referral form's `forListenerSheet` marker**, so the
+charity decides what a listener needs by marking the questionnaire rather than by anybody editing a
+list in the screen. Its dedicated API response is still the access-control boundary — it sends the
+name, the reason's label, the fuel flag and the answers, and nothing else can reach the page however
+it is marked. Do not reuse that response for another screen.
+
+The marker replaced a hard-coded key, and the reason is worth keeping: the key it looked for
+(`Cause Details`) had been renamed in the questionnaire, so the column read "None given" on every
+sheet of every session while the two questions the charity actually asks never appeared at all. A
+list of answer keys held anywhere other than the form goes stale silently, and the failure looks like
+a household who said nothing.
 
 The referee's **name** goes on every sheet — reversed deliberately on 2026-08-05, because a volunteer
 handing a bag over needs to know it is the right one. Nothing else about them does unless
 `isDelivery` is true, where the address is the entire point of the sheet and a driver who cannot find
 the door needs to ring. The rules and the test that must exist are in
 [`.claude/rules/printing.md`](../../.claude/rules/printing.md).
+
+## Sending household data off-origin: the spreadsheet extract
+
+Everything above is about keeping personal data inside this system. `/extracts` deliberately sends
+some of it out, to the charity's own Google spreadsheet, and it is the only thing in the client that
+does.
+
+**The charity has accepted this**, on 14 August 2026. It is recorded here because
+[`.claude/rules/pii-security.md`](../../.claude/rules/pii-security.md) requires anything sending data
+off-origin to have the charity's agreement rather than a technical one, and an undocumented sign-off
+is indistinguishable from no sign-off six months later. What they accepted:
+
+- **Household rows leave the system.** The extract writes the referral's fixed columns and its
+  answers into a spreadsheet the charity owns and administers. The screen says so before it starts —
+  "This sends household details outside this system" — and asks a second time before doing anything.
+- **Google's identity script runs in an authenticated staff page.** `google-auth.ts` injects
+  `https://accounts.google.com/gsi/client` to obtain a Sheets token. That script has the same access
+  to the page as our own code, and the page holds referrals. This is inherent to browser OAuth and
+  there is no meaningfully safer way to do it from a client; the mitigation available is a CSP
+  `script-src` naming that origin, and nothing else.
+- **The Google token is held in memory for the length of the run.** A `useRef`, never storage,
+  cleared when the run finishes — the same rule as the API access token.
+
+Two improvements that would tighten it and are not done: remove the injected `<script>` when the
+screen unmounts, and call `google.accounts.oauth2.revoke()` on finish so the token is withdrawn
+rather than merely dropped. Neither changes what the charity agreed to.
+
+**This acceptance covers the spreadsheet extract and nothing else.** Analytics, error reporting and
+session replay remain out without a fresh conversation — a stack trace from the referral form carries
+somebody's name, address and reason for referral to a company the charity has no agreement with.

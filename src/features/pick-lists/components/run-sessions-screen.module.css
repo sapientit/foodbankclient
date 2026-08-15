@@ -36,13 +36,8 @@
   min-block-size: 66vh;
 }
 
-.parcelHeading {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  justify-content: space-between;
-}
-
+/* Sits in the page header's action slot, opposite the pick number and name —
+   `PageHeader` already lays that row out, so this only sizes the text. */
 .householdSize {
   font-size: 0.875rem;
   font-weight: 400;
@@ -100,6 +95,26 @@
   gap: 0.5rem;
 }
 
+/* The two panes are siblings under the screen's `<h1>`, so both are level two —
+   this keeps "Preferences" looking exactly like the `<h3>` it used to be. */
+.paneHeading {
+  margin-block: 1em;
+  font-size: 1.17em;
+}
+
+/* Named for a screen reader only: the pick-list pane's own title. On screen the
+   pane is obvious beside the one labelled Preferences, but the category
+   headings inside it need something above them or the outline jumps from the
+   page title straight to a shelf category. */
+.visuallyHidden {
+  position: absolute;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 .categoryHeading {
   margin: 0;
   padding-block-end: 0.25rem;
@@ -119,6 +134,17 @@
 .reviewButton {
   padding: 0.7rem 1rem;
   font-size: 1.125rem;
+}
+
+/* `aria-disabled` rather than `disabled`, so the reason stays reachable — see
+   `PrintUnavailable`. That means the unavailable look has to be drawn here,
+   because only the real attribute gets it from the browser. Kept legible rather
+   than greyed to the edge of readability: this control is still in the tab
+   order, so somebody will land on it and need to read it. */
+.unavailable {
+  color: #555555;
+  border: 1px solid #777777;
+  cursor: not-allowed;
 }
 
 .categoryItems {
@@ -185,4 +211,22 @@
   .printSheet ul {
     break-inside: avoid;
   }
+}
+
+/* The refusal to close a session. It carries pick numbers somebody has to go and
+   find in a hall, so it is given weight rather than tucked under the button. */
+.refusal {
+  margin-block: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-inline-start: 4px solid #b3261e;
+  background: #fdf3f2;
+}
+
+.refusal p {
+  margin: 0;
+  max-inline-size: 60ch;
+}
+
+.refusal p + p {
+  margin-block-start: 0.5rem;
 }

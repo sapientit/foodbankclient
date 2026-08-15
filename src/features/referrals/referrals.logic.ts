@@ -54,6 +54,26 @@ export function describeHousehold(referral: Pick<Referral, 'adults' | 'children'
 }
 
 /**
+ * Whether this referral was opened from the search results, read from the
+ * router's location state.
+ *
+ * That state is `unknown` and comes from the browser's history, so it can be
+ * anything at all — a restored session, a hand-edited entry, a link somebody
+ * saved. Everything but the exact flag reads as "no", which is why this is a
+ * function rather than a cast at the call site. The flag is deliberately a bare
+ * boolean: the search itself is a date of birth, a postcode and a phone number,
+ * and history state is not a place any of those may go.
+ */
+export function cameFromSearch(state: unknown): boolean {
+  return (
+    typeof state === 'object' &&
+    state !== null &&
+    'fromSearch' in state &&
+    state.fromSearch === true
+  );
+}
+
+/**
  * The referee's name for a heading or a table cell. Both halves are nullable —
  * a purged referral has neither — so this returns `null` rather than letting
  * the string `null` or a stray space reach a screen, and a caller decides what

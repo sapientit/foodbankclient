@@ -102,7 +102,7 @@ beforeEach(() => {
 });
 
 describe('the admin referral detail screen', () => {
-  it('marks an active referral reviewed from either end of the detail screen', async () => {
+  it('marks an active referral reviewed from one button, beside the other actions', async () => {
     let reviews = 0;
     server.use(
       http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'active' }))),
@@ -116,8 +116,12 @@ describe('the admin referral detail screen', () => {
     renderApp('/referrals/r1');
     const user = userEvent.setup();
 
-    expect(await screen.findAllByRole('button', { name: 'Mark reviewed' })).toHaveLength(2);
-    await user.click(screen.getAllByRole('button', { name: 'Mark reviewed' })[0]!);
+    // One button, not one at each end of the page.
+    const markReviewed = await screen.findByRole('button', { name: 'Mark reviewed' });
+    expect(markReviewed.parentElement).toBe(
+      screen.getByRole('button', { name: 'Cancel this referral' }).parentElement,
+    );
+    await user.click(markReviewed);
 
     await waitFor(() => {
       expect(reviews).toBe(1);
@@ -220,7 +224,7 @@ describe('the admin referral detail screen', () => {
     });
   });
 
-  it('edits administrator information separately from the form answers', async () => {
+  it('edits administrator notes separately from the form answers', async () => {
     let receivedBody: unknown = null;
     server.use(
       http.get(REFERRAL, () =>
@@ -234,12 +238,12 @@ describe('the admin referral detail screen', () => {
     renderApp('/referrals/r1');
     const user = userEvent.setup();
     await screen.findByText('Ring after 2pm');
-    await user.click(screen.getByRole('button', { name: 'Edit administrator information' }));
-    const dialog = within(screen.getByRole('dialog', { name: 'Edit administrator information' }));
-    const input = dialog.getByLabelText('Administrator information');
+    await user.click(screen.getByRole('button', { name: 'Edit administrator notes' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Edit administrator notes' }));
+    const input = dialog.getByLabelText('Administrator notes');
     await user.clear(input);
     await user.type(input, 'Use side entrance');
-    await user.click(dialog.getByRole('button', { name: 'Save administrator information' }));
+    await user.click(dialog.getByRole('button', { name: 'Save administrator notes' }));
     await waitFor(() => {
       expect(receivedBody).toEqual({ adminInfo: 'Use side entrance' });
     });
@@ -386,14 +390,16 @@ describe('the admin referral detail screen', () => {
     const user = userEvent.setup();
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Move to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Move to another session?' }));
     // Waits for the sessions query itself, not just the referral — selecting
     // before the option list has loaded is a race, not a real interaction.
-    await screen.findByRole('option', { name: /Community Centre/ });
-    await user.selectOptions(screen.getByLabelText('Choose session to move to'), 's2');
+    await dialog.findByRole('option', { name: /Community Centre/ });
+    await user.selectOptions(dialog.getByLabelText('Choose session to move to'), 's2');
 
-    expect(await screen.findByText(/already has 25 of 25 places booked/)).toBeInTheDocument();
+    expect(await dialog.findByText(/already has 25 of 25 places booked/)).toBeInTheDocument();
 
-    const moveButton = screen.getByRole('button', { name: 'Move to this session' });
+    const moveButton = dialog.getByRole('button', { name: 'Move to this session' });
     expect(moveButton).not.toHaveAttribute('disabled');
     await user.click(moveButton);
 
@@ -424,9 +430,11 @@ describe('the admin referral detail screen', () => {
     const user = userEvent.setup();
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
-    await screen.findByRole('option', { name: /Spare Hall/ });
-    await user.selectOptions(screen.getByLabelText('Choose session to move to'), 's3');
-    await user.click(screen.getByRole('button', { name: 'Move to this session' }));
+    await user.click(screen.getByRole('button', { name: 'Move to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Move to another session?' }));
+    await dialog.findByRole('option', { name: /Spare Hall/ });
+    await user.selectOptions(dialog.getByLabelText('Choose session to move to'), 's3');
+    await user.click(dialog.getByRole('button', { name: 'Move to this session' }));
 
     await waitFor(() => {
       expect(receivedBody).toMatchObject({ sessionId: 's3', acknowledgeOverCapacity: false });
@@ -463,9 +471,10 @@ describe('the admin referral detail screen', () => {
     expect(screen.getByText('These were removed by the retention process.')).toBeInTheDocument();
     expect(screen.queryByLabelText('Name')).toBeNull();
     expect(screen.queryByText('undefined')).toBeNull();
-    // The screen still isn't broken elsewhere: moving remains available.
-    expect(screen.getByRole('heading', { name: 'Move to another session' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Cancel this referral' })).toBeNull();
+    // Cancel and move travel together now, so neither is offered once the
+    // details are gone — the guess recorded as Q35 in `OPEN-QUESTIONS.md`.
+    expect(screen.queryByRole('button', { name: 'Move to another session' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel this referral' })).toBeNull();
   });
 
   it('shows the previous-referral summary without requesting household details', async () => {
@@ -603,7 +612,7 @@ describe('the admin referral detail screen', () => {
     expect(screen.queryByRole('button', { name: 'Reject this referral' })).toBeNull();
   });
 
-  it('accepts a referral awaiting review, sending the one-line comment', async () => {
+  it('approves a referral without asking for a reason', async () => {
     let body: unknown = null;
     server.use(
       http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
@@ -619,17 +628,46 @@ describe('the admin referral detail screen', () => {
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     expect(screen.getByText(/This referral is awaiting review/)).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText('Comment (optional)'), 'Rang the school, they are real.');
     await user.click(screen.getByRole('button', { name: 'Approve this referral' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Approve this referral?' }));
+    // Approving an unrecognised referrer is the ordinary outcome: nowhere to
+    // type a reason, and nothing sent.
+    expect(dialog.queryByLabelText(/Reason/)).toBeNull();
     await user.click(dialog.getByRole('button', { name: 'Approve referral' }));
 
     await waitFor(() => {
-      expect(body).toEqual({ comment: 'Rang the school, they are real.' });
+      expect(body).toEqual({});
     });
     // The panel goes once there is nothing left to decide.
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Approve this referral' })).toBeNull();
+    });
+  });
+
+  it('rejects with the reason typed in the rejection dialog', async () => {
+    let body: unknown = null;
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
+      http.post(REFERRAL_REJECT, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', status: 'rejected' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Reject this referral' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Reject this referral?' }));
+    await user.type(
+      dialog.getByLabelText('Reason for rejection (optional)'),
+      'Rang the school, they had not heard of them.',
+    );
+    await user.click(dialog.getByRole('button', { name: 'Reject referral' }));
+
+    await waitFor(() => {
+      expect(body).toEqual({ comment: 'Rang the school, they had not heard of them.' });
     });
   });
 
@@ -687,6 +725,46 @@ describe('the admin referral detail screen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'That referral is not awaiting review.',
     );
+  });
+
+  it('offers the way back to the search results only when that is where it was opened from', async () => {
+    server.use(http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1' }))));
+
+    // Reached from the referrals list: nothing to go back to.
+    const { router } = renderApp('/referrals/r1');
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    expect(screen.queryByRole('link', { name: 'Back to search results' })).toBeNull();
+
+    // The flag a search result link carries — a boolean, never the search
+    // itself, because history is not a place a date of birth may go.
+    await router.navigate('/referrals/r1', { state: { fromSearch: true } });
+
+    expect(await screen.findByRole('link', { name: 'Back to search results' })).toHaveAttribute(
+      'href',
+      '/referrals/search',
+    );
+  });
+
+  it('cancel and move sit together as two buttons, and moving asks which session', async () => {
+    server.use(http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1' }))));
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    const cancelButton = screen.getByRole('button', { name: 'Cancel this referral' });
+    const moveButton = screen.getByRole('button', { name: 'Move to another session' });
+    // The same row, which is what puts them on one line.
+    expect(moveButton.parentElement).toBe(cancelButton.parentElement);
+
+    // The session list is a prompt, not something sitting open on the screen.
+    expect(screen.queryByLabelText('Choose session to move to')).toBeNull();
+    await user.click(moveButton);
+    expect(
+      within(screen.getByRole('dialog', { name: 'Move to another session?' })).getByLabelText(
+        'Choose session to move to',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('shows the review comment on an already-reviewed referral', async () => {

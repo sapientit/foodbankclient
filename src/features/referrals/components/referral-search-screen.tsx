@@ -4,7 +4,7 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { formatSessionDate } from '../../../lib/london-time';
 import { useReferralReasons } from '../../admin-setup/queries';
-import { useReferralSearch } from '../queries';
+import { useReferralSearch, useReferralSearchMemory } from '../queries';
 import {
   REASON_ADDITIONAL_KEY,
   SECONDARY_REASON_KEY,
@@ -15,72 +15,87 @@ import { REFERRAL_STATUS_LABELS } from '../referrals.logic';
 import styles from './referral-search-screen.module.css';
 
 export function ReferralSearchScreen() {
-  const search = useReferralSearch();
+  const memory = useReferralSearchMemory();
+  // The search an administrator ran before opening one of its results, so that
+  // coming back shows the same boxes and the same list.
+  const [criteria, setCriteria] = useState(() => memory.read());
+  const search = useReferralSearch(criteria);
   const reasons = useReferralReasons();
-  const [postcode, setPostcode] = useState('');
-  const [phone, setPhone] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [surnamePrefix, setSurnamePrefix] = useState('');
+  const [postcode, setPostcode] = useState(criteria?.postcode ?? '');
+  const [phone, setPhone] = useState(criteria?.phone ?? '');
+  const [dateOfBirth, setDateOfBirth] = useState(criteria?.dateOfBirth ?? '');
+  const [surnamePrefix, setSurnamePrefix] = useState(criteria?.surnamePrefix ?? '');
   const hasTerm = postcode !== '' || phone !== '' || dateOfBirth !== '';
   return (
     <>
       <PageHeader title="Search referrals" />
       <p>
-        Search by date of birth, postcode and/or phone number. Matching any supplied value returns a
-        result. A surname start narrows those results.
+        Search by date of birth, postcode and/or phone number. A surname start narrows those
+        results.
       </p>
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (hasTerm)
-            search.mutate({
-              ...(postcode === '' ? {} : { postcode }),
-              ...(phone === '' ? {} : { phone }),
-              ...(dateOfBirth === '' ? {} : { dateOfBirth }),
-              ...(surnamePrefix === '' ? {} : { surnamePrefix }),
-            });
+          if (!hasTerm) return;
+          const input = {
+            ...(dateOfBirth === '' ? {} : { dateOfBirth }),
+            ...(postcode === '' ? {} : { postcode }),
+            ...(phone === '' ? {} : { phone }),
+            ...(surnamePrefix === '' ? {} : { surnamePrefix }),
+          };
+          // Searching the same boxes twice is the same cached query, so it
+          // would sit inside the stale window and look like a dead button.
+          // Anything else is a new key and fetches on its own.
+          const unchanged = criteria !== null && JSON.stringify(criteria) === JSON.stringify(input);
+          memory.remember(input);
+          setCriteria(input);
+          if (unchanged) void search.refetch();
         }}
       >
-        <label>
-          Postcode{' '}
-          <input
-            value={postcode}
-            onChange={(event) => {
-              setPostcode(event.target.value);
-            }}
-          />
-        </label>{' '}
-        <label>
-          Phone number{' '}
-          <input
-            value={phone}
-            onChange={(event) => {
-              setPhone(event.target.value);
-            }}
-          />
-        </label>{' '}
-        <label>
-          Date of birth{' '}
-          <input
-            type="date"
-            value={dateOfBirth}
-            onChange={(event) => {
-              setDateOfBirth(event.target.value);
-            }}
-          />
-        </label>{' '}
-        <label>
-          Start of surname{' '}
-          <input
-            value={surnamePrefix}
-            onChange={(event) => {
-              setSurnamePrefix(event.target.value);
-            }}
-          />
-        </label>{' '}
-        <button disabled={!hasTerm || search.isPending} type="submit">
-          Search
-        </button>
+        <div className={styles.fieldRow}>
+          <label>
+            DoB{' '}
+            <input
+              type="date"
+              value={dateOfBirth}
+              onChange={(event) => {
+                setDateOfBirth(event.target.value);
+              }}
+            />
+          </label>
+          <label>
+            or Postcode{' '}
+            <input
+              value={postcode}
+              onChange={(event) => {
+                setPostcode(event.target.value);
+              }}
+            />
+          </label>
+          <label>
+            or Phone number{' '}
+            <input
+              value={phone}
+              onChange={(event) => {
+                setPhone(event.target.value);
+              }}
+            />
+          </label>
+        </div>
+        <div className={styles.fieldRow}>
+          <label>
+            Start of surname{' '}
+            <input
+              value={surnamePrefix}
+              onChange={(event) => {
+                setSurnamePrefix(event.target.value);
+              }}
+            />
+          </label>
+          <button disabled={!hasTerm || search.isFetching} type="submit">
+            Search
+          </button>
+        </div>
       </form>
       {search.error !== null && <ErrorNotice error={search.error} />}
       {search.data !== undefined && (
@@ -113,7 +128,11 @@ export function ReferralSearchScreen() {
                       <td>{formatSessionDate(result.sessionDate)}</td>
                       <td>{REFERRAL_STATUS_LABELS[result.status]}</td>
                       <th scope="row">
-                        <Link to={`/referrals/${result.referralId}`}>
+                        {/* The flag is what puts "Back to search results" on the
+                            referral, and it is a boolean rather than the search
+                            itself: history state is not a place personal data
+                            may go. */}
+                        <Link state={{ fromSearch: true }} to={`/referrals/${result.referralId}`}>
                           {formatName(result.refereeSurname, result.refereeFirstName)}
                         </Link>
                       </th>
@@ -128,7 +147,8 @@ export function ReferralSearchScreen() {
                           reasons.data,
                           answerChoiceId(result.answers, SECONDARY_REASON_KEY),
                         )}{' '}
-                        / {answerText(result.answers, REASON_ADDITIONAL_KEY)}
+                        / {answerText(result.answers, REASON_ADDITIONAL_KEY)} /{' '}
+                        {result.adminInfo ?? '—'}
                       </td>
                     </tr>
                   </Fragment>

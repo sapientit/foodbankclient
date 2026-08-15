@@ -265,9 +265,12 @@ describe('the public referral form', () => {
     const user = userEvent.setup();
 
     await fillPageOne(user);
-    const grid = screen.getByRole('group', { name: /^Household composition/ });
-    await user.clear(within(grid).getByLabelText('18 to State Pension age, Female'));
-    await user.type(within(grid).getByLabelText('0–4, Male'), '1');
+    // Found by cell rather than by the question's own heading. The heading is
+    // editorial text from the charity's questionnaire spreadsheet and has been
+    // reworded twice; the cell labels are built by the grid itself, so matching
+    // on them is what stops a reworded question failing a test about adults.
+    await user.clear(screen.getByLabelText('18 to State Pension age, Female'));
+    await user.type(screen.getByLabelText('0–4, Male'), '1');
     await user.click(next());
 
     expect(

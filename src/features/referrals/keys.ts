@@ -46,5 +46,21 @@ export const referralKeys = {
   detail: (id: string) => [...referralKeys.all, 'detail', id] as const,
   repeatReferrals: (id: string, excludePostcode: boolean) =>
     [...referralKeys.all, 'repeat-referrals', id, { excludePostcode }] as const,
-  search: (input: unknown) => [...referralKeys.all, 'search', input] as const,
+  /**
+   * Every search that has been run, as one prefix. A mutation cannot know which
+   * criteria happen to be cached — the key is the criteria themselves — so it
+   * invalidates the lot. `lists()` does not cover these: `['referrals','list']`
+   * and `['referrals','search']` are disjoint, which is how an amended referral
+   * used to leave yesterday's name and status on the results an administrator
+   * came back to.
+   */
+  searches: () => [...referralKeys.all, 'search'] as const,
+  search: (input: unknown) => [...referralKeys.searches(), input] as const,
+  /**
+   * Which search was last run — the criteria themselves, so that opening a
+   * result and coming back shows the same list. Personal data, and in the cache
+   * for the same reason `referrerCheck` above is: in memory, never persisted,
+   * and gone with the `queryClient.clear()` every sign-out already does.
+   */
+  lastSearch: () => [...referralKeys.all, 'last-search'] as const,
 };

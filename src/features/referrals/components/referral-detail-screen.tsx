@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
 import { HouseholdCompositionGrid } from '../../../components/household-composition-grid';
@@ -48,6 +48,7 @@ import {
   MAX_CANCEL_REASON_LENGTH,
   MAX_REVIEW_COMMENT_LENGTH,
   REFERRAL_STATUS_LABELS,
+  cameFromSearch,
   describeLockedReferral,
   hasAdminFields,
   hasRepeatReferralSummary,
@@ -125,16 +126,20 @@ function ReferralDetail({ referral }: { referral: Referral }) {
 
   const title = refereeName(referral) ?? 'Referral';
 
+  // Only when the search is where this referral was opened from. The results
+  // themselves are still in the query cache, so the link returns to the same
+  // list rather than an empty form — see `useReferralSearchMemory`.
+  const fromSearch = cameFromSearch(useLocation().state);
+
   return (
     <>
-      <PageHeader title={title} />
+      <PageHeader
+        action={fromSearch ? <Link to="/referrals/search">Back to search results</Link> : undefined}
+        title={title}
+      />
 
       {isAdminView && !purged && (
         <AdminInfoPanel locked={locked} lockedId={lockedId} referral={referral} />
-      )}
-
-      {isAdminView && referral.status === 'active' && (
-        <MarkReviewedButton referralId={referral.id} />
       )}
 
       <dl className={styles.static}>
@@ -205,11 +210,24 @@ function ReferralDetail({ referral }: { referral: Referral }) {
 
       {/* A decision about whether the household is coming belongs near the
           matching-referral context, before the editable household details. */}
+      {/* Mark reviewed, cancel and move now sit together, so all three follow
+          cancel's rule and none is offered on a purged referral — where moving
+          and marking reviewed once were, having sections of their own. Booking a
+          household whose details are gone into a future session would put a
+          nameless parcel on a pick list, and there is nothing left to read
+          through; but nobody has actually decided either, so both are recorded
+          as guesses in `../foodbankserver/OPEN-QUESTIONS.md` Q35. */}
       {!purged && (
         <section className={styles.section}>
           <h2>Referral actions</h2>
           {isAdminView && isAwaitingReview(referral) && <ReviewPanel referral={referral} />}
-          <CancelPanel locked={locked} lockedId={lockedId} referral={referral} />
+          <ReferralActionsPanel
+            canMarkReviewed={isAdminView && referral.status === 'active'}
+            locked={locked}
+            lockedId={lockedId}
+            referral={referral}
+            sessions={sessions.data ?? []}
+          />
         </section>
       )}
 
@@ -233,13 +251,6 @@ function ReferralDetail({ referral }: { referral: Referral }) {
           />
         ))}
 
-      <MovePanel
-        locked={locked}
-        lockedId={lockedId}
-        referral={referral}
-        sessions={sessions.data ?? []}
-      />
-
       {/* Every answer, not only the preferences — this is the referral, and an
           administrator taking a correction by phone needs all of it. The
           preferences-only view is the pick-list screen's job. */}
@@ -247,10 +258,6 @@ function ReferralDetail({ referral }: { referral: Referral }) {
         <h2>Answers from the referral form</h2>
         <AnswersList display={answers} />
       </section>
-
-      {isAdminView && referral.status === 'active' && (
-        <MarkReviewedButton referralId={referral.id} />
-      )}
     </>
   );
 }
@@ -290,8 +297,8 @@ function AdminInfoPanel({
 
   return (
     <section className={styles.adminInfo}>
-      <h2>Administrator information</h2>
-      <p>{referral.adminInfo ?? 'No administrator information.'}</p>
+      <h2>Administrator notes</h2>
+      <p>{referral.adminInfo ?? 'No administrator notes.'}</p>
       <button
         aria-describedby={locked === null ? undefined : lockedId}
         aria-disabled={locked !== null}
@@ -301,20 +308,20 @@ function AdminInfoPanel({
         }}
         type="button"
       >
-        Edit administrator information
+        Edit administrator notes
       </button>
       {editing && (
         <ConfirmDialog
           busy={amend.isPending}
-          confirmLabel="Save administrator information"
+          confirmLabel="Save administrator notes"
           onCancel={() => {
             setEditing(false);
           }}
           onConfirm={() => void save()}
-          title="Edit administrator information"
+          title="Edit administrator notes"
         >
           {amend.error !== null && <ErrorNotice error={amend.error} />}
-          <label htmlFor={inputId}>Administrator information</label>
+          <label htmlFor={inputId}>Administrator notes</label>
           <textarea
             className={styles.textarea}
             id={inputId}
@@ -325,30 +332,10 @@ function AdminInfoPanel({
             rows={6}
             value={value}
           />
-          <p className={styles.hint}>Leave blank to remove this information.</p>
+          <p className={styles.hint}>Leave blank to remove these notes.</p>
         </ConfirmDialog>
       )}
     </section>
-  );
-}
-
-function MarkReviewedButton({ referralId }: { referralId: string }) {
-  const review = useMarkReferralReviewed();
-
-  return (
-    <div className={styles.reviewAction}>
-      {review.error !== null && <ErrorNotice error={review.error} />}
-      <button
-        aria-disabled={review.isPending}
-        className={styles.submit}
-        onClick={() => {
-          review.mutate(referralId);
-        }}
-        type="button"
-      >
-        {review.isPending ? 'Marking reviewed…' : 'Mark reviewed'}
-      </button>
-    </div>
   );
 }
 
@@ -509,7 +496,13 @@ function ReviewPanel({ referral }: { referral: Referral }) {
   const decide = async (decision: ReviewDecision) => {
     setConfirming(null);
     try {
-      await review.mutateAsync({ id: referral.id, decision, comment });
+      // Approving sends no comment at all, whatever a reject dialog opened and
+      // abandoned earlier left in the box.
+      await review.mutateAsync({
+        id: referral.id,
+        decision,
+        comment: decision === 'reject' ? comment : '',
+      });
     } catch {
       // Rendered by `ErrorNotice` below — a 409 here means another
       // administrator reviewed it first, and its message says so.
@@ -527,23 +520,6 @@ function ReviewPanel({ referral }: { referral: Referral }) {
       </p>
 
       {review.error !== null && <ErrorNotice error={review.error} />}
-
-      <div className={styles.field}>
-        <label htmlFor={commentId}>Comment (optional)</label>
-        <input
-          className={styles.input}
-          id={commentId}
-          maxLength={MAX_REVIEW_COMMENT_LENGTH}
-          onChange={(event) => {
-            setComment(event.target.value);
-          }}
-          type="text"
-          value={comment}
-        />
-        <p className={styles.hint}>
-          One line, for whoever reads this later. Only administrators can see it.
-        </p>
-      </div>
 
       <div className={styles.actions}>
         <button
@@ -582,6 +558,28 @@ function ReviewPanel({ referral }: { referral: Referral }) {
               ? 'This household will be booked in for the session and will appear on its pick list.'
               : 'This household will not be booked in, and the place it was holding on the session is given back.'}
           </p>
+          {/* Only a rejection is explained. Approving an unrecognised referrer
+              is the ordinary outcome and needs no reason; a rejection is the
+              one somebody asks about six months later, and there is no review
+              history to look it up in. */}
+          {confirming === 'reject' && (
+            <div className={styles.field}>
+              <label htmlFor={commentId}>Reason for rejection (optional)</label>
+              <input
+                className={styles.input}
+                id={commentId}
+                maxLength={MAX_REVIEW_COMMENT_LENGTH}
+                onChange={(event) => {
+                  setComment(event.target.value);
+                }}
+                type="text"
+                value={comment}
+              />
+              <p className={styles.hint}>
+                One line, for whoever reads this later. Only administrators can see it.
+              </p>
+            </div>
+          )}
         </ConfirmDialog>
       )}
     </div>
@@ -988,28 +986,40 @@ function DetailsForm({
 }
 
 /**
+ * Cancel and move, side by side: they are the two answers to the same phone
+ * call, the household cannot come to this session. Each opens its own dialog,
+ * so a session list nobody needs most of the time stays off the screen and the
+ * capacity warning sits next to the button that acts on it.
+ *
  * `screenDetails.md`: moving a referral may exceed the target session's
- * capacity, "with a client generated warning" — so the control is **never
- * disabled** on that account, only on the referral being locked (cancelled)
- * or on nothing having been chosen yet. `acknowledgeOverCapacity` is set from
- * the same warning the operator just read, which is the server half of that
- * same acceptance (`openapi.yaml`).
+ * capacity, "with a client generated warning" — so the move is **never refused**
+ * on that account, only on the referral being locked (cancelled) or on no
+ * session having been chosen. `acknowledgeOverCapacity` is set from the same
+ * warning the operator just read, which is the server half of that same
+ * acceptance (`openapi.yaml`).
  */
-function MovePanel({
+function ReferralActionsPanel({
   referral,
   sessions,
   locked,
   lockedId,
+  canMarkReviewed,
 }: {
   referral: Referral;
   sessions: readonly Session[];
   locked: string | null;
   lockedId: string;
+  canMarkReviewed: boolean;
 }) {
+  const cancel = useCancelReferral();
   const move = useAmendReferral();
+  const markReviewed = useMarkReferralReviewed();
+  const [dialog, setDialog] = useState<'cancel' | 'move' | null>(null);
+  const [reason, setReason] = useState('');
   const [targetSessionId, setTargetSessionId] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
+  const reasonFieldId = useId();
   const selectId = useId();
   const formErrorId = useId();
 
@@ -1017,7 +1027,24 @@ function MovePanel({
   const target = sessions.find((session) => session.id === targetSessionId);
   const warning = target === undefined ? null : moveCapacityWarning(target);
 
-  const submit = async () => {
+  const open = (which: 'cancel' | 'move') => {
+    if (locked !== null) return;
+    setFormError(null);
+    setDialog(which);
+  };
+
+  const confirmCancel = () => {
+    cancel.mutate(
+      { id: referral.id, reason },
+      {
+        onSuccess: () => {
+          setDialog(null);
+        },
+      },
+    );
+  };
+
+  const confirmMove = async () => {
     if (locked !== null) return;
 
     if (targetSessionId === '') {
@@ -1035,127 +1062,67 @@ function MovePanel({
         previousSessionId: referral.sessionId,
       });
       setTargetSessionId('');
+      setDialog(null);
     } catch {
-      // move.error renders below.
+      // move.error renders in the dialog, where the administrator still is.
     }
   };
 
   return (
-    <section className={styles.section}>
-      <h2>Move to another session</h2>
+    <div className={styles.actionPanel}>
+      {markReviewed.error !== null && <ErrorNotice error={markReviewed.error} />}
 
-      {move.error !== null && <ErrorNotice error={move.error} />}
-
-      <form
-        className={styles.moveForm}
-        noValidate
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submit();
-        }}
-      >
-        <div className={styles.field}>
-          <label htmlFor={selectId}>Choose session to move to</label>
-          <select
-            aria-describedby={formError === null ? undefined : formErrorId}
-            className={styles.select}
-            id={selectId}
-            onChange={(event) => {
-              setTargetSessionId(event.target.value);
-              setFormError(null);
+      <div className={styles.actions}>
+        {/* Once, here, with the other two. Reading a referral through, deciding
+            it cannot come, and moving it are the same job on the same screen —
+            and this button used to be at both ends of the page, which read as
+            two different actions. */}
+        {canMarkReviewed && (
+          <button
+            aria-disabled={markReviewed.isPending}
+            className={styles.submit}
+            onClick={() => {
+              markReviewed.mutate(referral.id);
             }}
-            value={targetSessionId}
+            type="button"
           >
-            <option value="">Choose a session</option>
-            {options.map((session) => (
-              <option key={session.id} value={session.id}>
-                {formatSessionDate(session.sessionDate)}, {session.startTime} — {session.location} (
-                {session.booked} of {session.capacity} booked)
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {formError !== null && (
-          <p className={styles.fieldError} id={formErrorId}>
-            {formError}
-          </p>
+            {markReviewed.isPending ? 'Marking reviewed…' : 'Mark reviewed'}
+          </button>
         )}
-
-        {/* A warning, not a refusal — see the function comment on
-            `moveCapacityWarning`. The button below stays enabled regardless. */}
-        {warning !== null && (
-          <p className={styles.warning} role="status">
-            {warning}
-          </p>
-        )}
-
         <button
           aria-describedby={locked === null ? undefined : lockedId}
           aria-disabled={locked !== null}
-          type="submit"
+          className={styles.danger}
+          onClick={() => {
+            open('cancel');
+          }}
+          type="button"
         >
-          {move.isPending ? 'Moving…' : 'Move to this session'}
+          Cancel this referral
         </button>
-      </form>
-    </section>
-  );
-}
+        <button
+          aria-describedby={locked === null ? undefined : lockedId}
+          aria-disabled={locked !== null}
+          onClick={() => {
+            open('move');
+          }}
+          type="button"
+        >
+          Move to another session
+        </button>
+      </div>
 
-function CancelPanel({
-  referral,
-  locked,
-  lockedId,
-}: {
-  referral: Referral;
-  locked: string | null;
-  lockedId: string;
-}) {
-  const cancel = useCancelReferral();
-  const [cancelling, setCancelling] = useState(false);
-  const [reason, setReason] = useState('');
-  const reasonFieldId = useId();
-
-  const confirmCancel = () => {
-    cancel.mutate(
-      { id: referral.id, reason },
-      {
-        onSuccess: () => {
-          setCancelling(false);
-        },
-      },
-    );
-  };
-
-  return (
-    <div className={styles.actionPanel}>
-      <h3>Cancel this referral</h3>
-
-      {cancel.error !== null && <ErrorNotice error={cancel.error} />}
-
-      <button
-        aria-describedby={locked === null ? undefined : lockedId}
-        aria-disabled={locked !== null}
-        className={styles.danger}
-        onClick={() => {
-          if (locked !== null) return;
-          setCancelling(true);
-        }}
-        type="button"
-      >
-        Cancel this referral
-      </button>
-
-      {cancelling && (
+      {dialog === 'cancel' && (
         <ConfirmDialog
           busy={cancel.isPending}
           confirmLabel="Cancel the referral"
           onCancel={() => {
-            setCancelling(false);
+            setDialog(null);
           }}
           onConfirm={confirmCancel}
           title="Cancel this referral?"
         >
+          {cancel.error !== null && <ErrorNotice error={cancel.error} />}
           <p>This frees its place in the session. It cannot be undone from here.</p>
           <div className={styles.reasonField}>
             <label htmlFor={reasonFieldId}>Reason (optional)</label>
@@ -1170,6 +1137,55 @@ function CancelPanel({
               value={reason}
             />
           </div>
+        </ConfirmDialog>
+      )}
+
+      {dialog === 'move' && (
+        <ConfirmDialog
+          busy={move.isPending}
+          confirmLabel={move.isPending ? 'Moving…' : 'Move to this session'}
+          onCancel={() => {
+            setDialog(null);
+          }}
+          onConfirm={() => void confirmMove()}
+          title="Move to another session?"
+        >
+          {move.error !== null && <ErrorNotice error={move.error} />}
+          <div className={styles.field}>
+            <label htmlFor={selectId}>Choose session to move to</label>
+            <select
+              aria-describedby={formError === null ? undefined : formErrorId}
+              className={styles.select}
+              id={selectId}
+              onChange={(event) => {
+                setTargetSessionId(event.target.value);
+                setFormError(null);
+              }}
+              value={targetSessionId}
+            >
+              <option value="">Choose a session</option>
+              {options.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {formatSessionDate(session.sessionDate)}, {session.startTime} — {session.location}{' '}
+                  ({session.booked} of {session.capacity} booked)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {formError !== null && (
+            <p className={styles.fieldError} id={formErrorId}>
+              {formError}
+            </p>
+          )}
+
+          {/* A warning, not a refusal — see the function comment on
+              `moveCapacityWarning`. The confirm button stays live regardless. */}
+          {warning !== null && (
+            <p className={styles.warning} role="status">
+              {warning}
+            </p>
+          )}
         </ConfirmDialog>
       )}
     </div>

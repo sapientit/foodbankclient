@@ -3,7 +3,13 @@
     "allow": [
       "Bash(grep -n \"^#\\\\{1,3\\\\} \" CLAUDE.md)",
       "Bash(awk '/^    PublicForm:/,/^    [A-Z][A-Za-z]*:$/' openapi.yaml)",
-      "Bash(awk '/^    PublicFormField:|^    FormField:/,0' openapi.yaml)"
+      "Bash(awk '/^    PublicFormField:|^    FormField:/,0' openapi.yaml)",
+      "Bash(curl -s -i -X POST https://foodbank-client.losttemple.workers.dev/api/v1/referrals/search -H 'content-type: application/json' -d '{\"dateOfBirth\":\"1990-01-01\"}')",
+      "Bash(curl -s -o /dev/null -w \"GET /api/v1/referrals/search -> %{http_code}\\\\n\" https://foodbank-client.losttemple.workers.dev/api/v1/referrals/search)",
+      "Bash(curl -s -o /dev/null -w \"POST /api/v1/auth/refresh -> %{http_code}\\\\n\" -X POST https://foodbank-client.losttemple.workers.dev/api/v1/auth/refresh)",
+      "Bash(curl -s -o /dev/null -w \"GET /api/v1/public/referral-reasons -> %{http_code}\\\\n\" https://foodbank-client.losttemple.workers.dev/api/v1/public/referral-reasons)",
+      "Bash(npx prettier *)",
+      "Bash(perl -pi -e 's/Administrator information/Administrator notes/g; s/administrator information/administrator notes/g' src/features/referrals/components/referral-detail-screen.tsx src/features/referrals/components/referral-detail-screen.test.tsx)"
     ]
   }
 }

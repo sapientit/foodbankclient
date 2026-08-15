@@ -2,17 +2,18 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatSessionDate } from '../../../lib/london-time';
-import { fuelAnswers } from '../fuel-help.logic';
+import { fuelColumns, fuelColumnValue } from '../fuel-help.logic';
 import { useFuelHelpList } from '../queries';
 import styles from './fuel-help-list-screen.module.css';
 
 /**
  * A deliberately plain table: fuel work happens in a spreadsheet, and copying
- * rows intact is safer than retyping a phone number. It reads only the two
- * documented fuel answers; the whole `answers` object never reaches the DOM.
+ * rows intact is safer than retyping a phone number. The referral form decides
+ * which columns fuel workers may see; unmarked answers never reach the DOM.
  */
 export function FuelHelpListScreen() {
   const list = useFuelHelpList();
+  const columns = fuelColumns();
 
   if (list.isPending) {
     return (
@@ -40,34 +41,39 @@ export function FuelHelpListScreen() {
       {list.data.households.length === 0 ? (
         <p>No households currently need fuel follow-up.</p>
       ) : (
-        <div className={styles.tableWrap}>
+        <div
+          aria-label="Fuel help list"
+          className={styles.tableWrap}
+          role="region"
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- The scrollable table needs a keyboard focus target.
+          tabIndex={0}
+        >
           <table className={styles.table}>
             <thead>
               <tr>
                 <th scope="col">Session date</th>
-                <th scope="col">Name</th>
-                <th scope="col">Address</th>
-                <th scope="col">Postcode</th>
-                <th scope="col">Phone</th>
-                <th scope="col">Pre-payment meter</th>
-                <th scope="col">Permission to ring</th>
+                {columns.map((column) => (
+                  <th key={column.key} scope="col">
+                    {column.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {list.data.households.map((household) => {
-                const answers = fuelAnswers(household.answers);
-
                 return (
                   <tr key={household.referralId}>
                     <td>{formatSessionDate(household.sessionDate)}</td>
-                    <th scope="row">
-                      {household.refereeFirstName ?? 'Unknown'} {household.refereeSurname ?? ''}
-                    </th>
-                    <td>{household.refereeAddress ?? 'Not provided'}</td>
-                    <td>{household.refereePostcode ?? 'Not provided'}</td>
-                    <td>{household.refereePhone ?? 'Not provided'}</td>
-                    <td>{answers.prePayment}</td>
-                    <td className={styles.permission}>{answers.contactApproved}</td>
+                    {columns.map((column, index) => {
+                      const value = fuelColumnValue(column, household);
+                      return index === 0 ? (
+                        <th key={column.key} scope="row">
+                          {value}
+                        </th>
+                      ) : (
+                        <td key={column.key}>{value}</td>
+                      );
+                    })}
                   </tr>
                 );
               })}

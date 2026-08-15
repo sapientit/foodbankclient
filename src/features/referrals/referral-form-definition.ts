@@ -41,9 +41,11 @@ export interface FormOption {
  * `ReferralSubmission`. **Not `answers` keys** — these are the fixed fields
  * `.claude/rules/referral-form.md` requires stay separate and typed.
  *
+ * All sixteen are on `ReferralSubmission` now. The last five to land —
  * `referrerName`, `refereeFirstName`, `refereeSurname`, `refereeDateOfBirth`
- * and `needsFuelHelp` are pending on the server; see
- * `docs/api/referral-contract-request.md`.
+ * and `needsFuelHelp` — were requested while this list already named them, which
+ * is why the list is the client's own rather than generated: it is what the form
+ * needs, and the contract caught up.
  */
 export const KEY_FIELD_NAMES = [
   'referrerName',
@@ -108,6 +110,18 @@ interface BaseQuestion {
   readonly enabledWhen?: EnabledWhen;
   /** Marks answers which the fuel team may see on its dedicated screen. */
   readonly forFuelTeam?: boolean;
+  /**
+   * Marks what belongs on the listener sheet — the one printed page a team
+   * leader may see a reason for referral on, for the trained volunteers who
+   * talk to households about their situation.
+   *
+   * **A marker cannot conjure a value.** `GET /sessions/{id}/listener-sheet`
+   * sends a deliberately narrow payload and is the boundary that keeps every
+   * other referral field off that page; marking a question the endpoint does
+   * not carry leaves it out rather than printing an empty column. See
+   * `listener-sheet.logic.ts`.
+   */
+  readonly forListenerSheet?: boolean;
 }
 
 /** Display-only text in the form. It deliberately has no answer key. */

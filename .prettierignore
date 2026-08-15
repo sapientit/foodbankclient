@@ -8,3 +8,11 @@ package-lock.json
 # reformatted afterwards — same treatment the server gives worker-configuration.d.ts.
 src/api/schema.d.ts
 worker-configuration.d.ts
+
+# Generated too, from the charity's questionnaire spreadsheet rather than from a
+# command in this repo. Whatever exports it does not write Prettier's JSON style,
+# so holding it to that standard means `npm run check` fails after every
+# questionnaire change until somebody reformats a file they did not hand-write.
+# What matters about this file is the answers it declares, and nothing here reads
+# its whitespace.
+src/features/referrals/referral-form.config.json

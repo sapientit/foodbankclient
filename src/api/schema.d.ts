@@ -1250,10 +1250,11 @@ export interface paths {
          *     Deliberately minimal. **No address, postcode, phone, date of birth or
          *     anything about the referrer.** This ends up on paper in a hall.
          *
-         *     `answers` is the referral's dynamic answers **whole and unfiltered**.
-         *     The sheet's *Cause Details* is one of them, and **the client extracts
-         *     it**: the client owns the form definition and the server holds none, so
-         *     naming the key here would be a guess rather than a contract.
+         *     `answers` is the referral's dynamic answers **whole and unfiltered**, and
+         *     **the client chooses which of them belong on the sheet**: its referral
+         *     form marks them, because the client owns that definition and the server
+         *     holds none. Naming keys here would be a guess rather than a contract —
+         *     and a guess that goes stale, since the charity renames its questions.
          *     **Who is on it: the households coming to the session in person.**
          *     `pending_review`, `active` and `reviewed` alike — whether an
          *     administrator has read the referral says nothing about whether the
@@ -1423,16 +1424,24 @@ export interface paths {
          *     The two questions that follow the fuel question — whether the household
          *     is on a pre-payment meter, and whether they will let us ring them about
          *     it — are ordinary questions on the referral form, so they arrive inside
-         *     `answers` and **the client extracts them**, exactly as it does *Cause
-         *     Details* on the listener sheet. **Nobody is left off the list on the
+         *     `answers` and **the client extracts them**. The client's own referral
+         *     form marks which answers belong on this list, the same way it marks what
+         *     belongs on the listener sheet and on a picking sheet; the server holds no
+         *     such list and will not guess at one. **Nobody is left off the list on the
          *     strength of them:** every household meeting the four conditions is
          *     listed, and the person about to make the call reads the answers and
          *     decides whether to make it. A household who said no to a call may still
          *     be somebody worth writing to.
          *
-         *     **No reason for referral, no date of birth, no household counts and no
-         *     delivery flag.** None of them bears on helping with a fuel bill, and the
-         *     row already holds enough to identify somebody.
+         *     **No reason for referral, no household counts and no delivery flag.**
+         *     None of them bears on helping with a fuel bill, and the row already
+         *     holds enough to identify somebody.
+         *
+         *     **The date of birth is the exception, and it is carried.** Some of the
+         *     organisations the fuel team hands a household on to will not act without
+         *     an age. It is sent as a date rather than an age for the reason the field
+         *     gives: an age is right on the day it is written down and wrong a year
+         *     later.
          *
          *     A row is a **referral**, not a household. Being fed twice inside a
          *     fortnight is not expected to happen and nothing de-duplicates it, so a
@@ -1910,6 +1919,24 @@ export interface paths {
          *     household off one is the case worth naming, because it would leave them
          *     recorded against two sessions and change the figures of a session that
          *     was already signed off.
+         *
+         *     **A move deletes the parcel picked on the session being left**, the
+         *     parcel and its lines both. Nothing was handed over and no stock moved,
+         *     so there is nothing to account for, and a parcel left behind would sit
+         *     on that morning's list as a household still to come and be packed a
+         *     second time. The household is picked for again on the session it moves
+         *     to and takes a pick number there. **This is the opposite of cancelling**,
+         *     which keeps the parcel and marks it `cancelled`, because a cancelled
+         *     household really was one that session prepared for. If a team lead has
+         *     already printed the old session's sheet, that pick number is now gone
+         *     from the list rather than shown as cancelled — reprint after a move.
+         *
+         *     **A referral whose parcel already has an outcome cannot be moved** and
+         *     is a `409`. The confirmed-session rule above does not cover this: a
+         *     session stays open until *every* household has an outcome, so one that
+         *     has been marked attended or no-show — its stock already off the shelves
+         *     — can sit on a session that is still open to change. A household given
+         *     another chance after a no-show is a new referral, not a move.
          */
         patch: {
             parameters: {
@@ -1940,7 +1967,7 @@ export interface paths {
                         "application/json": components["schemas"]["Referral"];
                     };
                 };
-                /** @description Target session is full and not acknowledged, the referral is cancelled or rejected, or its current session has been confirmed */
+                /** @description Target session is full and not acknowledged, the referral is cancelled or rejected, its current session has been confirmed, or one of its parcels already has an attendance outcome so it can no longer be moved */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2137,8 +2164,13 @@ export interface paths {
          *
          *     **What comes back is the administrator's working list:** session date,
          *     referral status, first name, surname, postcode, phone number, the main
-         *     reason id, the referrer's name and organisation, and the dynamic
-         *     `answers` whole.
+         *     reason id, the referrer's name and organisation, the dynamic `answers`
+         *     whole, and `adminInfo` — the administrators' own note about the
+         *     household. **This is the one response carrying more than one referral
+         *     that carries the note**, and that exception is deliberate: this screen
+         *     is an administrator on the phone to a household. Every other list still
+         *     withholds it. It is required and nullable rather than optional, because
+         *     the endpoint is admin-only outright, so `null` means there is no note.
          *     Resolve `reasonId` using the admin-only referral-reasons lookup. The
          *     secondary cause and the additional crisis detail are answers, so they
          *     arrive inside `answers` under the keys your form owns — the server does
@@ -4962,9 +4994,11 @@ export interface components {
          * @description The staff view. **The last six fields are admin-only** — a team lead
          *     receives the object without them, so treat them as optional.
          *
-         *     `adminInfo` is narrower again: admin-only **and** only on a response
-         *     carrying one referral. It is absent from the rows of `GET /referrals`
-         *     for everybody, an administrator included.
+         *     `adminInfo` is narrower again: admin-only **and**, with one settled
+         *     exception, only on a response carrying one referral. It is absent from
+         *     the rows of `GET /referrals` for everybody, an administrator included.
+         *     The exception is `ReferralSearchResult`, and it is not a licence to
+         *     expect the note on any other list.
          *
          *     **A team lead does not see rejected referrals at all.** They are absent
          *     from the list, and fetching one by id is a `404`. Pending ones they do
@@ -5028,7 +5062,8 @@ export interface components {
             /** @description **Admin only.** The reviewing administrator's one line. It can name a referrer or record a suspicion, which is not a team lead's business. Who reviewed is stored but never returned — no screen asks. */
             reviewComment?: string | null;
             /**
-             * @description **Admin only, and only on a response carrying one referral** — `GET /referrals/{id}`, `PATCH /referrals/{id}`, and the accept, reject, review and cancel routes. **Absent from the `GET /referrals` list rows**, absent from search results, and absent from every printed, exported or messaged payload: the listener sheet, the referral-details list, the repeat-referral list, the pick list, the fuel help list, SMS and the spreadsheet extract.
+             * @description **Admin only, and — with one settled exception — only on a response carrying one referral** — `GET /referrals/{id}`, `PATCH /referrals/{id}`, and the accept, reject, review and cancel routes. **Absent from the `GET /referrals` list rows**, and absent from every printed, exported or messaged payload: the listener sheet, the referral-details list, the repeat-referral list, the pick list, the fuel help list, SMS and the spreadsheet extract.
+             *     **The exception is `ReferralSearchResult`**, where the note is on every row — the only response carrying more than one referral that has it, settled by the charity on 2026-08-15 because that screen is an administrator on the phone to a household. See that schema for why it is required-and-nullable there rather than optional as it is here. It is not a licence to expect the note on any other list.
              *     The administrators' own free-text note about the household — what the office learned from ringing them. It is **not** one of `answers`: the answers are the referrer's and you replace them wholesale from the form you own, and a note the office wrote must not be lost because a form page was saved without it. Amend it through `ReferralAmend.adminInfo`.
              *     Null when there is no note. Cleared by the twelve-month purge along with the household's own fields and `answers` — unlike `reviewComment`, which survives it.
              */
@@ -5069,7 +5104,7 @@ export interface components {
             /** @description The reason's **label**, not its id. It **survives a purge** — the reason is outside the PII block so reporting still works once nobody is identifiable. A reason the charity has since retired still appears, because the referral was made under it. */
             reason: string | null;
             needsFuelHelp: boolean;
-            /** @description The dynamic answers, whole. Extract *Cause Details* here; the server does not know which key it is. `{}` once purged. */
+            /** @description The dynamic answers, whole. Take whichever of them the client's referral form marks for this sheet; the server does not know which keys those are. `{}` once purged. */
             answers: {
                 [key: string]: unknown;
             };
@@ -5120,7 +5155,7 @@ export interface components {
             count: number;
             results: components["schemas"]["ReferralSearchResult"][];
         };
-        /** @description The administrator's referral-search working row: the identifiers, the referral context, and the dynamic answers whole. Not the date of birth, the address, the review comment, the referrer email or the referrer phone. */
+        /** @description The administrator's referral-search working row: the identifiers, the referral context, the dynamic answers whole, and the administrators' own note. Not the date of birth, the address, the review comment, the referrer email or the referrer phone. */
         ReferralSearchResult: {
             /**
              * Format: uuid
@@ -5146,10 +5181,15 @@ export interface components {
             referrerName: string | null;
             /** @description Where the referral came from — what the referrer typed on the form, so expect three spellings of the same council. **Never null**: it is `NOT NULL` on the table and outside the PII block, so a purged referral still reports it. `referrerName` is unchanged and still returned. */
             referrerOrganisation: string;
-            /** @description The referral's dynamic answers, whole and unfiltered, exactly as the listener sheet and a parcel hand them over. **The secondary cause of crisis and the additional crisis detail are in here**, under keys the referral form owns — the server holds no form definition, does not know which keys they are and will not guess. Extract them yourself, the same arrangement as *Cause Details* elsewhere. */
+            /** @description The referral's dynamic answers, whole and unfiltered, exactly as the listener sheet and a parcel hand them over. **The secondary cause of crisis and the additional crisis detail are in here**, under keys the referral form owns — the server holds no form definition, does not know which keys they are and will not guess. Extract them yourself, the same arrangement as every other answer a sheet shows. */
             answers: {
                 [key: string]: unknown;
             };
+            /**
+             * @description The administrators' own note about the household — free text written by the office, not by the referrer. The same column and the same 2,000-character limit as `Referral.adminInfo`. **This is the only response carrying more than one referral that has it**, and the exception is deliberate: an administrator on the phone to a household wants what the office learned last time it rang them at the same moment it wants the causes. Everything else still withholds it — see `API.md`, "Field-level visibility".
+             *     **Required and nullable here, not optional as on `Referral`.** This endpoint is admin-only outright — a team lead gets a `403`, not a thinner row — so no recipient gets the row without the field, and `null` means there is no note rather than "you may not see it". A referral whose details have been purged has no note either, but you will not meet one here: the purge nulls the columns this searches on, so it cannot be found at all.
+             */
+            adminInfo: string | null;
         };
         /** @description One household to ring about a fuel bill, at one session they were fed at. Who is being helped, where they live, how to ring them, when it was, and the form answers whole — and deliberately nothing else. */
         FuelHelpHousehold: {
@@ -5157,11 +5197,16 @@ export interface components {
             referralId: string;
             /**
              * Format: date
-             * @description The session's own `YYYY-MM-DD`, London wall clock — **the session the parcel was issued at**, which is not always the session the referral now points at if it was moved after picking. The list is sorted by this, oldest first.
+             * @description The session's own `YYYY-MM-DD`, London wall clock — **the session the parcel was issued at**, which is not always the session the referral now points at. Moving now deletes the pending parcel on the session being left, and a referral whose parcel has an outcome cannot be moved, so the two agree for anything moved from now on; referrals moved before that rule can still differ. Read this as given rather than joining back. The list is sorted by this, oldest first.
              */
             sessionDate: string;
             refereeFirstName: string | null;
             refereeSurname: string | null;
+            /**
+             * Format: date
+             * @description `YYYY-MM-DD`. A date, not an age — an age is wrong a year later. Here to identify the household to whoever follows the bill up.
+             */
+            refereeDateOfBirth: string | null;
             /** @description Where the household lives. A delivery goes here too. */
             refereeAddress: string | null;
             refereePostcode: string | null;

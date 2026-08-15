@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { queryClient } from '../api/query-client';
 import { subscribeToAuthEvents } from '../api/token-store';
 import { AuthContext, type AuthContextValue, type AuthState } from './auth-context';
 import { ensureSession, signIn as startSession, signOut as endSession } from './session';
@@ -23,6 +24,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // `auth-fetch` refreshes and signs out on its own, off the back of some
       // other request's 401. This is how that reaches the screen.
       subscribeToAuthEvents((event) => {
+        /*
+         * A session ends two ways and both have to empty the cache. `signOut()`
+         * in `session.ts` is the one somebody chooses; this is the one that
+         * happens to them — a lapsed sign-in, a refresh cookie that is gone —
+         * and it is the more dangerous of the two precisely because nobody is
+         * present to notice it. What stays behind otherwise is the last
+         * volunteer's referrals: names, addresses and phone numbers, rendered
+         * to whoever signs in next on the same laptop within `staleTime`.
+         */
+        if (event.type === 'signed-out') queryClient.clear();
+
         setState(
           event.type === 'refreshed'
             ? { status: 'signed-in', user: event.user }

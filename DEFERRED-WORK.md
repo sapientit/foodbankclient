@@ -137,3 +137,35 @@ Before go-live, build a developer import command which takes the reviewed genera
 This is deliberately an import-and-release workflow, not live Google-Sheet configuration: a
 questionnaire change must remain reviewed, tested and deployed before referrers see it. Until W3 is
 done, a developer must perform those same steps manually for each questionnaire change.
+
+---
+
+## W5 — Six small consistency and robustness points
+
+`Raised: 2026-08-14` · `Found by: the code review in CODE-REVIEW-2026-08-14.md, F11` · `Risk: low`
+
+None of these is urgent and none is a bug a volunteer would report. They are grouped so they can be
+done in one pass rather than argued about one at a time.
+
+- **`sms-panel.tsx` shares one `useMarkSmsRead()` across the whole unmatched list**, so marking any
+  message read disables every other message's button while it is in flight. Move the mutation into a
+  per-message component, as `ClientRow` already does for attendance.
+- **A failed `markSmsRead` is silent.** `reply.isError` is surfaced; this one is not, so the message
+  stays unread with nothing said about why.
+- **`UnmatchedSmsScreen` hand-rolls an `<h1>`** instead of using `PageHeader`. It is the only screen
+  in the app that does.
+- **`readMappings` in `google-sheets.ts` has its return value discarded** — it is called purely for
+  the validation it performs. Either use the map or rename it for what it does
+  (`assertMappingsValid`).
+- **`pick-list-information.ts` builds `{ key: question.key, label: question.key }`**, the same value
+  twice. If the label really is meant to be the key — and `screenDetails.md` implies it is, since the
+  printed note is a compact labelled snapshot — drop the field. If it was meant to be
+  `question.label`, the printed sheet is showing keys where it should show questions.
+- **`lib/errors.ts`'s `readEnvelope` returns `null` for any `code` outside its union**, discarding the
+  server's `message` with it. If the server ever adds a code, `409` and `422` degrade to "Something
+  went wrong" — the exact failure that module exists to prevent. Validate `message` independently of
+  `code`.
+
+The referral-details query in `pick-lists/queries.ts` also builds its key inline
+(`[...pickListKeys.session(sessionId), 'referral-details']`) rather than naming it in `keys.ts`.
+Worth folding in while touching that file.

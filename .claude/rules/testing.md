@@ -31,7 +31,7 @@ exposed:
    postcode and phone only when `isDelivery`, one page per parcel. Assert the print payload
    **cannot** render a reason even if the server sends one.
 3. **Attendance.** Submitting the same outcome twice moves stock once, submitting the _other_
-   outcome shows the `409` (the outcome is final), and confirm shows the pending pick numbers.
+   outcome flips it back while the session is open, and confirm shows the pending pick numbers.
 4. **Role-based rendering.** A team lead's referral view renders with `reasonId` absent and never
    displays it.
 

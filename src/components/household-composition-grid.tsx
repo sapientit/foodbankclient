@@ -5,6 +5,18 @@ import {
 } from '../features/referrals/household-composition';
 import styles from './household-composition-grid.module.css';
 
+/**
+ * The grid a team lead reads at a glance, and the icons are deliberately the
+ * only thing in the header cells — a legend beside it would cost more space
+ * than the grid itself.
+ *
+ * **`title` on the header cell, so hovering an icon says what it means.** It is
+ * the whole cell rather than the drawing inside it, so the pointer does not
+ * have to find a 1.45rem stroke. It is an addition for a mouse and nothing
+ * else: a `title` never appears on a tap and never on paper, so the label a
+ * screen reader reads stays the visually hidden text it has always been, and
+ * neither of those readers depends on this.
+ */
 export function HouseholdCompositionGrid({
   composition,
 }: {
@@ -19,7 +31,7 @@ export function HouseholdCompositionGrid({
             <span className={styles.visuallyHidden}>Age</span>
           </th>
           {HOUSEHOLD_GENDERS.map((gender) => (
-            <th key={gender.key} scope="col">
+            <th key={gender.key} scope="col" title={gender.label}>
               <GenderIcon gender={gender.key} />
               <span className={styles.visuallyHidden}>{gender.label}</span>
             </th>
@@ -29,7 +41,7 @@ export function HouseholdCompositionGrid({
       <tbody>
         {HOUSEHOLD_AGE_BANDS.map((band) => (
           <tr key={band.key}>
-            <th scope="row">
+            <th scope="row" title={band.label}>
               <AgeIcon ageBand={band.key} />
               <span className={styles.visuallyHidden}>{band.label}</span>
             </th>

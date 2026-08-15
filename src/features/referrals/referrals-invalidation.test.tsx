@@ -7,7 +7,7 @@ import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 import type { Session } from '../sessions/queries';
 import type { Parcel, PickList } from '../pick-lists/queries';
-import type { Referral } from './queries';
+import type { Referral, ReferralSearchResult } from './queries';
 
 vi.mock('../pick-lists/preference-rules.config.json', () => ({ default: { rules: [] } }));
 
@@ -211,6 +211,79 @@ describe('cancelling a referral and the sessions cache', () => {
   });
 });
 
+function searchRow(overrides: Partial<ReferralSearchResult> = {}): ReferralSearchResult {
+  return {
+    referralId: 'r1',
+    refereeFirstName: 'Jamie',
+    refereeSurname: 'Rowe',
+    refereePostcode: 'AB1 2CD',
+    refereePhone: null,
+    sessionDate: '2026-08-04',
+    status: 'active',
+    reasonId: 'q1',
+    referrerName: 'Sam Referrer',
+    referrerOrganisation: 'Riverside Church',
+    answers: {},
+    adminInfo: null,
+    ...overrides,
+  };
+}
+
+describe('changing a referral and the search results behind it', () => {
+  it('re-runs the remembered search rather than showing the results as they were before the change', async () => {
+    const client = cachingClient();
+    let cancelled = false;
+
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referralRow({ id: 'r1', ...(cancelled ? { status: 'cancelled' as const } : {}) }),
+        ),
+      ),
+      http.post('/api/v1/referrals/search', () =>
+        HttpResponse.json({
+          count: 1,
+          results: [searchRow(cancelled ? { status: 'cancelled' } : {})],
+        }),
+      ),
+      http.post(REFERRAL_CANCEL, () => {
+        cancelled = true;
+        return HttpResponse.json(referralRow({ id: 'r1', status: 'cancelled' }));
+      }),
+    );
+
+    renderApp('/referrals/search', client);
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('or Postcode'), 'AB1 2CD');
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+    await screen.findByRole('link', { name: 'Rowe, Jamie' });
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    cleanup();
+
+    // Opening a result and cancelling it, exactly as the link on that row does.
+    renderApp('/referrals/r1', client);
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Cancel this referral' }));
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Cancel this referral?' })).getByRole('button', {
+        name: 'Cancel the referral',
+      }),
+    );
+    await screen.findByText('Cancelled');
+    cleanup();
+
+    // Back to the results. The search is a cache entry keyed on its criteria,
+    // under a prefix `referralKeys.lists()` does not cover — without the
+    // mutation invalidating it, this row still reads "Active".
+    renderApp('/referrals/search', client);
+    await screen.findByRole('link', { name: 'Rowe, Jamie' });
+    await waitFor(() => {
+      expect(screen.getByText('Cancelled')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Active')).toBeNull();
+  });
+});
+
 describe('moving a referral away and the session it left', () => {
   it('invalidates the previous session’s detail cache via previousSessionId, not just the new one', async () => {
     const client = cachingClient();
@@ -245,9 +318,11 @@ describe('moving a referral away and the session it left', () => {
     const user = userEvent.setup();
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
-    await screen.findByRole('option', { name: /Spare Hall/ });
-    await user.selectOptions(screen.getByLabelText('Choose session to move to'), 's2');
-    await user.click(screen.getByRole('button', { name: 'Move to this session' }));
+    await user.click(screen.getByRole('button', { name: 'Move to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Move to another session?' }));
+    await dialog.findByRole('option', { name: /Spare Hall/ });
+    await user.selectOptions(dialog.getByLabelText('Choose session to move to'), 's2');
+    await user.click(dialog.getByRole('button', { name: 'Move to this session' }));
 
     // The static "Session" line only shows Spare Hall once `referral.sessionId`
     // has actually become `s2` — proof the move round-tripped, not just that

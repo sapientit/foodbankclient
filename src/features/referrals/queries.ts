@@ -260,6 +260,7 @@ type ReferralPatchBody =
 export type AmendReferralInput = ReferralPatchBody;
 export type ReferralSearchRequest = components['schemas']['ReferralSearchRequest'];
 export type ReferralSearchResponse = components['schemas']['ReferralSearchResponse'];
+export type ReferralSearchResult = components['schemas']['ReferralSearchResult'];
 
 async function fetchReferrals(filters: ReferralListFilters): Promise<Referral[]> {
   const { referrals } = await unwrap(api.GET('/api/v1/referrals', { params: { query: filters } }));
@@ -304,11 +305,48 @@ export function useRepeatReferrals(id: string, excludePostcode: boolean, enabled
   });
 }
 
-export function useReferralSearch() {
-  return useMutation({
-    mutationFn: (body: ReferralSearchRequest): Promise<ReferralSearchResponse> =>
-      unwrap(api.POST('/api/v1/referrals/search', { body })),
+/**
+ * **A query, despite being a `POST`.** The endpoint is a read — it is a POST so
+ * that a date of birth, a postcode and a phone number travel in a body rather
+ * than a URL (`API.md`) — and holding its results in the cache is what lets an
+ * administrator open one of them and come back to the same list. Keyed on the
+ * criteria, which are personal data living in the in-memory cache and nowhere
+ * else, exactly as `publicReferralKeys.referrerCheck` does with an address.
+ */
+export function useReferralSearch(input: ReferralSearchRequest | null) {
+  return useQuery({
+    queryKey: referralKeys.search(input),
+    queryFn: (): Promise<ReferralSearchResponse> => {
+      // Unreachable while `enabled` is false, and a guard rather than a `!`.
+      if (input === null) throw new Error('A referral search needs at least one identifier.');
+      return unwrap(api.POST('/api/v1/referrals/search', { body: input }));
+    },
+    enabled: input !== null,
   });
+}
+
+/**
+ * Remembers which search was last run, so returning from a result restores it
+ * rather than showing an empty form.
+ *
+ * The criteria live in the query cache rather than in a URL, in history state or
+ * in a module variable: a date of birth and a phone number must never reach a
+ * URL, and the cache is the one store this app already clears on sign-out. Its
+ * `gcTime` is the point of `setQueryDefaults` — nothing observes this entry
+ * while an administrator is reading one of the results, and the five-minute
+ * default would drop it in the middle of the phone call it exists for.
+ */
+export function useReferralSearchMemory() {
+  const queryClient = useQueryClient();
+  queryClient.setQueryDefaults(referralKeys.lastSearch(), { gcTime: Infinity });
+
+  return {
+    read: (): ReferralSearchRequest | null =>
+      queryClient.getQueryData<ReferralSearchRequest>(referralKeys.lastSearch()) ?? null,
+    remember: (input: ReferralSearchRequest): void => {
+      queryClient.setQueryData(referralKeys.lastSearch(), input);
+    },
+  };
 }
 
 /**
@@ -351,6 +389,7 @@ export function useAmendReferral() {
     onSuccess: (updated, variables) => {
       queryClient.setQueryData(referralKeys.detail(updated.id), updated);
       void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: referralKeys.searches() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(updated.sessionId) });
       if (
@@ -413,6 +452,7 @@ export function useReviewReferral() {
       queryClient.setQueryData(referralKeys.detail(updated.id), updated);
       void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: referralKeys.searches() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(updated.sessionId) });
       // Rejection can leave an immutable parcel snapshot behind. The
       // run-session screen can filter it only after this cached response has
@@ -436,6 +476,7 @@ export function useMarkReferralReviewed() {
     onSuccess: (updated) => {
       queryClient.setQueryData(referralKeys.detail(updated.id), updated);
       void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: referralKeys.searches() });
     },
   });
 }
@@ -464,6 +505,7 @@ export function useCancelReferral() {
       queryClient.setQueryData(referralKeys.detail(updated.id), updated);
       void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: referralKeys.searches() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(updated.sessionId) });
       // Cancellation leaves an immutable parcel snapshot behind. The
       // run-session screen can filter it only after this cached response has

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -313,30 +313,50 @@ describe('a team lead running a session', () => {
         },
       ],
     });
-    expect(screen.getByRole('button', { name: 'Print all pick lists' })).toBeDisabled();
-    expect(screen.getByText(/Review every pick list before printing/)).toBeInTheDocument();
+    /*
+     * `aria-disabled`, and still in the tab order. A `disabled` button cannot be
+     * focused, so the sentence next to it never reaches anybody using a keyboard
+     * or a screen reader — they meet a control that has silently become nothing.
+     * The reason has to arrive with the control, which is what the description
+     * assertion is checking.
+     */
+    const print = screen.getByRole('button', { name: 'Print all pick lists' });
+    expect(print).toHaveAttribute('aria-disabled', 'true');
+    expect(print).not.toBeDisabled();
+    expect(print).toHaveAccessibleDescription('Review every pick list before printing.');
     await user.click(screen.getByRole('link', { name: 'Review Pick list' }));
 
-    const panel = screen.getByRole('heading', { name: /Pick #1: Sam Taylor/ }).parentElement;
-    expect(panel).not.toBeNull();
-    if (!(panel instanceof HTMLElement)) throw new Error('Pick-list panel was not rendered');
-    expect(within(panel).getByText('Adults/children: 1/1')).toBeInTheDocument();
-    expect(within(panel).getByRole('table', { name: 'Household composition' })).toBeInTheDocument();
-    expect(within(panel).getByText('Baked beans')).toBeInTheDocument();
-    expect(within(panel).getByText('Vegetarian')).toBeInTheDocument();
-    expect(within(panel).getByRole('button', { name: 'Mark pick list reviewed' })).toBeEnabled();
-    expect(within(panel).queryByRole('button', { name: 'Attended' })).toBeNull();
-    expect(within(panel).queryByRole('button', { name: 'No show' })).toBeNull();
-    expect(within(panel).queryByRole('button', { name: 'Complete session' })).toBeNull();
+    // The pick number and household name are the screen's own heading, and the
+    // only place they appear — queried at level one because a second copy below
+    // it is exactly what this asserts is gone.
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Pick #1: Sam Taylor' }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Pick #1/)).toHaveLength(1);
+    expect(screen.getByText('Adults/children: 1/1')).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: 'Household composition' })).toBeInTheDocument();
+    expect(screen.getByText('Baked beans')).toBeInTheDocument();
+    expect(screen.getByText('Vegetarian')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark pick list reviewed' })).toBeEnabled();
+    // Attendance and completion belong to the client list, and printing is a
+    // whole-session action — none of the three may reach this screen. Matched
+    // loosely on purpose: each attendance button is named for its household as
+    // well as its outcome, and an exact-name query here would pass by failing to
+    // match rather than by the button being absent.
+    expect(screen.queryByRole('button', { name: /^Attended/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^No show/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Complete session' })).toBeNull();
+    expect(screen.queryByText('Print all pick lists')).toBeNull();
+    expect(screen.queryByText('Review every pick list before printing.')).toBeNull();
 
-    const quantity = within(panel).getByRole('spinbutton', { name: /Baked beans/ });
+    const quantity = screen.getByRole('spinbutton', { name: /Baked beans/ });
     await user.click(quantity);
     await user.keyboard('{Control>}a{/Control}3');
     await user.type(
-      within(panel).getByRole('textbox', { name: 'Pick-list information' }),
+      screen.getByRole('textbox', { name: 'Information for pickers' }),
       'Allergies: no dairy',
     );
-    await user.click(within(panel).getByRole('button', { name: 'Mark pick list reviewed' }));
+    await user.click(screen.getByRole('button', { name: 'Mark pick list reviewed' }));
     await waitFor(() => {
       expect(savedLines).toBe(1);
       expect(savedNotes).toBe('Allergies: no dairy');
@@ -434,16 +454,12 @@ describe('a team lead running a session', () => {
 
     renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
 
-    const panel = (await screen.findByRole('heading', { name: /Pick #1: Sam Taylor/ }))
-      .parentElement;
-    if (!(panel instanceof HTMLElement)) throw new Error('Pick-list panel was not rendered');
+    await screen.findByRole('heading', { level: 1, name: 'Pick #1: Sam Taylor' });
 
-    const quantities = await within(panel).findAllByRole('spinbutton');
+    const quantities = await screen.findAllByRole('spinbutton');
     expect(quantities).toHaveLength(3);
     expect(
-      within(panel)
-        .getAllByRole('heading', { level: 4 })
-        .map((heading) => heading.textContent),
+      screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent),
     ).toEqual(['Breakfast', 'Fresh food', 'Tinned goods']);
     expect(quantities[0]).toHaveAccessibleName('Oats (retired)');
     expect(quantities[0]).toHaveValue(1);
@@ -474,7 +490,7 @@ describe('a team lead running a session', () => {
 
     renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
     const user = userEvent.setup();
-    const information = await screen.findByRole('textbox', { name: 'Pick-list information' });
+    const information = await screen.findByRole('textbox', { name: 'Information for pickers' });
 
     expect(information).toHaveValue('Allergies: no dairy');
     expect(information).toBeEnabled();
@@ -506,7 +522,7 @@ describe('a team lead running a session', () => {
 
     renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
 
-    expect(await screen.findByRole('textbox', { name: 'Pick-list information' })).toBeDisabled();
+    expect(await screen.findByRole('textbox', { name: 'Information for pickers' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Save pick list' })).toBeDisabled();
     expect(noteRequests).toBe(0);
   });
@@ -572,30 +588,28 @@ describe('a team lead running a session', () => {
 
     renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
     const user = userEvent.setup();
-    const panel = (await screen.findByRole('heading', { name: /Pick #1: Sam Taylor/ }))
-      .parentElement;
-    if (!(panel instanceof HTMLElement)) throw new Error('Pick-list panel was not rendered');
+    await screen.findByRole('heading', { level: 1, name: 'Pick #1: Sam Taylor' });
 
-    const toggle = within(panel).getByRole('checkbox', { name: 'Show unselected Stock items' });
+    const toggle = screen.getByRole('checkbox', { name: 'Show unselected Stock items' });
     expect(toggle).toBeChecked();
-    expect(await within(panel).findByRole('spinbutton', { name: 'Apples' })).toBeInTheDocument();
-    expect(within(panel).getByRole('spinbutton', { name: /Baked beans/ })).toBeInTheDocument();
-    expect(within(panel).getByRole('spinbutton', { name: 'Oats (retired)' })).toBeInTheDocument();
+    expect(await screen.findByRole('spinbutton', { name: 'Apples' })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: /Baked beans/ })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Oats (retired)' })).toBeInTheDocument();
 
     const stockItemRequestsBeforeToggle = stockItemRequests;
     const mutationsBeforeToggle = mutations;
     await user.click(toggle);
 
     expect(toggle).not.toBeChecked();
-    expect(within(panel).queryByRole('spinbutton', { name: 'Apples' })).toBeNull();
-    expect(within(panel).getByRole('spinbutton', { name: /Baked beans/ })).toBeInTheDocument();
-    expect(within(panel).getByRole('spinbutton', { name: 'Oats (retired)' })).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton', { name: 'Apples' })).toBeNull();
+    expect(screen.getByRole('spinbutton', { name: /Baked beans/ })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Oats (retired)' })).toBeInTheDocument();
     expect(stockItemRequests).toBe(stockItemRequestsBeforeToggle);
     expect(mutations).toBe(mutationsBeforeToggle);
 
     await user.click(toggle);
     expect(toggle).toBeChecked();
-    expect(within(panel).getByRole('spinbutton', { name: 'Apples' })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Apples' })).toBeInTheDocument();
     expect(stockItemRequests).toBe(stockItemRequestsBeforeToggle);
     expect(mutations).toBe(mutationsBeforeToggle);
   });
@@ -613,8 +627,100 @@ describe('a team lead running a session', () => {
 
     renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
 
-    expect(await screen.findByRole('heading', { name: 'Pick #1' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Pick #1: Sam Taylor' }),
+    ).toBeInTheDocument();
     expect(loadedPickList).toBe(true);
+  });
+
+  it('never carries one household’s unsaved pick list onto another', async () => {
+    /*
+     * The workspace seeds its draft quantities from the parcel once, when it
+     * mounts. This route is `clients/:parcelId`, so React reuses the component
+     * across a change of household unless it is keyed — and the second household
+     * would then be shown, and saved, holding the first one's pick list. Nothing
+     * links between two clients today; this is what stops that link being
+     * dangerous to add.
+     */
+    const secondParcel: Parcel = {
+      ...PARCEL,
+      id: 'parcel-2',
+      referralId: 'referral-2',
+      pickNumber: 2,
+      refereeFirstName: 'Jo',
+      refereeSurname: 'Patel',
+      lines: [
+        {
+          ...(PARCEL.lines[0] ?? { name: '', description: null, shelfNumber: '' }),
+          stockItemId: 'stock-1',
+          quantity: 5,
+        },
+      ],
+    };
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL, secondParcel] }),
+      ),
+    );
+
+    const { router } = renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+    const user = userEvent.setup();
+
+    const quantity = await screen.findByRole('spinbutton', { name: /Baked beans/ });
+    expect(quantity).toHaveValue(2);
+    await user.click(quantity);
+    await user.keyboard('{Control>}a{/Control}9');
+    expect(quantity).toHaveValue(9);
+
+    await act(async () => {
+      await router.navigate(`/run-sessions/${SESSION.id}/clients/${secondParcel.id}`);
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Pick #2: Jo Patel' }),
+    ).toBeInTheDocument();
+    // Jo Patel's own five tins, not Sam Taylor's abandoned nine.
+    expect(screen.getByRole('spinbutton', { name: /Baked beans/ })).toHaveValue(5);
+  });
+
+  it('lets a team lead leave a pick list without saving, and does not save when they do', async () => {
+    /*
+     * `screenDetails.md` asks that leaving with unsaved changes "asks whether to
+     * save first". Offering only Save and Cancel cannot take no for an answer:
+     * somebody who has typed a quantity onto the wrong household would have no
+     * way off the screen except to save it.
+     */
+    let saves = 0;
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.put('/api/v1/parcels/:id/lines', () => {
+        saves += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+    const user = userEvent.setup();
+
+    const quantity = await screen.findByRole('spinbutton', { name: /Baked beans/ });
+    await user.click(quantity);
+    await user.keyboard('{Control>}a{/Control}7');
+
+    await user.click(screen.getByRole('link', { name: 'Back to clients' }));
+    expect(await screen.findByRole('heading', { name: 'Save pick list changes?' })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Discard changes' }));
+
+    expect(await screen.findByRole('heading', { name: 'Clients' })).toBeInTheDocument();
+    expect(saves).toBe(0);
   });
 
   it('allows a reviewed household outcome to change while its session remains open', async () => {
@@ -657,8 +763,12 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}`);
     const user = userEvent.setup();
 
-    expect(await screen.findByRole('button', { name: 'Attended' })).toBeEnabled();
-    await user.click(screen.getByRole('button', { name: 'No show' }));
+    // The household is part of the name, so one session's worth of rows does not
+    // present a screen reader with twenty identical pairs of buttons.
+    expect(
+      await screen.findByRole('button', { name: 'Attended — pick #1, Sam Taylor' }),
+    ).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'No show — pick #1, Sam Taylor' }));
 
     await waitFor(() => {
       expect(requestedOutcome).toBe('no_show');
@@ -687,8 +797,63 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}`);
 
     await screen.findByRole('heading', { name: 'Clients' });
-    expect(screen.queryByRole('button', { name: 'Attended' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'No show' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Attended/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^No show/ })).toBeNull();
+  });
+
+  it('names the pick numbers still waiting when the session refuses to close', async () => {
+    /*
+     * `screenDetails.md`: "When the screen refuses to close a session it names
+     * the pick numbers still waiting, because what the team leader needs to know
+     * is who is missing."
+     *
+     * Reaching it takes a race, which is the point. The button is disabled until
+     * every parcel on screen has an outcome, so a `409` means somebody else
+     * added a household — a late referral reconciled in — between this screen
+     * loading and the tap. That is the end of a session, in a hall, with
+     * somebody waiting to go home, and until now the button simply did nothing.
+     */
+    const attendedParcel: Parcel = {
+      ...PARCEL,
+      reviewedAt: '2026-08-05T10:00:00.000Z',
+      attendance: 'attended',
+    };
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [attendedParcel] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.post('/api/v1/sessions/:sessionId/confirm', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'CONFLICT',
+              message: 'Every household must be marked before the session can be completed.',
+              requestId: 'req-confirm',
+              details: { pendingPickNumbers: [4, 11] },
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Complete session' }));
+
+    const refusal = await screen.findByRole('alert');
+    expect(refusal).toHaveTextContent(
+      'Every household must be marked before the session can be completed.',
+    );
+    // The numbers themselves, because "someone is missing" is not actionable.
+    expect(refusal).toHaveTextContent('4');
+    expect(refusal).toHaveTextContent('11');
   });
 
   it('does not fetch, mark or open print sheets through a copied print URL before review', async () => {
@@ -764,7 +929,7 @@ describe('a team lead running a session', () => {
       expect(printSpy).toHaveBeenCalledOnce();
     });
     expect(screen.getByRole('table', { name: 'Household composition' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Pick-list information' })).toHaveTextContent(
+    expect(screen.getByRole('region', { name: 'Information for pickers' })).toHaveTextContent(
       'Allergies: Gluten-free food for one person',
     );
     expect(screen.queryByRole('region', { name: 'Allergies' })).toBeNull();

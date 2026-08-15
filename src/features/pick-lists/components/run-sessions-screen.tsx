@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
@@ -6,6 +6,7 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { HouseholdCompositionGrid } from '../../../components/household-composition-grid';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
+import { ApiError, describeApiError, pendingPickNumbers } from '../../../lib/errors';
 import { formatSessionDate, formatTimeRange } from '../../../lib/london-time';
 import { useSession, useSessions, type Session } from '../../sessions/queries';
 import { useStockItems, type StockItem } from '../../stock/queries';
@@ -84,6 +85,35 @@ export function RunSessionsScreen() {
   );
 }
 
+/**
+ * The print control while printing is still refused, and the refusal has to
+ * reach somebody who cannot see it.
+ *
+ * **`aria-disabled`, not `disabled`.** A disabled button leaves the tab order,
+ * so a keyboard or screen-reader user meets a link that has silently become
+ * nothing at all and never reaches the sentence sitting next to it explaining
+ * why. This stays focusable and carries the reason as its description, so the
+ * answer arrives with the control rather than beside it. It has no handler, so
+ * activating it does nothing — which is the behaviour `disabled` was there for.
+ */
+function PrintUnavailable() {
+  const reasonId = useId();
+
+  return (
+    <>
+      <button
+        aria-describedby={reasonId}
+        aria-disabled
+        className={styles.unavailable}
+        type="button"
+      >
+        Print all pick lists
+      </button>{' '}
+      <span id={reasonId}>Review every pick list before printing.</span>
+    </>
+  );
+}
+
 export function PickListPrintScreen() {
   const { sessionId = '' } = useParams();
   const list = useSessionPickList(sessionId);
@@ -145,11 +175,14 @@ export function PickListPrintScreen() {
                   </p>
                 )}
                 {parcel.notes !== null && parcel.notes.trim() !== '' && (
+                  /* The same words the team lead typed it under, because the
+                     picker holding this sheet is the "picker" that label
+                     names. */
                   <section
-                    aria-label="Pick-list information"
+                    aria-label="Information for pickers"
                     className={styles.pickListInformation}
                   >
-                    <h2>Pick-list information</h2>
+                    <h2>Information for pickers</h2>
                     <p>{parcel.notes}</p>
                   </section>
                 )}
@@ -297,12 +330,7 @@ export function RunSessionDetailScreen() {
         {readyToPrint ? (
           <Link to={`/run-sessions/${sessionId}/print`}>Print all pick lists</Link>
         ) : (
-          <>
-            <button disabled type="button">
-              Print all pick lists
-            </button>{' '}
-            Review every pick list before printing.
-          </>
+          <PrintUnavailable />
         )}
         {' · '}
         <Link to={`/run-sessions/${sessionId}/listener`}>Listener sheet</Link>
@@ -318,6 +346,7 @@ export function RunSessionDetailScreen() {
       >
         Complete session
       </button>
+      {complete.error !== null && <SessionRefusal error={complete.error} />}
       <ul>
         {currentParcels.map((parcel) => (
           <ClientRow
@@ -333,6 +362,58 @@ export function RunSessionDetailScreen() {
   );
 }
 
+/**
+ * Why a session would not close.
+ *
+ * `POST /sessions/{id}/confirm` refuses while anybody is still unmarked and
+ * names them in `details.pendingPickNumbers`. **Those numbers are the whole
+ * point of showing this**: a team leader at the end of a session needs to know
+ * who is missing, not that something went wrong, and there is no override to
+ * offer them instead.
+ *
+ * Only reachable in a race — the button is disabled until every parcel on
+ * screen has an outcome — which is exactly why it went unnoticed that the
+ * button did nothing at all. `ErrorNotice` handles everything else this call
+ * can fail with, including the `409` that arrives without the numbers.
+ */
+const PICK_NUMBER_LIST = new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' });
+
+function SessionRefusal({ error }: { error: unknown }) {
+  if (!(error instanceof ApiError)) return <ErrorNotice error={error} />;
+
+  const pending = pendingPickNumbers(error);
+  if (pending === null || pending.length === 0) return <ErrorNotice error={error} />;
+
+  return (
+    <div className={styles.refusal} role="alert">
+      <p>{describeApiError(error)}</p>
+      <p>
+        Still to be marked:{' '}
+        <strong>{PICK_NUMBER_LIST.format(pending.map((number) => `#${String(number)}`))}</strong>.
+      </p>
+    </div>
+  );
+}
+
+/** A delivery is attended by being delivered, and missed by nobody being in. */
+function attendedLabel(parcel: Parcel): string {
+  return parcel.isDelivery ? 'Delivered' : 'Attended';
+}
+
+function missedLabel(parcel: Parcel): string {
+  return parcel.isDelivery ? 'Not in' : 'No show';
+}
+
+/** The household on a parcel, with whatever part of the name the server sent. */
+function parcelName(parcel: Parcel): string {
+  return [parcel.refereeFirstName ?? 'Unknown', parcel.refereeSurname ?? ''].join(' ').trim();
+}
+
+/** `pick #3, Ada Rowe` — how one row is told from another out loud. */
+function describeParcel(parcel: Parcel): string {
+  return `pick #${String(parcel.pickNumber)}, ${parcelName(parcel)}`;
+}
+
 function ClientRow({
   parcel,
   sessionId,
@@ -345,13 +426,9 @@ function ClientRow({
   const attendance = useRecordAttendance();
   const status =
     parcel.attendance === 'attended'
-      ? parcel.isDelivery
-        ? 'Delivered'
-        : 'Attended'
+      ? attendedLabel(parcel)
       : parcel.attendance === 'no_show'
-        ? parcel.isDelivery
-          ? 'Not in'
-          : 'No show'
+        ? missedLabel(parcel)
         : parcel.reviewedAt === null
           ? 'Pending Review'
           : 'Pick List reviewed';
@@ -363,24 +440,37 @@ function ClientRow({
       {!reviewed && parcel.attendance === 'pending' ? (
         <Link to={`/run-sessions/${sessionId}/clients/${parcel.id}`}>Review Pick list</Link>
       ) : sessionStatus !== 'confirmed' ? (
+        /*
+         * Named for the household, not just the outcome. Every row renders the
+         * same two words, so a screen reader's list of buttons on a session of
+         * twenty is twenty identical pairs — and the pick number and name that
+         * tell them apart are in the surrounding text, which does not reach the
+         * accessible name. These are the buttons that decide whether a household
+         * is recorded as fed, so the wrong one is not a cosmetic mistake.
+         *
+         * The visible words come first, because that is what somebody using
+         * voice control says.
+         */
         <>
           <button
+            aria-label={`${attendedLabel(parcel)} — ${describeParcel(parcel)}`}
             disabled={attendance.isPending}
             onClick={() => {
               attendance.mutate({ id: parcel.id, attendance: 'attended' });
             }}
             type="button"
           >
-            {parcel.isDelivery ? 'Delivered' : 'Attended'}
+            {attendedLabel(parcel)}
           </button>{' '}
           <button
+            aria-label={`${missedLabel(parcel)} — ${describeParcel(parcel)}`}
             disabled={attendance.isPending}
             onClick={() => {
               attendance.mutate({ id: parcel.id, attendance: 'no_show' });
             }}
             type="button"
           >
-            {parcel.isDelivery ? 'Not in' : 'No show'}
+            {missedLabel(parcel)}
           </button>
         </>
       ) : null}
@@ -392,12 +482,11 @@ function ClientRow({
 export function RunSessionClientScreen() {
   const { sessionId = '', parcelId = '' } = useParams();
   const session = useSession(sessionId);
-  const [pickListSessionId] = useState(sessionId);
   const navigate = useNavigate();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
-  const pickList = useSessionPickList(pickListSessionId);
+  const pickList = useSessionPickList(sessionId);
 
   if (session.isPending || pickList.isPending) return <Spinner label="Loading client…" />;
   if (session.isError)
@@ -421,11 +510,25 @@ export function RunSessionClientScreen() {
       void navigate(path);
     });
   };
-  const readyToPrint = allParcelsReviewed(pickList.data.parcels.filter(isCurrentParcel));
-
   return (
     <>
-      <PageHeader title={`Pick #${String(parcel.pickNumber)}`} />
+      {/* The pick number, the household and the size, first thing on the screen
+          and only once. A team lead arrives here from the client list holding a
+          bag, and this is the line that says which one — so the panel below no
+          longer repeats it as a heading of its own.
+
+          Printing is deliberately absent: it is a whole-session action, and the
+          client list is where it lives. Offering it here put the one control
+          that commits every sheet to paper next to the one household this
+          screen is about. */}
+      <PageHeader
+        action={
+          <span className={styles.householdSize}>
+            Adults/children: {parcel.adults}/{parcel.children}
+          </span>
+        }
+        title={`Pick #${String(parcel.pickNumber)}: ${parcelName(parcel)}`}
+      />
       <p>
         {formatSessionDate(session.data.sessionDate)},{' '}
         {formatTimeRange(session.data.startTime, session.data.durationMinutes)} —{' '}
@@ -434,25 +537,15 @@ export function RunSessionClientScreen() {
       <p>
         <Link onClick={linkTo(`/run-sessions/${sessionId}`)} to={`/run-sessions/${sessionId}`}>
           Back to clients
-        </Link>{' '}
-        ·{' '}
-        {readyToPrint ? (
-          <Link
-            onClick={linkTo(`/run-sessions/${sessionId}/print`)}
-            to={`/run-sessions/${sessionId}/print`}
-          >
-            Print all pick lists
-          </Link>
-        ) : (
-          <>
-            <button disabled type="button">
-              Print all pick lists
-            </button>{' '}
-            Review every pick list before printing.
-          </>
-        )}
+        </Link>
       </p>
+      {/* Keyed on the parcel, and that is load-bearing rather than tidy. The
+          panel seeds its draft quantities and notes from `parcel` once, when it
+          mounts. Without the key, moving between two households on this route
+          reuses the instance, so the second household is shown — and saved —
+          holding the first one's pick list. */}
       <ParcelPanel
+        key={parcel.id}
         onDirtyChange={setHasUnsavedChanges}
         onPendingActionHandled={() => {
           setPendingAction(null);
@@ -507,6 +600,12 @@ function ParcelPanel({
     };
   }, [isDirty, onDirtyChange]);
 
+  /** Puts the draft back to what was last saved, so leaving without saving really does. */
+  const discardDraft = () => {
+    setDraftLines(savedLines);
+    setDraftNotes(savedNotes);
+  };
+
   const save = (afterSave?: () => void) => {
     if (!isDirty) {
       afterSave?.();
@@ -536,33 +635,15 @@ function ParcelPanel({
 
   return (
     <section className={styles.parcelPanel}>
-      <h2 className={styles.parcelHeading}>
-        <span>
-          Pick #{parcel.pickNumber}: {parcel.refereeFirstName ?? 'Unknown'}{' '}
-          {parcel.refereeSurname ?? ''}
-        </span>
-        <span className={styles.householdSize}>
-          Adults/children: {parcel.adults}/{parcel.children}
-        </span>
-      </h2>
       {isHouseholdComposition(householdComposition) && (
         <div className={styles.householdComposition}>
           <HouseholdCompositionGrid composition={householdComposition} />
         </div>
       )}
-      <div className={styles.pickListInformationEditor}>
-        <label htmlFor={`pick-list-information-${parcel.id}`}>Pick-list information</label>
-        <textarea
-          disabled={notesLocked}
-          id={`pick-list-information-${parcel.id}`}
-          maxLength={1200}
-          onChange={(event) => {
-            setDraftNotes(event.target.value);
-          }}
-          rows={4}
-          value={draftNotes}
-        />
-      </div>
+      {/* Above the pickers' information rather than below it: `screenDetails.md`
+          asks for the review button "at the top", and a team lead working down a
+          hall reaches for Save and Mark reviewed far more often than they retype
+          the note. */}
       <div className={styles.reviewAction}>
         <button
           className={styles.reviewButton}
@@ -594,8 +675,22 @@ function ParcelPanel({
           </p>
         )}
       </div>
+      <div className={styles.pickListInformationEditor}>
+        <label htmlFor={`pick-list-information-${parcel.id}`}>Information for pickers</label>
+        <textarea
+          disabled={notesLocked}
+          id={`pick-list-information-${parcel.id}`}
+          maxLength={1200}
+          onChange={(event) => {
+            setDraftNotes(event.target.value);
+          }}
+          rows={4}
+          value={draftNotes}
+        />
+      </div>
       <div className={styles.editorColumns}>
         <section className={styles.editorPane}>
+          <h2 className={styles.visuallyHidden}>Pick list</h2>
           <label className={styles.unselectedItemsToggle}>
             <input
               checked={showUnselectedStockItems}
@@ -614,7 +709,7 @@ function ParcelPanel({
             <ul className={styles.itemList}>
               {groupStockItemsByCategory(displayedStockItems).map(({ category, items }) => (
                 <li className={styles.categoryGroup} key={category}>
-                  <h4 className={styles.categoryHeading}>{category}</h4>
+                  <h3 className={styles.categoryHeading}>{category}</h3>
                   <ul className={styles.categoryItems}>
                     {items.map((item) => {
                       const line = draftLines.find(
@@ -661,10 +756,14 @@ function ParcelPanel({
               ))}
             </ul>
           )}
-          {saveLines.error !== null && <ErrorNotice error={saveLines.error} />}
+          {/* Only while the dialog is closed — it renders the same error itself,
+              and two live regions announcing one failure is one too many. */}
+          {pendingAction === null && saveLines.error !== null && (
+            <ErrorNotice error={saveLines.error} />
+          )}
         </section>
         <section className={styles.editorPane}>
-          <h3>Preferences</h3>
+          <h2 className={styles.paneHeading}>Preferences</h2>
           {preferences.length === 0 ? (
             <p>No food preferences were given.</p>
           ) : (
@@ -688,8 +787,20 @@ function ParcelPanel({
         </section>
       </div>
       {pendingAction !== null && (
+        /*
+         * Three answers, because the question has three. `screenDetails.md` asks
+         * that leaving with unsaved work "asks whether to save first", and a
+         * dialog offering only Save and Cancel cannot take no for an answer:
+         * somebody who has typed a quantity onto the wrong household is left
+         * with no way off the screen except to save it.
+         *
+         * The save error is rendered here rather than only in the editor pane
+         * behind the dialog, where a modal makes it unreadable at exactly the
+         * moment it matters.
+         */
         <ConfirmDialog
           busy={saveLines.isPending}
+          cancelLabel="Stay on this pick list"
           confirmLabel="Save changes"
           onCancel={onPendingActionHandled}
           onConfirm={() => {
@@ -698,9 +809,18 @@ function ParcelPanel({
               pendingAction();
             });
           }}
+          secondary={{
+            label: 'Discard changes',
+            onClick: () => {
+              discardDraft();
+              onPendingActionHandled();
+              pendingAction();
+            },
+          }}
           title="Save pick list changes?"
         >
-          <p>Save your pick-list changes before continuing?</p>
+          <p>Your pick-list changes have not been saved.</p>
+          {saveLines.error !== null && <ErrorNotice error={saveLines.error} />}
         </ConfirmDialog>
       )}
     </section>

@@ -66,9 +66,7 @@ export function ReferralReasonsScreen() {
       />
 
       <p className={styles.intro}>
-        The options a referrer chooses from when they say why a household needs food. Only
-        administrators ever see which reason a referral used — see{' '}
-        <Link to="/referrals">referrals</Link>.
+        The options a referrer chooses from when they say why a household needs food.
       </p>
 
       {amend.error !== null && <ErrorNotice error={amend.error} />}

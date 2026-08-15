@@ -23,9 +23,13 @@ it carries the sequences and the role-visibility rules that `openapi.yaml` canno
   repo is absent.
 - Regenerate whenever the server's spec changes and let the type errors show what to fix.
 - Where the generated type is genuinely unusable, the call site carries a documented
-  `@ts-expect-error` — never an unchecked cast — and an entry in `KNOWN-GAPS.md`. `RecurringSessionPatch`
-  is the worked example: a body declared `{type: object, minProperties: 1}` generates
-  `Record<string, never>`, a type that refuses every real field.
+  `@ts-expect-error` — never an unchecked cast — and an entry in `KNOWN-GAPS.md`. **There are none in
+  the codebase today**, and the one there was is the argument for the rule: `RecurringSessionPatch`
+  was declared `{type: object, minProperties: 1}` with no `properties`, generating
+  `Record<string, never>` — a type that refuses every real field. When the server named the
+  properties, `tsc` failed on the now-**unused** directive and that is what announced the fix. A cast
+  would have gone on silently working and hidden it. The entry is kept in `KNOWN-GAPS.md` for that
+  reason.
 
 ## The import boundary
 

@@ -6,8 +6,13 @@
   overflow-x: auto;
 }
 
+.tableWrap:focus-visible {
+  outline: 3px solid #005a9c;
+  outline-offset: 2px;
+}
+
 .table {
-  inline-size: 100%;
+  min-inline-size: 90rem;
   border-collapse: collapse;
 }
 
@@ -17,15 +22,9 @@
   text-align: start;
   vertical-align: top;
   border-block-end: 1px solid #d4d4d4;
-  white-space: pre-wrap;
+  white-space: nowrap;
 }
 
 .table thead th {
   border-block-end: 2px solid #1a1a1a;
-}
-
-/* Permission is the decision needed just before a call, so it must not recede
-   into the rest of the spreadsheet-shaped row. */
-.permission {
-  font-weight: 700;
 }
