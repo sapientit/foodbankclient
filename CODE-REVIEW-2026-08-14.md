@@ -1,4 +1,4 @@
-  # Code review — foodbankclient, 14 Aug 2026
+# Code review — foodbankclient, 14 Aug 2026
 
 Reviewed the whole client at `master` (`f9bdea3`) plus the uncommitted fuel-help change. Read in
 full: `src/api/`, `src/auth/`, `src/lib/`, `src/components/`, `src/worker/`, the pick-lists,
