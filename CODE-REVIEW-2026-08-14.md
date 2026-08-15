@@ -1,11 +1,11 @@
-# Code review — foodbankclient, 14 Aug 2026
+  # Code review — foodbankclient, 14 Aug 2026
 
 Reviewed the whole client at `master` (`f9bdea3`) plus the uncommitted fuel-help change. Read in
 full: `src/api/`, `src/auth/`, `src/lib/`, `src/components/`, `src/worker/`, the pick-lists,
 extracts, fuel-help and referrals features, the test harness and the rule files. Skimmed the
 remaining feature screens.
 
-**Verification:** `npm run check` **passes** — 81 test files / 666 tests, up from 656 when this
+**Verification:** `npm run check` **passes** — 81 test files / 665 tests, up from 656 when this
 review began, and it did not pass at all then. The two reasons are written up as **F15**, both now
 cleared.
 
@@ -17,15 +17,15 @@ real work; most of what follows is at the edges rather than in the core.
 
 Findings are ordered by consequence. Each has a concrete fix.
 
-**Status: every finding is now closed or recorded.** F1–F6, F8–F10, F15 and F16 are fixed; F7 is
-closed by the charity's acceptance; F11 is recorded as `DEFERRED-WORK.md` W5; F12's two coverage gaps
-were closed by F1 and F2's own tests, leaving the SMS panel's, which W5 sits alongside. Each code fix
-began with a failing test where there was a bug to catch, and the latent ones (F4, F5, F6(b) and W4)
-were verified by re-breaking the code and watching the new test go red.
+**Status: F1–F6, F8–F10, F15 and F16 are fixed.** Each code fix began with a failing test where
+there was a bug to catch, and the latent ones (F4, F5, F6(b)) were verified by re-breaking the code
+and watching the new test go red. See the notes at the head of those sections. **F7, F11 and F12
+remain**, plus W4 in `DEFERRED-WORK.md`, raised by this review.
 
-**One edit was made outside this repo**, and only because Pete asked for it: the fuel-list prose in
-`../foodbankserver/openapi.yaml` (F3(c)/F6(a2)). Validated with the server's own
-`npm run check:openapi`.
+**Where the rest should land**, per the repo's own taxonomy: F11 and F12 are code fixes; F7 is a
+decision to record rather than code to write. F3(c) and F6(a2) were the same correction and are
+done, in `../foodbankserver/openapi.yaml` — the only edit made outside this repo, and only because
+Pete asked for it.
 
 ---
 
@@ -358,19 +358,6 @@ than inferring.
 
 ## F7 — The Google Identity script is a third-party script on a page that holds referral data
 
-> **CLOSED — the charity accepts it.** Recorded in
-> `docs/engineering/personal-data.md` under "Sending household data off-origin", dated, and naming
-> what was accepted: that household rows leave the system into the charity's own spreadsheet, that
-> Google's script runs in a page holding referrals, and that the Sheets token lives in memory for the
-> length of a run. `.claude/rules/pii-security.md` now points at it, and both say the acceptance
-> covers `/extracts` **and nothing else** — analytics, error reporting and session replay still need
-> their own conversation.
->
-> An undocumented sign-off is indistinguishable from no sign-off six months later, which is the whole
-> reason this is written down rather than closed silently. The two hygiene improvements (drop the
-> injected `<script>` on unmount, revoke the token on finish) are noted there as not done; neither
-> changes what was accepted.
-
 **Severity: worth a conscious decision, not a code defect.** `src/features/extracts/google-auth.ts:37-51`.
 
 `loadGis()` injects `https://accounts.google.com/gsi/client` into the document. That script runs with
@@ -560,10 +547,6 @@ were "pending on the server". All sixteen are on `ReferralSubmission` now.
 
 ## F11 — Small consistency and robustness points
 
-> **RECORDED as outstanding — `DEFERRED-WORK.md` W5**, grouped so they can be done in one pass rather
-> than argued about one at a time. The referral-details query key, built inline rather than named in
-> `keys.ts`, is folded in as a seventh item.
-
 - **`sms-panel.tsx:190`** — one shared `useMarkSmsRead()` for the whole list means clicking "Mark
   read" on any message disables every other message's button while it is in flight. Move the
   mutation into a per-message component, as `ClientRow` already does for attendance.
@@ -701,14 +684,10 @@ bug on the same code path (the cache, not the sign-out), so fixing W1 does not f
 
 ## Suggested order
 
-Nothing is left open in this document. What it leaves behind, in the places the repo keeps such
-things:
+Done: ~~F1~~–~~F6~~, ~~F8~~, ~~F9~~, ~~F10~~, ~~F15~~, ~~F16~~. Remaining:
 
-- **`DEFERRED-WORK.md` W5** — the six small consistency points from F11, plus the inline query key.
-- **`DEFERRED-WORK.md` W1 and W3** — both predate this review and both still stand.
-- **`OPEN-QUESTIONS.md` Q12, Q20, Q27, Q29, Q30, Q32, Q33** — untouched, and only Pete closes one.
-- **A `forListenerSheet` column in the questionnaire spreadsheet.** Without it the next import drops
-  the markers this review added and the listener sheet silently loses its columns.
+1. **W4** — a refused session confirmation currently says nothing at all.
+2. **F7, F11, F12** — as capacity allows. F7 wants a decision recorded rather than code written.
 
 **One thing to do before the next questionnaire import.** The `forListenerSheet` markers were
 written into `referral-form.config.json`, which is generated from the charity's spreadsheet — so the
