@@ -329,17 +329,6 @@
           ]
         },
         {
-          "questionNum": 3,
-          "questionKey": "Dietary",
-          "questionTitle": "Please specify any dietary requirements",
-          "required": false,
-          "preference": true,
-          "validation": {
-            "type": "String",
-            "maxLength": 500
-          }
-        },
-        {
           "questionNum": 4,
           "questionKey": "Pasta/Rice",
           "questionTitle": "Would they prefer pasta or rice?",

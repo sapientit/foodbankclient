@@ -512,23 +512,22 @@ export function RunSessionClientScreen() {
   };
   return (
     <>
-      {/* The pick number, the household and the size, first thing on the screen
-          and only once. A team lead arrives here from the client list holding a
-          bag, and this is the line that says which one — so the panel below no
-          longer repeats it as a heading of its own.
+      {/* The pick number and the household, first thing on the screen and only
+          once. A team lead arrives here from the client list holding a bag, and
+          this is the line that says which one — so the panel below no longer
+          repeats it as a heading of its own.
+
+          The adults/children pair used to sit here and no longer does. Those
+          two numbers are the grid's axes rather than a description of the
+          household — an adult is anyone over 11 and the under-fives are in
+          neither count — so read off a heading they say something untrue about
+          the people the bag is for. The composition grid below says it properly.
 
           Printing is deliberately absent: it is a whole-session action, and the
           client list is where it lives. Offering it here put the one control
           that commits every sheet to paper next to the one household this
           screen is about. */}
-      <PageHeader
-        action={
-          <span className={styles.householdSize}>
-            Adults/children: {parcel.adults}/{parcel.children}
-          </span>
-        }
-        title={`Pick #${String(parcel.pickNumber)}: ${parcelName(parcel)}`}
-      />
+      <PageHeader title={`Pick #${String(parcel.pickNumber)}: ${parcelName(parcel)}`} />
       <p>
         {formatSessionDate(session.data.sessionDate)},{' '}
         {formatTimeRange(session.data.startTime, session.data.durationMinutes)} —{' '}

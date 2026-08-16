@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Referral } from './queries';
 import {
+  cameFromCopy,
   cameFromSearch,
+  canCopyReferral,
+  copyCapacityWarning,
   describeHousehold,
   describeLockedReferral,
+  describeSettledReferral,
+  displayedOutcome,
   hasAdminFields,
   isPurged,
   isReferralStatus,
@@ -120,6 +125,45 @@ describe('describeLockedReferral', () => {
   });
 });
 
+describe('describeSettledReferral', () => {
+  it('is null while the day has not happened, whatever the status', () => {
+    expect(describeSettledReferral({ outcome: 'booked' })).toBeNull();
+    expect(describeSettledReferral({})).toBeNull();
+  });
+
+  it('stops a cancel or a move once the household has collected', () => {
+    expect(describeSettledReferral({ outcome: 'attended' })).toMatch(/no longer be cancelled/);
+  });
+
+  it('names copying as the answer for a no-show, so the two are not alternatives', () => {
+    const message = describeSettledReferral({ outcome: 'no_show' });
+    expect(message).toMatch(/no longer be cancelled or moved/);
+    expect(message).toMatch(/[Cc]opy it to another session/);
+  });
+
+  it('is a different refusal from being locked, because amending survives it', () => {
+    // A name spelt wrong on a referral whose household already collected is
+    // still worth correcting: only cancelling and moving are refused, so this
+    // must never be folded into `describeLockedReferral`.
+    expect(describeLockedReferral({ status: 'reviewed' })).toBeNull();
+    expect(describeSettledReferral({ outcome: 'attended' })).not.toBeNull();
+  });
+});
+
+describe('cameFromCopy', () => {
+  it('is true only for the flag the copy navigation sets', () => {
+    expect(cameFromCopy({ fromCopy: true })).toBe(true);
+  });
+
+  it('reads anything else out of the browser’s history as no', () => {
+    expect(cameFromCopy(null)).toBe(false);
+    expect(cameFromCopy(undefined)).toBe(false);
+    expect(cameFromCopy({})).toBe(false);
+    expect(cameFromCopy({ fromCopy: 'yes' })).toBe(false);
+    expect(cameFromCopy({ fromSearch: true })).toBe(false);
+  });
+});
+
 describe('cameFromSearch', () => {
   it('is true only for the flag a search result link sets', () => {
     expect(cameFromSearch({ fromSearch: true })).toBe(true);
@@ -229,5 +273,84 @@ describe('parseWholeNumber', () => {
 
   it('allows zero when the bounds say so — children has no lower floor', () => {
     expect(parseWholeNumber('0', { minimum: 0, maximum: 30 })).toEqual({ ok: true, value: 0 });
+  });
+});
+
+describe('canCopyReferral', () => {
+  it('is true for a cancelled or rejected referral, whatever outcome the server sends', () => {
+    expect(canCopyReferral(referral({ id: 'r1', status: 'cancelled' }))).toBe(true);
+    expect(canCopyReferral(referral({ id: 'r1', status: 'rejected' }))).toBe(true);
+  });
+
+  it('is true for a no-show, whether the referral is reviewed or still active', () => {
+    expect(canCopyReferral(referral({ id: 'r1', status: 'reviewed', outcome: 'no_show' }))).toBe(
+      true,
+    );
+    expect(canCopyReferral(referral({ id: 'r1', status: 'active', outcome: 'no_show' }))).toBe(
+      true,
+    );
+  });
+
+  it('is false for a household who attended or is still booked, on either status', () => {
+    expect(canCopyReferral(referral({ id: 'r1', status: 'active', outcome: 'attended' }))).toBe(
+      false,
+    );
+    expect(canCopyReferral(referral({ id: 'r1', status: 'reviewed', outcome: 'attended' }))).toBe(
+      false,
+    );
+    expect(canCopyReferral(referral({ id: 'r1', status: 'active', outcome: 'booked' }))).toBe(
+      false,
+    );
+    expect(canCopyReferral(referral({ id: 'r1', status: 'reviewed', outcome: 'booked' }))).toBe(
+      false,
+    );
+  });
+
+  it('is false while awaiting review, which has no outcome yet', () => {
+    expect(canCopyReferral(referral({ id: 'r1', status: 'pending_review' }))).toBe(false);
+  });
+
+  it('is false when the outcome key is genuinely absent — a GET /referrals list row — never read as booked', () => {
+    const row = referral({ id: 'r1', status: 'active' });
+    expect('outcome' in row).toBe(false);
+    expect(canCopyReferral(row)).toBe(false);
+  });
+});
+
+describe('displayedOutcome', () => {
+  it('is null for a cancelled or rejected referral even though the server sends outcome: booked', () => {
+    // `screenDetails.md`: "Cancelled" beside "Still booked" reads as a
+    // household coming after all, so the status alone is shown.
+    expect(displayedOutcome(referral({ id: 'r1', status: 'cancelled', outcome: 'booked' }))).toBe(
+      null,
+    );
+    expect(displayedOutcome(referral({ id: 'r1', status: 'rejected', outcome: 'booked' }))).toBe(
+      null,
+    );
+  });
+
+  it('returns the outcome for an active or reviewed referral, where it says something new', () => {
+    expect(displayedOutcome(referral({ id: 'r1', status: 'active', outcome: 'no_show' }))).toBe(
+      'no_show',
+    );
+    expect(displayedOutcome(referral({ id: 'r1', status: 'reviewed', outcome: 'attended' }))).toBe(
+      'attended',
+    );
+  });
+
+  it('is null when the outcome key is absent, rather than throwing or reading as booked', () => {
+    expect(displayedOutcome(referral({ id: 'r1', status: 'active' }))).toBe(null);
+  });
+});
+
+describe('copyCapacityWarning', () => {
+  it('is null well under capacity', () => {
+    expect(copyCapacityWarning({ booked: 10, capacity: 25 })).toBeNull();
+  });
+
+  it('names booked and capacity once the session is full or over', () => {
+    const warning = copyCapacityWarning({ booked: 25, capacity: 25 });
+    expect(warning).toContain('25');
+    expect(warning).toContain('places booked');
   });
 });

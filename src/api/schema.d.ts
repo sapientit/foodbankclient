@@ -1936,7 +1936,13 @@ export interface paths {
          *     session stays open until *every* household has an outcome, so one that
          *     has been marked attended or no-show — its stock already off the shelves
          *     — can sit on a session that is still open to change. A household given
-         *     another chance after a no-show is a new referral, not a move.
+         *     another chance after a no-show is copied onto a later session with
+         *     `POST /referrals/{id}/copy`, not moved.
+         *
+         *     **A referral whose details have been forgotten cannot be amended or
+         *     moved either**, and is a `409`. Twelve months on there is no name and no
+         *     answers left, so there is nothing to correct — and writing a name back
+         *     onto one would put back exactly what the charity promised to forget.
          */
         patch: {
             parameters: {
@@ -1967,7 +1973,7 @@ export interface paths {
                         "application/json": components["schemas"]["Referral"];
                     };
                 };
-                /** @description Target session is full and not acknowledged, the referral is cancelled or rejected, its current session has been confirmed, or one of its parcels already has an attendance outcome so it can no longer be moved */
+                /** @description Target session is full and not acknowledged, the referral is cancelled or rejected, its details have been forgotten, its current session has been confirmed, or one of its parcels already has an attendance outcome so it can no longer be moved */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2269,7 +2275,7 @@ export interface paths {
                     };
                 };
                 404: components["responses"]["NotFound"];
-                /** @description That referral is not awaiting review, or `authoriseReferrer` was sent for an address already on the authorised list — in which case the referral has **not** been accepted either. */
+                /** @description That referral is not awaiting review, its details have been forgotten so there is nothing left to decide on, or `authoriseReferrer` was sent for an address already on the authorised list — in which case the referral has **not** been accepted either. */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2331,7 +2337,7 @@ export interface paths {
                     };
                 };
                 404: components["responses"]["NotFound"];
-                /** @description That referral is not awaiting review */
+                /** @description That referral is not awaiting review, or its details have been forgotten so there is nothing left to decide on */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2363,7 +2369,7 @@ export interface paths {
          *     **Every referral is meant to be read**, not only the ones held up by an unrecognised address, and this is what makes "which has nobody looked at yet?" answerable — list `status=active` for the pile still to do.
          *     Being reviewed changes nothing else: the household holds its place, it is picked, and it appears on the listener sheet exactly as before. The only thing it says is that somebody has read it.
          *     No body. There is no comment here — `reviewComment` belongs to the accept/reject decision, and no separate review timestamp is kept.
-         *     A referral still `pending_review` is a `409`: decide it first. So is one already reviewed, rejected or cancelled.
+         *     A referral still `pending_review` is a `409`: decide it first. So is one already reviewed, rejected or cancelled, and so is one whose details have been forgotten — twelve months on there is nothing left to read.
          */
         post: {
             parameters: {
@@ -2386,7 +2392,7 @@ export interface paths {
                     };
                 };
                 404: components["responses"]["NotFound"];
-                /** @description That referral is not waiting to be read */
+                /** @description That referral is not waiting to be read, or its details have been forgotten */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2417,6 +2423,9 @@ export interface paths {
          * @description Admin only. Idempotent. Frees its place in the session.
          *     A **rejected** referral is a `409`, not a cancellation. The two are different things that happened, and `reviewComment` is the only record of why the charity turned the household away — relabelling the status would leave that comment on a referral that no longer says a review took place.
          *     A referral on a **confirmed** session is also a `409`: the session is closed to every kind of change, cancellation included.
+         *     **A referral whose parcel already has an outcome cannot be cancelled** and is a `409` — the same stopping point as a move, settled by the charity on 2026-08-15. Once a household has collected, been delivered to, or been marked as not having turned up, what happened on the day is the record: the food has come off the shelves and cannot be un-given, and cancelling afterwards would leave the parcel's account of the morning contradicting the referral's. The confirmed-session rule does not cover this, because a session stays open until *every* household has an outcome.
+         *     Two things an operator might have meant instead, and neither is this button: if the **outcome** was recorded by mistake, take the outcome back through `POST /parcels/{id}/attendance`, which undoes the stock with it; if a household who did not turn up is to be given **another chance**, copy the referral onto a later session with `POST /referrals/{id}/copy` and leave the no-show where it happened.
+         *     **A referral whose details have been forgotten is a `409` too.** Twelve months on there is nothing left to cancel.
          *     **If a pick list has already been generated, this marks that household's parcel `attendance: "cancelled"` in the same write.** The parcel is not deleted and its lines, notes and `pickNumber` are untouched — it stays the record of what was picked. What changes is that it stops reading as a household still to come: it no longer needs reviewing, no longer needs an attendance outcome, is left out of `GET /pick-lists/{id}/print`, and `POST /parcels/{id}/attendance` on it is a `409`. It is still returned by `GET /sessions/{sessionId}/pick-list`, so a session screen can show why that pick number is not coming.
          */
         post: {
@@ -2445,7 +2454,144 @@ export interface paths {
                         "application/json": components["schemas"]["Referral"];
                     };
                 };
-                /** @description That referral was rejected, or its session has been confirmed */
+                /** @description That referral was rejected, its session has been confirmed, one of its parcels already has an attendance outcome, or its details have been forgotten */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/referrals/{id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a referral onto another session
+         * @description Admin only. A household whose referral came to nothing rings the food
+         *     bank and is given another chance: the referral is copied onto a later
+         *     session and the copy is an ordinary new referral from there.
+         *     `INITIAL_SPEC1.txt`, `#Copying a referral`.
+         *
+         *     **The original is untouched** — same status, same session, same parcel,
+         *     same attendance. That is the whole point: a no-show stays a no-show on
+         *     the day it happened, and moving is refused once an outcome exists
+         *     precisely so the day's record cannot be rewritten. Do not follow this
+         *     call with a cancel of the original; it would be refused anyway.
+         *
+         *     **Offered only where the original can no longer come to anything**: its
+         *     `status` is `cancelled` or `rejected`, **or** its `outcome` is
+         *     `no_show`. Anything else is a `409` — a referral still on its way to
+         *     being fed is *moved* (`PATCH /referrals/{id}` with `sessionId`), and the
+         *     two are never alternatives for the same referral. Gate the button on
+         *     `status` and `outcome` together and the server and the screen agree. A
+         *     household who has already collected is a `409` too; feeding them again
+         *     is a new referral made in the ordinary way.
+         *
+         *     **A referral whose details have been forgotten is a `409`.** There is
+         *     nothing left to copy.
+         *
+         *     **What the copy carries**: the referee's name, date of birth, address,
+         *     postcode and phone; `adults`, `children`, `householdSize`, `isDelivery`,
+         *     `needsFuelHelp`; `reasonId`; `answers` whole; and the referrer's name,
+         *     organisation, email and phone.
+         *
+         *     **What it does not**: `status`, `sessionId`, `reviewComment`,
+         *     `adminInfo`, and any parcel.
+         *
+         *     **The copy is `status: "reviewed"` with `reviewComment: null`.** The
+         *     administrator making it has just decided this household should come, so
+         *     there is nothing left for a later administrator to accept and nothing
+         *     waiting to be read through. This means copying a **rejected** referral
+         *     lets the household in after all — that is the point of the button. The
+         *     rejection and its comment stay on the original.
+         *
+         *     **`reasonId` comes across even if the charity has since retired it**,
+         *     unlike `POST /public/referrals` and `PATCH /referrals/{id}`, which both
+         *     refuse a retired reason with a `422`. Those are somebody *choosing* a
+         *     reason; this is the same crisis recorded a second time.
+         *
+         *     **`referredAt` is the moment the copy was made**, not the original's.
+         *     The copy is a new referral and reads as one on the search screen — and
+         *     `referredAt` is what the twelve-month purge counts from, so reusing the
+         *     original's would put a copy of an eleven-month-old referral a month from
+         *     being forgotten.
+         *
+         *     **`adminInfo` on the copy is set by the server** to `Copied from
+         *     referral dated YYYY-MM-DD` — the date the **original** was submitted, in
+         *     `Europe/London` — and to nothing else. It **replaces** rather than
+         *     extends: the original's note does not come across, and an administrator
+         *     who wants it reads the original.
+         *
+         *     **Capacity works exactly as a move does.** A full session is warned
+         *     about, never refused: send `acknowledgeOverCapacity: true` to confirm.
+         *     Offer the same session picker you offer for a move. A cancelled or
+         *     already-confirmed session cannot take a copy at all.
+         *
+         *     **No parcel is created.** The copy holds its place on its new session
+         *     and is picked for in the ordinary way, when that session's pick list is
+         *     generated or opened again.
+         *
+         *     Unlike `POST /public/referrals` there is **no Turnstile token** — this
+         *     is authenticated, and nothing on it was typed by a member of the public.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description The session the copy goes onto.
+                         */
+                        sessionId: string;
+                        /**
+                         * @description Confirms a session that is already full, exactly as a move does.
+                         * @default false
+                         */
+                        acknowledgeOverCapacity?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description The copy. The original is unchanged. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Referral"];
+                    };
+                };
+                /** @description No such referral, or no such target session */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The referral can still be completed so it should be moved rather than copied, the household has already collected, the referral's details have been forgotten, or the target session is cancelled, confirmed, or full and not acknowledged */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -4970,8 +5116,8 @@ export interface components {
              */
             sessionDate: string;
             /**
-             * @description What became of this referral. `attended` — they were given their parcel, collected or delivered. `no_show` — they were booked in and did not turn up. `booked` — still to come, covering both "picked but not yet marked" and "no pick list generated yet".
-             *     The same three words attendance already uses, rather than a second vocabulary for the same states.
+             * @description What became of the household on that referral. `attended` — they were given their parcel, collected or delivered. `no_show` — they were booked in and did not turn up. `booked` — still to come, covering "picked but not yet marked", "no pick list generated yet" and a referral cancelled before the day came.
+             *     The same three words attendance already uses, rather than a second vocabulary for the same states — and **the same field as `Referral.outcome`**, which is the same question asked about the referral you have open. See that one for the fuller explanation.
              * @enum {string}
              */
             outcome: "attended" | "no_show" | "booked";
@@ -4993,6 +5139,10 @@ export interface components {
         /**
          * @description The staff view. **The last six fields are admin-only** — a team lead
          *     receives the object without them, so treat them as optional.
+         *
+         *     `outcome` is optional too and is **not** one of the six: a team lead
+         *     receives it. It is absent only from the `GET /referrals` list rows,
+         *     where it would cost a second query — see the field.
          *
          *     `adminInfo` is narrower again: admin-only **and**, with one settled
          *     exception, only on a response carrying one referral. It is absent from
@@ -5050,6 +5200,16 @@ export interface components {
              *     The referrer's own details are **not** purged — `referrerName`, `referrerEmail`, `referrerPhone` and `reviewComment` all survive. The retention period exists to forget the household that needed feeding, not the professional who referred them. `adminInfo` is the one administrator-written field that goes: it describes the household rather than a decision about the referral.
              */
             piiPurgedAt: string | null;
+            /**
+             * @description **What became of the household**, as against `status` above, which is what became of the referral. The two answer different questions and must never be read as one.
+             *     `attended` — they collected their parcel, or it was delivered. `no_show` — they were marked as not having turned up. `booked` — still to come: the parcel is picked and waiting to be marked, or no pick list has been made for their session yet, or the referral was **cancelled** before the day came. Both of the first two mean the same thing to a screen, and so does the third: nothing happened on the day.
+             *     **So a cancelled referral reads `status: cancelled` with `outcome: booked`, and that is not a contradiction** — it is where the cancellation is recorded. Settled by the charity on 2026-08-15; `INITIAL_SPEC1.txt`, `#Referral maintenance`.
+             *     The same three words `RepeatReferralMatch.outcome` uses, and the same meanings — one question, one vocabulary.
+             *     **Not admin-only.** A team lead already sees who turned up on the session screen, so there is nothing here to withhold from them.
+             *     **Present on every response carrying one referral** — `GET /referrals/{id}`, `PATCH /referrals/{id}`, and the accept, reject, review, cancel and copy routes. **Absent from the `GET /referrals` list rows**, where deriving it means a second query over the whole session and the outcomes are already on the session screen.
+             * @enum {string}
+             */
+            outcome?: "attended" | "no_show" | "booked";
             /**
              * Format: uuid
              * @description **Admin only.** Absent for a team lead.

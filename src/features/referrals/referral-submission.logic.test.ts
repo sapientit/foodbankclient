@@ -237,6 +237,51 @@ describe('splitSubmission', () => {
   });
 });
 
+/**
+ * One female and one male in all five age bands. The same ten people are
+ * counted two different ways on purpose: the payload carries the pair that
+ * indexes the household grid, the confirmation carries the pair a referrer
+ * would recognise as their household.
+ */
+const TEN_PEOPLE = {
+  '0-4': { female: 1, male: 1 },
+  '5-11': { female: 1, male: 1 },
+  '12-17': { female: 1, male: 1 },
+  'working-age': { female: 1, male: 1 },
+  'state-pension-age': { female: 1, male: 1 },
+};
+
+const compositionQuestion: FormQuestion = {
+  key: 'Household Components',
+  type: 'householdComposition',
+  label: 'Who lives in the household',
+  required: true,
+  preference: false,
+};
+
+describe('the two household derivations', () => {
+  it('sends the operational pair with the referral, not the everyday one', () => {
+    const { keyFields } = splitSubmission(form(compositionQuestion), {
+      'Household Components': TEN_PEOPLE,
+    });
+
+    expect(keyFields).toMatchObject({ adults: 6, children: 2 });
+  });
+
+  it('reads the household back to the referrer in the everyday sense of the words', () => {
+    // A referrer has just typed this grid in and is checking it is the right
+    // household. "6 adults, 2 children" is true of the parcel and false of the
+    // people, and this page is about the people.
+    expect(
+      describeSubmission(
+        form(compositionQuestion),
+        { 'Household Components': TEN_PEOPLE },
+        lookups,
+      ),
+    ).toEqual([{ label: 'Who lives in the household', value: '4 adults, 6 children' }]);
+  });
+});
+
 describe('describeSubmission', () => {
   it('shows the mandatory answers back, which is a referrer’s only chance to spot a mistake', () => {
     // There is no amending after this — `screenDetails.md`, "After a referral

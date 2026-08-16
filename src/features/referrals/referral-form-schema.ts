@@ -11,6 +11,7 @@ import { keyFieldSchema } from './referral-key-fields';
 import {
   emptyHouseholdComposition,
   isHouseholdComposition,
+  operationalHouseholdCounts,
   type HouseholdComposition,
 } from './household-composition';
 
@@ -84,19 +85,14 @@ function questionFieldSchema(
           message: `${question.label}: enter whole numbers from 1 to 30 where needed.`,
         })
         .superRefine((composition, ctx) => {
-          const adults =
-            Object.values(composition['working-age'] ?? {}).reduce(
-              (total, count) => total + count,
-              0,
-            ) +
-            Object.values(composition['state-pension-age'] ?? {}).reduce(
-              (total, count) => total + count,
-              0,
-            );
-          if (adults === 0)
+          // The server rejects `adults: 0`, and an operational adult is anyone
+          // aged 12 or over — so a household of teenagers is referrable and one
+          // of under-elevens is not.  Derived here rather than counted again,
+          // because a second copy of the rule is a second thing to forget.
+          if (operationalHouseholdCounts(composition).adults === 0)
             ctx.addIssue({
               code: 'custom',
-              message: 'A household must include at least one adult.',
+              message: 'A household must include at least one person aged 12 or over.',
             });
         });
     case 'information':

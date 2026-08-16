@@ -9,6 +9,7 @@ import { isEnabled, type FormAnswers } from './referral-form.logic';
 import { keyFieldSpec, keyFieldValue } from './referral-key-fields';
 import { lookupLabel, type ReferralLookups } from './referral-lookups';
 import {
+  commonUsageHouseholdCounts,
   isHouseholdComposition,
   operationalHouseholdCounts,
   type HouseholdComposition,
@@ -199,7 +200,10 @@ function confirmationValue(
   }
 
   if (question.type === 'householdComposition' && isHouseholdComposition(held)) {
-    const { adults, children } = operationalHouseholdCounts(held);
+    // Common usage, not the operational pair sent with the referral.  This
+    // line exists so a referrer can recognise the household they just typed
+    // in; the counts that size the parcel would describe a different one.
+    const { adults, children } = commonUsageHouseholdCounts(held);
     return `${String(adults)} adults, ${String(children)} children`;
   }
   return typeof held === 'string' ? held.trim() : (Array.isArray(held) ? held : []).join(', ');

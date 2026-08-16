@@ -101,6 +101,24 @@ running server to confirm against.** Two specific things worth checking by hand:
   particular, whether an unknown or another actor's `sessionId` is a clean empty list (the assumption
   `ReferralsScreen` makes) rather than a `400` or `403`.
 
+**Copying a referral (`POST /referrals/{id}/copy`) has never been called against a running server.**
+The screen was built from `openapi.yaml` and `API.md` the day the route was added. Three things to
+watch the first time it runs for real, because a copy holds a real place on a real session:
+
+- **That `adminInfo` on the copy really does read `Copied from referral dated YYYY-MM-DD`, and that
+  the date is the _original's_ submission date in `Europe/London`.** The client never composes this
+  string and never sends one — it is written entirely by the server — so nothing here fails if the
+  wording or the timezone differs; it would simply be quietly wrong on the screen an administrator
+  reads. Worth looking at once, against a referral submitted late in the evening in British Summer
+  Time, where a UTC-based date would come out a day early.
+- **That the copy really arrives `status: "reviewed"`.** The screen shows whatever it gets and does
+  not assert it, so a copy arriving `active` or `pending_review` would put the household back in the
+  review queue silently rather than breaking anything visible.
+- **The `409` when the target session is confirmed or cancelled.** The copy dialog offers every
+  session `useSessions` returns and does not filter those out, on the grounds that the server's
+  refusal carries the one useful sentence and this client should not maintain a second copy of the
+  rule. Nobody has seen that sentence.
+
 **The whole of Slice 7 (referrers and reasons) was built from `openapi.yaml` and `API.md` alone,
 with no running server to confirm against — unlike every stock and model-parcels claim in this file
 that says "verified against a running server."** Three specific things worth checking by hand the
@@ -319,6 +337,21 @@ directives over a cast that would have silently gone on working and hidden the
 improvement.
 
 ## Deliberate behaviour that will look like a bug
+
+**Referrals submitted before 2026-08-15 hold the two operational counts under
+the old definition, and nothing recalculates them.** Until that date the client
+derived `adults` and `children` as everyone 18 or over and everyone under 18;
+they are now everyone 12 or over and the 5-11 band alone, with the under-fives
+in neither. The columns did not change shape and the server never knew what
+they meant, so an older referral reads as perfectly valid and simply sizes its
+parcel by the old rule — a household with a teenager gets a smaller parcel than
+the same household referred today, and one with only under-fives and an adult
+gets a larger one. Pete decided on 2026-08-15 to leave them: a backfill would
+have to reinterpret the retained `Household Components` answer, referrals
+without one could not be corrected at all, and anything already picked was
+picked to the numbers on the sheet. There is nothing to look for in the code —
+the two values are just data — so this note is the only record that a referral's
+age is now part of reading its household size.
 
 **Deleting a model parcel and later creating a new one under the same name
 silently reattaches every grid cell that used to name it.** The grid stores a

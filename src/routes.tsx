@@ -127,8 +127,9 @@ export const routes: RouteObject[] = [
        * `referrals.logic.ts` and the module comment on
        * `referral-detail-screen.tsx`. `referrals/:referralId` is a static-vs-
        * dynamic sibling pair the same way `sessions/:sessionId` is, and there
-       * is nothing to shadow it with — this feature has no `referrals/new`,
-       * because a referral can only be created through the public flow.
+       * is nothing to shadow it with — this feature has no `referrals/new`.
+       * A referral is created by the public flow, or copied from an existing
+       * one on the detail screen; neither is a screen of its own.
        */
       { path: 'referrals', element: <ReferralsScreen /> },
       { path: 'referrals/search', element: <ReferralSearchScreen /> },

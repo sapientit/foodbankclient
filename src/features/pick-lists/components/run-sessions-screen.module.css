@@ -36,13 +36,6 @@
   min-block-size: 66vh;
 }
 
-/* Sits in the page header's action slot, opposite the pick number and name —
-   `PageHeader` already lays that row out, so this only sizes the text. */
-.householdSize {
-  font-size: 0.875rem;
-  font-weight: 400;
-}
-
 .householdComposition {
   margin-block: 0.75rem;
 }

@@ -44,8 +44,15 @@ export const referralKeys = {
   lists: () => [...referralKeys.all, 'list'] as const,
   list: (filters: ReferralListFilters) => [...referralKeys.lists(), filters] as const,
   detail: (id: string) => [...referralKeys.all, 'detail', id] as const,
+  /**
+   * Both `excludePostcode` variants for one referral, as one prefix. A mutation
+   * that changes who matches a household cannot know which of the two an
+   * administrator happens to have opened — the checkbox is screen state — so it
+   * invalidates the pair, the same reasoning as `searches()` below.
+   */
+  repeatReferralsFor: (id: string) => [...referralKeys.all, 'repeat-referrals', id] as const,
   repeatReferrals: (id: string, excludePostcode: boolean) =>
-    [...referralKeys.all, 'repeat-referrals', id, { excludePostcode }] as const,
+    [...referralKeys.repeatReferralsFor(id), { excludePostcode }] as const,
   /**
    * Every search that has been run, as one prefix. A mutation cannot know which
    * criteria happen to be cached — the key is the criteria themselves — so it

@@ -260,7 +260,7 @@ describe('the public referral form', () => {
     expect(screen.getByText('Page 1 of 7')).toBeInTheDocument();
   });
 
-  it('requires a household composition with an adult before moving on', async () => {
+  it('requires a household composition with someone aged 12 or over before moving on', async () => {
     renderRefer();
     const user = userEvent.setup();
 
@@ -274,9 +274,21 @@ describe('the public referral form', () => {
     await user.click(next());
 
     expect(
-      await screen.findByText('A household must include at least one adult.'),
+      await screen.findByText('A household must include at least one person aged 12 or over.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 7')).toBeInTheDocument();
+  });
+
+  it('accepts a household of teenagers, who are adults for the purpose of the grid', async () => {
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await user.clear(screen.getByLabelText('18 to State Pension age, Female'));
+    await user.type(screen.getByLabelText('12–17, Male'), '1');
+    await user.click(next());
+
+    expect(await screen.findByText('Page 2 of 7')).toBeInTheDocument();
   });
 
   it('does not complain about a later page before the referrer has got there', async () => {

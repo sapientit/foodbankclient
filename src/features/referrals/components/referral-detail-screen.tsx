@@ -1,10 +1,11 @@
-import { useId, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
 import { HouseholdCompositionGrid } from '../../../components/household-composition-grid';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
+import { ApiError } from '../../../lib/errors';
 import {
   formatCalendarDate,
   formatLondonDateTime,
@@ -35,6 +36,7 @@ import { COLLECTION_METHOD_KEY, splitSubmission } from '../referral-submission.l
 import {
   useAmendReferral,
   useCancelReferral,
+  useCopyReferral,
   useMarkReferralReviewed,
   useReferral,
   useReviewReferral,
@@ -47,9 +49,15 @@ import {
 import {
   MAX_CANCEL_REASON_LENGTH,
   MAX_REVIEW_COMMENT_LENGTH,
+  REFERRAL_OUTCOME_LABELS,
   REFERRAL_STATUS_LABELS,
+  cameFromCopy,
   cameFromSearch,
+  canCopyReferral,
+  copyCapacityWarning,
   describeLockedReferral,
+  describeSettledReferral,
+  displayedOutcome,
   hasAdminFields,
   hasRepeatReferralSummary,
   isAwaitingReview,
@@ -109,6 +117,7 @@ export function ReferralDetailScreen() {
 function ReferralDetail({ referral }: { referral: Referral }) {
   const isAdminView = hasAdminFields(referral);
   const purged = isPurged(referral);
+  const outcome = displayedOutcome(referral);
   const locked = describeLockedReferral(referral);
   const lockedId = useId();
 
@@ -126,10 +135,27 @@ function ReferralDetail({ referral }: { referral: Referral }) {
 
   const title = refereeName(referral) ?? 'Referral';
 
+  // `useLocation().state` is `any` from the router. Narrowing it to `unknown`
+  // here is what keeps both readers below honest — neither may assume a shape.
+  const locationState: unknown = useLocation().state;
   // Only when the search is where this referral was opened from. The results
   // themselves are still in the query cache, so the link returns to the same
   // list rather than an empty form — see `useReferralSearchMemory`.
-  const fromSearch = cameFromSearch(useLocation().state);
+  const fromSearch = cameFromSearch(locationState);
+  const fromCopy = cameFromCopy(locationState);
+
+  /**
+   * A copy replaces this screen with a different household's record, in a
+   * navigation the administrator did not choose from a link. The button that
+   * opened the dialog has gone with it — a fresh copy is not itself copyable —
+   * so the dialog's focus restore lands on a node that no longer exists and a
+   * keyboard or screen-reader user is left on `<body>` with nothing said.
+   * Focusing this notice puts them on the sentence that explains the swap.
+   */
+  const copiedNotice = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (fromCopy) copiedNotice.current?.focus();
+  }, [fromCopy]);
 
   return (
     <>
@@ -137,6 +163,13 @@ function ReferralDetail({ referral }: { referral: Referral }) {
         action={fromSearch ? <Link to="/referrals/search">Back to search results</Link> : undefined}
         title={title}
       />
+
+      {fromCopy && (
+        <p className={styles.copiedNotice} ref={copiedNotice} role="status" tabIndex={-1}>
+          This is a new referral, copied from the one you were reading. It holds a place on the
+          session you chose, and the referral you copied is unchanged.
+        </p>
+      )}
 
       {isAdminView && !purged && (
         <AdminInfoPanel locked={locked} lockedId={lockedId} referral={referral} />
@@ -149,6 +182,22 @@ function ReferralDetail({ referral }: { referral: Referral }) {
             {REFERRAL_STATUS_LABELS[referral.status]}
           </span>
         </dd>
+        {/* What became of the *household*, which the status does not say: a
+            referral can read Reviewed whether they collected their parcel or
+            never turned up. Shown only where it adds something — a cancelled or
+            rejected referral reads `outcome: "booked"`, correctly (nothing
+            happened on the day), and "Still booked" beside "Cancelled" reads as
+            a household who is coming after all. See `displayedOutcome`. */}
+        {outcome !== null && (
+          <>
+            <dt>Outcome</dt>
+            <dd>
+              <span className={styles.outcome} data-outcome={outcome}>
+                {REFERRAL_OUTCOME_LABELS[outcome]}
+              </span>
+            </dd>
+          </>
+        )}
         <dt>Referred</dt>
         <dd>{formatLondonDateTime(referral.referredAt)}</dd>
         <dt>Session</dt>
@@ -222,6 +271,7 @@ function ReferralDetail({ referral }: { referral: Referral }) {
           <h2>Referral actions</h2>
           {isAdminView && isAwaitingReview(referral) && <ReviewPanel referral={referral} />}
           <ReferralActionsPanel
+            canCopy={isAdminView && canCopyReferral(referral)}
             canMarkReviewed={isAdminView && referral.status === 'active'}
             locked={locked}
             lockedId={lockedId}
@@ -931,10 +981,19 @@ function DetailsForm({
         <dd>{referral.refereePostcode ?? '—'}</dd>
         <dt>Phone</dt>
         <dd>{referral.refereePhone ?? '—'}</dd>
-        <dt>Adults</dt>
-        <dd>{referral.adults}</dd>
-        <dt>Children</dt>
-        <dd>{referral.children}</dd>
+        {/* Labelled with their real bounds, because "Adults: 6" for a household
+            of ten is only wrong to somebody who does not know these are the
+            grid's axes.  An admin corrects them, so an admin has to know what
+            they are counting.  A team lead reads the composition grid below
+            instead — the same household, without a definition to learn. */}
+        {isAdminView && (
+          <>
+            <dt>Adults (&gt;11)</dt>
+            <dd>{referral.adults}</dd>
+            <dt>Children (5-11)</dt>
+            <dd>{referral.children}</dd>
+          </>
+        )}
         <dt>Delivery</dt>
         <dd>{referral.isDelivery ? 'Yes' : 'No'}</dd>
         <dt>Fuel help</dt>
@@ -948,7 +1007,11 @@ function DetailsForm({
           </>
         )}
       </dl>
-      {isAdminView && isHouseholdComposition(householdComposition) && (
+      {/* Not gated on the role: the grid is how a team lead knows the shape of
+          the household they are packing for, and they already read it on the
+          pick-list screens.  It is what they get here in place of the two
+          operational counts above. */}
+      {isHouseholdComposition(householdComposition) && (
         <section aria-label="Household composition" className={styles.householdComposition}>
           <HouseholdCompositionGrid composition={householdComposition} />
         </section>
@@ -1004,31 +1067,68 @@ function ReferralActionsPanel({
   locked,
   lockedId,
   canMarkReviewed,
+  canCopy,
 }: {
   referral: Referral;
   sessions: readonly Session[];
   locked: string | null;
   lockedId: string;
   canMarkReviewed: boolean;
+  canCopy: boolean;
 }) {
   const cancel = useCancelReferral();
   const move = useAmendReferral();
+  const copy = useCopyReferral();
   const markReviewed = useMarkReferralReviewed();
-  const [dialog, setDialog] = useState<'cancel' | 'move' | null>(null);
+  const navigate = useNavigate();
+  const [dialog, setDialog] = useState<'cancel' | 'move' | 'copy' | null>(null);
   const [reason, setReason] = useState('');
   const [targetSessionId, setTargetSessionId] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [copyUncertain, setCopyUncertain] = useState(false);
+
+  /**
+   * Copying is not idempotent and the server deliberately does not refuse a
+   * second one (`OPEN-QUESTIONS.md` Q36, answered: not to be restricted), so two
+   * landed clicks are two referrals, two places held and two bags packed.
+   *
+   * **The disabling on `ConfirmDialog`'s confirm button cannot be relied on to
+   * stop that.** It is a real DOM `disabled`, which its focus trap needs, and a
+   * real `disabled` only takes effect on the next render — a genuine double tap
+   * lands both clicks before React gets there. So the second click is refused
+   * here instead, synchronously, where no render has to have happened.
+   *
+   * Released only on a `4xx`, where the server has said it wrote nothing. A
+   * network failure or a `5xx` may well have written, and re-arming the button
+   * after one is exactly how the duplicate gets made.
+   */
+  const copying = useRef(false);
 
   const reasonFieldId = useId();
   const selectId = useId();
+  const copySelectId = useId();
   const formErrorId = useId();
+  const settledId = useId();
+
+  /**
+   * Cancelling and moving have two separate refusals, and both have to be read
+   * before either button is offered: a cancelled or rejected referral is locked
+   * (`locked`), and so is one whose household already has an attendance
+   * outcome (`settled`) — "the same stopping point as a move, settled by the
+   * charity on 2026-08-15". Copying is governed by neither; it is what a
+   * settled referral has instead.
+   */
+  const settled = describeSettledReferral(referral);
+  const blocked = locked ?? settled;
+  const blockedId = locked === null ? settledId : lockedId;
 
   const options = sessions.filter((session) => session.id !== referral.sessionId);
   const target = sessions.find((session) => session.id === targetSessionId);
   const warning = target === undefined ? null : moveCapacityWarning(target);
+  const copyWarning = target === undefined ? null : copyCapacityWarning(target);
 
   const open = (which: 'cancel' | 'move') => {
-    if (locked !== null) return;
+    if (blocked !== null) return;
     setFormError(null);
     setDialog(which);
   };
@@ -1039,6 +1139,53 @@ function ReferralActionsPanel({
       {
         onSuccess: () => {
           setDialog(null);
+        },
+      },
+    );
+  };
+
+  const confirmCopy = () => {
+    if (targetSessionId === '') {
+      setFormError('Choose a session to copy this referral to.');
+      return;
+    }
+    setFormError(null);
+
+    if (copying.current) return;
+    copying.current = true;
+
+    copy.mutate(
+      {
+        id: referral.id,
+        sessionId: targetSessionId,
+        acknowledgeOverCapacity: copyWarning !== null,
+      },
+      {
+        onSuccess: (created) => {
+          setTargetSessionId('');
+          setDialog(null);
+          // The administrator is now working with the copy, not the referral
+          // they copied — `screenDetails.md`, "#Copying a referral". Replacing
+          // rather than pushing keeps Back going where it went before, and no
+          // location state travels: the copy is a new referral, not one of the
+          // search results this screen may have been opened from.
+          // The administrator is now working with the copy. The flag is a bare
+          // boolean and nothing else — history state is not a place a household
+          // may go — and it is what tells the destination to say what just
+          // happened rather than silently swapping one household for another.
+          void navigate(`/referrals/${created.id}`, { replace: true, state: { fromCopy: true } });
+        },
+        onError: (error) => {
+          // Only a `4xx` proves nothing was written. See the `copying` comment.
+          if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+            copying.current = false;
+            return;
+          }
+          // Otherwise the lock stays on, because the copy may well have landed.
+          // Say so: a button that looks live and silently swallows the click is
+          // indistinguishable from a broken one, and the administrator needs to
+          // know that reloading is how they find out whether it worked.
+          setCopyUncertain(true);
         },
       },
     );
@@ -1090,8 +1237,8 @@ function ReferralActionsPanel({
           </button>
         )}
         <button
-          aria-describedby={locked === null ? undefined : lockedId}
-          aria-disabled={locked !== null}
+          aria-describedby={blocked === null ? undefined : blockedId}
+          aria-disabled={blocked !== null}
           className={styles.danger}
           onClick={() => {
             open('cancel');
@@ -1101,8 +1248,8 @@ function ReferralActionsPanel({
           Cancel this referral
         </button>
         <button
-          aria-describedby={locked === null ? undefined : lockedId}
-          aria-disabled={locked !== null}
+          aria-describedby={blocked === null ? undefined : blockedId}
+          aria-disabled={blocked !== null}
           onClick={() => {
             open('move');
           }}
@@ -1110,7 +1257,31 @@ function ReferralActionsPanel({
         >
           Move to another session
         </button>
+        {/* Deliberately gated on neither refusal, unlike the other two: copying
+            is the one action a cancelled, rejected or no-show referral still
+            has, and it is the whole point of the button. See
+            `canCopyReferral`. */}
+        {canCopy && (
+          <button
+            onClick={() => {
+              setFormError(null);
+              setDialog('copy');
+            }}
+            type="button"
+          >
+            Copy to another session
+          </button>
+        )}
       </div>
+
+      {/* The parent already renders `locked`, so this is only the other
+          refusal. It says why cancelling and moving are inert, and for a
+          no-show it names copying as the answer instead. */}
+      {locked === null && settled !== null && (
+        <p className={styles.refusal} id={settledId}>
+          {settled}
+        </p>
+      )}
 
       {dialog === 'cancel' && (
         <ConfirmDialog
@@ -1137,6 +1308,73 @@ function ReferralActionsPanel({
               value={reason}
             />
           </div>
+        </ConfirmDialog>
+      )}
+
+      {dialog === 'copy' && (
+        <ConfirmDialog
+          /* `busy` also holds the button down once the outcome is unknown, so
+             it is genuinely disabled rather than live-looking and inert. */
+          busy={copy.isPending || copyUncertain}
+          confirmLabel="Copy to this session"
+          onCancel={() => {
+            setDialog(null);
+          }}
+          onConfirm={confirmCopy}
+          title="Copy this referral?"
+        >
+          {copy.error !== null && <ErrorNotice error={copy.error} />}
+          {copyUncertain && (
+            <p className={styles.warning} role="alert">
+              This copy may or may not have been made. Close this and reload the referral before
+              trying again — copying twice would book the household in twice.
+            </p>
+          )}
+          <p>
+            This referral stays exactly as it is. The copy holds a place on the session you choose,
+            approved and read, with the household&rsquo;s details and answers as they are here. The
+            administrator notes will say which referral it was copied from.
+          </p>
+          <div className={styles.field}>
+            <label htmlFor={copySelectId}>Choose session to copy to</label>
+            <select
+              aria-describedby={formError === null ? undefined : formErrorId}
+              className={styles.select}
+              id={copySelectId}
+              onChange={(event) => {
+                setTargetSessionId(event.target.value);
+                setFormError(null);
+              }}
+              value={targetSessionId}
+            >
+              <option value="">Choose a session</option>
+              {/* Every session, unlike the move list below, which leaves out the
+                  one the referral is already on. A household who cancelled and
+                  rang back can be copied onto the very session they cancelled
+                  from, and that is the ordinary case rather than an edge. */}
+              {sessions.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {formatSessionDate(session.sessionDate)}, {session.startTime} — {session.location}{' '}
+                  ({session.booked} of {session.capacity} booked)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {formError !== null && (
+            <p className={styles.fieldError} id={formErrorId}>
+              {formError}
+            </p>
+          )}
+
+          {/* A warning, not a refusal — capacity works exactly as it does for a
+              move, and the server accepts `acknowledgeOverCapacity` so it does
+              not have to refuse. */}
+          {copyWarning !== null && (
+            <p className={styles.warning} role="status">
+              {copyWarning}
+            </p>
+          )}
         </ConfirmDialog>
       )}
 

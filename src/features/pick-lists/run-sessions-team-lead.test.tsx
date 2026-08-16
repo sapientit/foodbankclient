@@ -61,7 +61,7 @@ const PARCEL: Parcel = {
   notes: null,
   answers: {
     Allergies: 'Gluten-free food for one person',
-    Dietary: 'Vegetarian',
+    Pulses: 'Vegetarian',
     'Household Components': { '0-4': { male: 1 }, 'working-age': { 'non-binary': 1 } },
   },
   lines: [
@@ -333,8 +333,12 @@ describe('a team lead running a session', () => {
       await screen.findByRole('heading', { level: 1, name: 'Pick #1: Sam Taylor' }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Pick #1/)).toHaveLength(1);
-    expect(screen.getByText('Adults/children: 1/1')).toBeInTheDocument();
+    // The composition grid is the only account of the household here. The
+    // adults/children pair is the grid's sizing axes — an adult is anyone over
+    // 11 and the under-fives count towards neither — so it must not be read
+    // back to a team lead as a description of who the bag is for.
     expect(screen.getByRole('table', { name: 'Household composition' })).toBeInTheDocument();
+    expect(screen.queryByText(/Adults\/children/)).toBeNull();
     expect(screen.getByText('Baked beans')).toBeInTheDocument();
     expect(screen.getByText('Vegetarian')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mark pick list reviewed' })).toBeEnabled();

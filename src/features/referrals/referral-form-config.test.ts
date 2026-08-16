@@ -31,27 +31,27 @@ describe('the shipped referral form', () => {
     expect(reusedKeys(FROZEN_ANSWER_KEYS, referralFormDefinition)).toEqual([]);
   });
 
-  it('keeps retired answer keys in the ledger but never treats them as typed columns', () => {
+  /**
+   * Deliberately says nothing about *which* keys are retired. It used to pin
+   * the exact retired set, which meant every question the charity drops edited
+   * this test — and the charity is expected to keep changing its mind about
+   * what it asks. Retiring a question is now a config change and nothing else.
+   *
+   * **What that gives up:** deleting a line from the ledger no longer fails
+   * anything. `unrecordedKeys` only checks the other direction — every live key
+   * is recorded — so a removed history entry is caught by reading the diff, not
+   * by this suite. The file says append-only at the top and that is now the
+   * whole of the enforcement.
+   */
+  it('never records a typed column in the answers ledger', () => {
     // A key field in the ledger would mean a column had been treated as an
     // answer somewhere, which is the mistake the split exists to prevent.
-    const answerKeys = new Set(dynamicQuestions(referralFormDefinition).map((q) => q.key));
-    const stale = FROZEN_ANSWER_KEYS.filter((entry) => !answerKeys.has(entry.key));
+    // Widened to `string` deliberately: a ledger entry's key is free text, and
+    // the whole question is whether one of them has come to equal a column name
+    // at runtime — which the narrower union type would refuse to even ask.
+    const columns = new Set<string>(keyFieldQuestions(referralFormDefinition).map((q) => q.field));
 
-    expect(stale).toEqual([
-      { key: 'Collect', type: 'text' },
-      { key: 'Child 0-2', type: 'number' },
-      { key: 'Child 3-4', type: 'number' },
-      { key: 'Child 5-11', type: 'number' },
-      { key: 'Child 12-17', type: 'number' },
-      { key: 'Cause Details', type: 'text' },
-      { key: 'Oil', type: 'choice' },
-      { key: 'Eggs', type: 'choice' },
-      { key: 'Pets', type: 'text' },
-      { key: 'Sanitary', type: 'choice' },
-      { key: 'Pre-Payment', type: 'choice' },
-      { key: 'Contact approved', type: 'choice' },
-      { key: 'Household composition', type: 'householdComposition' },
-    ]);
+    expect(FROZEN_ANSWER_KEYS.filter((entry) => columns.has(entry.key))).toEqual([]);
   });
 
   it('asks for every typed column the submission needs', () => {
@@ -88,7 +88,7 @@ describe('the shipped referral form', () => {
       .filter((question) => question.preference)
       .map((question) => question.key);
 
-    expect(preferences).toContain('Dietary');
+    expect(preferences).toContain('Allergies');
     expect(preferences).toContain('Toiletries');
     expect(preferences).not.toContain('Cause Details');
   });

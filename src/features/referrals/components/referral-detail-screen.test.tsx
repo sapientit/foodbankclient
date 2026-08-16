@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,6 +19,7 @@ const REFERRAL_CANCEL = '/api/v1/referrals/r1/cancel';
 const REFERRAL_ACCEPT = '/api/v1/referrals/r1/accept';
 const REFERRAL_REJECT = '/api/v1/referrals/r1/reject';
 const REFERRAL_REVIEW = '/api/v1/referrals/r1/review';
+const REFERRAL_COPY = '/api/v1/referrals/r1/copy';
 const REPEAT_REFERRALS = '/api/v1/referrals/r1/repeat-referrals';
 const SESSIONS = '/api/v1/sessions';
 const REASONS = '/api/v1/referral-reasons';
@@ -141,6 +142,19 @@ describe('the admin referral detail screen', () => {
     expect(await screen.findByText('Financial hardship')).toBeInTheDocument();
   });
 
+  it('labels the household counts with the ages they actually cover', async () => {
+    server.use(http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1' }))));
+
+    renderApp('/referrals/r1');
+
+    // An administrator corrects these two numbers, so the screen has to say what
+    // they count. Bare "Adults" would read as everyone over 18, which is not
+    // what sizes the parcel and not what a correction should be typed against.
+    expect(await screen.findByText('Adults (>11)')).toBeInTheDocument();
+    expect(screen.getByText('Children (5-11)')).toBeInTheDocument();
+    expect(screen.queryByText('Adults', { exact: true })).toBeNull();
+  });
+
   it('shows the compact household composition grid for an administrator', async () => {
     server.use(
       http.get(REFERRAL, () =>
@@ -209,8 +223,10 @@ describe('the admin referral detail screen', () => {
     await waitFor(() => {
       expect(receivedBody).toMatchObject({
         refereeSurname: 'Rowe-Smith',
+        // Two under-fives and one working-age adult: the operational pair the
+        // grid is indexed by, so the under-fives count towards neither number.
         adults: 1,
-        children: 2,
+        children: 0,
         isDelivery: true,
         answers: {
           gender: 'Female',
@@ -255,7 +271,7 @@ describe('the admin referral detail screen', () => {
         HttpResponse.json(
           referral({
             id: 'r1',
-            answers: { Dietary: 'Nut allergy', legacyQuestion: 'some old answer' },
+            answers: { Allergies: 'Nut allergy', legacyQuestion: 'some old answer' },
           }),
         ),
       ),
@@ -264,7 +280,7 @@ describe('the admin referral detail screen', () => {
     renderApp('/referrals/r1');
 
     expect(await screen.findByText('Nut allergy')).toBeInTheDocument();
-    expect(screen.getByText('Please specify any dietary requirements')).toBeInTheDocument();
+    expect(screen.getByText(/cannot eat certain foods/)).toBeInTheDocument();
     expect(screen.getByText('legacyQuestion')).toBeInTheDocument();
     expect(screen.getByText('some old answer')).toBeInTheDocument();
     expect(screen.getByText('(no longer on the form)')).toBeInTheDocument();
@@ -804,5 +820,314 @@ describe('the admin referral detail screen', () => {
       'aria-disabled',
       'true',
     );
+  });
+});
+
+describe('copying a referral', () => {
+  it('shows the outcome and a copy button for a household that did not turn up', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'reviewed', outcome: 'no_show' })),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    expect(screen.getByText('Outcome')).toBeInTheDocument();
+    expect(screen.getByText('No Show/Not in')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy to another session' })).toBeInTheDocument();
+  });
+
+  // The server refuses both once a parcel has an outcome — "the same stopping
+  // point as a move", settled 2026-08-15 — and `screenDetails.md` is explicit
+  // that moving and copying "must not be offered as alternatives for the same
+  // referral". An administrator mid-call who picks Move here would rewrite the
+  // record of a session that has already happened instead of making a booking.
+  it('does not offer cancelling or moving a household who did not turn up', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'reviewed', outcome: 'no_show' })),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+
+    expect(screen.getByRole('button', { name: 'Cancel this referral' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Move to another session' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByText(/did not turn up/)).toBeInTheDocument();
+  });
+
+  it('does not offer cancelling or moving a household who already collected, and offers no copy either', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'reviewed', outcome: 'attended' })),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+
+    expect(screen.getByRole('button', { name: 'Cancel this referral' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Move to another session' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    // Feeding them again is an ordinary new referral, not a copy.
+    expect(
+      screen.queryByRole('button', { name: 'Copy to another session' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('leaves cancelling and moving live for a household still to come', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'active', outcome: 'booked' })),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+
+    expect(screen.getByRole('button', { name: 'Cancel this referral' })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
+    expect(screen.getByRole('button', { name: 'Move to another session' })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
+  });
+
+  it('does not offer to copy a referral still on its way to being fed — that is a move, not a copy', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'active', outcome: 'booked' })),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    expect(screen.queryByRole('button', { name: 'Copy to another session' })).toBeNull();
+  });
+
+  it('offers a copy on a cancelled referral, without ever showing "Still booked" beside "Cancelled"', async () => {
+    // The server sends outcome: "booked" on a cancelled referral (nothing
+    // happened on the day) — `displayedOutcome` must not let that reach the
+    // screen next to the word "Cancelled".
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'cancelled', outcome: 'booked' })),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    expect(screen.getByRole('button', { name: 'Copy to another session' })).toBeInTheDocument();
+    expect(screen.queryByText('Still booked')).toBeNull();
+    expect(screen.queryByText('Outcome')).toBeNull();
+  });
+
+  it('copies a referral onto the chosen session and then shows the new referral, not the original', async () => {
+    let receivedBody: unknown = null;
+    const copiedReferral = referral({
+      id: 'r2',
+      sessionId: 's1',
+      status: 'reviewed',
+      outcome: 'booked',
+      refereeFirstName: 'Alex',
+      refereeSurname: 'Carter',
+      adminInfo: 'Copied from referral dated 2026-07-01',
+    });
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'cancelled', outcome: 'booked' })),
+      ),
+      http.post(REFERRAL_COPY, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(copiedReferral);
+      }),
+      http.get('/api/v1/referrals/r2', () => HttpResponse.json(copiedReferral)),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Copy to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
+    // Unlike the move picker, the referral's own session is offered here — a
+    // household who cancelled and rang back can be copied straight back onto
+    // the session they cancelled from.
+    await dialog.findByRole('option', { name: /Church Hall/ });
+    await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's1');
+    await user.click(dialog.getByRole('button', { name: 'Copy to this session' }));
+
+    await waitFor(() => {
+      expect(receivedBody).toEqual({ sessionId: 's1', acknowledgeOverCapacity: false });
+    });
+
+    // The screen now shows the copy, not the referral it was made from.
+    expect(await screen.findByRole('heading', { name: 'Alex Carter' })).toBeInTheDocument();
+    expect(screen.getByText('Copied from referral dated 2026-07-01')).toBeInTheDocument();
+  });
+
+  it('refuses to confirm with no session chosen, and sends no request', async () => {
+    let posts = 0;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'cancelled', outcome: 'booked' })),
+      ),
+      http.post(REFERRAL_COPY, () => {
+        posts += 1;
+        return HttpResponse.json(referral({ id: 'r2', sessionId: 's1', status: 'reviewed' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Copy to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
+    await user.click(dialog.getByRole('button', { name: 'Copy to this session' }));
+
+    expect(
+      await dialog.findByText('Choose a session to copy this referral to.'),
+    ).toBeInTheDocument();
+    expect(posts).toBe(0);
+  });
+
+  it('warns when copying into a full session, and still allows confirming with acknowledgeOverCapacity', async () => {
+    let receivedBody: unknown = null;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'cancelled', outcome: 'booked' })),
+      ),
+      http.post(REFERRAL_COPY, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(referral({ id: 'r2', sessionId: 's2', status: 'reviewed' }));
+      }),
+      http.get('/api/v1/referrals/r2', () =>
+        HttpResponse.json(referral({ id: 'r2', sessionId: 's2', status: 'reviewed' })),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Copy to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
+    await dialog.findByRole('option', { name: /Community Centre/ });
+    await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's2');
+
+    expect(await dialog.findByText(/already has 25 of 25 places booked/)).toBeInTheDocument();
+
+    const confirmButton = dialog.getByRole('button', { name: 'Copy to this session' });
+    expect(confirmButton).not.toHaveAttribute('disabled');
+    await user.click(confirmButton);
+
+    await waitFor(() => {
+      expect(receivedBody).toEqual({ sessionId: 's2', acknowledgeOverCapacity: true });
+    });
+  });
+
+  it('shows the server’s message verbatim on a 409, not a generic apology', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'cancelled', outcome: 'booked' })),
+      ),
+      http.post(REFERRAL_COPY, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'CONFLICT',
+              message: 'This session has been confirmed and cannot take a copy.',
+              requestId: 'r1',
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Copy to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
+    await dialog.findByRole('option', { name: /Church Hall/ });
+    await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's1');
+    await user.click(dialog.getByRole('button', { name: 'Copy to this session' }));
+
+    expect(await dialog.findByRole('alert')).toHaveTextContent(
+      'This session has been confirmed and cannot take a copy.',
+    );
+    expect(screen.queryByText('Something went wrong. Please try again.')).toBeNull();
+  });
+
+  /**
+   * The route is not idempotent and the server does not refuse a second copy
+   * (`API.md`, "Guard the button against a double press") — two landed clicks
+   * make two referrals, two places held and two bags packed. The button relies
+   * on a synchronous `useRef`, not `aria-disabled` alone, because `disabled`
+   * only takes effect on the next render and a real double tap lands both
+   * clicks first. `fireEvent` fires both clicks in the same tick, and the
+   * server-side request is held open until after both have landed, so this
+   * would catch the guard being removed or swapped for `disabled`.
+   */
+  it('guards the confirm button against a double click, sending exactly one copy request', async () => {
+    let posts = 0;
+    let releaseResponse: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      releaseResponse = resolve;
+    });
+    const copiedReferral = referral({ id: 'r2', sessionId: 's1', status: 'reviewed' });
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'cancelled', outcome: 'booked' })),
+      ),
+      http.post(REFERRAL_COPY, async () => {
+        posts += 1;
+        await held;
+        return HttpResponse.json(copiedReferral);
+      }),
+      http.get('/api/v1/referrals/r2', () => HttpResponse.json(copiedReferral)),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Copy to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
+    await dialog.findByRole('option', { name: /Church Hall/ });
+    await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's1');
+
+    const confirmButton = dialog.getByRole('button', { name: 'Copy to this session' });
+    // Both clicks dispatched inside one `act` batch, so React has not yet
+    // re-rendered `ConfirmDialog`'s own `disabled={busy}` between them — the
+    // same landing pattern as two real taps arriving before the browser has
+    // painted the first response, which is exactly what `copying.current`
+    // guards against.
+    act(() => {
+      fireEvent.click(confirmButton);
+      fireEvent.click(confirmButton);
+    });
+
+    releaseResponse?.();
+
+    await waitFor(() => {
+      expect(posts).toBe(1);
+    });
   });
 });

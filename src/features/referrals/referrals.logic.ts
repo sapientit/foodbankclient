@@ -74,6 +74,20 @@ export function cameFromSearch(state: unknown): boolean {
 }
 
 /**
+ * Whether this screen was arrived at by copying the referral that was open a
+ * moment ago, read from the router's location state — the same shape and the
+ * same reasoning as `cameFromSearch` above, including that the flag is a bare
+ * boolean. The copy swaps one household's record for another under the
+ * administrator without a page they chose to open, so the screen has to say so;
+ * what it must not do is carry any part of either household in history state.
+ */
+export function cameFromCopy(state: unknown): boolean {
+  return (
+    typeof state === 'object' && state !== null && 'fromCopy' in state && state.fromCopy === true
+  );
+}
+
+/**
  * The referee's name for a heading or a table cell. Both halves are nullable —
  * a purged referral has neither — so this returns `null` rather than letting
  * the string `null` or a stray space reach a screen, and a caller decides what
@@ -154,6 +168,86 @@ export function isPurged(referral: Pick<Referral, 'piiPurgedAt'>): boolean {
   return referral.piiPurgedAt !== null;
 }
 
+export type ReferralOutcome = NonNullable<Referral['outcome']>;
+
+/**
+ * What became of the household, as against `status`, which is what became of
+ * the referral. `API.md`: "The two answer different questions and must never be
+ * read as one" — so these are the outcome's own words and share nothing with
+ * `REFERRAL_STATUS_LABELS`. The pairs are the session client list's, because a
+ * team lead reading "No Show/Not in" there and an administrator reading it here
+ * are looking at the same fact.
+ */
+export const REFERRAL_OUTCOME_LABELS: Record<ReferralOutcome, string> = {
+  attended: 'Attended/Delivered',
+  no_show: 'No Show/Not in',
+  booked: 'Still booked',
+};
+
+/**
+ * `outcome` is **absent from `GET /referrals` list rows** — deriving it there
+ * would cost the server a second query over the whole session — so it is
+ * optional on the generated type and gated on reading the object, the same
+ * convention `hasAdminFields` follows. Absent is not `booked`.
+ */
+export function hasOutcome(
+  referral: Pick<Referral, 'outcome'>,
+): referral is Pick<Referral, 'outcome'> & { outcome: ReferralOutcome } {
+  return Object.hasOwn(referral, 'outcome');
+}
+
+/**
+ * The outcome worth putting on screen, or `null` where it would say nothing the
+ * status has not already said.
+ *
+ * A cancelled or rejected referral reads `outcome: "booked"` — nothing happened
+ * on the day, and the server is explicit that this is where a cancellation is
+ * recorded rather than a contradiction. It is still the wrong thing to show:
+ * "Cancelled" beside "Still booked" reads as a household who is coming after
+ * all. `screenDetails.md`, the referral detail screen: what became of the
+ * household is shown "only where it says something the status does not".
+ */
+export function displayedOutcome(
+  referral: Pick<Referral, 'status' | 'outcome'>,
+): ReferralOutcome | null {
+  if (referral.status === 'cancelled' || referral.status === 'rejected') return null;
+  return hasOutcome(referral) ? referral.outcome : null;
+}
+
+/**
+ * Whether this referral can be copied onto another session — the same test the
+ * server gates `POST /referrals/{id}/copy` on, so that the screen and the server
+ * agree rather than the administrator finding out by pressing the button.
+ *
+ * **Only where the original can no longer come to anything**: it was cancelled
+ * or rejected, or the household did not turn up. A referral still on its way to
+ * being fed is *moved*, and `screenDetails.md` is explicit that the two are
+ * never offered as alternatives for the same referral. A household who has
+ * already collected is not copied either — feeding them again is an ordinary
+ * new referral.
+ *
+ * A purged referral has nothing left to copy and is a `409`; that is the caller's
+ * own guard, since every other action on this screen is hidden for the same
+ * reason and the whole panel goes with it.
+ */
+export function canCopyReferral(referral: Pick<Referral, 'status' | 'outcome'>): boolean {
+  if (referral.status === 'cancelled' || referral.status === 'rejected') return true;
+  return hasOutcome(referral) && referral.outcome === 'no_show';
+}
+
+/**
+ * The copy lands on a session the administrator chooses, and a full one is
+ * warned about rather than refused — `acknowledgeOverCapacity` works "exactly
+ * as a move does" (`API.md`). Same arithmetic as `moveCapacityWarning`,
+ * different sentence, because "moving this referral here" is not what is about
+ * to happen and the administrator is being asked to confirm the other thing.
+ */
+export function copyCapacityWarning(target: TargetSessionOccupancy): string | null {
+  if (!wouldExceedCapacity(target)) return null;
+
+  return `This session already has ${String(target.booked)} of ${String(target.capacity)} places booked. Copying this referral here will take it over capacity.`;
+}
+
 /**
  * Predicts the one refusal that is safe to predict, the same shape as
  * `describeLockedSession`: **a cancelled referral cannot be amended, moved or
@@ -170,6 +264,35 @@ export function describeLockedReferral(referral: Pick<Referral, 'status'>): stri
   }
   if (referral.status === 'rejected') {
     return 'This referral was rejected, so it can no longer be amended or moved from here.';
+  }
+  return null;
+}
+
+/**
+ * The second refusal that is safe to predict, and a newer one than
+ * `describeLockedReferral`: **once a household has an attendance outcome, their
+ * referral can no longer be cancelled or moved.** Both are a `409` — "the same
+ * stopping point as a move, settled by the charity on 2026-08-15"
+ * (`openapi.yaml`, the cancel route). The day has happened and its record is not
+ * rewritten afterwards.
+ *
+ * Deliberately **not** folded into `describeLockedReferral`, which also governs
+ * amending: a name spelt wrong on a referral whose household has already
+ * collected is still worth correcting, and only cancelling and moving are
+ * refused. Two different refusals with two different scopes.
+ *
+ * The no-show sentence names copying, because that is the whole answer to the
+ * phone call that produces it — `screenDetails.md`, "#Copying a referral": the
+ * two "must not be offered as alternatives for the same referral".
+ */
+export function describeSettledReferral(referral: Pick<Referral, 'outcome'>): string | null {
+  if (!hasOutcome(referral)) return null;
+
+  if (referral.outcome === 'attended') {
+    return 'This household has already collected or been delivered to, so this referral can no longer be cancelled or moved.';
+  }
+  if (referral.outcome === 'no_show') {
+    return 'This household did not turn up, so this referral can no longer be cancelled or moved. Copy it to another session to give them another chance.';
   }
   return null;
 }

@@ -59,8 +59,45 @@ function rowTotal(composition: HouseholdComposition, band: HouseholdAgeBand): nu
   );
 }
 
-/** The only counts the server uses to choose a model parcel. */
+/**
+ * The two counts the rules run on: the model parcel's grid cell, the
+ * preference rules, and the pair sent to the server as `adults` and `children`.
+ *
+ * **They are not the everyday meanings of the two words and are not meant to
+ * be.** An adult here is anyone aged 12 or over, a child is the 5-11 band
+ * alone, and the 0-4 band counts towards neither — because these are the axes
+ * of the household grid, which is the charity's rule about how much food a
+ * household needs rather than a description of who lives there. A teenager
+ * eats an adult's share; an infant is fed from elsewhere.
+ *
+ * The server stores this pair and compares it without being told what it
+ * means, so the definition can change here without a migration there. Anything
+ * shown to a person who did not ask about parcel sizing wants
+ * {@link commonUsageHouseholdCounts} instead.
+ */
 export function operationalHouseholdCounts(composition: HouseholdComposition): {
+  readonly adults: number;
+  readonly children: number;
+} {
+  return {
+    adults:
+      rowTotal(composition, '12-17') +
+      rowTotal(composition, 'working-age') +
+      rowTotal(composition, 'state-pension-age'),
+    children: rowTotal(composition, '5-11'),
+  };
+}
+
+/**
+ * The same household counted the way the two words are normally used: adults
+ * are 18 or over, children are everyone under 18, and nobody is left out.
+ *
+ * Only the referrer's confirmation page reads this. A referrer has just filled
+ * in the grid and is checking it describes the household they know, so reading
+ * back the operational pair would show a household of ten as eight and call a
+ * fourteen-year-old an adult. It is never sent and never sizes a parcel.
+ */
+export function commonUsageHouseholdCounts(composition: HouseholdComposition): {
   readonly adults: number;
   readonly children: number;
 } {

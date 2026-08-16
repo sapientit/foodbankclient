@@ -33,6 +33,38 @@
   border-color: #7a4b00;
 }
 
+/* The same pill as a status, deliberately in the same shape and size: they sit
+   one above the other and answer two different questions about the same
+   referral. No fill on any of them — none is a call to action, and giving
+   "did not turn up" a colour would make it compete with awaiting review. */
+.outcome {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid currentcolor;
+  border-radius: 1rem;
+}
+
+.outcome[data-outcome='no_show'] {
+  color: #7a1c1c;
+}
+
+/* Focused programmatically after a copy, so it needs a focus ring of its own —
+   it is not a control and would otherwise take focus invisibly. */
+.copiedNotice {
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  max-inline-size: 60ch;
+  color: #14532d;
+  background: #f0fdf4;
+  border: 1px solid #14532d;
+  border-radius: 0.25rem;
+}
+
+.copiedNotice:focus-visible {
+  outline: 3px solid #14532d;
+  outline-offset: 2px;
+}
+
 .purgedNotice {
   margin: 0 0 1.5rem;
   padding: 0.75rem 1rem;

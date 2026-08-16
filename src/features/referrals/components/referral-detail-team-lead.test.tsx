@@ -136,6 +136,59 @@ describe('a team lead’s referral detail view', () => {
     expect(repeatReferralsRequested).not.toHaveBeenCalled();
   });
 
+  it('shows a team lead the composition grid in place of the operational counts', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          teamLeadReferral({
+            id: 'r1',
+            adults: 6,
+            children: 2,
+            answers: {
+              'Household Components': {
+                '0-4': { female: 1, male: 1 },
+                '5-11': { female: 1, male: 1 },
+                '12-17': { female: 1, male: 1 },
+                'working-age': { female: 1, male: 1 },
+                'state-pension-age': { female: 1, male: 1 },
+              },
+            },
+          }),
+        ),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+
+    // The grid describes the ten people. "Adults (>11): 6" describes the parcel
+    // and would read to a team lead as a claim about the household, so the
+    // labelled pair is the admin's and the grid is theirs.
+    expect(screen.getByRole('table', { name: 'Household composition' })).toBeInTheDocument();
+    expect(screen.queryByText('Adults (>11)')).toBeNull();
+    expect(screen.queryByText('Children (5-11)')).toBeNull();
+  });
+
+  it('does not offer a team lead a copy button, even on a no-show, though outcome itself is not admin-only', async () => {
+    // `API.md`: outcome is "Not admin-only. A team lead gets it, because they
+    // already see who turned up on the session screen." Copying is a
+    // different, admin-only action, so this must be proved by the button's
+    // absence, not by the outcome being missing — the team lead genuinely
+    // receives `outcome: "no_show"` here.
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(teamLeadReferral({ id: 'r1', status: 'reviewed', outcome: 'no_show' })),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+
+    expect(await screen.findByRole('heading', { name: 'Jamie Rowe' })).toBeInTheDocument();
+    // Outcome itself is on the page — it is not withheld from a team lead.
+    expect(screen.getByText('No Show/Not in')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy to another session' })).toBeNull();
+  });
+
   it('does not offer a team lead any referral amendment controls', async () => {
     let receivedBody: unknown = null;
     server.use(

@@ -57,6 +57,7 @@ const PARCEL: Parcel = {
 };
 
 let booked = 10;
+let spareBooked = 2;
 
 function sessionRow(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
   return {
@@ -116,6 +117,7 @@ function cachingClient(): QueryClient {
 
 beforeEach(() => {
   booked = 10;
+  spareBooked = 2;
   server.use(
     http.post(REFRESH, () =>
       HttpResponse.json({
@@ -336,5 +338,108 @@ describe('moving a referral away and the session it left', () => {
     // populated at the start of the test.
     renderApp('/sessions/s1', client);
     expect(await screen.findByText('9 of 25 booked')).toBeInTheDocument();
+  });
+});
+
+/**
+ * A copy is the opposite shape to a move: the original's session is the one
+ * thing that does **not** change, and the target session gains a household. The
+ * mistake worth pinning is invalidating the wrong one of the two.
+ */
+describe('copying a referral and the session it lands on', () => {
+  const SESSION_S2 = '/api/v1/sessions/s2';
+  const REFERRAL_COPY = '/api/v1/referrals/r1/copy';
+  const REFERRAL_R2 = '/api/v1/referrals/r2';
+
+  function noShowOriginal(): Referral {
+    return referralRow({ id: 'r1', status: 'reviewed', outcome: 'no_show' });
+  }
+
+  beforeEach(() => {
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(noShowOriginal())),
+      http.get(REFERRAL_R2, () =>
+        HttpResponse.json(
+          referralRow({ id: 'r2', sessionId: 's2', status: 'reviewed', outcome: 'booked' }),
+        ),
+      ),
+      http.get(SESSIONS, () =>
+        HttpResponse.json({
+          sessions: [
+            sessionRow({ id: 's1' }),
+            sessionRow({ id: 's2', booked: 2, location: 'Spare Hall' }),
+          ],
+        }),
+      ),
+      http.get(SESSION_S2, () =>
+        HttpResponse.json(sessionRow({ id: 's2', booked: spareBooked, location: 'Spare Hall' })),
+      ),
+      http.post(REFERRAL_COPY, () => {
+        spareBooked = 3;
+        return HttpResponse.json(
+          referralRow({ id: 'r2', sessionId: 's2', status: 'reviewed', outcome: 'booked' }),
+          { status: 201 },
+        );
+      }),
+    );
+  });
+
+  async function copyOntoSpareHall(): Promise<void> {
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Copy to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
+    await dialog.findByRole('option', { name: /Spare Hall/ });
+    await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's2');
+    await user.click(dialog.getByRole('button', { name: 'Copy to this session' }));
+    // The copy really arrived: the screen has swapped to it and says so.
+    await screen.findByText(/This is a new referral, copied from the one you were reading/);
+  }
+
+  it('refetches the booked count of the session the copy lands on', async () => {
+    const client = cachingClient();
+
+    // The target session's cache entry, populated the way an admin with it
+    // open in another tab would have.
+    renderApp('/sessions/s2', client);
+    expect(await screen.findByText('2 of 25 booked')).toBeInTheDocument();
+    cleanup();
+
+    renderApp('/referrals/r1', client);
+    await copyOntoSpareHall();
+    cleanup();
+
+    // Without `sessionKeys.detail(copy.sessionId)` this still reads 2 from the
+    // cache above — the household would be missing from the count that decides
+    // whether there is room for the next one.
+    renderApp('/sessions/s2', client);
+    expect(await screen.findByText('3 of 25 booked')).toBeInTheDocument();
+  });
+
+  it('leaves the original’s own session alone, because a copy changes nothing about it', async () => {
+    const client = cachingClient();
+    let sessionOneReads = 0;
+
+    server.use(
+      http.get(SESSION, () => {
+        sessionOneReads += 1;
+        return HttpResponse.json(sessionRow({ id: 's1' }));
+      }),
+    );
+
+    renderApp('/sessions/s1', client);
+    expect(await screen.findByText('10 of 25 booked')).toBeInTheDocument();
+    const before = sessionOneReads;
+    cleanup();
+
+    renderApp('/referrals/r1', client);
+    await copyOntoSpareHall();
+    cleanup();
+
+    renderApp('/sessions/s1', client);
+    expect(await screen.findByText('10 of 25 booked')).toBeInTheDocument();
+    // Served from cache: the session the referral was already on did not gain
+    // or lose anybody, so invalidating it would be a request for nothing.
+    expect(sessionOneReads).toBe(before);
   });
 });

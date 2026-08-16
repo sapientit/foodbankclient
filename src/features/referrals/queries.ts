@@ -482,6 +482,74 @@ export function useMarkReferralReviewed() {
 }
 
 /**
+ * Copies a referral that came to nothing onto another session, so a household
+ * who did not turn up, or whose referral was cancelled or rejected, gets
+ * another chance. The original is untouched — the no-show stays where it
+ * happened — and the copy arrives `reviewed`, approved and read in one go.
+ *
+ * **Invalidates the *original's* detail as well as caching the copy.** The copy
+ * is a new referral for the same household on the same date of birth, postcode
+ * and phone, so it matches the original: `repeatReferrals` on the referral just
+ * copied is one higher than the number on screen the moment this returns.
+ * Whether it *should* count is `../foodbankserver/OPEN-QUESTIONS.md`; that it
+ * changes is not in doubt, and leaving yesterday's count in front of the
+ * administrator who caused the change is the sort of staleness this file exists
+ * to prevent.
+ *
+ * **Not idempotent, and the server does not guard it** — two calls make two
+ * referrals, two places held and two bags packed. Pete settled on 2026-08-15
+ * that nothing should stop an administrator copying more than once, so the
+ * guard belongs on the button rather than here: see the `copying` ref in
+ * `referral-detail-screen.tsx`.
+ */
+export function useCopyReferral() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      sessionId,
+      acknowledgeOverCapacity,
+    }: {
+      id: string;
+      sessionId: string;
+      acknowledgeOverCapacity: boolean;
+    }): Promise<Referral> =>
+      unwrap(
+        api.POST('/api/v1/referrals/{id}/copy', {
+          params: { path: { id } },
+          body: { sessionId, acknowledgeOverCapacity },
+        }),
+      ),
+    onSuccess: (copy, variables) => {
+      queryClient.setQueryData(referralKeys.detail(copy.id), copy);
+      // The original keeps its status, session and parcel, but not its repeat
+      // count — see above. Both the summary embedded in the detail and the
+      // separately-cached match list have to go: they are disjoint key roots,
+      // and `PreviousReferralsPanel` prefers the list's data over the summary,
+      // so invalidating only the detail leaves the pre-copy count on screen for
+      // whichever administrator had already pressed "Show previous referrals" —
+      // which is exactly the administrator who just decided to copy.
+      void queryClient.invalidateQueries({ queryKey: referralKeys.detail(variables.id) });
+      void queryClient.invalidateQueries({
+        queryKey: referralKeys.repeatReferralsFor(variables.id),
+      });
+      void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: referralKeys.searches() });
+      void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
+      // The copy holds a place on its new session from this moment, so that
+      // session's `booked` is stale. The session being copied *from* is not:
+      // nothing about the original changed.
+      void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(copy.sessionId) });
+      // No parcel is created, but the target session now has a household its
+      // pick list has not reconciled — the run-session screen reports that only
+      // once this cached response has been refreshed.
+      void queryClient.invalidateQueries({ queryKey: pickListKeys.all });
+    },
+  });
+}
+
+/**
  * Idempotent on the server — a second cancel of an already-cancelled referral
  * still answers `200` with the same row — so this hook does not need to guard
  * against a double click the way the shop's purchase submit does.
