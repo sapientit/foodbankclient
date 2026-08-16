@@ -75,8 +75,11 @@ declare **and ours to enforce**:
   `src/lib/postcode.ts`. It is searched on, and one household spelled three ways matches nothing.
 
 **`referral-answer-keys.frozen.ts` is append-only.** Every key the form has released, with the kind
-of question it was. Adding a question means adding it there in the same change; `unrecordedKeys` is
-what notices if you forget, and a test runs both guards against the shipped config. Never edit a
-line, never delete one, never reuse a key. The keys are the `Key` column of
+of question it was. Adding a question means adding it there in the same change — **run
+`npm run form:freeze`, which appends the new keys for you** rather than hand-editing; it refuses when
+a key comes back as a different kind of question, which is the one case that needs a person.
+`unrecordedKeys` is what notices if you forget, and a test runs both guards against the shipped
+config. Never edit a line, never delete one, never reuse a key. **Retiring a question needs no change
+here at all** — the key stays recorded, which is the point. The keys are the `Key` column of
 `Referral questions.csv` verbatim — spaces and capitals included — because that is where the charity
 said how each answer should appear. They are data, not identifiers, and `camelCase` does not apply.

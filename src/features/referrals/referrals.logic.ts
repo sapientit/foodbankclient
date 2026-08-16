@@ -11,9 +11,22 @@ import type { Referral } from './queries';
  * No React, no fetching, tested directly.
  */
 
+/**
+ * **The two passes have separate words, because the statuses are not one scale.**
+ * `pending_review` is a decision about the *referrer* — their address was not
+ * recognised, and `/accept` is the same call that can authorise them. `active →
+ * reviewed` is an administrator reading the referral through, which every
+ * referral waits for whoever sent it.
+ *
+ * So `pending_review` must not be labelled with the word "review" at all: beside
+ * "Reviewed" it read as the same pass at an earlier stage, and "Active" read as
+ * a referral needing nothing when it is in fact the pile still to be read.
+ * Settled by Pete on 2026-08-16 — `screenDetails.md`, "Referrals awaiting a
+ * decision".
+ */
 export const REFERRAL_STATUS_LABELS: Record<ReferralStatus, string> = {
-  pending_review: 'Awaiting review',
-  active: 'Active',
+  pending_review: 'Approve referrer',
+  active: 'Pending review',
   reviewed: 'Reviewed',
   rejected: 'Rejected',
   cancelled: 'Cancelled',
@@ -118,23 +131,31 @@ export function refereeNameForList(
   return first === null || first.trim() === '' ? surname : `${surname}, ${first}`;
 }
 
-/** Awaiting an administrator's decision, and therefore not a booking. */
-export function isAwaitingReview(referral: Pick<Referral, 'status'>): boolean {
+/**
+ * Waiting on an administrator's decision about the *referrer*, whose address the
+ * charity did not recognise — not on the read-through that `reviewed` records.
+ *
+ * Named for the decision rather than for `pending_review`'s wire spelling: the
+ * enum's word is what made these two passes look like one, and a predicate is
+ * where that misreading would spread furthest. It still **holds its place** on
+ * the session, so this is not a test for "not a booking" (`API.md` §3).
+ */
+export function needsReferrerApproval(referral: Pick<Referral, 'status'>): boolean {
   return referral.status === 'pending_review';
 }
 
 /**
- * Referrals awaiting review sort ahead of everything else, each group newest
- * first. A household waiting on a decision is more urgent than one already
- * booked in — `screenDetails.md`, "Referrals awaiting review" — and putting
- * them at the top is the difference between a queue somebody works and a queue
- * somebody has to go looking for.
+ * Referrals waiting on a referrer decision sort ahead of everything else, each
+ * group newest first. A household waiting on a decision is more urgent than one
+ * already booked in — `screenDetails.md`, "Referrals awaiting a decision" — and
+ * putting them at the top is the difference between a queue somebody works and a
+ * queue somebody has to go looking for.
  */
 export function sortForReview(referrals: readonly Referral[]): Referral[] {
   const sorted = sortReferrals(referrals);
   return [
-    ...sorted.filter((referral) => isAwaitingReview(referral)),
-    ...sorted.filter((referral) => !isAwaitingReview(referral)),
+    ...sorted.filter((referral) => needsReferrerApproval(referral)),
+    ...sorted.filter((referral) => !needsReferrerApproval(referral)),
   ];
 }
 

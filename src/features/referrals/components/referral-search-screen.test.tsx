@@ -80,7 +80,7 @@ describe('administrator referral search', () => {
       '/referrals/r1',
     );
     expect(screen.getByText(/15 Aug 2026/)).toBeInTheDocument();
-    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Pending review')).toBeInTheDocument();
     expect(screen.getByText('GU23 4XX')).toBeInTheDocument();
     expect(screen.getByText('01483 123456')).toBeInTheDocument();
     expect(screen.getByText('Guildford Borough Council')).toBeInTheDocument();

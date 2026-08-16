@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Referral } from './queries';
 import {
+  REFERRAL_STATUS_LABELS,
   cameFromCopy,
   cameFromSearch,
   canCopyReferral,
@@ -13,6 +14,7 @@ import {
   isPurged,
   isReferralStatus,
   moveCapacityWarning,
+  needsReferrerApproval,
   normalisePhone,
   parseWholeNumber,
   refereeName,
@@ -201,8 +203,42 @@ describe('refereeName / refereeNameForList', () => {
   });
 });
 
+describe('REFERRAL_STATUS_LABELS', () => {
+  // The two passes are not one scale. `pending_review` is a decision about the
+  // *referrer* the charity did not recognise; `active → reviewed` is an
+  // administrator reading the referral through. Labelling the first with the
+  // word "review" made it read as an earlier stage of the second, and made
+  // "Active" — the pile still to be read — look like a referral needing
+  // nothing. `screenDetails.md`, "Referrals awaiting a decision".
+  it('never spends the word "review" on the referrer decision', () => {
+    expect(REFERRAL_STATUS_LABELS.pending_review).toBe('Approve referrer');
+    expect(REFERRAL_STATUS_LABELS.pending_review).not.toMatch(/review/i);
+  });
+
+  it('names the read-through pass on both of its statuses', () => {
+    expect(REFERRAL_STATUS_LABELS.active).toBe('Pending review');
+    expect(REFERRAL_STATUS_LABELS.reviewed).toBe('Reviewed');
+  });
+
+  it('gives every status a distinct label, so no two read as the same state', () => {
+    const labels = Object.values(REFERRAL_STATUS_LABELS);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+});
+
+describe('needsReferrerApproval', () => {
+  it('is true only for the referral held on an unrecognised referrer', () => {
+    expect(needsReferrerApproval({ status: 'pending_review' })).toBe(true);
+    // Not the read-through pass: neither of these is waiting on a referrer.
+    expect(needsReferrerApproval({ status: 'active' })).toBe(false);
+    expect(needsReferrerApproval({ status: 'reviewed' })).toBe(false);
+    expect(needsReferrerApproval({ status: 'rejected' })).toBe(false);
+    expect(needsReferrerApproval({ status: 'cancelled' })).toBe(false);
+  });
+});
+
 describe('sortForReview', () => {
-  it('puts referrals awaiting review first, each group newest first', () => {
+  it('puts referrals waiting on a referrer decision first, each group newest first', () => {
     // A household waiting on a decision is more urgent than one already booked
     // in, and a queue nobody sees is a queue nobody works.
     const list = [

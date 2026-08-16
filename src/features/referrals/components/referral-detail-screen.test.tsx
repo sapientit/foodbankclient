@@ -618,12 +618,13 @@ describe('the admin referral detail screen', () => {
     expect(matchesRequested).not.toHaveBeenCalled();
   });
 
-  it('offers accept and reject only while a referral is awaiting review', async () => {
+  it('offers accept and reject only while a referral waits on its referrer', async () => {
     server.use(http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1' }))));
     renderApp('/referrals/r1');
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
-    // An active referral has nothing to review.
+    // A referral whose referrer is recognised has no such decision outstanding —
+    // it is only waiting to be read through, which is a different pass.
     expect(screen.queryByRole('button', { name: 'Approve this referral' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Reject this referral' })).toBeNull();
   });
@@ -642,7 +643,11 @@ describe('the admin referral detail screen', () => {
     const user = userEvent.setup();
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
-    expect(screen.getByText(/This referral is awaiting review/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: 'This referral is waiting for the referrer to be approved',
+      }),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Approve this referral' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Approve this referral?' }));

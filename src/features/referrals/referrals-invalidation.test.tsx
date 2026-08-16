@@ -259,7 +259,7 @@ describe('changing a referral and the search results behind it', () => {
     await user.type(await screen.findByLabelText('or Postcode'), 'AB1 2CD');
     await user.click(screen.getByRole('button', { name: 'Search' }));
     await screen.findByRole('link', { name: 'Rowe, Jamie' });
-    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Pending review')).toBeInTheDocument();
     cleanup();
 
     // Opening a result and cancelling it, exactly as the link on that row does.
@@ -276,13 +276,13 @@ describe('changing a referral and the search results behind it', () => {
 
     // Back to the results. The search is a cache entry keyed on its criteria,
     // under a prefix `referralKeys.lists()` does not cover — without the
-    // mutation invalidating it, this row still reads "Active".
+    // mutation invalidating it, this row still reads "Pending review".
     renderApp('/referrals/search', client);
     await screen.findByRole('link', { name: 'Rowe, Jamie' });
     await waitFor(() => {
       expect(screen.getByText('Cancelled')).toBeInTheDocument();
     });
-    expect(screen.queryByText('Active')).toBeNull();
+    expect(screen.queryByText('Pending review')).toBeNull();
   });
 });
 

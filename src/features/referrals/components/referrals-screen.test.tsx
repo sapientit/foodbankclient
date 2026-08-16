@@ -70,13 +70,16 @@ beforeEach(() => {
 });
 
 describe('the referrals list', () => {
-  it('highlights an active referral so it stands out from reviewed referrals', async () => {
+  it('highlights a referral still to be read so it stands out from reviewed ones', async () => {
     server.use(
       http.get(REFERRALS, () =>
         HttpResponse.json({
           referrals: [
-            referral({ id: 'active', status: 'active', refereeSurname: 'Active' }),
-            referral({ id: 'reviewed', status: 'reviewed', refereeSurname: 'Reviewed' }),
+            // Surnames deliberately unlike any status word: matching a row by a
+            // name that is also a label is how this assertion would pass on the
+            // wrong row.
+            referral({ id: 'active', status: 'active', refereeSurname: 'Unread' }),
+            referral({ id: 'reviewed', status: 'reviewed', refereeSurname: 'Alreadyread' }),
           ],
         }),
       ),
@@ -84,8 +87,33 @@ describe('the referrals list', () => {
 
     renderApp('/referrals');
 
-    expect((await screen.findByRole('row', { name: /Active/ })).dataset.active).toBe('true');
-    expect(screen.getByRole('row', { name: /Reviewed/ }).dataset.active).toBeUndefined();
+    expect((await screen.findByRole('row', { name: /Unread/ })).dataset.active).toBe('true');
+    expect(screen.getByRole('row', { name: /Alreadyread/ }).dataset.active).toBeUndefined();
+  });
+
+  it('names the two waiting statuses apart — the referrer decision is not the read-through', async () => {
+    server.use(
+      http.get(REFERRALS, () =>
+        HttpResponse.json({
+          referrals: [
+            referral({ id: 'held', status: 'pending_review', refereeSurname: 'Held' }),
+            referral({ id: 'unread', status: 'active', refereeSurname: 'Unread' }),
+            referral({ id: 'read', status: 'reviewed', refereeSurname: 'Alreadyread' }),
+          ],
+        }),
+      ),
+    );
+
+    renderApp('/referrals');
+
+    // `pending_review` is a decision about the referrer, not an earlier stage of
+    // the read-through that `reviewed` records, so it must not borrow its word.
+    const held = await screen.findByRole('row', { name: /Held/ });
+    expect(held).toHaveTextContent('Approve referrer');
+    expect(held).not.toHaveTextContent(/review(ed)?\b/i);
+
+    expect(screen.getByRole('row', { name: /Unread/ })).toHaveTextContent('Pending review');
+    expect(screen.getByRole('row', { name: /Alreadyread/ })).toHaveTextContent('Reviewed');
   });
 
   it('lists a referral with its household size, organisation and status', async () => {
@@ -99,7 +127,7 @@ describe('the referrals list', () => {
     const row = screen.getByRole('row', { name: /Rowe, Jamie/ });
     expect(row).toHaveTextContent('2 adults, 1 child');
     expect(row).toHaveTextContent('Riverside Church');
-    expect(row).toHaveTextContent('Active');
+    expect(row).toHaveTextContent('Pending review');
   });
 
   it('shows a purged referral as removed, never as a blank or "undefined"', async () => {

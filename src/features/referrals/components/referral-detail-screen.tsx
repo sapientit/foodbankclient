@@ -60,9 +60,9 @@ import {
   displayedOutcome,
   hasAdminFields,
   hasRepeatReferralSummary,
-  isAwaitingReview,
   isPurged,
   moveCapacityWarning,
+  needsReferrerApproval,
   refereeName,
 } from '../referrals.logic';
 import { keyFieldValue } from '../referral-key-fields';
@@ -269,7 +269,7 @@ function ReferralDetail({ referral }: { referral: Referral }) {
       {!purged && (
         <section className={styles.section}>
           <h2>Referral actions</h2>
-          {isAdminView && isAwaitingReview(referral) && <ReviewPanel referral={referral} />}
+          {isAdminView && needsReferrerApproval(referral) && <ReviewPanel referral={referral} />}
           <ReferralActionsPanel
             canCopy={isAdminView && canCopyReferral(referral)}
             canMarkReviewed={isAdminView && referral.status === 'active'}
@@ -561,12 +561,15 @@ function ReviewPanel({ referral }: { referral: Referral }) {
 
   return (
     <div className={styles.actionPanel}>
-      <h3>This referral is awaiting review</h3>
+      {/* Names the referrer, not "review": this panel is the decision about
+          whether the sender is one the charity accepts, and the separate
+          read-through pass is what "Reviewed" records. */}
+      <h3>This referral is waiting for the referrer to be approved</h3>
       <p>
         We do not recognise{' '}
         {referral.referrerEmail === null ? 'the referrer’s email address' : referral.referrerEmail},
-        so this referral is not booked in yet. Accepting it keeps the place it is already holding on
-        the session; rejecting it gives that place back.
+        so nobody has decided yet whether to accept it. Accepting keeps the place this referral is
+        already holding on the session; rejecting gives that place back.
       </p>
 
       {review.error !== null && <ErrorNotice error={review.error} />}

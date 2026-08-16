@@ -21,6 +21,8 @@
     "test:coverage": "vitest run --coverage",
     "api:types": "openapi-typescript ../foodbankserver/openapi.yaml -o src/api/schema.d.ts",
     "api:types:check": "node scripts/check-api-types.mjs",
+    "form:freeze": "node scripts/freeze-referral-keys.mjs",
+    "form:freeze:check": "node scripts/freeze-referral-keys.mjs --check",
     "cf-typegen": "wrangler types --strict-vars",
     "dry-run": "CLOUDFLARE_ENV=production npm run build && wrangler deploy --dry-run --outdir .wrangler/dry-run",
     "deploy": "CLOUDFLARE_ENV=production npm run build && wrangler deploy",

@@ -761,7 +761,7 @@ describe('submitting', () => {
     expect(summary.textContent).not.toContain('q1');
   });
 
-  it('says plainly that a referral awaiting review is not a booking', async () => {
+  it('tells the referrer not to rely on a place the food bank may still reject', async () => {
     server.use(
       http.post(SUBMIT, () => HttpResponse.json(receipt('pending_review'), { status: 201 })),
     );
@@ -774,6 +774,12 @@ describe('submitting', () => {
     ).toBeInTheDocument();
     // The failure this prevents: somebody leaves believing a household is
     // booked in when an administrator has not looked at it yet.
+    //
+    // This is deliberately more cautious than what the session does — the
+    // referral is already holding its place and is picked for, and a household
+    // who turns up anyway is served. Both are intended; see the comment at this
+    // notice. So the assertion is on the referrer's advice staying put, and it
+    // must not be "fixed" to match the operational side.
     expect(screen.getByText(/Nobody should turn up to a session until/)).toBeInTheDocument();
   });
 

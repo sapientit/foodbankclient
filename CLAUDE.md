@@ -37,6 +37,7 @@ server's docs; never read or modify the server's code.**
 | Lint / format  | `npm run lint` · `npm run format` (`:fix`, `:check`)           |
 | Test           | `npm test` (`test:watch`, `test:coverage`)                     |
 | Regenerate     | `npm run api:types` · `npm run cf-typegen`                     |
+| Form key added | `npm run form:freeze` — after adding a referral-form question  |
 | **Everything** | `npm run check` (`build`, `dry-run` and `deploy` are separate) |
 
 **`npm run check` must pass before any change is considered done. Do not weaken a rule to make it

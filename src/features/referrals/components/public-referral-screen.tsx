@@ -415,6 +415,14 @@ function Confirmation({
 
       <div className={pending ? styles.pendingNotice : styles.sentNotice}>
         {pending ? (
+          /* **Deliberately more cautious than what the session actually does,
+             and not to be "corrected" to match it.** This referral is already
+             holding its place: it counts against capacity, a parcel is picked
+             for it, and if the household turns up the team leader serves them
+             (`screenDetails.md`, "Referrals awaiting a decision"). But it may
+             still be rejected, and a household sent to a hall to be turned away
+             at the door is the worst outcome there is — so the referrer is told
+             to check rather than to rely on it. Settled by Pete on 2026-08-16. */
           <>
             <h2 className={styles.noticeHeadline}>This household is not booked in yet</h2>
             <p>

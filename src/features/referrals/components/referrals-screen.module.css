@@ -43,6 +43,11 @@
   font-size: 0.85rem;
   border: 1px solid currentcolor;
   border-radius: 1rem;
+  /* Two-word labels stay on one line: a bordered pill that wraps draws its
+     outline round two half-lines, and this column is the narrowest place they
+     appear. Held here rather than by a non-breaking space in the label, which
+     also fills the filter dropdown above and is read out by a screen reader. */
+  white-space: nowrap;
 }
 
 /* Colour is never the only signal — the label text already says the status —
@@ -66,7 +71,7 @@
   }
 }
 
-/* Matches the detail screen: awaiting review is the one status that is a call
+/* Matches the detail screen: Approve referrer is the one status that is a call
    to action rather than a record of one. */
 .status[data-status='pending_review'] {
   color: #7a4b00;
