@@ -72,6 +72,12 @@
   border-color: #b3261e;
 }
 
+.checkboxField {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .reasonField {
   display: grid;
   gap: 0.375rem;

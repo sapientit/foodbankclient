@@ -11,6 +11,7 @@ import {
   formatLondonDateTime,
   formatSessionDate,
 } from '../../../lib/london-time';
+import { describeSessionChoice } from '../../../lib/session-description';
 import { useReferralReasons, type AdminReferralReason } from '../../admin-setup/queries';
 import { useSessions, type Session } from '../../sessions/queries';
 import { describeAnswers, type AnswersDisplay } from '../referral-answers.logic';
@@ -206,7 +207,10 @@ function ReferralDetail({ referral }: { referral: Referral }) {
             'Not in the current session list'
           ) : (
             <Link to={`/sessions/${referral.sessionId}`}>
-              {formatSessionDate(session.sessionDate)}, {session.startTime} — {session.location}
+              {describeSessionChoice(
+                `${formatSessionDate(session.sessionDate)}, ${session.startTime}`,
+                session,
+              )}
             </Link>
           )}
         </dd>
@@ -1357,7 +1361,10 @@ function ReferralActionsPanel({
                   from, and that is the ordinary case rather than an edge. */}
               {sessions.map((session) => (
                 <option key={session.id} value={session.id}>
-                  {formatSessionDate(session.sessionDate)}, {session.startTime} — {session.location}{' '}
+                  {describeSessionChoice(
+                    `${formatSessionDate(session.sessionDate)}, ${session.startTime}`,
+                    session,
+                  )}{' '}
                   ({session.booked} of {session.capacity} booked)
                 </option>
               ))}
@@ -1407,7 +1414,10 @@ function ReferralActionsPanel({
               <option value="">Choose a session</option>
               {options.map((session) => (
                 <option key={session.id} value={session.id}>
-                  {formatSessionDate(session.sessionDate)}, {session.startTime} — {session.location}{' '}
+                  {describeSessionChoice(
+                    `${formatSessionDate(session.sessionDate)}, ${session.startTime}`,
+                    session,
+                  )}{' '}
                   ({session.booked} of {session.capacity} booked)
                 </option>
               ))}

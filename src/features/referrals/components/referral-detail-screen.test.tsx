@@ -60,7 +60,8 @@ function session(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
     startsAtUtc: '2026-08-04T09:00:00.000Z',
     durationMinutes: 90,
     location: 'St Mary’s Hall',
-    deliveryTime: null,
+    deliveryWindowStart: null,
+    deliveryWindowEnd: null,
     deliveriesAllowed: false,
     capacity: 25,
     booked: 10,
@@ -211,9 +212,17 @@ describe('the admin referral detail screen', () => {
       screen.getByLabelText('How will the parcel be collected'),
       'Delivery Requested',
     );
-    await user.selectOptions(
-      screen.getByLabelText('Please confirm the client meets these criteria'),
-      'Yes',
+    // Both confirmations, which is what the question now takes. The delivery
+    // window line above them does not render here: the admin edit passes no
+    // sessions to resolve `$deliveryTime` against, so the row hides rather than
+    // printing the token.
+    await user.click(
+      screen.getByRole('checkbox', { name: 'The client meets the criteria for delivery' }),
+    );
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: 'The client will be at home for the delivery time above',
+      }),
     );
     const surname = screen.getByLabelText(/Client.s surname/i);
     await user.clear(surname);
@@ -234,7 +243,12 @@ describe('the admin referral detail screen', () => {
           languages: 'English',
           'Household Components': { '0-4': { male: 2 }, 'working-age': { female: 1 } },
           'Collection method': 'Delivery Requested',
-          deliveryConfirm: 'Yes',
+          // An array, not a bare value: the question now takes two answers, and
+          // a multi-answer choice stores a list even when it is fully ticked.
+          deliveryConfirm: [
+            'The client meets the criteria for delivery',
+            'The client will be at home for the delivery time above',
+          ],
         },
       });
     });
@@ -410,7 +424,7 @@ describe('the admin referral detail screen', () => {
     const dialog = within(screen.getByRole('dialog', { name: 'Move to another session?' }));
     // Waits for the sessions query itself, not just the referral — selecting
     // before the option list has loaded is a race, not a real interaction.
-    await dialog.findByRole('option', { name: /Community Centre/ });
+    await dialog.findByRole('option', { name: /25 of 25 booked/ });
     await user.selectOptions(dialog.getByLabelText('Choose session to move to'), 's2');
 
     expect(await dialog.findByText(/already has 25 of 25 places booked/)).toBeInTheDocument();
@@ -448,7 +462,7 @@ describe('the admin referral detail screen', () => {
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     await user.click(screen.getByRole('button', { name: 'Move to another session' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Move to another session?' }));
-    await dialog.findByRole('option', { name: /Spare Hall/ });
+    await dialog.findByRole('option', { name: /2 of 25 booked/ });
     await user.selectOptions(dialog.getByLabelText('Choose session to move to'), 's3');
     await user.click(dialog.getByRole('button', { name: 'Move to this session' }));
 
@@ -975,7 +989,7 @@ describe('copying a referral', () => {
     // Unlike the move picker, the referral's own session is offered here — a
     // household who cancelled and rang back can be copied straight back onto
     // the session they cancelled from.
-    await dialog.findByRole('option', { name: /Church Hall/ });
+    await dialog.findByRole('option', { name: /10 of 25 booked/ });
     await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's1');
     await user.click(dialog.getByRole('button', { name: 'Copy to this session' }));
 
@@ -1033,7 +1047,7 @@ describe('copying a referral', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Copy to another session' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
-    await dialog.findByRole('option', { name: /Community Centre/ });
+    await dialog.findByRole('option', { name: /25 of 25 booked/ });
     await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's2');
 
     expect(await dialog.findByText(/already has 25 of 25 places booked/)).toBeInTheDocument();
@@ -1071,7 +1085,7 @@ describe('copying a referral', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Copy to another session' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
-    await dialog.findByRole('option', { name: /Church Hall/ });
+    await dialog.findByRole('option', { name: /10 of 25 booked/ });
     await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's1');
     await user.click(dialog.getByRole('button', { name: 'Copy to this session' }));
 
@@ -1115,7 +1129,7 @@ describe('copying a referral', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Copy to another session' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
-    await dialog.findByRole('option', { name: /Church Hall/ });
+    await dialog.findByRole('option', { name: /10 of 25 booked/ });
     await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's1');
 
     const confirmButton = dialog.getByRole('button', { name: 'Copy to this session' });

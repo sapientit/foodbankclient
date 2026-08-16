@@ -5,7 +5,7 @@ import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatSessionDate } from '../../../lib/london-time';
 import { useRecurringSessions, useRunSessionMaterialisation } from '../queries';
-import { WEEKDAY_LABELS, describeMaterialisation } from '../sessions.logic';
+import { WEEKDAY_LABELS, describeDeliveries, describeMaterialisation } from '../sessions.logic';
 import styles from './recurring-sessions-screen.module.css';
 
 /**
@@ -109,6 +109,7 @@ export function RecurringSessionsScreen() {
                 Capacity
               </th>
               <th scope="col">Active</th>
+              <th scope="col">Deliveries</th>
               <th scope="col">Actions</th>
             </tr>
           </thead>
@@ -124,6 +125,7 @@ export function RecurringSessionsScreen() {
                   From {formatSessionDate(row.activeFrom)}
                   {row.activeUntil !== null && <> to {formatSessionDate(row.activeUntil)}</>}
                 </td>
+                <td>{describeDeliveries(row)}</td>
                 <td>
                   <Link to={`/sessions/recurring/${row.id}`}>Amend</Link>
                 </td>

@@ -26,7 +26,8 @@ function session(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
     startsAtUtc: '2026-08-04T09:00:00.000Z',
     durationMinutes: 90,
     location: 'St Mary’s Hall',
-    deliveryTime: null,
+    deliveryWindowStart: null,
+    deliveryWindowEnd: null,
     deliveriesAllowed: false,
     capacity: 25,
     booked: 10,
@@ -65,7 +66,7 @@ describe('a team lead’s shift view', () => {
     const main = screen.getByRole('main');
     expect(within(main).queryByRole('link', { name: 'Add a session' })).toBeNull();
     expect(within(main).queryByRole('link', { name: 'Weekly sessions' })).toBeNull();
-    expect(await within(main).findByText('Church Hall')).toBeInTheDocument();
+    expect(await within(main).findByText('10 of 25 booked')).toBeInTheDocument();
   });
 
   it('sends the same bare request an admin does, and lets the token decide the window', async () => {

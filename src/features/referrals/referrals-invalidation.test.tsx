@@ -66,7 +66,8 @@ function sessionRow(overrides: Partial<Session> & Pick<Session, 'id'>): Session 
     startsAtUtc: '2026-08-04T09:00:00.000Z',
     durationMinutes: 90,
     location: 'St Mary’s Hall',
-    deliveryTime: null,
+    deliveryWindowStart: null,
+    deliveryWindowEnd: null,
     deliveriesAllowed: false,
     capacity: 25,
     booked,
@@ -322,15 +323,20 @@ describe('moving a referral away and the session it left', () => {
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     await user.click(screen.getByRole('button', { name: 'Move to another session' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Move to another session?' }));
-    await dialog.findByRole('option', { name: /Spare Hall/ });
+    await dialog.findByRole('option', { name: /2 of 25 booked/ });
     await user.selectOptions(dialog.getByLabelText('Choose session to move to'), 's2');
     await user.click(dialog.getByRole('button', { name: 'Move to this session' }));
 
-    // The static "Session" line only shows Spare Hall once `referral.sessionId`
+    // The static "Session" line only points at `s2` once `referral.sessionId`
     // has actually become `s2` — proof the move round-tripped, not just that
-    // the button was clicked.
+    // the button was clicked. Asserted on the href rather than the text: both
+    // sessions run on the same date at the same time, and the line no longer
+    // names a location to tell them apart by.
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Spare Hall/ })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Aug 2026/ })).toHaveAttribute(
+        'href',
+        '/sessions/s2',
+      );
     });
     cleanup();
 
@@ -389,7 +395,7 @@ describe('copying a referral and the session it lands on', () => {
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     await user.click(screen.getByRole('button', { name: 'Copy to another session' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
-    await dialog.findByRole('option', { name: /Spare Hall/ });
+    await dialog.findByRole('option', { name: /2 of 25 booked/ });
     await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's2');
     await user.click(dialog.getByRole('button', { name: 'Copy to this session' }));
     // The copy really arrived: the screen has swapped to it and says so.

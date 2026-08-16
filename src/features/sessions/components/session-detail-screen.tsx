@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useId, useState } from 'react';
-import { useForm, type UseFormSetError } from 'react-hook-form';
+import { useId, useState, type ChangeEvent } from 'react';
+import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router';
 import * as z from 'zod';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
@@ -16,11 +16,13 @@ import {
   MAX_CANCEL_REASON_LENGTH,
   MAX_LOCATION_LENGTH,
   SESSION_STATUS_LABELS,
+  describeDeliveries,
   describeLockedSession,
   describeOccupancy,
   isLocalTime,
   occupancy,
   parseWholeNumber,
+  validateDeliveryWindow,
 } from '../sessions.logic';
 import styles from './session-form.module.css';
 
@@ -50,23 +52,55 @@ const CAPACITY_MESSAGES: Record<string, string> = {
   'above-maximum': 'Use 1000 or fewer.',
 };
 
-const sessionFormSchema = z.object({
-  sessionDate: z.string().min(1, 'Choose a date.'),
-  startTime: z.string().refine(isLocalTime, 'Enter a time as HH:MM.'),
-  durationMinutes: z.string().superRefine((value, ctx) => {
-    const parsed = parseWholeNumber(value, DURATION_BOUNDS);
-    if (!parsed.ok) ctx.addIssue({ code: 'custom', message: DURATION_MESSAGES[parsed.problem] });
-  }),
-  location: z
-    .string()
-    .trim()
-    .min(1, 'Enter where this session happens.')
-    .max(MAX_LOCATION_LENGTH, 'Use 200 characters or fewer.'),
-  capacity: z.string().superRefine((value, ctx) => {
-    const parsed = parseWholeNumber(value, CAPACITY_BOUNDS);
-    if (!parsed.ok) ctx.addIssue({ code: 'custom', message: CAPACITY_MESSAGES[parsed.problem] });
-  }),
-});
+const DELIVERY_WINDOW_MESSAGES: Record<
+  'start-required' | 'end-required' | 'end-not-after-start',
+  string
+> = {
+  'start-required': 'Enter when the delivery window starts.',
+  'end-required': 'Enter when the delivery window ends.',
+  'end-not-after-start': 'The delivery window must end after it starts.',
+};
+
+const sessionFormSchema = z
+  .object({
+    sessionDate: z.string().min(1, 'Choose a date.'),
+    startTime: z.string().refine(isLocalTime, 'Enter a time as HH:MM.'),
+    durationMinutes: z.string().superRefine((value, ctx) => {
+      const parsed = parseWholeNumber(value, DURATION_BOUNDS);
+      if (!parsed.ok) ctx.addIssue({ code: 'custom', message: DURATION_MESSAGES[parsed.problem] });
+    }),
+    location: z
+      .string()
+      .trim()
+      .min(1, 'Enter where this session happens.')
+      .max(MAX_LOCATION_LENGTH, 'Use 200 characters or fewer.'),
+    capacity: z.string().superRefine((value, ctx) => {
+      const parsed = parseWholeNumber(value, CAPACITY_BOUNDS);
+      if (!parsed.ok) ctx.addIssue({ code: 'custom', message: CAPACITY_MESSAGES[parsed.problem] });
+    }),
+    // Both blank clears a previously-set window — see the submit handler,
+    // which turns that into an explicit `null` pair rather than omitting the
+    // keys, since this form always sends every field. Required only while
+    // `deliveriesAllowed` is on — see `validateDeliveryWindow`.
+    deliveryWindowStart: z.string().refine((value) => value === '' || isLocalTime(value), {
+      message: 'Enter a time as HH:MM.',
+    }),
+    deliveryWindowEnd: z.string().refine((value) => value === '' || isLocalTime(value), {
+      message: 'Enter a time as HH:MM.',
+    }),
+    deliveriesAllowed: z.boolean(),
+  })
+  .superRefine((values, ctx) => {
+    const problem = validateDeliveryWindow(
+      values.deliveriesAllowed,
+      values.deliveryWindowStart,
+      values.deliveryWindowEnd,
+    );
+    if (problem !== null) {
+      const path = problem === 'start-required' ? 'deliveryWindowStart' : 'deliveryWindowEnd';
+      ctx.addIssue({ code: 'custom', path: [path], message: DELIVERY_WINDOW_MESSAGES[problem] });
+    }
+  });
 
 type SessionFormValues = z.infer<typeof sessionFormSchema>;
 
@@ -117,14 +151,21 @@ function SessionDetailForm({ session }: { session: Session }) {
   const locationErrorId = useId();
   const capacityId = useId();
   const capacityErrorId = useId();
+  const windowStartId = useId();
+  const windowStartErrorId = useId();
+  const windowEndId = useId();
+  const windowEndErrorId = useId();
+  const deliveriesAllowedId = useId();
   const lockedId = useId();
   const reasonId = useId();
 
   const {
+    control,
     formState: { errors, isSubmitting },
     handleSubmit,
     register,
     setError,
+    setValue,
   } = useForm<SessionFormValues>({
     resolver: zodResolver(sessionFormSchema),
     // Not reset on failure, so whatever was typed survives a 400.
@@ -134,9 +175,13 @@ function SessionDetailForm({ session }: { session: Session }) {
       durationMinutes: String(session.durationMinutes),
       location: session.location,
       capacity: String(session.capacity),
+      deliveryWindowStart: session.deliveryWindowStart ?? '',
+      deliveryWindowEnd: session.deliveryWindowEnd ?? '',
+      deliveriesAllowed: session.deliveriesAllowed,
     },
   });
 
+  const deliveriesAllowed = useWatch({ control, name: 'deliveriesAllowed' });
   const locked = describeLockedSession(session);
   const stats = occupancy(session);
 
@@ -159,6 +204,13 @@ function SessionDetailForm({ session }: { session: Session }) {
           durationMinutes: duration.value,
           location: values.location,
           capacity: capacity.value,
+          deliveriesAllowed: values.deliveriesAllowed,
+          // Never a window for a session that takes no deliveries: off sends
+          // explicit `null` on **both** keys — omitting them would leave a
+          // previously-set window untouched instead of clearing it, and this
+          // form already sends every field on every save rather than a diff.
+          deliveryWindowStart: values.deliveriesAllowed ? values.deliveryWindowStart : null,
+          deliveryWindowEnd: values.deliveriesAllowed ? values.deliveryWindowEnd : null,
         },
       });
       await navigate('/sessions');
@@ -190,6 +242,8 @@ function SessionDetailForm({ session }: { session: Session }) {
           {describeOccupancy(stats)}
           {stats.isOverCapacity && ' (over capacity)'}
         </dd>
+        <dt>Deliveries</dt>
+        <dd>{describeDeliveries(session)}</dd>
         {session.cancelledReason !== null && (
           <>
             <dt>Cancelled because</dt>
@@ -308,6 +362,85 @@ function SessionDetailForm({ session }: { session: Session }) {
           )}
         </div>
 
+        <div className={styles.field}>
+          <label className={styles.checkboxField} htmlFor={deliveriesAllowedId}>
+            <input
+              {...register('deliveriesAllowed', {
+                onChange: (event: ChangeEvent<HTMLInputElement>) => {
+                  // Off means no window: the pair is cleared the instant the
+                  // box is unticked — see `windowStartId`'s help text.
+                  if (!event.target.checked) {
+                    setValue('deliveryWindowStart', '');
+                    setValue('deliveryWindowEnd', '');
+                  }
+                },
+              })}
+              // Points at the delivery times' guidance as well as its own label: while
+              // this is unticked those inputs are disabled, so they are skipped by the
+              // tab order and by a screen reader's field list, and the sentence saying
+              // what ticking it turns on would otherwise be unreachable from here.
+              aria-describedby={`${windowStartId}-help`}
+              id={deliveriesAllowedId}
+              type="checkbox"
+            />
+            This session takes deliveries
+          </label>
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor={windowStartId}>Delivery window starts</label>
+          <p className={styles.help} id={`${windowStartId}-help`}>
+            Both times are required while this session takes deliveries, and are disabled and
+            cleared while it does not.
+          </p>
+          <input
+            {...register('deliveryWindowStart')}
+            aria-describedby={
+              [
+                `${windowStartId}-help`,
+                errors.deliveryWindowStart === undefined ? null : windowStartErrorId,
+              ]
+                .filter((id) => id !== null)
+                .join(' ') || undefined
+            }
+            aria-invalid={errors.deliveryWindowStart === undefined ? undefined : true}
+            className={styles.input}
+            disabled={!deliveriesAllowed}
+            id={windowStartId}
+            required={deliveriesAllowed}
+            type="time"
+          />
+          {errors.deliveryWindowStart !== undefined && (
+            <p className={styles.fieldError} id={windowStartErrorId}>
+              {errors.deliveryWindowStart.message}
+            </p>
+          )}
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor={windowEndId}>Delivery window ends</label>
+          <input
+            {...register('deliveryWindowEnd')}
+            aria-describedby={[
+              `${windowStartId}-help`,
+              errors.deliveryWindowEnd === undefined ? null : windowEndErrorId,
+            ]
+              .filter((id) => id !== null)
+              .join(' ')}
+            aria-invalid={errors.deliveryWindowEnd === undefined ? undefined : true}
+            className={styles.input}
+            disabled={!deliveriesAllowed}
+            id={windowEndId}
+            required={deliveriesAllowed}
+            type="time"
+          />
+          {errors.deliveryWindowEnd !== undefined && (
+            <p className={styles.fieldError} id={windowEndErrorId}>
+              {errors.deliveryWindowEnd.message}
+            </p>
+          )}
+        </div>
+
         <div className={styles.formActions}>
           {/* Refused, not removed: aria-disabled on a real focusable button,
               with the reason attached — the same pattern as the users
@@ -380,7 +513,10 @@ function applyFieldErrors(error: unknown, setError: UseFormSetError<SessionFormV
       path === 'startTime' ||
       path === 'durationMinutes' ||
       path === 'location' ||
-      path === 'capacity'
+      path === 'capacity' ||
+      path === 'deliveryWindowStart' ||
+      path === 'deliveryWindowEnd' ||
+      path === 'deliveriesAllowed'
     ) {
       setError(path, { message });
     }

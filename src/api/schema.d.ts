@@ -832,10 +832,12 @@ export interface paths {
                         location: string;
                         /** @default 25 */
                         capacity?: number;
-                        /** @description When deliveries go out, if that is not the session's own start time. Null or absent means the session time. */
-                        deliveryTime?: components["schemas"]["LocalTime"];
+                        /** @description Start of the window households are told to expect a delivery in. See `deliveryWindowEnd` for the rules binding the pair. */
+                        deliveryWindowStart?: components["schemas"]["LocalTime"];
+                        /** @description End of that window. **Both ends are sent together or neither is** — a half-set window is a `400`, and so is an end at or before the start. Absent on both means the session delivers across its own hours. */
+                        deliveryWindowEnd?: components["schemas"]["LocalTime"];
                         /**
-                         * @description False means this session has nobody to drive. **Not enforced server-side yet** — a delivery referral to such a session is still accepted, so the form is what has to stop offering it.
+                         * @description False means this session has nobody to drive. **Not enforced server-side** — a delivery referral to such a session is still accepted and an administrator sorts it out at review. See `Session.deliveriesAllowed`.
                          * @default true
                          */
                         deliveriesAllowed?: boolean;
@@ -924,8 +926,13 @@ export interface paths {
                         durationMinutes?: number;
                         location?: string;
                         capacity?: number;
-                        /** @description Explicit `null` clears it, putting deliveries back at the session's start time. */
-                        deliveryTime?: components["schemas"]["LocalTime"] | null;
+                        /** @description Sent with `deliveryWindowEnd` or not at all. */
+                        deliveryWindowStart?: components["schemas"]["LocalTime"] | null;
+                        /**
+                         * @description **The pair moves together.** Sending one key without the other is a `400`, as is an end at or before the start — a half-set window is as invalid as a half-cleared one.
+                         *     Explicit `null` on **both** clears the window, putting deliveries back across the session's own hours.
+                         */
+                        deliveryWindowEnd?: components["schemas"]["LocalTime"] | null;
                         deliveriesAllowed?: boolean;
                     };
                 };
@@ -1132,8 +1139,10 @@ export interface paths {
                         startTime: components["schemas"]["LocalTime"];
                         durationMinutes: number;
                         location: string;
-                        /** @description Copied onto every occurrence. Absent means deliveries go at the session time. */
-                        deliveryTime?: components["schemas"]["LocalTime"];
+                        /** @description Copied onto every occurrence. Sent with `deliveryWindowEnd` or not at all. */
+                        deliveryWindowStart?: components["schemas"]["LocalTime"];
+                        /** @description Copied onto every occurrence. **Both ends together or neither** — a half-set window is a `400`, and so is an end at or before the start. Absent on both means every occurrence delivers across its own hours. */
+                        deliveryWindowEnd?: components["schemas"]["LocalTime"];
                         /** @default true */
                         deliveriesAllowed?: boolean;
                         /** @default 25 */
@@ -1200,8 +1209,10 @@ export interface paths {
                         startTime?: components["schemas"]["LocalTime"];
                         durationMinutes?: number;
                         location?: string;
-                        /** @description Explicit `null` puts deliveries back at the session time. */
-                        deliveryTime?: components["schemas"]["LocalTime"] | null;
+                        /** @description Sent with `deliveryWindowEnd` or not at all. */
+                        deliveryWindowStart?: components["schemas"]["LocalTime"] | null;
+                        /** @description **The pair moves together.** One key without the other is a `400`, as is an end at or before the start. Explicit `null` on **both** puts deliveries back across the session's own hours. */
+                        deliveryWindowEnd?: components["schemas"]["LocalTime"] | null;
                         deliveriesAllowed?: boolean;
                         capacity?: number;
                         /** Format: date */
@@ -2640,7 +2651,9 @@ export interface paths {
          *
          *     Two wordings, and the client chooses neither: a collection reminder
          *     carries the date, the time and the place, a delivery reminder carries
-         *     the date and the session's `deliveryTime` and **no address**.
+         *     the date and the session's **delivery window** and **no address**. A
+         *     session that sets no window of its own states its own hours, so every
+         *     delivery reminder names a window.
          */
         post: {
             parameters: {
@@ -4801,10 +4814,16 @@ export interface components {
             startsAtUtc: string;
             durationMinutes: number;
             location: string;
+            /** @description Start of the effective delivery window. See `deliveryWindowEnd`. */
+            deliveryWindowStart: components["schemas"]["LocalTime"];
             /**
-             * @description False means this session takes no deliveries — nobody is driving, so **do not offer delivery on the referral form for it**.
-             *     The server does not enforce this yet: a referral with `isDelivery: true` to such a session is still accepted. The gap is recorded rather than accidental (see `STATUS.md`), and the form is the only thing standing in the way meanwhile.
-             *     No `deliveryTime` here — an unauthenticated caller has no need of it, and this response is deliberately the narrowest in the API.
+             * @description End of it. **Never null, unlike the pair on `Session`** — this is the *effective* window, with the fallback already resolved: a session that sets no window of its own reports its own hours (`startTime` to `startTime` + `durationMinutes`). Resolving it here rather than shipping the stored pair keeps that rule in one repo.
+             *     This response is the narrowest in the API and was widened on purpose. The referral form asks the referrer to confirm the client will be at home for the window, and it cannot ask that without stating it; asking in the abstract is a confirmation of nothing. A delivery window is a fact about a session, not about a household — it names nobody, and says no more than a leaflet saying when the van comes round.
+             */
+            deliveryWindowEnd: components["schemas"]["LocalTime"];
+            /**
+             * @description False means this session takes no deliveries — nobody is driving.
+             *     **Neither the form nor the server refuses such a delivery.** The form states that no deliveries are available for the session in place of the window, still offers delivery and still accepts the submission; an administrator sorts it out at review. Settled by Pete on 2026-08-16 — a delivery option that silently disappears tells the referrer nothing about why. Do not read this as a gap the form is covering; it is not.
              */
             deliveriesAllowed: boolean;
         };
@@ -4818,11 +4837,16 @@ export interface components {
             startsAtUtc: string;
             durationMinutes: number;
             location: string;
-            /** @description `HH:MM` London, or null for "the same as `startTime`". The van does not go out when the hall opens, so a household expecting a delivery is told a different time from one collecting — and that is all this is. **Nothing is scheduled or routed from it**, which is why there is no `deliversAtUtc` beside it. The SMS reminder is what reads it. */
-            deliveryTime: string | null;
+            /** @description `HH:MM` London. Null whenever `deliveryWindowEnd` is. */
+            deliveryWindowStart: string | null;
+            /**
+             * @description `HH:MM` London. **The stored pair, not the effective window** — both null means this session sets none of its own and delivers across its own hours. An admin screen needs that distinction in order to offer clearing; `PublicSession` carries the resolved window instead.
+             *     The van does not go out when the hall opens and cannot arrive at a single minute either, so a household expecting a delivery is told a window rather than the collection time — and that is all this is. **Nothing is scheduled or routed from it**, which is why there is no `deliversAtUtc` beside it. The SMS reminder is what reads it.
+             */
+            deliveryWindowEnd: string | null;
             /**
              * @description False means this session takes no deliveries — nobody is driving.
-             *     **The server does not enforce it yet.** A referral with `isDelivery: true` to such a session is still accepted, so the referral form is what has to stop offering it. That gap is recorded rather than accidental; see `STATUS.md`.
+             *     **The server does not enforce it, and nor does the referral form.** A referral with `isDelivery: true` to such a session is still accepted at both ends; an administrator sees it at review and sorts it out. Settled by Pete on 2026-08-16; see `STATUS.md`. This is not a gap the form is covering.
              */
             deliveriesAllowed: boolean;
             /** @description Counts households, not people. A session of capacity 25 takes 25 referrals however large the households are. */
@@ -4849,8 +4873,10 @@ export interface components {
             startTime: components["schemas"]["LocalTime"];
             durationMinutes: number;
             location: string;
-            /** @description Copied onto every occurrence. Null means the session time. */
-            deliveryTime: string | null;
+            /** @description Copied onto every occurrence. Null whenever `deliveryWindowEnd` is. */
+            deliveryWindowStart: string | null;
+            /** @description Copied onto every occurrence, and overridable there. Both null means each occurrence delivers across its own hours. */
+            deliveryWindowEnd: string | null;
             /** @description Copied onto every occurrence. */
             deliveriesAllowed: boolean;
             capacity: number;

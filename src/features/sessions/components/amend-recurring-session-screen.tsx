@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useId } from 'react';
-import { useForm, type UseFormSetError } from 'react-hook-form';
+import { useId, type ChangeEvent } from 'react';
+import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router';
 import * as z from 'zod';
 import { EmptyState } from '../../../components/empty-state';
@@ -18,6 +18,7 @@ import {
   isLocalTime,
   isWeekday,
   parseWholeNumber,
+  validateDeliveryWindow,
 } from '../sessions.logic';
 import styles from './session-form.module.css';
 
@@ -33,6 +34,15 @@ const CAPACITY_MESSAGES: Record<string, string> = {
   'not-a-whole-number': 'Use a whole number of households, for example 25.',
   'below-minimum': 'Capacity cannot be negative.',
   'above-maximum': 'Use 1000 or fewer.',
+};
+
+const DELIVERY_WINDOW_MESSAGES: Record<
+  'start-required' | 'end-required' | 'end-not-after-start',
+  string
+> = {
+  'start-required': 'Enter when the delivery window starts.',
+  'end-required': 'Enter when the delivery window ends.',
+  'end-not-after-start': 'The delivery window must end after it starts.',
 };
 
 const amendRecurringSessionSchema = z
@@ -59,10 +69,34 @@ const amendRecurringSessionSchema = z
     }),
     activeFrom: z.string().min(1, 'Choose when this weekly session starts.'),
     activeUntil: z.string(),
+    // Both blank clears a previously-set window — see the submit handler.
+    // Required only while `deliveriesAllowed` is on — see `validateDeliveryWindow`.
+    deliveryWindowStart: z.string().refine((value) => value === '' || isLocalTime(value), {
+      message: 'Enter a time as HH:MM.',
+    }),
+    deliveryWindowEnd: z.string().refine((value) => value === '' || isLocalTime(value), {
+      message: 'Enter a time as HH:MM.',
+    }),
+    deliveriesAllowed: z.boolean(),
   })
-  .refine((values) => values.activeUntil === '' || values.activeUntil >= values.activeFrom, {
-    message: 'The end date cannot be before the start date.',
-    path: ['activeUntil'],
+  .superRefine((values, ctx) => {
+    if (values.activeUntil !== '' && values.activeUntil < values.activeFrom) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['activeUntil'],
+        message: 'The end date cannot be before the start date.',
+      });
+    }
+
+    const problem = validateDeliveryWindow(
+      values.deliveriesAllowed,
+      values.deliveryWindowStart,
+      values.deliveryWindowEnd,
+    );
+    if (problem !== null) {
+      const path = problem === 'start-required' ? 'deliveryWindowStart' : 'deliveryWindowEnd';
+      ctx.addIssue({ code: 'custom', path: [path], message: DELIVERY_WINDOW_MESSAGES[problem] });
+    }
   });
 
 type AmendRecurringSessionValues = z.infer<typeof amendRecurringSessionSchema>;
@@ -138,12 +172,19 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
   const fromErrorId = useId();
   const untilId = useId();
   const untilErrorId = useId();
+  const windowStartId = useId();
+  const windowStartErrorId = useId();
+  const windowEndId = useId();
+  const windowEndErrorId = useId();
+  const deliveriesAllowedId = useId();
 
   const {
+    control,
     formState: { errors, isSubmitting },
     handleSubmit,
     register,
     setError,
+    setValue,
   } = useForm<AmendRecurringSessionValues>({
     resolver: zodResolver(amendRecurringSessionSchema),
     defaultValues: {
@@ -155,8 +196,13 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
       capacity: String(row.capacity),
       activeFrom: row.activeFrom,
       activeUntil: row.activeUntil ?? '',
+      deliveryWindowStart: row.deliveryWindowStart ?? '',
+      deliveryWindowEnd: row.deliveryWindowEnd ?? '',
+      deliveriesAllowed: row.deliveriesAllowed,
     },
   });
+
+  const deliveriesAllowed = useWatch({ control, name: 'deliveriesAllowed' });
 
   const submit = handleSubmit(async (values) => {
     const duration = parseWholeNumber(values.durationMinutes, DURATION_BOUNDS);
@@ -176,6 +222,13 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
           capacity: capacity.value,
           activeFrom: values.activeFrom,
           activeUntil: values.activeUntil === '' ? null : values.activeUntil,
+          deliveriesAllowed: values.deliveriesAllowed,
+          // Never a window for occurrences that take no deliveries — off has
+          // to reach the server as explicit `null` on both keys to clear a
+          // previously-set window, since this form saves every field on
+          // every submit.
+          deliveryWindowStart: values.deliveriesAllowed ? values.deliveryWindowStart : null,
+          deliveryWindowEnd: values.deliveriesAllowed ? values.deliveryWindowEnd : null,
         },
       });
       await navigate('/sessions/recurring');
@@ -351,6 +404,85 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
           )}
         </div>
 
+        <div className={styles.field}>
+          <label className={styles.checkboxField} htmlFor={deliveriesAllowedId}>
+            <input
+              {...register('deliveriesAllowed', {
+                onChange: (event: ChangeEvent<HTMLInputElement>) => {
+                  // Off means no window: the pair is cleared the instant the
+                  // box is unticked — see `windowStartId`'s help text.
+                  if (!event.target.checked) {
+                    setValue('deliveryWindowStart', '');
+                    setValue('deliveryWindowEnd', '');
+                  }
+                },
+              })}
+              // Points at the delivery times' guidance as well as its own label: while
+              // this is unticked those inputs are disabled, so they are skipped by the
+              // tab order and by a screen reader's field list, and the sentence saying
+              // what ticking it turns on would otherwise be unreachable from here.
+              aria-describedby={`${windowStartId}-help`}
+              id={deliveriesAllowedId}
+              type="checkbox"
+            />
+            Every occurrence takes deliveries
+          </label>
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor={windowStartId}>Delivery window starts</label>
+          <p className={styles.help} id={`${windowStartId}-help`}>
+            Copied onto every occurrence. Both times are required while occurrences take deliveries,
+            and are disabled and cleared while they do not.
+          </p>
+          <input
+            {...register('deliveryWindowStart')}
+            aria-describedby={
+              [
+                `${windowStartId}-help`,
+                errors.deliveryWindowStart === undefined ? null : windowStartErrorId,
+              ]
+                .filter((id) => id !== null)
+                .join(' ') || undefined
+            }
+            aria-invalid={errors.deliveryWindowStart === undefined ? undefined : true}
+            className={styles.input}
+            disabled={!deliveriesAllowed}
+            id={windowStartId}
+            required={deliveriesAllowed}
+            type="time"
+          />
+          {errors.deliveryWindowStart !== undefined && (
+            <p className={styles.fieldError} id={windowStartErrorId}>
+              {errors.deliveryWindowStart.message}
+            </p>
+          )}
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor={windowEndId}>Delivery window ends</label>
+          <input
+            {...register('deliveryWindowEnd')}
+            aria-describedby={[
+              `${windowStartId}-help`,
+              errors.deliveryWindowEnd === undefined ? null : windowEndErrorId,
+            ]
+              .filter((id) => id !== null)
+              .join(' ')}
+            aria-invalid={errors.deliveryWindowEnd === undefined ? undefined : true}
+            className={styles.input}
+            disabled={!deliveriesAllowed}
+            id={windowEndId}
+            required={deliveriesAllowed}
+            type="time"
+          />
+          {errors.deliveryWindowEnd !== undefined && (
+            <p className={styles.fieldError} id={windowEndErrorId}>
+              {errors.deliveryWindowEnd.message}
+            </p>
+          )}
+        </div>
+
         <div className={styles.formActions}>
           <button className={styles.submit} type="submit">
             {isSubmitting ? 'Saving…' : 'Save changes'}
@@ -381,7 +513,10 @@ function applyFieldErrors(
       path === 'location' ||
       path === 'capacity' ||
       path === 'activeFrom' ||
-      path === 'activeUntil'
+      path === 'activeUntil' ||
+      path === 'deliveryWindowStart' ||
+      path === 'deliveryWindowEnd' ||
+      path === 'deliveriesAllowed'
     ) {
       setError(path, { message });
     }

@@ -5,6 +5,8 @@ import {
   SESSION_STATUS_OPTIONS,
   WEEKDAY_LABELS,
   WEEKDAY_OPTIONS,
+  describeDeliveries,
+  describeDeliveryWindow,
   describeLockedSession,
   describeMaterialisation,
   describeOccupancy,
@@ -16,6 +18,7 @@ import {
   parseWholeNumber,
   sortRecurringSessions,
   sortSessions,
+  validateDeliveryWindow,
 } from './sessions.logic';
 
 function session(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
@@ -25,8 +28,9 @@ function session(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
     startsAtUtc: '2026-08-04T09:00:00.000Z',
     durationMinutes: 90,
     location: 'St Mary’s Hall',
-    deliveryTime: null,
-    deliveriesAllowed: false,
+    deliveryWindowStart: null,
+    deliveryWindowEnd: null,
+    deliveriesAllowed: true,
     capacity: 25,
     booked: 10,
     status: 'planned',
@@ -47,8 +51,9 @@ function recurring(
     startTime: '10:00',
     durationMinutes: 90,
     location: 'St Mary’s Hall',
-    deliveryTime: null,
-    deliveriesAllowed: false,
+    deliveryWindowStart: null,
+    deliveryWindowEnd: null,
+    deliveriesAllowed: true,
     capacity: 25,
     activeFrom: '2026-01-01',
     activeUntil: null,
@@ -263,5 +268,71 @@ describe('describeMaterialisation', () => {
   // a confident claim the response never made.
   it('does not invent a count of zero when the field is absent', () => {
     expect(describeMaterialisation({})).toBe('Sessions generated from the weekly templates.');
+  });
+});
+
+describe('validateDeliveryWindow', () => {
+  it('ignores both boxes while deliveries are off, however they read', () => {
+    expect(validateDeliveryWindow(false, '', '')).toBeNull();
+    expect(validateDeliveryWindow(false, '09:00', '')).toBeNull();
+    expect(validateDeliveryWindow(false, '', '11:00')).toBeNull();
+    expect(validateDeliveryWindow(false, '11:00', '09:00')).toBeNull();
+  });
+
+  it('accepts a start strictly before the end while deliveries are on', () => {
+    expect(validateDeliveryWindow(true, '09:00', '11:00')).toBeNull();
+  });
+
+  it('requires a start while deliveries are on, whether or not the end is set', () => {
+    expect(validateDeliveryWindow(true, '', '')).toBe('start-required');
+    expect(validateDeliveryWindow(true, '', '11:00')).toBe('start-required');
+  });
+
+  it('requires an end once the start is set, while deliveries are on', () => {
+    expect(validateDeliveryWindow(true, '09:00', '')).toBe('end-required');
+  });
+
+  it('rejects an end equal to the start while deliveries are on', () => {
+    expect(validateDeliveryWindow(true, '09:00', '09:00')).toBe('end-not-after-start');
+  });
+
+  it('rejects an end before the start while deliveries are on', () => {
+    expect(validateDeliveryWindow(true, '11:00', '09:00')).toBe('end-not-after-start');
+  });
+});
+
+describe('describeDeliveryWindow', () => {
+  it('states the stored window when both ends are set', () => {
+    expect(
+      describeDeliveryWindow({ deliveryWindowStart: '09:00', deliveryWindowEnd: '11:00' }),
+    ).toBe('09:00–11:00');
+  });
+
+  it('reads both null as delivering across the session’s own hours, never as a gap', () => {
+    expect(describeDeliveryWindow({ deliveryWindowStart: null, deliveryWindowEnd: null })).toBe(
+      'Deliveries go out across the session’s own hours.',
+    );
+  });
+});
+
+describe('describeDeliveries', () => {
+  it('says a session takes no deliveries before ever mentioning the window', () => {
+    expect(
+      describeDeliveries({
+        deliveriesAllowed: false,
+        deliveryWindowStart: '09:00',
+        deliveryWindowEnd: '11:00',
+      }),
+    ).toBe('This session does not take deliveries.');
+  });
+
+  it('otherwise describes the window', () => {
+    expect(
+      describeDeliveries({
+        deliveriesAllowed: true,
+        deliveryWindowStart: '09:00',
+        deliveryWindowEnd: '11:00',
+      }),
+    ).toBe('09:00–11:00');
   });
 });

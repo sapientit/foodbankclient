@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 import type { RecurringSession } from './queries';
@@ -17,7 +17,8 @@ function template(
     startTime: '10:00',
     durationMinutes: 90,
     location: 'St Mary’s Hall',
-    deliveryTime: null,
+    deliveryWindowStart: null,
+    deliveryWindowEnd: null,
     deliveriesAllowed: false,
     capacity: 25,
     activeFrom: '2026-01-01',
@@ -73,6 +74,55 @@ describe('the weekly session list', () => {
     const row = await screen.findByRole('row', { name: /Tuesday session/ });
     expect(row).toHaveTextContent('From Thu, 1 Jan 2026');
     expect(row).not.toHaveTextContent(/From.*to/);
+  });
+
+  it('reads a both-null stored window as delivering across the session’s own hours, never as a gap', async () => {
+    server.use(
+      http.get(RECURRING, () =>
+        HttpResponse.json({
+          recurringSessions: [
+            template({
+              id: 't1',
+              deliveryWindowStart: null,
+              deliveryWindowEnd: null,
+              deliveriesAllowed: true,
+            }),
+          ],
+        }),
+      ),
+    );
+
+    renderApp('/sessions/recurring');
+
+    const row = await screen.findByRole('row', { name: /Tuesday session/ });
+    expect(row).toHaveTextContent('Deliveries go out across the session’s own hours.');
+  });
+
+  it('states a set delivery window, and that a template with none takes no deliveries', async () => {
+    server.use(
+      http.get(RECURRING, () =>
+        HttpResponse.json({
+          recurringSessions: [
+            template({ id: 't1', name: 'Delivers', deliveriesAllowed: false }),
+            template({
+              id: 't2',
+              name: 'Windowed',
+              weekday: 3,
+              deliveryWindowStart: '09:00',
+              deliveryWindowEnd: '11:00',
+              deliveriesAllowed: true,
+            }),
+          ],
+        }),
+      ),
+    );
+
+    renderApp('/sessions/recurring');
+
+    expect(await screen.findByRole('row', { name: /Delivers/ })).toHaveTextContent(
+      'This session does not take deliveries.',
+    );
+    expect(screen.getByRole('row', { name: /Windowed/ })).toHaveTextContent('09:00–11:00');
   });
 });
 
@@ -192,7 +242,84 @@ describe('adding a weekly session', () => {
       capacity: 25,
       activeFrom: '2026-01-01',
       activeUntil: null,
+      // Deliberately the opposite of the server's own create default of
+      // `true` — settled 2026-08-16 — so an untouched checkbox opts a new
+      // template out of deliveries and the window pair is omitted entirely.
+      deliveriesAllowed: false,
     });
+    expect(posted).not.toHaveProperty('deliveryWindowStart');
+    expect(posted).not.toHaveProperty('deliveryWindowEnd');
+  });
+
+  it('disables the delivery times until the checkbox is ticked', async () => {
+    server.use(http.get(RECURRING, () => HttpResponse.json({ recurringSessions: [] })));
+
+    renderApp('/sessions/recurring/new');
+
+    const start = await screen.findByLabelText('Delivery window starts');
+    const end = screen.getByLabelText('Delivery window ends');
+    expect(start).toBeDisabled();
+    expect(end).toBeDisabled();
+  });
+
+  it('sends the delivery window pair together once ticked on', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.get(RECURRING, () => HttpResponse.json({ recurringSessions: [] })),
+      http.post(RECURRING, async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(template({ id: 't1' }), { status: 201 });
+      }),
+    );
+
+    renderApp('/sessions/recurring/new');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText('Name'), 'Tuesday session');
+    await user.selectOptions(screen.getByLabelText('Day of the week'), 'Tuesday');
+    await user.type(screen.getByLabelText('Start time'), '10:00');
+    await user.type(screen.getByLabelText('Duration (minutes)'), '90');
+    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
+    await user.type(screen.getByLabelText('Starts from'), '2026-01-01');
+    await user.click(screen.getByLabelText('Every occurrence takes deliveries'));
+    await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
+    await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
+
+    await user.click(screen.getByRole('button', { name: 'Add weekly session' }));
+    await screen.findByRole('heading', { name: 'Weekly sessions' });
+
+    expect(posted).toMatchObject({
+      deliveryWindowStart: '09:00',
+      deliveryWindowEnd: '11:00',
+      deliveriesAllowed: true,
+    });
+  });
+
+  it('refuses a ticked-on window missing its start, before making a request', async () => {
+    const created = vi.fn();
+    server.use(
+      http.get(RECURRING, () => HttpResponse.json({ recurringSessions: [] })),
+      http.post(RECURRING, () => {
+        created();
+        return new HttpResponse(null, { status: 201 });
+      }),
+    );
+
+    renderApp('/sessions/recurring/new');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText('Name'), 'Tuesday session');
+    await user.type(screen.getByLabelText('Start time'), '10:00');
+    await user.type(screen.getByLabelText('Duration (minutes)'), '90');
+    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
+    await user.type(screen.getByLabelText('Starts from'), '2026-01-01');
+    await user.click(screen.getByLabelText('Every occurrence takes deliveries'));
+    await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
+
+    await user.click(screen.getByRole('button', { name: 'Add weekly session' }));
+
+    expect(await screen.findByText('Enter when the delivery window starts.')).toBeInTheDocument();
+    expect(created).not.toHaveBeenCalled();
   });
 
   it('refuses an end date before the start date', async () => {
@@ -240,6 +367,140 @@ describe('amending a weekly session', () => {
     await screen.findByRole('heading', { name: 'Weekly sessions' });
 
     expect(posted).toMatchObject({ location: 'New hall' });
+  });
+
+  it('disables the delivery times until the checkbox is ticked', async () => {
+    server.use(
+      http.get(RECURRING, () =>
+        HttpResponse.json({ recurringSessions: [template({ id: 't1', name: 'Tuesday session' })] }),
+      ),
+    );
+
+    renderApp('/sessions/recurring/t1');
+
+    const start = await screen.findByLabelText('Delivery window starts');
+    const end = screen.getByLabelText('Delivery window ends');
+    expect(start).toBeDisabled();
+    expect(end).toBeDisabled();
+  });
+
+  it('sets a delivery window on amend, once the checkbox is ticked', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.get(RECURRING, () =>
+        HttpResponse.json({ recurringSessions: [template({ id: 't1', name: 'Tuesday session' })] }),
+      ),
+      http.patch(`${RECURRING}/t1`, async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(
+          template({
+            id: 't1',
+            deliveryWindowStart: '09:00',
+            deliveryWindowEnd: '11:00',
+            deliveriesAllowed: true,
+          }),
+        );
+      }),
+    );
+
+    renderApp('/sessions/recurring/t1');
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('St Mary’s Hall');
+    await user.click(screen.getByLabelText('Every occurrence takes deliveries'));
+    await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
+    await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await screen.findByRole('heading', { name: 'Weekly sessions' });
+
+    expect(posted).toMatchObject({
+      deliveryWindowStart: '09:00',
+      deliveryWindowEnd: '11:00',
+      deliveriesAllowed: true,
+    });
+  });
+
+  it('clears an existing delivery window by sending explicit null on both keys when the checkbox is unticked', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.get(RECURRING, () =>
+        HttpResponse.json({
+          recurringSessions: [
+            template({
+              id: 't1',
+              name: 'Tuesday session',
+              deliveryWindowStart: '09:00',
+              deliveryWindowEnd: '11:00',
+              deliveriesAllowed: true,
+            }),
+          ],
+        }),
+      ),
+      http.patch(`${RECURRING}/t1`, async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(template({ id: 't1' }));
+      }),
+    );
+
+    renderApp('/sessions/recurring/t1');
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('09:00');
+    await user.click(screen.getByLabelText('Every occurrence takes deliveries'));
+
+    const start = screen.getByLabelText('Delivery window starts');
+    const end = screen.getByLabelText('Delivery window ends');
+    expect(start).toBeDisabled();
+    expect(start).toHaveValue('');
+    expect(end).toHaveValue('');
+
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await screen.findByRole('heading', { name: 'Weekly sessions' });
+
+    expect(posted).toMatchObject({ deliveryWindowStart: null, deliveryWindowEnd: null });
+  });
+
+  it('toggles deliveriesAllowed and round-trips it and its now-required window in the save', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.get(RECURRING, () =>
+        HttpResponse.json({
+          recurringSessions: [
+            template({ id: 't1', name: 'Tuesday session', deliveriesAllowed: false }),
+          ],
+        }),
+      ),
+      http.patch(`${RECURRING}/t1`, async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(
+          template({
+            id: 't1',
+            deliveriesAllowed: true,
+            deliveryWindowStart: '09:00',
+            deliveryWindowEnd: '11:00',
+          }),
+        );
+      }),
+    );
+
+    renderApp('/sessions/recurring/t1');
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('St Mary’s Hall');
+    await user.click(screen.getByLabelText('Every occurrence takes deliveries'));
+    await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
+    await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await screen.findByRole('heading', { name: 'Weekly sessions' });
+
+    expect(posted).toMatchObject({
+      deliveriesAllowed: true,
+      deliveryWindowStart: '09:00',
+      deliveryWindowEnd: '11:00',
+    });
   });
 
   it('shows that the weekly session is not in the list rather than crashing on a stale link', async () => {

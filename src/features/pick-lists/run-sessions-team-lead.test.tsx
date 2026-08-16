@@ -26,7 +26,8 @@ const SESSION: Session = {
   startsAtUtc: '2099-08-06T09:00:00.000Z',
   durationMinutes: 90,
   location: 'St Mary’s Hall',
-  deliveryTime: null,
+  deliveryWindowStart: null,
+  deliveryWindowEnd: null,
   deliveriesAllowed: false,
   capacity: 25,
   booked: 1,
@@ -167,7 +168,7 @@ describe('a team lead running a session', () => {
     expect(screen.getByRole('link', { name: 'Run a session' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sessions' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Referrals' })).toBeNull();
-    expect(await screen.findByRole('link', { name: /St Mary’s Hall/ })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /6 Aug 2099/ })).toBeInTheDocument();
   });
 
   /**
@@ -176,11 +177,14 @@ describe('a team lead running a session', () => {
    * after the event. `screenDetails.md`, "#Run a session".
    */
   it('lists an open session in the past, and leaves out the completed and cancelled', async () => {
-    const past = (id: string, status: Session['status'], location: string): Session => ({
+    // These used to be told apart by their locations. The list no longer names
+    // one — the charity runs from a single hall — so they differ by the time
+    // they start, which is what actually distinguishes two sessions on one day.
+    const past = (id: string, status: Session['status'], startTime: string): Session => ({
       ...SESSION,
       id,
       status,
-      location,
+      startTime,
       sessionDate: '2020-01-04',
       startsAtUtc: '2020-01-04T10:00:00.000Z',
     });
@@ -189,10 +193,10 @@ describe('a team lead running a session', () => {
       http.get('/api/v1/sessions', () =>
         HttpResponse.json({
           sessions: [
-            past('past-planned', 'planned', 'The Old Hall'),
-            past('past-in-progress', 'in_progress', 'The Annexe'),
-            past('past-confirmed', 'confirmed', 'The Signed Off Room'),
-            past('past-cancelled', 'cancelled', 'The Called Off Room'),
+            past('past-planned', 'planned', '09:00'),
+            past('past-in-progress', 'in_progress', '11:00'),
+            past('past-confirmed', 'confirmed', '13:00'),
+            past('past-cancelled', 'cancelled', '15:00'),
             SESSION,
           ],
         }),
@@ -202,14 +206,14 @@ describe('a team lead running a session', () => {
     renderApp('/run-sessions');
 
     // Both kinds of open session, however long ago they were.
-    expect(await screen.findByRole('link', { name: /The Old Hall/ })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /The Annexe/ })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /09:00–10:30/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /11:00–12:30/ })).toBeInTheDocument();
     // And the future one still, which is the behaviour that already worked.
-    expect(screen.getByRole('link', { name: /St Mary’s Hall/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /6 Aug 2099/ })).toBeInTheDocument();
 
     // A confirmed session is signed off and a cancelled one is not being run.
-    expect(screen.queryByRole('link', { name: /The Signed Off Room/ })).toBeNull();
-    expect(screen.queryByRole('link', { name: /The Called Off Room/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /13:00–14:30/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /15:00–16:30/ })).toBeNull();
   });
 
   it('does not describe an empty list as having no upcoming sessions', async () => {
@@ -302,7 +306,7 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}`);
     const user = userEvent.setup();
 
-    expect(await screen.findByText(/St Mary’s Hall/)).toBeInTheDocument();
+    expect(await screen.findByText(/6 Aug 2099/)).toBeInTheDocument();
     expect(reconciled).toBe(true);
     expect(generationBody).toEqual({
       preferenceLines: [],

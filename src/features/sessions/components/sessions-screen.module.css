@@ -28,14 +28,29 @@
   list-style: none;
 }
 
+/* Five aligned columns: date, hours, collection-only, status, occupancy. A grid
+   rather than a wrapping flex row so each part sits in the same place down the
+   whole list and an administrator scans one column at a time — the collection
+   -only cell is empty on most rows and still holds its width, which is what
+   keeps the two after it in line. */
 .row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  justify-content: start;
   align-items: baseline;
   gap: 0.5rem 1rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid #d4d4d4;
   border-radius: 0.25rem;
+}
+
+/* Alignment buys nothing once the columns are one-per-line, and a five-column
+   grid on a phone would scroll sideways. Stack instead. */
+@media (max-width: 40rem) {
+  .row {
+    grid-template-columns: auto;
+    gap: 0.25rem;
+  }
 }
 
 .when {

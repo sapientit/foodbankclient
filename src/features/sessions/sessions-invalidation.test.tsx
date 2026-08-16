@@ -30,7 +30,8 @@ function session(overrides: Partial<Session> = {}): Session {
     startsAtUtc: '2026-08-04T09:00:00.000Z',
     durationMinutes: 90,
     location: 'Old hall',
-    deliveryTime: null,
+    deliveryWindowStart: null,
+    deliveryWindowEnd: null,
     deliveriesAllowed: false,
     capacity: 25,
     booked: 10,
@@ -70,9 +71,12 @@ describe('the sessions list', () => {
     server.use(
       http.get(SESSIONS, () => HttpResponse.json({ sessions: [current] })),
       http.get(`${SESSIONS}/s1`, () => HttpResponse.json(current)),
+      // Capacity rather than location: the list no longer names a location —
+      // one hall — so amending it would prove nothing about invalidation. The
+      // occupancy is on every row and moves when capacity does.
       http.patch(`${SESSIONS}/s1`, async ({ request }) => {
         const body = (await request.json()) as Record<string, unknown>;
-        current = { ...current, location: String(body.location) };
+        current = { ...current, capacity: Number(body.capacity) };
         return HttpResponse.json(current);
       }),
     );
@@ -80,12 +84,12 @@ describe('the sessions list', () => {
     const { router } = renderApp('/sessions', cachingClient());
     const user = userEvent.setup();
 
-    expect(await screen.findByText('Old hall')).toBeInTheDocument();
+    expect(await screen.findByText('10 of 25 booked')).toBeInTheDocument();
 
     await router.navigate('/sessions/s1');
-    const locationInput = await screen.findByDisplayValue('Old hall');
-    await user.clear(locationInput);
-    await user.type(locationInput, 'New hall');
+    const capacityInput = await screen.findByLabelText('Capacity');
+    await user.clear(capacityInput);
+    await user.type(capacityInput, '30');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await screen.findByRole('heading', { name: 'Sessions' });
@@ -93,7 +97,7 @@ describe('the sessions list', () => {
     // The cache is fresh for another minute, so this can only change if the
     // amend mutation invalidated the list query.
     await waitFor(() => {
-      expect(screen.getByText('New hall')).toBeInTheDocument();
+      expect(screen.getByText('10 of 30 booked')).toBeInTheDocument();
     });
   });
 
@@ -125,7 +129,9 @@ describe('the sessions list', () => {
         }),
       ),
       http.post('/api/v1/jobs/session-materialisation/run', () => {
-        sessions = [session({ location: 'Generated hall' })];
+        sessions = [
+          session({ sessionDate: '2026-09-15', startsAtUtc: '2026-09-15T09:00:00.000Z' }),
+        ];
         return HttpResponse.json({ sessionsCreated: 1 });
       }),
     );
@@ -142,7 +148,7 @@ describe('the sessions list', () => {
     await router.navigate('/sessions');
 
     await waitFor(() => {
-      expect(screen.getByText('Generated hall')).toBeInTheDocument();
+      expect(screen.getByText('Tue, 15 Sept 2026')).toBeInTheDocument();
     });
   });
 

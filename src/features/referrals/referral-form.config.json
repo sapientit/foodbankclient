@@ -239,6 +239,13 @@
         },
         {
           "questionNum": 21,
+          "questionKey": "sessionId",
+          "questionTitle": "Session date",
+          "required": true,
+          "keyField": "sessionId"
+        },
+        {
+          "questionNum": 22,
           "questionKey": "Collection method",
           "questionTitle": "How will the parcel be collected",
           "required": true,
@@ -257,7 +264,7 @@
           ]
         },
         {
-          "questionNum": 22,
+          "questionNum": 23,
           "questionTitle": "Delivery is restricted to people who…",
           "answerFormat": "No Answer",
           "enabledWhen": {
@@ -266,9 +273,18 @@
           }
         },
         {
-          "questionNum": 23,
+          "questionNum": 24,
+          "questionTitle": "$deliveryTime",
+          "answerFormat": "No Answer",
+          "enabledWhen": {
+            "questionKey": "Collection method",
+            "hasAnswer": "Delivery Requested"
+          }
+        },
+        {
+          "questionNum": 25,
           "questionKey": "deliveryConfirm",
-          "questionTitle": "Please confirm the client meets these criteria",
+          "questionTitle": "Please confirm both of these",
           "required": true,
           "enabledWhen": {
             "questionKey": "Collection method",
@@ -277,19 +293,13 @@
           "preference": false,
           "validation": {
             "type": "CheckBox",
-            "answerMin": 1,
-            "answerMax": 1
+            "answerMin": 2,
+            "answerMax": 2
           },
           "answers": [
-            "Yes"
+            "The client meets the criteria for delivery",
+            "The client will be at home for the delivery time above"
           ]
-        },
-        {
-          "questionNum": 24,
-          "questionKey": "sessionId",
-          "questionTitle": "Session date",
-          "required": true,
-          "keyField": "sessionId"
         }
       ]
     },

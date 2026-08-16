@@ -39,7 +39,13 @@ const TUESDAY: PublicSession = {
   startsAtUtc: '2026-08-04T09:00:00.000Z',
   durationMinutes: 120,
   location: 'St Mary’s Hall',
-  deliveriesAllowed: false,
+  // `PublicSession` carries the *resolved* window, never null. Deliberately
+  // NOT this session's own hours (10:00, 120 minutes): the van does not go out
+  // when the hall opens, and quoting `startTime` instead of the window is the
+  // mistake these tests exist to catch.
+  deliveryWindowStart: '13:00',
+  deliveryWindowEnd: '15:00',
+  deliveriesAllowed: true,
 };
 
 const THURSDAY: PublicSession = {
@@ -49,6 +55,8 @@ const THURSDAY: PublicSession = {
   startsAtUtc: '2026-08-06T13:30:00.000Z',
   durationMinutes: 90,
   location: 'The Community Centre',
+  deliveryWindowStart: '14:30',
+  deliveryWindowEnd: '16:00',
   deliveriesAllowed: false,
 };
 
@@ -576,9 +584,6 @@ describe('the questions themselves', () => {
 
     await fillPageOne(user);
     expect(screen.queryByText('Delivery is restricted to people who…')).toBeNull();
-    expect(
-      screen.getByRole('combobox', { name: /Please confirm the client meets these criteria/ }),
-    ).toBeDisabled();
 
     await user.selectOptions(
       screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
@@ -586,13 +591,95 @@ describe('the questions themselves', () => {
     );
     expect(screen.getByText('Delivery is restricted to people who…')).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: /Delivery is restricted/ })).toBeNull();
-    const confirmation = screen.getByRole('combobox', {
-      name: /Please confirm the client meets these criteria/,
+  });
+
+  it('states the chosen session’s delivery window, not the time the hall opens', async () => {
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
+      'Delivery Requested',
+    );
+
+    // Tuesday opens at 10:00 and delivers 13:00–15:00. Quoting the session's
+    // own start time here would be wrong for exactly the sessions a delivery
+    // window exists for, so the assertion is on the window and against 10:00.
+    expect(
+      screen.getByText('Delivery is expected between 13:00 and 15:00 on Tue, 4 Aug 2026'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Delivery is expected between 10:00/)).toBeNull();
+  });
+
+  it('says a session takes no deliveries rather than quoting a window it cannot keep', async () => {
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await user.selectOptions(screen.getByRole('combobox', { name: /Session date/ }), 's-thu');
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
+      'Delivery Requested',
+    );
+
+    expect(screen.getByText('No deliveries available for this session')).toBeInTheDocument();
+
+    // Settled on 2026-08-16: this does NOT block the referral. The referrer is
+    // left confirming, in as many words, that the household will be at home for
+    // "No deliveries available for this session" — which an administrator picks
+    // up at review. Blocking it would cost a validation path for one case.
+    for (const box of screen.getAllByRole('checkbox', { name: /^The client/ })) {
+      await user.click(box);
+    }
+    await user.click(next());
+    expect(await screen.findByRole('heading', { name: 'Food Preference' })).toBeInTheDocument();
+  });
+
+  it('never prints the raw $deliveryTime token before a session is chosen', async () => {
+    renderRefer();
+    const user = userEvent.setup();
+
+    // Every question up to and including the collection method, but no session
+    // — the one state in which the variable has nothing to resolve against.
+    await user.type(await screen.findByLabelText(/Referrer's name/), 'Sam Referrer');
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
+      'Delivery Requested',
+    );
+
+    // The row hides rather than showing the token or an empty sentence.
+    expect(screen.queryByText(/\$deliveryTime/)).toBeNull();
+    expect(screen.getByText('Delivery is restricted to people who…')).toBeInTheDocument();
+  });
+
+  it('requires both delivery confirmations, not just one', async () => {
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
+      'Delivery Requested',
+    );
+
+    const criteria = screen.getByRole('checkbox', {
+      name: 'The client meets the criteria for delivery',
     });
-    expect(confirmation).toBeEnabled();
-    expect(confirmation).toHaveValue('');
-    await user.selectOptions(confirmation, 'Yes');
-    expect(confirmation).toHaveValue('Yes');
+    const atHome = screen.getByRole('checkbox', {
+      name: 'The client will be at home for the delivery time above',
+    });
+
+    // One of the two is not a confirmation of the pair.
+    await user.click(criteria);
+    await user.click(next());
+    expect(
+      screen.getByRole('heading', { name: 'Referrer and client details' }),
+    ).toBeInTheDocument();
+
+    await user.click(atHome);
+    await user.click(next());
+    expect(await screen.findByRole('heading', { name: 'Food Preference' })).toBeInTheDocument();
   });
 
   it('greys out the fuel follow-ups until the fuel question is answered', async () => {
@@ -751,9 +838,7 @@ describe('submitting', () => {
     if (summary === null) throw new Error('The confirmation summary is not on the page');
 
     // The same words the dropdown offered: date, wall-clock time, and where.
-    expect(
-      within(summary).getByText('Tue, 4 Aug 2026 at 10:00 — St Mary’s Hall'),
-    ).toBeInTheDocument();
+    expect(within(summary).getByText('Tue, 4 Aug 2026 at 10:00')).toBeInTheDocument();
     expect(within(summary).getByText('Financial hardship')).toBeInTheDocument();
 
     // Neither id reaches the page, under any label.

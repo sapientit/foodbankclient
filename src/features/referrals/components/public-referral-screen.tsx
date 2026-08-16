@@ -4,6 +4,7 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { useDebouncedValue } from '../../../lib/use-debounced-value';
+import { describeDeliveryWindow } from '../delivery-window.logic';
 import {
   CHECK_DEBOUNCE_MS,
   normaliseEmail,
@@ -73,6 +74,7 @@ import styles from './public-referral-screen.module.css';
  */
 const REFERRER_EMAIL_KEY = keyFieldKey(referralFormDefinition, 'referrerEmail');
 const REFERRER_ORGANISATION_KEY = keyFieldKey(referralFormDefinition, 'referrerOrganisation');
+const SESSION_KEY = keyFieldKey(referralFormDefinition, 'sessionId');
 
 export function PublicReferralScreen() {
   const sessions = usePublicSessions();
@@ -103,6 +105,27 @@ export function PublicReferralScreen() {
     }),
     [sessions.data, reasons.data, organisations.data],
   );
+
+  /**
+   * What `$deliveryTime` reads as, for the session chosen on this page.
+   *
+   * `null` until a session is picked, which hides the line and the confirmation
+   * that refers to it rather than asking a referrer to agree to a blank. This
+   * is why the session question sits **above** the collection method in the
+   * config: it is the answer both of them depend on.
+   */
+  const variables = useMemo(() => {
+    // `keyFieldKey` answers from the config, so a form with no session question
+    // is expressible. Nothing to resolve against then, and the line hides.
+    if (SESSION_KEY === undefined) return { deliveryTime: null };
+
+    const chosen = answers[SESSION_KEY];
+    const session =
+      typeof chosen === 'string'
+        ? lookups.sessions.find((candidate) => candidate.id === chosen)
+        : undefined;
+    return { deliveryTime: session === undefined ? null : describeDeliveryWindow(session) };
+  }, [answers, lookups.sessions]);
 
   // The check lives here rather than in the notice because two things depend on
   // it: what the notice says, and the organisation the form fills in below.
@@ -309,6 +332,7 @@ export function PublicReferralScreen() {
             }}
             question={question}
             value={question.type === 'information' ? '' : (answers[question.key] ?? '')}
+            variables={variables}
             {...(question.type !== 'information' && question.key === REFERRER_EMAIL_KEY
               ? {
                   onBlur: () => {

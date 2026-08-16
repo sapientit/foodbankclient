@@ -30,7 +30,7 @@ const lookups: ReferralLookups = {
       id: SESSION_ID,
       sessionDate: '2026-08-11',
       startTime: '10:00',
-      location: "St Mary's Hall",
+      deliveriesAllowed: true,
     },
   ],
   referralReasons: [{ id: REASON_ID, label: 'Low income' }],
@@ -314,7 +314,7 @@ describe('describeSubmission', () => {
     );
 
     expect(lines).toEqual([
-      { label: 'sessionId', value: "Tue, 11 Aug 2026 at 10:00 — St Mary's Hall" },
+      { label: 'sessionId', value: 'Tue, 11 Aug 2026 at 10:00' },
       { label: 'reasonId', value: 'Low income' },
     ]);
     expect(JSON.stringify(lines)).not.toContain(SESSION_ID);

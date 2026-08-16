@@ -4,6 +4,7 @@ import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
+import { collectionOnlyLabel } from '../../../lib/session-description';
 import { formatSessionDate, formatTimeRange } from '../../../lib/london-time';
 import { useSessions, type Session } from '../queries';
 import {
@@ -135,7 +136,11 @@ function SessionRow({ session }: { session: Session }) {
       <Link className={styles.when} to={`/sessions/${session.id}`}>
         {formatTimeRange(session.startTime, session.durationMinutes)}
       </Link>
-      <span className={styles.where}>{session.location}</span>
+      {/* Where the hall's name used to be. One location, so it read the same on
+          every row; whether a session takes deliveries does not. The cell stays
+          empty for an ordinary session so the columns after it stay aligned —
+          see `src/lib/session-description.ts`. */}
+      <span className={styles.where}>{collectionOnlyLabel(session)}</span>
       <span className={styles.status} data-status={session.status}>
         {SESSION_STATUS_LABELS[session.status]}
       </span>

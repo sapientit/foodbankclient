@@ -223,3 +223,26 @@
 .refusal p + p {
   margin-block-start: 0.5rem;
 }
+
+/* Four aligned columns: date, hours, collection-only, booked. `auto` on the
+   third so an empty cell still holds its place and the booked count stays put
+   down a list — the whole reason these are columns rather than a sentence.
+   Wraps to a plain stack on a narrow screen, where alignment buys nothing and
+   horizontal scrolling would cost a team lead a tap. */
+.sessionLine {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  justify-content: start;
+  gap: 0.25rem 1.5rem;
+}
+
+.sessionHours {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 30rem) {
+  .sessionLine {
+    grid-template-columns: auto;
+    gap: 0;
+  }
+}

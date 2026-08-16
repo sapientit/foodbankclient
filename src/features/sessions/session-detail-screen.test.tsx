@@ -16,7 +16,8 @@ function session(overrides: Partial<Session> = {}): Session {
     startsAtUtc: '2026-08-04T09:00:00.000Z',
     durationMinutes: 90,
     location: 'St Mary’s Hall',
-    deliveryTime: null,
+    deliveryWindowStart: null,
+    deliveryWindowEnd: null,
     deliveriesAllowed: false,
     capacity: 25,
     booked: 10,
@@ -72,8 +73,211 @@ describe('the session detail screen', () => {
       durationMinutes: 90,
       location: 'New hall',
       capacity: 25,
+      // Fetched with no window and left untouched — both keys are still sent
+      // explicitly, because this form saves every field on every submit.
+      deliveryWindowStart: null,
+      deliveryWindowEnd: null,
+      deliveriesAllowed: false,
     });
     expect(posted).not.toHaveProperty('startsAtUtc');
+  });
+
+  it('reads a both-null stored window as delivering across the session’s own hours, never as a gap', async () => {
+    server.use(
+      http.get(SESSION_URL, () => HttpResponse.json(session({ deliveriesAllowed: true }))),
+    );
+
+    renderApp('/sessions/s1');
+
+    expect(
+      await screen.findByText('Deliveries go out across the session’s own hours.'),
+    ).toBeInTheDocument();
+  });
+
+  it('states a set delivery window, and that a session with none takes no deliveries', async () => {
+    server.use(
+      http.get(SESSION_URL, () =>
+        HttpResponse.json(
+          session({
+            deliveryWindowStart: '09:00',
+            deliveryWindowEnd: '11:00',
+            deliveriesAllowed: true,
+          }),
+        ),
+      ),
+    );
+
+    renderApp('/sessions/s1');
+
+    expect(await screen.findByText('09:00–11:00')).toBeInTheDocument();
+  });
+
+  it('disables and un-marks the delivery times until the checkbox is ticked', async () => {
+    server.use(http.get(SESSION_URL, () => HttpResponse.json(session())));
+
+    renderApp('/sessions/s1');
+
+    const start = await screen.findByLabelText('Delivery window starts');
+    const end = screen.getByLabelText('Delivery window ends');
+    expect(start).toBeDisabled();
+    expect(end).toBeDisabled();
+    expect(start).not.toBeRequired();
+    expect(end).not.toBeRequired();
+  });
+
+  it('sets a delivery window on amend, once the checkbox is ticked', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.get(SESSION_URL, () => HttpResponse.json(session())),
+      http.patch(SESSION_URL, async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(
+          session({ deliveryWindowStart: '09:00', deliveryWindowEnd: '11:00' }),
+        );
+      }),
+    );
+
+    renderApp('/sessions/s1');
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('St Mary’s Hall');
+    await user.click(screen.getByLabelText('This session takes deliveries'));
+    await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
+    await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await screen.findByRole('heading', { name: 'Sessions' });
+
+    expect(posted).toMatchObject({
+      deliveryWindowStart: '09:00',
+      deliveryWindowEnd: '11:00',
+      deliveriesAllowed: true,
+    });
+  });
+
+  it('clears an existing delivery window by sending explicit null on both keys when the checkbox is unticked', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.get(SESSION_URL, () =>
+        HttpResponse.json(
+          session({
+            deliveryWindowStart: '09:00',
+            deliveryWindowEnd: '11:00',
+            deliveriesAllowed: true,
+          }),
+        ),
+      ),
+      http.patch(SESSION_URL, async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(session());
+      }),
+    );
+
+    renderApp('/sessions/s1');
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('09:00');
+    await user.click(screen.getByLabelText('This session takes deliveries'));
+
+    const start = screen.getByLabelText('Delivery window starts');
+    const end = screen.getByLabelText('Delivery window ends');
+    expect(start).toBeDisabled();
+    expect(start).toHaveValue('');
+    expect(end).toHaveValue('');
+
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await screen.findByRole('heading', { name: 'Sessions' });
+
+    expect(posted).toMatchObject({ deliveryWindowStart: null, deliveryWindowEnd: null });
+  });
+
+  /**
+   * The two inputs are required together and disabled together, and the rule
+   * that says so sits under the first of them. Somebody who tabs straight to
+   * the second — or lands there from a screen reader's field list — would
+   * otherwise meet a bare box with no hint of why it is greyed out or why it
+   * later refuses to save on its own.
+   */
+  it('tells both delivery inputs that they are a pair, not two independent fields', async () => {
+    server.use(http.get(SESSION_URL, () => HttpResponse.json(session())));
+
+    renderApp('/sessions/s1');
+
+    const guidance =
+      'Both times are required while this session takes deliveries, and are disabled and cleared while it does not.';
+    const start = await screen.findByLabelText('Delivery window starts');
+    const end = screen.getByLabelText('Delivery window ends');
+    // The checkbox too. This session takes no deliveries, so both inputs are
+    // disabled — skipped by the tab order and by a screen reader's field list —
+    // and the checkbox is the only place left to learn what ticking it turns
+    // on. Without this, the guidance exists on a control nobody can reach.
+    const checkbox = screen.getByLabelText('This session takes deliveries');
+    expect(start).toBeDisabled();
+
+    for (const control of [checkbox, start, end]) {
+      const described = (control.getAttribute('aria-describedby') ?? '')
+        .split(' ')
+        .map((id) => document.getElementById(id)?.textContent)
+        .join(' ');
+      expect(described).toContain(guidance);
+    }
+  });
+
+  it('refuses a ticked-on window missing its start or end, before making a request', async () => {
+    const patched = vi.fn();
+    server.use(
+      http.get(SESSION_URL, () => HttpResponse.json(session())),
+      http.patch(SESSION_URL, () => {
+        patched();
+        return HttpResponse.json(session());
+      }),
+    );
+
+    renderApp('/sessions/s1');
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('St Mary’s Hall');
+    await user.click(screen.getByLabelText('This session takes deliveries'));
+    await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(await screen.findByText('Enter when the delivery window ends.')).toBeInTheDocument();
+    expect(patched).not.toHaveBeenCalled();
+  });
+
+  it('toggles deliveriesAllowed and round-trips it and its now-required window in the save', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.get(SESSION_URL, () => HttpResponse.json(session({ deliveriesAllowed: false }))),
+      http.patch(SESSION_URL, async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(
+          session({
+            deliveriesAllowed: true,
+            deliveryWindowStart: '09:00',
+            deliveryWindowEnd: '11:00',
+          }),
+        );
+      }),
+    );
+
+    renderApp('/sessions/s1');
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('St Mary’s Hall');
+    await user.click(screen.getByLabelText('This session takes deliveries'));
+    await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
+    await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await screen.findByRole('heading', { name: 'Sessions' });
+
+    expect(posted).toMatchObject({
+      deliveriesAllowed: true,
+      deliveryWindowStart: '09:00',
+      deliveryWindowEnd: '11:00',
+    });
   });
 
   it('shows the occupancy, including over capacity, without treating it as an error', async () => {

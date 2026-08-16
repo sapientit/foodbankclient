@@ -1,4 +1,5 @@
 import { formatSessionDate } from '../../lib/london-time';
+import { describeSessionChoice } from '../../lib/session-description';
 import type { ClosedLookup } from './referral-key-fields';
 
 /**
@@ -23,7 +24,7 @@ export interface SessionOption {
   readonly id: string;
   readonly sessionDate: string;
   readonly startTime: string;
-  readonly location: string;
+  readonly deliveriesAllowed: boolean;
 }
 
 export interface ReasonOption {
@@ -38,13 +39,20 @@ export interface ReferralLookups {
 
 /**
  * The date as a calendar day and the time as a wall clock, printed as the
- * charity typed them, then where to go.
+ * charity typed them, and whether the session takes deliveries.
  *
  * **No end time on a public page**: a wrong closing time sends somebody to a
- * locked hall.
+ * locked hall. That is why the formatted `when` is built here rather than
+ * taken from `formatTimeRange` like every staff screen does.
+ *
+ * **No location**: one hall, so it said the same words on every option. See
+ * `src/lib/session-description.ts`.
  */
 export function describeSession(session: SessionOption): string {
-  return `${formatSessionDate(session.sessionDate)} at ${session.startTime} — ${session.location}`;
+  return describeSessionChoice(
+    `${formatSessionDate(session.sessionDate)} at ${session.startTime}`,
+    session,
+  );
 }
 
 /**

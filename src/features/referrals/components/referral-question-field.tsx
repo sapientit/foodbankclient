@@ -27,6 +27,7 @@ import {
   type HouseholdGender,
 } from '../household-composition';
 import type { HouseholdCompositionQuestion } from '../referral-form-definition';
+import { applyFormVariables, type FormVariables } from '../delivery-window.logic';
 import { describeSession } from '../referral-lookups';
 import type { PublicSession, ReferralReason } from '../queries';
 import styles from './referral-question-field.module.css';
@@ -66,10 +67,17 @@ interface FieldProps {
    * question that uses it lives.
    */
   readonly onBlur?: () => void;
+  /**
+   * Values for the variables a question's text may name — today only
+   * `$deliveryTime`, resolved from the session the referrer has chosen. Absent
+   * where the caller has no session to resolve against, which hides any
+   * question that needs one rather than printing the token.
+   */
+  readonly variables?: FormVariables;
 }
 
 export function ReferralQuestionField(props: FieldProps) {
-  const { question, error, enabled } = props;
+  const { question, error, enabled, variables } = props;
   const fieldId = useId();
   const errorId = useId();
   const helpId = useId();
@@ -77,6 +85,13 @@ export function ReferralQuestionField(props: FieldProps) {
   // An informational row is useful only when its condition applies. Unlike a
   // response control it has nothing meaningful to grey out while waiting.
   if (question.type === 'information' && !enabled) return null;
+
+  // Resolved before anything renders, because an unresolved variable means the
+  // row says nothing yet — the referrer has not chosen a session — and a line
+  // reading "$deliveryTime" teaches them the form is broken.
+  const informationText =
+    question.type === 'information' ? applyFormVariables(question.label, variables ?? {}) : null;
+  if (question.type === 'information' && informationText === null) return null;
 
   const describedBy = [
     question.type === 'information' || question.helpText === undefined ? null : helpId,
@@ -98,7 +113,7 @@ export function ReferralQuestionField(props: FieldProps) {
       ) : question.type === 'householdComposition' ? (
         <HouseholdCompositionField {...shared} question={question} />
       ) : question.type === 'information' ? (
-        <p className={styles.help}>{question.label}</p>
+        <p className={styles.help}>{informationText}</p>
       ) : (
         <>
           <label className={styles.label} htmlFor={fieldId}>

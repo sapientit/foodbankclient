@@ -189,6 +189,69 @@ export const MAX_LOCATION_LENGTH = 200;
 /** `RecurringSession.name`: `maxLength: 120`. */
 export const MAX_RECURRING_NAME_LENGTH = 120;
 
+export type DeliveryWindowProblem = 'start-required' | 'end-required' | 'end-not-after-start';
+
+/**
+ * The client's own rule for the two delivery-window boxes on the four
+ * maintenance forms — settled 2026-08-16 — which is stricter than the
+ * server's `400`s (`API.md` "A session's delivery window") because the form
+ * no longer lets "both blank while deliveries are on" happen at all: **while
+ * `deliveriesAllowed` is off the two times are irrelevant** and this reports
+ * no problem however the boxes read, because the form clears and disables
+ * them; **while it is on, both are required**, and an end at or before the
+ * start is still invalid. A *stored* both-null window with deliveries on is
+ * still a real, valid state the server can return — see
+ * `describeDeliveryWindow` — it just cannot be produced from this form any
+ * more.
+ *
+ * `HH:MM` compares correctly as a plain string because it is always
+ * zero-padded to two digits either side of the colon — the same reasoning
+ * `sortRecurringSessions` already relies on for `startTime`.
+ */
+export function validateDeliveryWindow(
+  deliveriesAllowed: boolean,
+  start: string,
+  end: string,
+): DeliveryWindowProblem | null {
+  if (!deliveriesAllowed) return null;
+  if (start === '') return 'start-required';
+  if (end === '') return 'end-required';
+  if (end <= start) return 'end-not-after-start';
+  return null;
+}
+
+/**
+ * How a *stored* delivery window pair reads on a maintenance screen. Both
+ * null is a real, common state — not a gap in the data — so it earns its own
+ * sentence rather than an empty dash that would read as missing information.
+ * Structural rather than typed on `Session` so it also takes a
+ * `RecurringSession` row without a second overload.
+ */
+export function describeDeliveryWindow(window: {
+  readonly deliveryWindowStart: string | null;
+  readonly deliveryWindowEnd: string | null;
+}): string {
+  const { deliveryWindowStart, deliveryWindowEnd } = window;
+  if (deliveryWindowStart === null || deliveryWindowEnd === null) {
+    return 'Deliveries go out across the session’s own hours.';
+  }
+  return `${deliveryWindowStart}–${deliveryWindowEnd}`;
+}
+
+/**
+ * `deliveriesAllowed: false` means the session has nobody to drive — that
+ * takes precedence over the window, which is otherwise meaningless. See
+ * `API.md` "Deliveries can be switched off per session".
+ */
+export function describeDeliveries(session: {
+  readonly deliveriesAllowed: boolean;
+  readonly deliveryWindowStart: string | null;
+  readonly deliveryWindowEnd: string | null;
+}): string {
+  if (!session.deliveriesAllowed) return 'This session does not take deliveries.';
+  return describeDeliveryWindow(session);
+}
+
 /** A cancellation `reason`: `maxLength: 500`. */
 export const MAX_CANCEL_REASON_LENGTH = 500;
 

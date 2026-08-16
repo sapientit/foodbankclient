@@ -8,6 +8,7 @@ import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, describeApiError, pendingPickNumbers } from '../../../lib/errors';
 import { formatSessionDate, formatTimeRange } from '../../../lib/london-time';
+import { collectionOnlyLabel, describeSessionChoice } from '../../../lib/session-description';
 import { useSession, useSessions, type Session } from '../../sessions/queries';
 import { useStockItems, type StockItem } from '../../stock/queries';
 import { useReferrals } from '../../referrals/queries';
@@ -73,8 +74,10 @@ export function RunSessionsScreen() {
             {open.map((session) => (
               <li key={session.id}>
                 <Link to={`/run-sessions/${session.id}`}>
-                  {formatSessionDate(session.sessionDate)},{' '}
-                  {formatTimeRange(session.startTime, session.durationMinutes)} — {session.location}
+                  {describeSessionChoice(
+                    `${formatSessionDate(session.sessionDate)}, ${formatTimeRange(session.startTime, session.durationMinutes)}`,
+                    session,
+                  )}
                 </Link>{' '}
                 ({session.booked} booked)
               </li>
@@ -96,6 +99,32 @@ export function RunSessionsScreen() {
  * answer arrives with the control rather than beside it. It has no handler, so
  * activating it does nothing — which is the behaviour `disabled` was there for.
  */
+/**
+ * Which session this screen is about, as four aligned columns: the date, the
+ * hours, whether it is collection only, and how many households are booked.
+ *
+ * **Columns rather than a sentence**, settled by Pete on 2026-08-16. A team
+ * lead reads this at a glance while a hall fills up, and the parts that matter
+ * sit in the same place every time rather than moving with the length of what
+ * came before them. The third column stays empty for an ordinary session, which
+ * is what keeps the fourth in line down a list.
+ *
+ * The location is gone — one hall, so it was the same words every time. See
+ * `src/lib/session-description.ts`.
+ */
+function SessionLine({ session }: { session: Session }) {
+  return (
+    <p className={styles.sessionLine}>
+      <span>{formatSessionDate(session.sessionDate)}</span>
+      <span className={styles.sessionHours}>
+        {formatTimeRange(session.startTime, session.durationMinutes)}
+      </span>
+      <span>{collectionOnlyLabel(session)}</span>
+      <span>{session.booked} booked</span>
+    </p>
+  );
+}
+
 function PrintUnavailable() {
   const reasonId = useId();
 
@@ -311,11 +340,7 @@ export function RunSessionDetailScreen() {
   return (
     <>
       <PageHeader title="Run a session" />
-      <p>
-        {formatSessionDate(session.data.sessionDate)},{' '}
-        {formatTimeRange(session.data.startTime, session.data.durationMinutes)} —{' '}
-        {session.data.location}. {session.data.booked} booked.
-      </p>
+      <SessionLine session={session.data} />
       {reconcile.data !== undefined && (reconcile.data.parcelsCreated ?? 0) > 0 && (
         <p role="status">
           {reconcile.data.parcelsCreated} new pick list
@@ -528,11 +553,7 @@ export function RunSessionClientScreen() {
           that commits every sheet to paper next to the one household this
           screen is about. */}
       <PageHeader title={`Pick #${String(parcel.pickNumber)}: ${parcelName(parcel)}`} />
-      <p>
-        {formatSessionDate(session.data.sessionDate)},{' '}
-        {formatTimeRange(session.data.startTime, session.data.durationMinutes)} —{' '}
-        {session.data.location}.
-      </p>
+      <SessionLine session={session.data} />
       <p>
         <Link onClick={linkTo(`/run-sessions/${sessionId}`)} to={`/run-sessions/${sessionId}`}>
           Back to clients
