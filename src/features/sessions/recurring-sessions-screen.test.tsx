@@ -40,6 +40,29 @@ beforeEach(() => {
 });
 
 describe('the weekly session list', () => {
+  /**
+   * A weekly session is a template for the scheduled sessions rather than one
+   * of them, so somebody who came here to check a template needs the way back
+   * to the list it feeds without going out to the menu to find it.
+   */
+  it('offers a way back to the scheduled sessions alongside adding a template', async () => {
+    server.use(http.get(RECURRING, () => HttpResponse.json({ recurringSessions: [] })));
+
+    renderApp('/sessions/recurring');
+
+    // Waited for on the screen's own action rather than on the back link: the
+    // back link is on the loading header too, so awaiting it would resolve
+    // before the list had arrived and assert nothing about this screen.
+    expect(await screen.findByRole('link', { name: 'Add a weekly session' })).toHaveAttribute(
+      'href',
+      '/sessions/recurring/new',
+    );
+    expect(screen.getByRole('link', { name: 'Back to sessions' })).toHaveAttribute(
+      'href',
+      '/sessions',
+    );
+  });
+
   it('orders templates by weekday then start time, not by the order the server sent them', async () => {
     server.use(
       http.get(RECURRING, () =>

@@ -19,6 +19,16 @@ import { formatSessionDate } from '../../lib/london-time';
 export const DELIVERY_TIME_VARIABLE = '$deliveryTime';
 
 /**
+ * The label the window is announced under, bold on the screen.
+ *
+ * Settled with Pete on 2026-08-16: a plain sentence sitting among the questions
+ * was too easily read past, and this is the one line the second delivery
+ * confirmation is about. A label the eye can find is worth more here than a
+ * sentence that scans well.
+ */
+export const DELIVERY_TIME_LABEL = 'Delivery Time:';
+
+/**
  * The window as the referral form states it.
  *
  * **`PublicSession` carries the *resolved* window, never null** — a session
@@ -49,13 +59,29 @@ export interface DeliverySession {
 export function describeDeliveryWindow(session: DeliverySession): string {
   if (!session.deliveriesAllowed) return 'No deliveries available for this session';
 
-  return `Delivery is expected between ${session.deliveryWindowStart} and ${session.deliveryWindowEnd} on ${formatSessionDate(session.sessionDate)}`;
+  return `between ${session.deliveryWindowStart} and ${session.deliveryWindowEnd} on ${formatSessionDate(session.sessionDate)}`;
 }
 
 /** The values a question's text may draw on. A `null` means "not known yet". */
 export interface FormVariables {
   readonly deliveryTime?: string | null;
 }
+
+/**
+ * A run of a question's text, and whether it stands out.
+ *
+ * Substitution produces runs rather than one string because the delivery line
+ * is a bold label followed by the window in ordinary text, and a string cannot
+ * carry that. Every other question resolves to a single ordinary run, so the
+ * caller renders one shape.
+ */
+export interface TextSegment {
+  readonly text: string;
+  readonly emphasis: boolean;
+}
+
+const ordinary = (text: string): readonly TextSegment[] =>
+  text === '' ? [] : [{ text, emphasis: false }];
 
 /**
  * A question's text with its variables filled in, or `null` where one of them
@@ -70,12 +96,29 @@ export interface FormVariables {
  *
  * Text with no variable in it comes back unchanged, which is every other
  * question on the form.
+ *
+ * The delivery time arrives as `DELIVERY_TIME_LABEL` in bold and the window
+ * after it, so the line reads as a heading a referrer can find rather than one
+ * more sentence to skim past.
  */
-export function applyFormVariables(text: string, variables: FormVariables): string | null {
-  if (!text.includes(DELIVERY_TIME_VARIABLE)) return text;
+export function applyFormVariables(
+  text: string,
+  variables: FormVariables,
+): readonly TextSegment[] | null {
+  if (!text.includes(DELIVERY_TIME_VARIABLE)) return ordinary(text);
 
   const deliveryTime = variables.deliveryTime;
   if (deliveryTime === undefined || deliveryTime === null) return null;
 
-  return text.split(DELIVERY_TIME_VARIABLE).join(deliveryTime);
+  return text
+    .split(DELIVERY_TIME_VARIABLE)
+    .flatMap((between, index) =>
+      index === 0
+        ? ordinary(between)
+        : [
+            { text: DELIVERY_TIME_LABEL, emphasis: true },
+            ...ordinary(` ${deliveryTime}`),
+            ...ordinary(between),
+          ],
+    );
 }

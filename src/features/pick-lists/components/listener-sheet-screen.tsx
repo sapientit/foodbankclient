@@ -1,8 +1,14 @@
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
-import { listenerColumns, listenerColumnValue } from '../listener-sheet.logic';
+import { usePublicReferralReasons } from '../../referrals/queries';
+import {
+  listenerColumns,
+  listenerColumnsNeedReferralReasons,
+  listenerColumnValue,
+} from '../listener-sheet.logic';
 import { useListenerSheet } from '../queries';
 import styles from './listener-sheet-screen.module.css';
 
@@ -22,7 +28,19 @@ export function ListenerSheetScreen() {
   const sheet = useListenerSheet(sessionId);
   const columns = listenerColumns();
 
-  if (sheet.isPending)
+  /*
+   * The reason list, because a question choosing from it stores an id. It is
+   * the public lookup rather than the admin one: this sheet belongs to a team
+   * lead, and `GET /referral-reasons` answers them `403`.
+   */
+  const needsReasons = listenerColumnsNeedReferralReasons(columns);
+  const reasons = usePublicReferralReasons(needsReasons);
+  const referralReasons = useMemo(
+    () => (reasons.data ?? []).map((reason) => ({ value: reason.id, label: reason.label })),
+    [reasons.data],
+  );
+
+  if (sheet.isPending || (needsReasons && reasons.isPending))
     return (
       <>
         <PageHeader title="Listener sheet" />
@@ -34,6 +52,15 @@ export function ListenerSheetScreen() {
       <>
         <PageHeader title="Listener sheet" />
         <ErrorNotice error={sheet.error} onRetry={() => void sheet.refetch()} />
+      </>
+    );
+  // Held back rather than printed with an identifier where a cause of crisis
+  // should be: a listener reads this sheet aloud to a household.
+  if (needsReasons && reasons.isError)
+    return (
+      <>
+        <PageHeader title="Listener sheet" />
+        <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />
       </>
     );
 
@@ -73,7 +100,7 @@ export function ListenerSheetScreen() {
             {sheet.data.households.map((household) => (
               <tr key={household.referralId}>
                 {columns.map((column, index) => {
-                  const value = listenerColumnValue(column, household);
+                  const value = listenerColumnValue(column, household, referralReasons);
                   // The first column heads its row: a listener finds a household
                   // by whatever the form puts first, which is their name.
                   return index === 0 ? (

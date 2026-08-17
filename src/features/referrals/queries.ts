@@ -101,7 +101,13 @@ const LOOKUP_STALE_MS = 5 * 60_000;
 
 export type ReferralReason = components['schemas']['ReferralReason'];
 
-export function usePublicReferralReasons() {
+/**
+ * `enabled` defaults to `true` for the referral form, which always needs the
+ * list. It exists for the listener sheet, which needs it only while the
+ * questionnaire marks a question that chooses from it — and would otherwise
+ * hold a printed sheet up for a lookup nothing on it reads.
+ */
+export function usePublicReferralReasons(enabled = true) {
   return useQuery({
     queryKey: publicReferralKeys.reasons(),
     queryFn: async () => {
@@ -109,6 +115,7 @@ export function usePublicReferralReasons() {
       return referralReasons;
     },
     staleTime: LOOKUP_STALE_MS,
+    enabled,
   });
 }
 

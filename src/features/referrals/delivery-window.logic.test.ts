@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DELIVERY_TIME_LABEL,
   DELIVERY_TIME_VARIABLE,
   applyFormVariables,
   describeDeliveryWindow,
@@ -18,9 +19,7 @@ function session(overrides: Partial<DeliverySession> = {}): DeliverySession {
 
 describe('describeDeliveryWindow', () => {
   it('states the window and the day, so a referrer can ask the household about a real time', () => {
-    expect(describeDeliveryWindow(session())).toBe(
-      'Delivery is expected between 13:00 and 15:00 on Tue, 4 Aug 2026',
-    );
+    expect(describeDeliveryWindow(session())).toBe('between 13:00 and 15:00 on Tue, 4 Aug 2026');
   });
 
   it('says plainly that a session takes no deliveries', () => {
@@ -54,21 +53,29 @@ describe('describeDeliveryWindow', () => {
 describe('applyFormVariables', () => {
   it('leaves text with no variable in it exactly as the charity wrote it', () => {
     // Which is every other question on the form.
-    expect(applyFormVariables('How will the parcel be collected', {})).toBe(
-      'How will the parcel be collected',
-    );
+    expect(applyFormVariables('How will the parcel be collected', {})).toEqual([
+      { text: 'How will the parcel be collected', emphasis: false },
+    ]);
   });
 
-  it('substitutes a resolved delivery time', () => {
-    expect(applyFormVariables(DELIVERY_TIME_VARIABLE, { deliveryTime: 'Delivery at noon' })).toBe(
-      'Delivery at noon',
-    );
+  it('announces the delivery time under a label that stands out from the window', () => {
+    // The label carries the emphasis and the window does not: a line a referrer
+    // can find, in text they can read, which the plain sentence was not.
+    expect(applyFormVariables(DELIVERY_TIME_VARIABLE, { deliveryTime: 'at noon' })).toEqual([
+      { text: DELIVERY_TIME_LABEL, emphasis: true },
+      { text: ' at noon', emphasis: false },
+    ]);
   });
 
   it('substitutes a variable embedded in a longer sentence', () => {
-    expect(applyFormVariables(`Note: ${DELIVERY_TIME_VARIABLE}.`, { deliveryTime: 'noon' })).toBe(
-      'Note: noon.',
-    );
+    expect(
+      applyFormVariables(`Note: ${DELIVERY_TIME_VARIABLE}.`, { deliveryTime: 'noon' }),
+    ).toEqual([
+      { text: 'Note: ', emphasis: false },
+      { text: DELIVERY_TIME_LABEL, emphasis: true },
+      { text: ' noon', emphasis: false },
+      { text: '.', emphasis: false },
+    ]);
   });
 
   /**
@@ -85,7 +92,9 @@ describe('applyFormVariables', () => {
     const answer = applyFormVariables(`${DELIVERY_TIME_VARIABLE} — ${DELIVERY_TIME_VARIABLE}`, {
       deliveryTime: 'noon',
     });
-    expect(answer).toBe('noon — noon');
-    expect(answer).not.toContain(DELIVERY_TIME_VARIABLE);
+    expect(answer?.map((segment) => segment.text).join('')).toBe(
+      `${DELIVERY_TIME_LABEL} noon — ${DELIVERY_TIME_LABEL} noon`,
+    );
+    expect(answer?.map((segment) => segment.text).join('')).not.toContain(DELIVERY_TIME_VARIABLE);
   });
 });

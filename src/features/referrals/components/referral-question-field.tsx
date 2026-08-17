@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { Fragment, useId, useState } from 'react';
 import { londonToday } from '../../../lib/london-time';
 import type {
   ChoiceQuestion,
@@ -89,9 +89,9 @@ export function ReferralQuestionField(props: FieldProps) {
   // Resolved before anything renders, because an unresolved variable means the
   // row says nothing yet — the referrer has not chosen a session — and a line
   // reading "$deliveryTime" teaches them the form is broken.
-  const informationText =
+  const informationSegments =
     question.type === 'information' ? applyFormVariables(question.label, variables ?? {}) : null;
-  if (question.type === 'information' && informationText === null) return null;
+  if (question.type === 'information' && informationSegments === null) return null;
 
   const describedBy = [
     question.type === 'information' || question.helpText === undefined ? null : helpId,
@@ -113,7 +113,15 @@ export function ReferralQuestionField(props: FieldProps) {
       ) : question.type === 'householdComposition' ? (
         <HouseholdCompositionField {...shared} question={question} />
       ) : question.type === 'information' ? (
-        <p className={styles.help}>{informationText}</p>
+        <p className={styles.information}>
+          {informationSegments?.map((segment, index) =>
+            segment.emphasis ? (
+              <strong key={index}>{segment.text}</strong>
+            ) : (
+              <Fragment key={index}>{segment.text}</Fragment>
+            ),
+          )}
+        </p>
       ) : (
         <>
           <label className={styles.label} htmlFor={fieldId}>

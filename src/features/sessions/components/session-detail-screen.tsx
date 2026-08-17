@@ -111,7 +111,7 @@ export function SessionDetailScreen() {
   if (session.isPending) {
     return (
       <>
-        <PageHeader title="Session" />
+        <PageHeader action={<Link to="/sessions">Back to sessions</Link>} title="Session" />
         <Spinner label="Loading the session…" />
       </>
     );
@@ -120,7 +120,7 @@ export function SessionDetailScreen() {
   if (session.isError) {
     return (
       <>
-        <PageHeader title="Session" />
+        <PageHeader action={<Link to="/sessions">Back to sessions</Link>} title="Session" />
         <ErrorNotice
           error={session.error}
           onRetry={() => {
@@ -232,7 +232,10 @@ function SessionDetailForm({ session }: { session: Session }) {
 
   return (
     <>
-      <PageHeader title={`Session on ${formatSessionDate(session.sessionDate)}`} />
+      <PageHeader
+        action={<Link to="/sessions">Back to sessions</Link>}
+        title={`Session on ${formatSessionDate(session.sessionDate)}`}
+      />
 
       <dl className={styles.static}>
         <dt>Status</dt>

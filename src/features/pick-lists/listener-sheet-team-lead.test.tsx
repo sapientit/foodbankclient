@@ -5,8 +5,26 @@ import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 import { listenerColumns } from './listener-sheet.logic';
 import type { ListenerSheet } from './queries';
+import type { ReferralReason } from '../referrals/queries';
 
 const SESSION_ID = 'session-1';
+
+/*
+ * The maintained reason lookup. A question choosing from it — the secondary
+ * cause of crisis — stores the reason's **id**, so this is what stands between
+ * a listener and a page of identifiers. Public rather than admin: a team lead
+ * is refused `GET /referral-reasons`.
+ */
+const REASONS = [
+  { id: 'reason-debt', code: 'debt', label: 'Debt', displayOrder: 1 },
+  { id: 'reason-illness', code: 'illness', label: 'Illness', displayOrder: 2 },
+] satisfies ReferralReason[];
+
+function reasonsHandler() {
+  return http.get('/api/v1/public/referral-reasons', () =>
+    HttpResponse.json({ referralReasons: REASONS }),
+  );
+}
 
 /*
  * The endpoint's deliberately narrow projection is the privacy boundary: it
@@ -25,7 +43,7 @@ const LISTENER_SHEET = {
       needsFuelHelp: true,
       answers: {
         reasonAdditional: 'The boiler broke and used the rent money.',
-        Secondary: 'Debt',
+        Secondary: 'reason-debt',
         Address: '17 Never Print Close',
         Phone: '07000 000000',
         'Parcel contents': 'Baked beans: 2',
@@ -69,6 +87,7 @@ describe('a team lead listener sheet', () => {
         expect(params.sessionId).toBe(SESSION_ID);
         return HttpResponse.json(LISTENER_SHEET);
       }),
+      reasonsHandler(),
     );
 
     renderApp(`/run-sessions/${SESSION_ID}/listener`);
@@ -83,6 +102,7 @@ describe('a team lead listener sheet', () => {
       http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
         HttpResponse.json(LISTENER_SHEET),
       ),
+      reasonsHandler(),
     );
 
     renderApp(`/run-sessions/${SESSION_ID}/listener`);
@@ -103,8 +123,10 @@ describe('a team lead listener sheet', () => {
     expect(screen.getByText('Unexpected expenses')).toBeInTheDocument();
     expect(screen.getByText('The boiler broke and used the rent money.')).toBeInTheDocument();
     // The secondary cause: required by `screenDetails.md` and absent from this
-    // sheet until the form started choosing the columns.
+    // sheet until the form started choosing the columns. It is stored as the
+    // reason's id and must print as the words — a listener reads this aloud.
     expect(screen.getByText('Debt')).toBeInTheDocument();
+    expect(screen.queryByText('reason-debt')).toBeNull();
     expect(screen.getAllByText('No')).toHaveLength(2);
     expect(screen.getByText('Yes')).toBeInTheDocument();
     expect(screen.getAllByText('None given')).toHaveLength(3);
@@ -114,6 +136,45 @@ describe('a team lead listener sheet', () => {
     expect(screen.queryByText('17 Never Print Close')).toBeNull();
     expect(screen.queryByText('07000 000000')).toBeNull();
     expect(screen.queryByText('Baked beans: 2')).toBeNull();
+  });
+
+  it('says so, rather than printing an identifier, when a stored reason is no longer on the list', async () => {
+    // The public lookup sends the active reasons only, so a referral naming a
+    // reason retired since it was made cannot be resolved here at all. Marked
+    // as a guess in the server's OPEN-QUESTIONS.md.
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
+        HttpResponse.json({
+          ...LISTENER_SHEET,
+          households: LISTENER_SHEET.households.slice(0, 1).map((household) => ({
+            ...household,
+            answers: { ...household.answers, Secondary: 'reason-retired' },
+          })),
+        } satisfies ListenerSheet),
+      ),
+      reasonsHandler(),
+    );
+
+    renderApp(`/run-sessions/${SESSION_ID}/listener`);
+
+    expect(await screen.findByText('No longer listed')).toBeInTheDocument();
+    expect(screen.queryByText('reason-retired')).toBeNull();
+  });
+
+  it('holds the sheet back rather than printing it when the reason lookup fails', async () => {
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
+        HttpResponse.json(LISTENER_SHEET),
+      ),
+      http.get('/api/v1/public/referral-reasons', () => HttpResponse.json({}, { status: 500 })),
+    );
+
+    renderApp(`/run-sessions/${SESSION_ID}/listener`);
+
+    // A page of identifiers where a cause of crisis should be is worse than a
+    // page the team lead can retry.
+    expect(await screen.findByRole('button', { name: /try again/i })).toBeInTheDocument();
+    expect(screen.queryByRole('row', { name: /Amina Ahmed/ })).toBeNull();
   });
 
   it('never prints a column for a marked question the endpoint does not send', () => {

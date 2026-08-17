@@ -1,3 +1,14 @@
+/* Two links share the header's single action slot. Wrapping rather than
+   shrinking keeps both readable on a phone, where they stack under the title
+   instead of competing with it for the same line. */
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+
+/* The heavier of the two, because adding a template is what this screen is
+   for and going back is the way out of it. */
 .add {
   font-weight: 600;
 }

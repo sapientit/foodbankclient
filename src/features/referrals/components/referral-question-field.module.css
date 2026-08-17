@@ -93,6 +93,15 @@
   color: #595959;
 }
 
+/*
+ * A statement the form makes, not help attached to a control: full size and
+ * full contrast, because the delivery time is the line the confirmation
+ * underneath it asks a referrer to agree to. Help-text grey lost it.
+ */
+.information {
+  margin: 0;
+}
+
 .error {
   margin: 0;
   font-weight: 600;

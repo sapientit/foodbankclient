@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -190,6 +190,47 @@ describe('the session detail screen', () => {
     await screen.findByRole('heading', { name: 'Sessions' });
 
     expect(posted).toMatchObject({ deliveryWindowStart: null, deliveryWindowEnd: null });
+  });
+
+  /**
+   * The way back to the scheduled sessions, from every state this screen has.
+   * The error state matters most: a session that no longer exists leaves an
+   * administrator on a page with nothing on it, and "Cancel" beside the Save
+   * button is not a way out — it reads as abandoning an edit, and it is not
+   * rendered at all when the session failed to load.
+   */
+  it('offers a way back to the sessions list, including when the session will not load', async () => {
+    server.use(http.get(SESSION_URL, () => HttpResponse.json(session())));
+    renderApp('/sessions/s1');
+
+    // Waited for on the loaded screen, not on the link: the link is on the
+    // loading header too, so awaiting it would resolve before the session had
+    // arrived and prove nothing about either state below.
+    await screen.findByDisplayValue('St Mary’s Hall');
+    expect(screen.getByRole('link', { name: 'Back to sessions' })).toHaveAttribute(
+      'href',
+      '/sessions',
+    );
+    cleanup();
+
+    server.use(
+      http.get(SESSION_URL, () =>
+        HttpResponse.json(
+          { error: { code: 'NOT_FOUND', message: 'No such session.', requestId: 'r1' } },
+          { status: 404 },
+        ),
+      ),
+    );
+    renderApp('/sessions/s1');
+
+    // Same again: wait until the failure is actually on screen, then check the
+    // way out is still there. This is the state it matters most in. `ErrorNotice`
+    // writes its own sentence for a 404 rather than showing the server's.
+    expect(await screen.findByRole('alert')).toHaveTextContent('That no longer exists');
+    expect(screen.getByRole('link', { name: 'Back to sessions' })).toHaveAttribute(
+      'href',
+      '/sessions',
+    );
   });
 
   /**

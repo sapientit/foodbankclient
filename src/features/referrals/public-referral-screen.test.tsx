@@ -606,10 +606,14 @@ describe('the questions themselves', () => {
     // Tuesday opens at 10:00 and delivers 13:00–15:00. Quoting the session's
     // own start time here would be wrong for exactly the sessions a delivery
     // window exists for, so the assertion is on the window and against 10:00.
-    expect(
-      screen.getByText('Delivery is expected between 13:00 and 15:00 on Tue, 4 Aug 2026'),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Delivery is expected between 10:00/)).toBeNull();
+    // The label is bold and the window is not, because the plain sentence this
+    // replaced was read straight past.
+    const label = screen.getByText('Delivery Time:');
+    expect(label.tagName).toBe('STRONG');
+    expect(label.parentElement).toHaveTextContent(
+      'Delivery Time: between 13:00 and 15:00 on Tue, 4 Aug 2026',
+    );
+    expect(screen.queryByText(/between 10:00/)).toBeNull();
   });
 
   it('says a session takes no deliveries rather than quoting a window it cannot keep', async () => {
@@ -623,7 +627,9 @@ describe('the questions themselves', () => {
       'Delivery Requested',
     );
 
-    expect(screen.getByText('No deliveries available for this session')).toBeInTheDocument();
+    expect(screen.getByText('Delivery Time:').parentElement).toHaveTextContent(
+      'Delivery Time: No deliveries available for this session',
+    );
 
     // Settled on 2026-08-16: this does NOT block the referral. The referrer is
     // left confirming, in as many words, that the household will be at home for
