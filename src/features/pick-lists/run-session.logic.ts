@@ -1,4 +1,5 @@
 import type { SessionStatus } from '../sessions/keys';
+import type { Parcel } from './queries';
 
 /**
  * Whether a session is finished with, and every run-session screen is therefore
@@ -38,4 +39,41 @@ export function describeReadOnlySession(status: SessionStatus): string | null {
     return 'This session was cancelled, so it did not run and nothing on it can be changed.';
   }
   return null;
+}
+
+/** A delivery is attended by being delivered, and missed by nobody being in. */
+export function attendedLabel(parcel: Parcel): string {
+  return parcel.isDelivery ? 'Delivered' : 'Attended';
+}
+
+export function missedLabel(parcel: Parcel): string {
+  return parcel.isDelivery ? 'Not in' : 'No show';
+}
+
+/**
+ * How far along a client is, as the word the client list shows and a state the
+ * badge is drawn from.
+ *
+ * **The four words are `screenDetails.md`'s, not this screen's**: Pending
+ * Review, Pick List reviewed, and then Attended/Delivered or No Show/Not in.
+ * They are what a team lead is told to look for, so they are quoted rather than
+ * paraphrased.
+ *
+ * `state` exists so the badge can be styled without matching on display text —
+ * colour is never the only signal here, but a rule keyed on an English sentence
+ * breaks the day a delivery reads `Delivered` instead of `Attended`.
+ *
+ * A cancelled parcel is not a client and never reaches this: the list filters
+ * it out first. See `isCurrentParcel`.
+ */
+export type ParcelState = 'pending' | 'reviewed' | 'attended' | 'no_show';
+
+export function parcelStatus(parcel: Parcel): {
+  readonly state: ParcelState;
+  readonly label: string;
+} {
+  if (parcel.attendance === 'attended') return { state: 'attended', label: attendedLabel(parcel) };
+  if (parcel.attendance === 'no_show') return { state: 'no_show', label: missedLabel(parcel) };
+  if (parcel.reviewedAt === null) return { state: 'pending', label: 'Pending Review' };
+  return { state: 'reviewed', label: 'Pick List reviewed' };
 }

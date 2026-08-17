@@ -129,15 +129,56 @@
   font-size: 1.125rem;
 }
 
+/* The session-level actions, on one row above the client list. They wrap rather
+   than scroll: a team lead holding a phone gets a second row of controls, never
+   a control off the edge of the screen. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-block: 1rem;
+}
+
+/* The three sheets are links and the fourth control is a button, but they are
+   one set of things to do, so they are drawn alike and sized alike. The links
+   keep their underline: the border says "control", the underline still says
+   "this one navigates". Generous padding because these are pressed with a thumb
+   in a hall. */
+.action,
+.unavailable {
+  padding: 0.6rem 1rem;
+  border: 1px solid #555555;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+}
+
 /* `aria-disabled` rather than `disabled`, so the reason stays reachable — see
-   `PrintUnavailable`. That means the unavailable look has to be drawn here,
+   `SessionActions`. That means the unavailable look has to be drawn here,
    because only the real attribute gets it from the browser. Kept legible rather
    than greyed to the edge of readability: this control is still in the tab
-   order, so somebody will land on it and need to read it. */
+   order, so somebody will land on it and need to read it. #555555 on white is
+   7.5:1. */
 .unavailable {
   color: #555555;
-  border: 1px solid #777777;
+  border-color: #777777;
   cursor: not-allowed;
+}
+
+/* Why a control above cannot be used. Under the row rather than beside its
+   control, which is what keeps the row aligned; `aria-describedby` is what ties
+   each sentence to the control it explains. */
+.hints {
+  display: grid;
+  gap: 0.25rem;
+  margin-block: -0.5rem 1rem;
+  color: #444444;
+}
+
+.hints p {
+  margin: 0;
+  max-inline-size: 60ch;
 }
 
 .categoryItems {
@@ -170,6 +211,79 @@
 .itemDescription {
   grid-column: 1;
   color: #444444;
+}
+
+/* The client list: pick number, client, status, action. A real table rather
+   than the run of pipe-separated text this replaced, so the status a team lead
+   is scanning for sits in the same place on every row and a screen reader
+   announces which column it is reading. Scrolls within its own frame on a
+   narrow screen rather than pushing the page sideways — the same treatment as
+   the session lists. */
+.clientsTableWrap {
+  overflow-x: auto;
+}
+
+.clientsTableWrap:focus-visible {
+  outline: 3px solid #005a9c;
+  outline-offset: 2px;
+}
+
+.clientsTable {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.clientsTable th,
+.clientsTable td {
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+  vertical-align: middle;
+  border-block-end: 1px solid #d4d4d4;
+}
+
+.clientsTable thead th {
+  vertical-align: bottom;
+  border-block-end: 2px solid #1a1a1a;
+}
+
+.pickCell {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Colour is never the only signal — the badge says the status in words. The
+   emphasis marks out the one state that is still work rather than a record of
+   what happened. */
+.status {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid currentcolor;
+  border-radius: 1rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.status[data-status='pending'] {
+  font-weight: 600;
+}
+
+/* The two attendance buttons, side by side and wrapping rather than shrinking:
+   these decide whether a household is recorded as fed, so neither becomes a
+   sliver on a phone.
+   Sized past the 24px minimum to roughly 44px, and held apart, because they are
+   adjacent controls with opposite effects on stock, pressed with a thumb by
+   somebody standing up at the end of a shift. A mis-tap can be taken back until
+   the session is confirmed, but it still costs a correction nobody has time
+   for. */
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.rowActions button {
+  padding: 0.75rem 1rem;
+  font: inherit;
 }
 
 .preferencesTable {
@@ -224,11 +338,15 @@
   margin-block-start: 0.5rem;
 }
 
-/* Why the session cannot be changed. Stated once at the top, because every
-   control that would change something is absent below it and an unexplained
-   absence reads as a broken screen. Informational rather than a fault, so it is
-   given the same weight as the refusal without its alarm. */
-.readOnlyNotice {
+/* Why the session cannot be changed, and what reconciling it just did. Stated
+   once at the top, because every control that would change something is absent
+   below it and an unexplained absence reads as a broken screen. Informational
+   rather than a fault, so they are given the same weight as the refusal without
+   its alarm — and the same treatment as each other, because three unrelated
+   looks for three sentences in the same place reads as three different kinds of
+   thing. */
+.readOnlyNotice,
+.reconciledNotice {
   margin-block: 0.75rem;
   padding: 0.75rem 1rem;
   max-inline-size: 60ch;
@@ -237,8 +355,15 @@
 }
 
 @media print {
-  .readOnlyNotice {
+  .readOnlyNotice,
+  .reconciledNotice,
+  .actions,
+  .hints {
     display: none;
+  }
+
+  .clientsTableWrap {
+    overflow-x: visible;
   }
 }
 

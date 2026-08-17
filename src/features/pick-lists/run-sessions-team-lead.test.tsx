@@ -471,7 +471,7 @@ describe('a team lead running a session', () => {
 
     renderApp(`/run-sessions/${SESSION.id}`);
 
-    expect(await screen.findByText(/#1 Sam Taylor/)).toBeInTheDocument();
+    expect(await screen.findByRole('cell', { name: 'Sam Taylor' })).toBeInTheDocument();
     expect(screen.queryAllByText(/Cancelled Casey/)).toHaveLength(0);
   });
 
@@ -970,6 +970,153 @@ describe('a team lead running a session', () => {
     expect(markedPrinted).toBe(false);
     expect(printSpy).not.toHaveBeenCalled();
     printSpy.mockRestore();
+  });
+
+  it("shows a client's name as plain text, with no way through to their referral", async () => {
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    // The name is there — this must fail because the link is absent, not
+    // because the row never rendered.
+    expect(await screen.findByRole('cell', { name: 'Sam Taylor' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Sam Taylor' })).toBeNull();
+    // Amending and cancelling a referral are administrator work, so nothing on
+    // this screen points a team lead at that screen for any household.
+    expect(
+      screen.queryByRole('link', { name: new RegExp(`referrals/${PARCEL.referralId}`) }),
+    ).toBeNull();
+  });
+
+  it('says a session has nobody on it rather than drawing column headings with nothing under them', async () => {
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    expect(await screen.findByText('No clients on this session.')).toBeInTheDocument();
+    // A header-only table reads as a list that failed to load, so there must
+    // be no table at all rather than an empty one.
+    expect(screen.queryByRole('table', { name: 'Clients on this session' })).toBeNull();
+  });
+
+  it('lists a client as a table row naming its pick number, household, status and action', async () => {
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    // The table's own name for anyone who cannot see the `Clients` heading
+    // above it — a caption rather than a second, visible title.
+    expect(
+      await screen.findByRole('table', { name: 'Clients on this session' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Pick #' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Client' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Action' })).toBeInTheDocument();
+
+    // The pick number is the row header — what matches a sheet in a hall to
+    // this row — and the rest of the row is read off it: the household, the
+    // outcome so far, and the one thing there is to do about it.
+    expect(screen.getByRole('rowheader', { name: '#1' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Sam Taylor' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Pending Review' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('cell', { name: 'Review Pick list' }).querySelector('a'),
+    ).toHaveAttribute('href', `/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+  });
+
+  it('marks Complete session aria-disabled, not disabled, while a client still lacks an outcome, and does not submit when clicked', async () => {
+    let confirmCalled = false;
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.post('/api/v1/sessions/:sessionId/confirm', () => {
+        confirmCalled = true;
+        return HttpResponse.json({ ...PICK_LIST, status: 'confirmed' });
+      }),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+    const user = userEvent.setup();
+
+    // Still findable by role and still in the tab order — a `disabled`
+    // button leaves the accessible tree entirely, which is exactly what a
+    // keyboard or screen-reader user must not meet here.
+    const complete = await screen.findByRole('button', { name: 'Complete session' });
+    expect(complete).toHaveAttribute('aria-disabled', 'true');
+    expect(complete).not.toBeDisabled();
+    expect(complete).toHaveAccessibleDescription(
+      'Record an outcome for every client before completing session.',
+    );
+
+    await user.click(complete);
+
+    expect(confirmCalled).toBe(false);
+  });
+
+  it('enables Complete session as a live button once every client has an outcome', async () => {
+    const attendedParcel: Parcel = {
+      ...PARCEL,
+      reviewedAt: '2026-08-05T10:00:00.000Z',
+      attendance: 'attended',
+    };
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [attendedParcel] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    const complete = await screen.findByRole('button', { name: 'Complete session' });
+    expect(complete).toBeEnabled();
+    // Live: `aria-disabled="false"` while the request is not in flight, which
+    // is what the button carries the rest of the time. Asserted as the value
+    // rather than the attribute's absence, because the in-flight state is the
+    // same attribute reading `true` — an absence assertion would pass if the
+    // wiring were dropped altogether.
+    expect(complete).toHaveAttribute('aria-disabled', 'false');
+    expect(
+      screen.queryByText('Record an outcome for every client before completing session.'),
+    ).toBeNull();
   });
 
   it('prints only after every parcel has been reviewed', async () => {

@@ -52,4 +52,55 @@ describe('team-lead session referral details', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Print referral details' }));
     expect(print).toHaveBeenCalledOnce();
   });
+
+  /**
+   * The one failure this screen has that nothing else would catch: a table left
+   * to size itself widens to fit its longest address and carries the referrer's
+   * phone number off the right-hand edge of the paper. Nobody finds out until
+   * they are in a hall wanting to ring somebody.
+   *
+   * The widths themselves are CSS and cannot be computed here, so this asserts
+   * the machinery that carries them: a `<colgroup>` with exactly one `<col>`
+   * per column. A seventh column added without a seventh `<col>` silently loses
+   * its width and fails here instead.
+   */
+  it('gives every column a fixed width so a long address cannot push one off the page', async () => {
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/referral-details', () =>
+        HttpResponse.json({
+          sessionId: SESSION_ID,
+          sessionDate: '2026-08-15',
+          startTime: '10:00',
+          location: 'St Mary’s Hall',
+          referrals: [
+            {
+              referralId: 'r1',
+              refereeFirstName: 'Bartholomew',
+              refereeSurname: 'Featherstonehaugh-Cholmondeley',
+              refereeAddress: 'Flat 12b, The Old Biscuit Factory, 447 Wandsworth Bridge Road',
+              refereePostcode: 'GU23 4XX',
+              refereePhone: '01483 123456',
+              referrerName: 'Sam Referrer',
+              referrerPhone: '01483 999999',
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
+
+    const table = await screen.findByRole('table', {
+      name: 'Referral details for every household on this session',
+    });
+    const headings = screen.getAllByRole('columnheader');
+    expect(headings).toHaveLength(6);
+    expect(table.querySelectorAll('colgroup > col')).toHaveLength(headings.length);
+    // The long values are on the page in full rather than truncated into it:
+    // the columns wrap, they do not clip.
+    expect(
+      screen.getByText('Flat 12b, The Old Biscuit Factory, 447 Wandsworth Bridge Road'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('01483 999999')).toBeInTheDocument();
+  });
 });

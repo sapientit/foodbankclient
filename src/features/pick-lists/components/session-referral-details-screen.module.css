@@ -1,0 +1,117 @@
+/*
+ * The whole-session referral details, laid out to survive A4.
+ *
+ * Six columns, one of them a full address and another a household's name, on a
+ * page 18cm wide once the shell's 1.5cm margins are taken off.
+ */
+
+/* On screen the table sizes itself and scrolls sideways in its own frame, the
+   same treatment as the session client list: a volunteer opens this on a phone,
+   and a layout cut to the width of a sheet of paper squeezes a postcode into
+   four characters a line. The fixed widths below are for paper only. */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.tableWrap:focus-visible {
+  outline: 3px solid #005a9c;
+  outline-offset: 2px;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.4rem 0.5rem;
+  text-align: start;
+  /* Top, so a row whose address ran to three lines still reads across: the
+     postcode and the phone stay level with the first line of the address they
+     belong to. */
+  vertical-align: top;
+  border: 1px solid #767676;
+  /* The last resort, and it should never fire on real data now the columns are
+     wide enough for a spaced or unspaced phone number. It is here because a
+     value that cannot be broken at all would otherwise leave its cell and the
+     page: a wrapped number can still be read, and a number printed off the edge
+     of the paper cannot. */
+  overflow-wrap: anywhere;
+}
+
+/* The same header rule the other tables in this app use, rather than a pale
+   fill that is invisible on screen and wasted toner on paper. */
+.table thead th {
+  border-block-end: 2px solid #1a1a1a;
+}
+
+@media print {
+  /*
+   * **Fixed columns, and every cell wraps.** Left to itself a table widens to
+   * fit its longest cell, so one long address pushes the last columns — the
+   * referrer and their phone — off the right-hand edge of the paper, where
+   * nobody discovers they are missing until they are standing in a hall needing
+   * to ring somebody. `fixed` makes the widths a decision rather than an
+   * outcome of the data, and the wrapping above is what makes that safe: a cell
+   * that cannot widen must be able to grow downwards instead.
+   */
+  .table {
+    table-layout: fixed;
+    font-size: 10pt;
+  }
+
+  .tableWrap {
+    overflow-x: visible;
+  }
+
+  /*
+   * The widths, as percentages so they hold at any paper size. Measured at 10pt
+   * across 18cm rather than guessed: the postcode and phone columns each have
+   * to hold their own heading and their longest real value — `GU23 4XX`, and a
+   * phone number with or without its space — on one line, because a postcode
+   * broken across two lines is a transcription error waiting to happen. The
+   * address gets what is left over, being the only column that is a sentence.
+   */
+  .client {
+    inline-size: 15%;
+  }
+
+  .address {
+    inline-size: 23%;
+  }
+
+  .postcode {
+    inline-size: 13%;
+  }
+
+  .phone,
+  .referrerPhone {
+    inline-size: 16%;
+  }
+
+  .referrer {
+    inline-size: 17%;
+  }
+
+  /* Repeated at the top of every printed page. A session of thirty households
+     runs to a second sheet, and a column of bare postcodes with no heading over
+     it is a page somebody has to walk back to the first sheet to read. */
+  .table thead {
+    display: table-header-group;
+  }
+
+  /* A household is one row and belongs on one page. Splitting an address across
+     a page break is how the wrong door gets knocked on. */
+  .table tr {
+    break-inside: avoid;
+  }
+
+  /* The shell drops colour for the charity's toner; the rules have to stay,
+     because with wrapped multi-line cells they are the only thing keeping one
+     household's row visually separate from the next. */
+  .table th,
+  .table td {
+    border-color: #000000;
+  }
+}

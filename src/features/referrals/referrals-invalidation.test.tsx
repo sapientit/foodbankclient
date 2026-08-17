@@ -193,7 +193,7 @@ describe('cancelling a referral and the sessions cache', () => {
     );
 
     renderApp('/run-sessions/s1', client);
-    expect(await screen.findByText(/#1 Jamie Rowe/)).toBeInTheDocument();
+    expect(await screen.findByRole('cell', { name: 'Jamie Rowe' })).toBeInTheDocument();
     cleanup();
 
     renderApp('/referrals/r1', client);
@@ -210,7 +210,10 @@ describe('cancelling a referral and the sessions cache', () => {
 
     renderApp('/run-sessions/s1', client);
     expect(await screen.findByRole('heading', { name: 'Clients' })).toBeInTheDocument();
-    expect(screen.queryByText(/#1 Jamie Rowe/)).toBeNull();
+    // Gone from the list rather than the screen having failed to render: the
+    // heading above is what proves the list is really there to be looked at.
+    expect(screen.queryByRole('cell', { name: 'Jamie Rowe' })).toBeNull();
+    expect(screen.queryByText(/Jamie Rowe/)).toBeNull();
   });
 });
 

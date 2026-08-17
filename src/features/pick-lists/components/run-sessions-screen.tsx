@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { useAuth } from '../../../auth/auth-context';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
@@ -36,7 +37,13 @@ import {
   useSetParcelLines,
   type Parcel,
 } from '../queries';
-import { describeReadOnlySession, isSessionReadOnly } from '../run-session.logic';
+import {
+  attendedLabel,
+  describeReadOnlySession,
+  isSessionReadOnly,
+  missedLabel,
+  parcelStatus,
+} from '../run-session.logic';
 import styles from './run-sessions-screen.module.css';
 import { SessionSmsPanel } from './sms-panel';
 import { resolvePreferenceLines, validatePreferenceRules } from '../preference-rules';
@@ -115,17 +122,6 @@ export function RunSessionsScreen() {
 }
 
 /**
- * The print control while printing is still refused, and the refusal has to
- * reach somebody who cannot see it.
- *
- * **`aria-disabled`, not `disabled`.** A disabled button leaves the tab order,
- * so a keyboard or screen-reader user meets a link that has silently become
- * nothing at all and never reaches the sentence sitting next to it explaining
- * why. This stays focusable and carries the reason as its description, so the
- * answer arrives with the control rather than beside it. It has no handler, so
- * activating it does nothing — which is the behaviour `disabled` was there for.
- */
-/**
  * Which session this screen is about, as four aligned columns: the date, the
  * hours, whether it is collection only, and how many households are booked.
  *
@@ -151,20 +147,119 @@ function SessionLine({ session }: { session: Session }) {
   );
 }
 
-function PrintUnavailable() {
-  const reasonId = useId();
+/**
+ * Everything a team lead does to the session as a whole, on one row above the
+ * client list: the three sheets, and the one tap that closes the session.
+ *
+ * **Together, and above the `Clients` heading.** These act on the session, not
+ * on a household, so they sat oddly under a heading naming the list they are
+ * not part of — and split across a paragraph of middots and a loose button they
+ * read as three unrelated things rather than the set of things there is to do.
+ * Settled by Pete on 2026-08-17.
+ *
+ * **`aria-disabled`, not `disabled`, for both unavailable controls.** A
+ * disabled button leaves the tab order, so a keyboard or screen-reader user
+ * meets a control that has silently become nothing at all and never reaches the
+ * sentence explaining why. These stay focusable and carry the reason as their
+ * description. Neither has a handler, so activating one does nothing — which is
+ * the behaviour `disabled` was there for. `complete.isPending` is the one real
+ * `disabled` left, because that is a control that genuinely works and is busy.
+ *
+ * The reasons sit under the row rather than beside the control they belong to:
+ * in the row they broke the alignment that is the point of grouping these, and
+ * `aria-describedby` ties each to its own without relying on proximity.
+ */
+function SessionActions({
+  allOutcomesRecorded,
+  completing,
+  onComplete,
+  readOnly,
+  readyToPrint,
+  sessionId,
+}: {
+  readonly allOutcomesRecorded: boolean;
+  readonly completing: boolean;
+  readonly onComplete: () => void;
+  readonly readOnly: boolean;
+  readonly readyToPrint: boolean;
+  readonly sessionId: string;
+}) {
+  const printReasonId = useId();
+  const completeReasonId = useId();
+  const printUnavailable = !readOnly && !readyToPrint;
+  const completeUnavailable = !readOnly && !allOutcomesRecorded;
 
   return (
     <>
-      <button
-        aria-describedby={reasonId}
-        aria-disabled
-        className={styles.unavailable}
-        type="button"
-      >
-        Print all pick lists
-      </button>{' '}
-      <span id={reasonId}>Review every pick list before printing.</span>
+      <div className={styles.actions}>
+        {readyToPrint ? (
+          <Link className={styles.action} to={`/run-sessions/${sessionId}/print`}>
+            {readOnly ? 'View all pick lists' : 'Print all pick lists'}
+          </Link>
+        ) : readOnly ? (
+          <span>No pick lists were prepared for this session.</span>
+        ) : (
+          <button
+            aria-describedby={printReasonId}
+            aria-disabled
+            className={styles.unavailable}
+            type="button"
+          >
+            Print all pick lists
+          </button>
+        )}
+        <Link className={styles.action} to={`/run-sessions/${sessionId}/listener`}>
+          Listener sheet
+        </Link>
+        <Link className={styles.action} to={`/run-sessions/${sessionId}/referral-details`}>
+          Referral details
+        </Link>
+        {/* Absent rather than unavailable once the session is closed: after
+            `POST /sessions/{id}/confirm` there is no override to offer, and a
+            dead button on a session from three weeks ago only invites somebody
+            to wonder what is wrong. */}
+        {readOnly ? null : allOutcomesRecorded ? (
+          /*
+           * `aria-disabled` while the request is in flight, not `disabled` —
+           * the same reason as the two unavailable controls, and the same shape
+           * the SMS panel already uses for `Send SMS reminders`. A real
+           * `disabled` takes the control out of the tab order the instant it is
+           * pressed, so somebody who activated it by keyboard loses their place
+           * and hears nothing at all until the screen re-renders. The guard is
+           * what stops a second press submitting twice.
+           */
+          <button
+            aria-disabled={completing}
+            className={styles.action}
+            onClick={() => {
+              if (completing) return;
+              onComplete();
+            }}
+            type="button"
+          >
+            {completing ? 'Completing session…' : 'Complete session'}
+          </button>
+        ) : (
+          <button
+            aria-describedby={completeReasonId}
+            aria-disabled
+            className={styles.unavailable}
+            type="button"
+          >
+            Complete session
+          </button>
+        )}
+      </div>
+      {(printUnavailable || completeUnavailable) && (
+        <div className={styles.hints}>
+          {printUnavailable && <p id={printReasonId}>Review every pick list before printing.</p>}
+          {completeUnavailable && (
+            <p id={completeReasonId}>
+              Record an outcome for every client before completing session.
+            </p>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -277,6 +372,23 @@ export function PickListPrintScreen() {
 
 export function RunSessionDetailScreen() {
   const { sessionId = '' } = useParams();
+  const { state: authState } = useAuth();
+  /*
+   * **An administrator can open a household's referral from its name here; a
+   * team lead cannot.** Settled by Pete on 2026-08-17. The referral screen is
+   * administrator work — checking, amending, cancelling — and is not on a team
+   * lead's menu, so offering the name as a link to somebody who has no business
+   * on that screen is a dead end dressed as a control.
+   *
+   * **Read from the role, and that is right here.** The rule against gating on
+   * the signed-in role is about *fields* on a referral, which are absent rather
+   * than `null` and must be gated on reading the object. This is navigation —
+   * whether to offer a way through to another screen — which is exactly what
+   * `screenDetails.md` means by roles driving menus. The route itself is not
+   * role-guarded, and the server's check on the signed token stays the only one
+   * that means anything.
+   */
+  const canOpenReferral = authState.status === 'signed-in' && authState.user.role === 'admin';
   const session = useSession(sessionId);
   /** `null` while the session is still loading — not yet known to be either. */
   const readOnly = session.data === undefined ? null : isSessionReadOnly(session.data.status);
@@ -487,7 +599,7 @@ export function RunSessionDetailScreen() {
       {reconcile.data !== undefined &&
         pickList.data !== undefined &&
         (reconcile.data.parcelsCreated ?? 0) > 0 && (
-          <p role="status">
+          <p className={styles.reconciledNotice} role="status">
             {reconcile.data.parcelsCreated} new pick list
             {reconcile.data.parcelsCreated === 1 ? '' : 's'}{' '}
             {pickList.data.pickList.firstPrintedAt === null
@@ -495,48 +607,57 @@ export function RunSessionDetailScreen() {
               : 'created — print again to include them.'}
           </p>
         )}
-      <h2>Clients</h2>
-      <p>
-        {readyToPrint ? (
-          <Link to={`/run-sessions/${sessionId}/print`}>
-            {readOnly === true ? 'View all pick lists' : 'Print all pick lists'}
-          </Link>
-        ) : readOnly === true ? (
-          <span>No pick lists were prepared for this session.</span>
-        ) : (
-          <PrintUnavailable />
-        )}
-        {' · '}
-        <Link to={`/run-sessions/${sessionId}/listener`}>Listener sheet</Link>
-        {' · '}
-        <Link to={`/run-sessions/${sessionId}/referral-details`}>Referral details</Link>
-      </p>
-      {/* Absent rather than disabled once the session is closed: after
-          `POST /sessions/{id}/confirm` there is no override to offer, and a
-          greyed-out button on a session from three weeks ago only invites
-          somebody to wonder what is wrong. */}
-      {readOnly === false && (
-        <button
-          disabled={!allOutcomesRecorded || complete.isPending}
-          onClick={() => {
-            complete.mutate(sessionId);
-          }}
-          type="button"
-        >
-          Complete session
-        </button>
-      )}
+      <SessionActions
+        allOutcomesRecorded={allOutcomesRecorded}
+        completing={complete.isPending}
+        onComplete={() => {
+          complete.mutate(sessionId);
+        }}
+        readOnly={readOnly === true}
+        readyToPrint={readyToPrint}
+        sessionId={sessionId}
+      />
       {complete.error !== null && <SessionRefusal error={complete.error} />}
-      <ul>
-        {currentParcels.map((parcel) => (
-          <ClientRow
-            key={parcel.id}
-            parcel={parcel}
-            readOnly={readOnly === true}
-            sessionId={sessionId}
-          />
-        ))}
-      </ul>
+      <h2>Clients</h2>
+      {currentParcels.length === 0 ? (
+        <p>No clients on this session.</p>
+      ) : (
+        /*
+         * Focusable, because a table that scrolls sideways on a phone is
+         * unreachable by keyboard otherwise — the same wrapper `SessionTable`
+         * uses, and this is the screen a volunteer runs a hall from.
+         */
+        <div
+          className={styles.clientsTableWrap}
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- The scrollable table needs a keyboard focus target.
+          tabIndex={0}
+        >
+          <table className={styles.clientsTable}>
+            {/* Named for anyone who cannot see the `Clients` heading above it,
+                and drawn only for them: the heading is already saying this. */}
+            <caption className={styles.visuallyHidden}>Clients on this session</caption>
+            <thead>
+              <tr>
+                <th scope="col">Pick #</th>
+                <th scope="col">Client</th>
+                <th scope="col">Status</th>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentParcels.map((parcel) => (
+                <ClientRow
+                  canOpenReferral={canOpenReferral}
+                  key={parcel.id}
+                  parcel={parcel}
+                  readOnly={readOnly === true}
+                  sessionId={sessionId}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <SessionSmsPanel
         parcels={currentParcels}
         readOnly={readOnly === true}
@@ -579,15 +700,6 @@ function SessionRefusal({ error }: { error: unknown }) {
   );
 }
 
-/** A delivery is attended by being delivered, and missed by nobody being in. */
-function attendedLabel(parcel: Parcel): string {
-  return parcel.isDelivery ? 'Delivered' : 'Attended';
-}
-
-function missedLabel(parcel: Parcel): string {
-  return parcel.isDelivery ? 'Not in' : 'No show';
-}
-
 /** The household on a parcel, with whatever part of the name the server sent. */
 function parcelName(parcel: Parcel): string {
   return [parcel.refereeFirstName ?? 'Unknown', parcel.refereeSurname ?? ''].join(' ').trim();
@@ -599,71 +711,90 @@ function describeParcel(parcel: Parcel): string {
 }
 
 function ClientRow({
+  canOpenReferral,
   parcel,
   readOnly,
   sessionId,
 }: {
+  canOpenReferral: boolean;
   parcel: Parcel;
   readOnly: boolean;
   sessionId: string;
 }) {
   const attendance = useRecordAttendance();
-  const status =
-    parcel.attendance === 'attended'
-      ? attendedLabel(parcel)
-      : parcel.attendance === 'no_show'
-        ? missedLabel(parcel)
-        : parcel.reviewedAt === null
-          ? 'Pending Review'
-          : 'Pick List reviewed';
+  const status = parcelStatus(parcel);
   const reviewed = parcel.reviewedAt !== null;
   return (
-    <li>
-      #{parcel.pickNumber} {parcel.refereeFirstName ?? 'Unknown'} {parcel.refereeSurname ?? ''} |{' '}
-      {status} |{' '}
-      {/* On a finished session the workspace is still worth opening — it is
-          where the parcel's contents are — but there is nothing left to review,
-          so the link says what it now does. */}
-      {readOnly ? (
-        <Link to={`/run-sessions/${sessionId}/clients/${parcel.id}`}>View Pick list</Link>
-      ) : !reviewed && parcel.attendance === 'pending' ? (
-        <Link to={`/run-sessions/${sessionId}/clients/${parcel.id}`}>Review Pick list</Link>
-      ) : (
-        /*
-         * Named for the household, not just the outcome. Every row renders the
-         * same two words, so a screen reader's list of buttons on a session of
-         * twenty is twenty identical pairs — and the pick number and name that
-         * tell them apart are in the surrounding text, which does not reach the
-         * accessible name. These are the buttons that decide whether a household
-         * is recorded as fed, so the wrong one is not a cosmetic mistake.
-         *
-         * The visible words come first, because that is what somebody using
-         * voice control says.
-         */
-        <>
-          <button
-            aria-label={`${attendedLabel(parcel)} — ${describeParcel(parcel)}`}
-            disabled={attendance.isPending}
-            onClick={() => {
-              attendance.mutate({ id: parcel.id, attendance: 'attended' });
-            }}
-            type="button"
-          >
-            {attendedLabel(parcel)}
-          </button>{' '}
-          <button
-            aria-label={`${missedLabel(parcel)} — ${describeParcel(parcel)}`}
-            disabled={attendance.isPending}
-            onClick={() => {
-              attendance.mutate({ id: parcel.id, attendance: 'no_show' });
-            }}
-            type="button"
-          >
-            {missedLabel(parcel)}
-          </button>
-        </>
-      )}
-    </li>
+    <tr>
+      {/* The pick number heads the row: it is what matches a sheet in a hall to
+          a line on this screen, and it is what the refusal to close the session
+          names. Its own column so the numbers align down one edge rather than
+          moving with the length of the name before them. */}
+      <th className={styles.pickCell} scope="row">
+        #{parcel.pickNumber}
+      </th>
+      {/* The household's referral, opened by their name — the same screen the
+          referral list and the search reach. An id in the path and never a
+          name: see `.claude/rules/pii-security.md`. Plain text for a team lead,
+          for whom that screen is not a task. */}
+      <td>
+        {canOpenReferral ? (
+          <Link to={`/referrals/${parcel.referralId}`}>{parcelName(parcel)}</Link>
+        ) : (
+          parcelName(parcel)
+        )}
+      </td>
+      <td>
+        <span className={styles.status} data-status={status.state}>
+          {status.label}
+        </span>
+      </td>
+      <td>
+        {/* On a finished session the workspace is still worth opening — it is
+            where the parcel's contents are — but there is nothing left to
+            review, so the link says what it now does. */}
+        {readOnly ? (
+          <Link to={`/run-sessions/${sessionId}/clients/${parcel.id}`}>View Pick list</Link>
+        ) : !reviewed && parcel.attendance === 'pending' ? (
+          <Link to={`/run-sessions/${sessionId}/clients/${parcel.id}`}>Review Pick list</Link>
+        ) : (
+          /*
+           * Named for the household, not just the outcome. Every row renders the
+           * same two words, so a screen reader's list of buttons on a session of
+           * twenty is twenty identical pairs — and the pick number and name that
+           * tell them apart are in neighbouring cells, which do not reach the
+           * accessible name. These are the buttons that decide whether a
+           * household is recorded as fed, so the wrong one is not a cosmetic
+           * mistake.
+           *
+           * The visible words come first, because that is what somebody using
+           * voice control says.
+           */
+          <div className={styles.rowActions}>
+            <button
+              aria-label={`${attendedLabel(parcel)} — ${describeParcel(parcel)}`}
+              disabled={attendance.isPending}
+              onClick={() => {
+                attendance.mutate({ id: parcel.id, attendance: 'attended' });
+              }}
+              type="button"
+            >
+              {attendedLabel(parcel)}
+            </button>
+            <button
+              aria-label={`${missedLabel(parcel)} — ${describeParcel(parcel)}`}
+              disabled={attendance.isPending}
+              onClick={() => {
+                attendance.mutate({ id: parcel.id, attendance: 'no_show' });
+              }}
+              type="button"
+            >
+              {missedLabel(parcel)}
+            </button>
+          </div>
+        )}
+      </td>
+    </tr>
   );
 }
 
