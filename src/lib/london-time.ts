@@ -67,6 +67,19 @@ const isoDateFormat = new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 });
 
+/**
+ * `2026-08-05` again, but pinned to UTC — for turning a calendar date that was
+ * parsed to its UTC midnight back into a string. Formatting one of those in
+ * London is safe only by the accident that London is never behind UTC, which is
+ * the accident `formatSessionDate` refuses to rely on.
+ */
+const isoDateInUtc = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'UTC',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** An instant from the API — `createdAt`, `lastLoginAt` — as a London date. */
@@ -141,6 +154,29 @@ export function parseCalendarDate(date: string): Date | null {
 /** Whether `date` is a real `YYYY-MM-DD` calendar date. */
 export function isCalendarDate(date: string): boolean {
   return parseCalendarDate(date) !== null;
+}
+
+/**
+ * A calendar date shifted by whole days, as `YYYY-MM-DD`. Negative goes back.
+ *
+ * **Days, not hours, and that is the whole point.** Adding `n * 86_400_000`
+ * milliseconds to a local instant lands an hour out either side of a clock
+ * change; here both ends are pinned to UTC midnight — where a day is always
+ * exactly twenty-four hours — so "a fortnight before the 30th of March" is the
+ * 16th of March whatever BST is doing. `parseCalendarDate` is what pins it, and
+ * `Date.UTC` rolling over month and year ends is the behaviour wanted rather
+ * than something to guard against.
+ *
+ * Returns the input unchanged when it will not parse — the same "show what
+ * arrived" rule as the rest of this file.
+ */
+export function addCalendarDays(date: string, days: number): string {
+  const parsed = parseCalendarDate(date);
+  if (parsed === null) return date;
+
+  const shifted = new Date(parsed);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return isoDateInUtc.format(shifted);
 }
 
 /**

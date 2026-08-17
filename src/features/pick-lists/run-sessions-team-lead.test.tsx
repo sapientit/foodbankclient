@@ -85,6 +85,10 @@ beforeEach(() => {
         user: { id: 'u3', email: 'lead@x.com', displayName: 'Ada Lead', role: 'team_lead' },
       }),
     ),
+    // Every run-session screen now reads the session itself, because whether it
+    // is finished with is what decides between a workspace and a record. A test
+    // that needs a different status still overrides this with its own handler.
+    http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
     http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
     http.get('/api/v1/stock/items', () =>
       HttpResponse.json({
@@ -206,14 +210,86 @@ describe('a team lead running a session', () => {
     renderApp('/run-sessions');
 
     // Both kinds of open session, however long ago they were.
-    expect(await screen.findByRole('link', { name: /09:00–10:30/ })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /11:00–12:30/ })).toBeInTheDocument();
+    expect(await screen.findByText('09:00–10:30')).toBeInTheDocument();
+    expect(screen.getByText('11:00–12:30')).toBeInTheDocument();
     // And the future one still, which is the behaviour that already worked.
     expect(screen.getByRole('link', { name: /6 Aug 2099/ })).toBeInTheDocument();
 
-    // A confirmed session is signed off and a cancelled one is not being run.
-    expect(screen.queryByRole('link', { name: /13:00–14:30/ })).toBeNull();
-    expect(screen.queryByRole('link', { name: /15:00–16:30/ })).toBeNull();
+    // A confirmed session is signed off and a cancelled one is not being run,
+    // so neither is on the list of what is left to do.
+    expect(screen.queryByText('13:00–14:30')).toBeNull();
+    expect(screen.queryByText('15:00–16:30')).toBeNull();
+  });
+
+  /**
+   * Two sessions on one day is ordinary here, and the hours are in a column a
+   * screen reader moving between links never visits. A list of identical
+   * "Sat, 4 Jan 2020" links is a way to open the wrong session — on the screen
+   * where attendance is recorded.
+   */
+  it('names each session link by its date and its hours, so two on one day are told apart', async () => {
+    const sameDay = (id: string, startTime: string): Session => ({
+      ...SESSION,
+      id,
+      startTime,
+      sessionDate: '2020-01-04',
+      startsAtUtc: '2020-01-04T10:00:00.000Z',
+    });
+
+    server.use(
+      http.get('/api/v1/sessions', () =>
+        HttpResponse.json({ sessions: [sameDay('morning', '09:00'), sameDay('midday', '11:00')] }),
+      ),
+    );
+
+    renderApp('/run-sessions');
+
+    expect(
+      await screen.findByRole('link', { name: 'Sat, 4 Jan 2020, 09:00–10:30' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sat, 4 Jan 2020, 11:00–12:30' })).toBeInTheDocument();
+    // The visible column layout is unchanged: only the date is drawn in the cell.
+    expect(screen.getAllByText('Sat, 4 Jan 2020')).toHaveLength(2);
+  });
+
+  it('brings back the completed and the cancelled when Show completed is ticked', async () => {
+    const past = (id: string, status: Session['status'], startTime: string): Session => ({
+      ...SESSION,
+      id,
+      status,
+      startTime,
+      sessionDate: '2020-01-04',
+      startsAtUtc: '2020-01-04T10:00:00.000Z',
+    });
+
+    server.use(
+      http.get('/api/v1/sessions', () =>
+        HttpResponse.json({
+          sessions: [
+            past('past-planned', 'planned', '09:00'),
+            past('past-confirmed', 'confirmed', '13:00'),
+            past('past-cancelled', 'cancelled', '15:00'),
+          ],
+        }),
+      ),
+    );
+
+    renderApp('/run-sessions');
+
+    expect(await screen.findByText('09:00–10:30')).toBeInTheDocument();
+    expect(screen.queryByText('13:00–14:30')).toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText('Show completed'));
+
+    // A completed session is a record of what happened, not work to do, and
+    // this is how somebody gets back to one.
+    expect(await screen.findByText('13:00–14:30')).toBeInTheDocument();
+    // Cancelled too, deliberately: it is the only route left to one, and the
+    // status column is what tells them apart.
+    expect(screen.getByText('15:00–16:30')).toBeInTheDocument();
+    expect(screen.getByText('Confirmed')).toBeInTheDocument();
+    expect(screen.getByText('Cancelled')).toBeInTheDocument();
   });
 
   it('does not describe an empty list as having no upcoming sessions', async () => {
@@ -227,7 +303,7 @@ describe('a team lead running a session', () => {
 
     // "No upcoming sessions" would be a claim about the future on a screen
     // that is no longer about the future.
-    expect(await screen.findByText('No sessions to run')).toBeInTheDocument();
+    expect(await screen.findByText('No sessions to show')).toBeInTheDocument();
     expect(screen.queryByText(/upcoming/i)).toBeNull();
   });
 
@@ -531,7 +607,10 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
 
     expect(await screen.findByRole('textbox', { name: 'Information for pickers' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Save pick list' })).toBeDisabled();
+    // Absent rather than disabled: nothing on a locked panel can become dirty,
+    // so a greyed-out Save would only ever say that something is wrong.
+    expect(screen.queryByRole('button', { name: 'Save pick list' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mark pick list reviewed' })).toBeNull();
     expect(noteRequests).toBe(0);
   });
 

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { RecurringSession, Session } from './queries';
 import {
   SESSION_STATUS_LABELS,
-  SESSION_STATUS_OPTIONS,
   WEEKDAY_LABELS,
   WEEKDAY_OPTIONS,
   describeDeliveries,
@@ -12,7 +11,6 @@ import {
   describeOccupancy,
   groupByDate,
   isLocalTime,
-  isSessionStatus,
   isWeekday,
   occupancy,
   parseWholeNumber,
@@ -66,19 +64,6 @@ describe('SESSION_STATUS_LABELS', () => {
     for (const label of Object.values(SESSION_STATUS_LABELS)) {
       expect(label).not.toBe('');
     }
-  });
-
-  it('offers one option per status, derived from the labels', () => {
-    expect(SESSION_STATUS_OPTIONS.map((option) => option.value).sort()).toEqual(
-      Object.keys(SESSION_STATUS_LABELS).sort(),
-    );
-  });
-
-  it('recognises only the statuses it can label', () => {
-    expect(isSessionStatus('planned')).toBe(true);
-    expect(isSessionStatus('cancelled')).toBe(true);
-    expect(isSessionStatus('bogus')).toBe(false);
-    expect(isSessionStatus(undefined)).toBe(false);
   });
 });
 

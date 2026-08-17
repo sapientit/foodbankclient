@@ -13,76 +13,8 @@
   max-inline-size: 70ch;
 }
 
-.filter {
-  margin-block-end: 1.5rem;
-}
-
-.date {
-  font-weight: 600;
-}
-
-.list {
-  display: grid;
-  gap: 0.5rem;
-  padding: 0;
-  list-style: none;
-}
-
-/* Five aligned columns: date, hours, collection-only, status, occupancy. A grid
-   rather than a wrapping flex row so each part sits in the same place down the
-   whole list and an administrator scans one column at a time — the collection
-   -only cell is empty on most rows and still holds its width, which is what
-   keeps the two after it in line. */
-.row {
-  display: grid;
-  grid-template-columns: repeat(5, auto);
-  justify-content: start;
-  align-items: baseline;
-  gap: 0.5rem 1rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d4d4d4;
-  border-radius: 0.25rem;
-}
-
-/* Alignment buys nothing once the columns are one-per-line, and a five-column
-   grid on a phone would scroll sideways. Stack instead. */
-@media (max-width: 40rem) {
-  .row {
-    grid-template-columns: auto;
-    gap: 0.25rem;
-  }
-}
-
-.when {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.where {
-  color: #333;
-}
-
-.status {
-  padding: 0.1rem 0.5rem;
-  font-size: 0.85rem;
-  border: 1px solid currentcolor;
-  border-radius: 1rem;
-}
-
-/* Colour is never the only signal — the label text already says the status —
-   but a quiet visual grouping helps a planning list scan quickly. */
-.status[data-status='cancelled'] {
-  color: #595959;
-}
-
-.occupancy {
-  margin-inline-start: auto;
-  font-variant-numeric: tabular-nums;
-}
-
 @media print {
-  .actions,
-  .filter {
+  .actions {
     display: none;
   }
 }

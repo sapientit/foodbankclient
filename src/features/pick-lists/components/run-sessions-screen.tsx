@@ -1,15 +1,21 @@
 import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { HouseholdCompositionGrid } from '../../../components/household-composition-grid';
 import { PageHeader } from '../../../components/page-header';
+import { SessionListFilters } from '../../../components/session-list-filters';
+import { SessionTable } from '../../../components/session-table';
 import { Spinner } from '../../../components/spinner';
-import { ApiError, describeApiError, pendingPickNumbers } from '../../../lib/errors';
-import { formatSessionDate, formatTimeRange } from '../../../lib/london-time';
-import { collectionOnlyLabel, describeSessionChoice } from '../../../lib/session-description';
+import { ApiError, describeApiError, isNotFound, pendingPickNumbers } from '../../../lib/errors';
+import { formatSessionDate, formatTimeRange, londonToday } from '../../../lib/london-time';
+import { collectionOnlyLabel } from '../../../lib/session-description';
 import { useSession, useSessions, type Session } from '../../sessions/queries';
+import {
+  filterSessionsByStatus,
+  readSessionListSelection,
+} from '../../sessions/session-list-filters.logic';
 import { useStockItems, type StockItem } from '../../stock/queries';
 import { useReferrals, useReferralOptionSources } from '../../referrals/queries';
 import { describeAnswers } from '../../referrals/referral-answers.logic';
@@ -30,6 +36,7 @@ import {
   useSetParcelLines,
   type Parcel,
 } from '../queries';
+import { describeReadOnlySession, isSessionReadOnly } from '../run-session.logic';
 import styles from './run-sessions-screen.module.css';
 import { SessionSmsPanel } from './sms-panel';
 import { resolvePreferenceLines, validatePreferenceRules } from '../preference-rules';
@@ -51,52 +58,57 @@ const PREFERENCES_NEED_OPTION_SOURCES = needsOptionSources(
 /**
  * The operational view: no session or referral maintenance controls live here.
  *
- * **Every open session, including ones already in the past.** `screenDetails.md`:
- * outcomes and details are routinely completed after the event — the Saturday
- * session gets its no-shows recorded on the Monday — so a list that stopped at
- * today would hide exactly the sessions with work left on them. The server
- * agrees: it caps only how far forward a team lead may look and applies no
- * lower bound at all.
+ * **Open sessions by default, including ones already in the past.**
+ * `screenDetails.md`: outcomes and details are routinely completed after the
+ * event — the Saturday session gets its no-shows recorded on the Monday — so a
+ * list that stopped at today would hide exactly the sessions with work left on
+ * them. Open means `planned` or `in_progress`.
  *
- * Open means `planned` or `in_progress`. A `confirmed` session is signed off
- * and cannot be changed, and a `cancelled` one is not being run; neither has
- * anything left for this screen to do, and listing them would grow without
- * limit as the weeks pass.
+ * **`Show completed` brings back the ones that are finished with**, because a
+ * completed session is now something to look at rather than something to do:
+ * who attended, what each household was given, the listener sheet. It is off by
+ * default so the list a team lead opens mid-shift is the work in front of them.
+ * A date window bounds it either way — the server puts no lower bound on the
+ * past at all, so without one this would grow without limit as the weeks pass.
  */
 export function RunSessionsScreen() {
-  const sessions = useSessions();
-  const open = (sessions.data ?? []).filter(
-    (session) => session.status === 'planned' || session.status === 'in_progress',
-  );
+  const [searchParams] = useSearchParams();
+  const selection = readSessionListSelection(searchParams, londonToday());
+  const sessions = useSessions({ from: selection.from, to: selection.to });
+  const shown = filterSessionsByStatus(sessions.data ?? [], selection.showCompleted);
 
   return (
     <>
       <PageHeader title="Run a session" />
-      <p>Select the session you are running. Pick lists are prepared when you open it.</p>
+      <p>
+        Select the session you are running. Pick lists are prepared when you open it. A completed
+        session opens as a record of what happened and cannot be changed.
+      </p>
+      <SessionListFilters />
       {sessions.isPending && <Spinner label="Loading sessions…" />}
       {sessions.isError && (
         <ErrorNotice error={sessions.error} onRetry={() => void sessions.refetch()} />
       )}
       {sessions.isSuccess &&
-        (open.length === 0 ? (
+        (shown.length === 0 ? (
           <EmptyState
-            headline="No sessions to run"
-            sentence="Every session has been completed or cancelled."
+            headline="No sessions to show"
+            sentence={
+              selection.showCompleted
+                ? 'Nothing falls between these dates. Try widening them.'
+                : 'Nothing left to run between these dates. Try widening them, or tick Show completed to look back.'
+            }
           />
         ) : (
-          <ul>
-            {open.map((session) => (
-              <li key={session.id}>
-                <Link to={`/run-sessions/${session.id}`}>
-                  {describeSessionChoice(
-                    `${formatSessionDate(session.sessionDate)}, ${formatTimeRange(session.startTime, session.durationMinutes)}`,
-                    session,
-                  )}
-                </Link>{' '}
-                ({session.booked} booked)
-              </li>
-            ))}
-          </ul>
+          <SessionTable
+            caption={
+              selection.showCompleted
+                ? 'Sessions in this date range, completed ones included'
+                : 'Sessions still to run in this date range'
+            }
+            hrefFor={(session) => `/run-sessions/${session.id}`}
+            sessions={shown}
+          />
         ))}
     </>
   );
@@ -159,23 +171,38 @@ function PrintUnavailable() {
 
 export function PickListPrintScreen() {
   const { sessionId = '' } = useParams();
+  const session = useSession(sessionId);
   const list = useSessionPickList(sessionId);
   const currentParcels = (list.data?.parcels ?? []).filter(isCurrentParcel);
   const readyToPrint = list.data !== undefined && allParcelsReviewed(currentParcels);
   const print = usePrintPickList(readyToPrint ? list.data.pickList.id : '');
   const markPrinted = useMarkPickListPrinted();
   const printed = useRef<string | null>(null);
+  const readOnly = session.data === undefined ? null : isSessionReadOnly(session.data.status);
 
   useEffect(() => {
-    if (print.data !== undefined && printed.current !== print.data.pickList.id) {
+    if (
+      readOnly !== null &&
+      print.data !== undefined &&
+      printed.current !== print.data.pickList.id
+    ) {
       printed.current = print.data.pickList.id;
-      markPrinted.mutate(print.data.pickList.id);
+      /*
+       * **The sheets still render; the record of a print does not get written.**
+       * `POST /pick-lists/{id}/print` is a `409` on a confirmed list, and there
+       * is nothing to record anyway — a reprint of a session that is finished is
+       * somebody wanting to read what was picked, not the session's first sheets
+       * going to paper. `firstPrintedAt` must keep saying when they did.
+       */
+      if (!readOnly) markPrinted.mutate(print.data.pickList.id);
       window.print();
     }
-  }, [markPrinted, print.data]);
+  }, [markPrinted, print.data, readOnly]);
 
-  if (list.isPending || (readyToPrint && print.isPending))
+  if (session.isPending || list.isPending || (readyToPrint && print.isPending))
     return <Spinner label="Preparing print sheets…" />;
+  if (session.isError)
+    return <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />;
   if (list.isError) return <ErrorNotice error={list.error} onRetry={() => void list.refetch()} />;
   if (!readyToPrint)
     return (
@@ -251,6 +278,8 @@ export function PickListPrintScreen() {
 export function RunSessionDetailScreen() {
   const { sessionId = '' } = useParams();
   const session = useSession(sessionId);
+  /** `null` while the session is still loading — not yet known to be either. */
+  const readOnly = session.data === undefined ? null : isSessionReadOnly(session.data.status);
   const referrals = useReferrals({ sessionId });
   const stockItems = useStockItems();
   const requested = useRef<string | null>(null);
@@ -263,15 +292,40 @@ export function RunSessionDetailScreen() {
    * sheet and leave it there — worth waiting for the list, and worth not
    * fetching at all the rest of the time, because this is the request standing
    * between a team lead and their pick lists.
+   *
+   * A finished session composes nothing, so it does not ask for the lookup at
+   * all.
    */
-  const reasons = useReferralOptionSources(pickListInformationNeedsOptionSources());
+  const reasons = useReferralOptionSources(
+    pickListInformationNeedsOptionSources() && readOnly === false,
+  );
   const preferenceRuleHealth = useMemo(
     () => (stockItems.data === undefined ? null : validatePreferenceRules(stockItems.data)),
     [stockItems.data],
   );
 
   useEffect(() => {
+    /*
+     * **A finished session is read, never reconciled.** `POST` on a confirmed
+     * pick list is not refused — the server locks the list and answers `200`
+     * having created nothing — so an unguarded screen would look like it worked
+     * while making a pointless write every time somebody looked back at a
+     * session, with no error anywhere to say so. The `GET` is enabled directly
+     * instead of waiting on a mutation that must not happen.
+     *
+     * Nothing here waits for referrals, stock or the preference rules either.
+     * Those exist to compose the request body; making a completed session
+     * unreadable because a rule names a stock item that has since been retired
+     * would lose the record of a session that has already happened.
+     */
+    if (readOnly === true && sessionId !== '' && requested.current !== sessionId) {
+      requested.current = sessionId;
+      setPickListSessionId(sessionId);
+      return;
+    }
+
     if (
+      readOnly === false &&
       sessionId !== '' &&
       requested.current !== sessionId &&
       referrals.data !== undefined &&
@@ -290,6 +344,7 @@ export function RunSessionDetailScreen() {
     }
   }, [
     preferenceRuleHealth,
+    readOnly,
     reasons.isError,
     reasons.isPending,
     reasons.sources,
@@ -302,18 +357,22 @@ export function RunSessionDetailScreen() {
   const pickList = useSessionPickList(pickListSessionId);
   const complete = useConfirmSession();
 
+  // The four queries behind reconciliation are only needed to compose the
+  // request body, so a read-only session neither waits for them nor fails on
+  // them: what is on screen is a record of a session that already happened.
+  const preparing = readOnly !== true;
+
   if (
     session.isPending ||
-    referrals.isPending ||
-    stockItems.isPending ||
-    reasons.isPending ||
-    (reconcile.isPending && pickList.data === undefined) ||
-    (reconcile.isSuccess && pickList.isPending)
+    (preparing && (referrals.isPending || stockItems.isPending || reasons.isPending)) ||
+    (preparing && reconcile.isPending && pickList.data === undefined) ||
+    (preparing && reconcile.isSuccess && pickList.isPending) ||
+    (readOnly === true && pickList.isPending)
   ) {
     return (
       <>
         <PageHeader title="Run a session" />
-        <Spinner label="Preparing pick lists…" />
+        <Spinner label={readOnly === true ? 'Loading the session…' : 'Preparing pick lists…'} />
       </>
     );
   }
@@ -324,14 +383,14 @@ export function RunSessionDetailScreen() {
         <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />
       </>
     );
-  if (referrals.isError)
+  if (preparing && referrals.isError)
     return (
       <>
         <PageHeader title="Run a session" />
         <ErrorNotice error={referrals.error} onRetry={() => void referrals.refetch()} />
       </>
     );
-  if (stockItems.isError)
+  if (preparing && stockItems.isError)
     return (
       <>
         <PageHeader title="Run a session" />
@@ -342,14 +401,14 @@ export function RunSessionDetailScreen() {
      and then the pick lists must wait: their notes are saved on the parcel, so
      composing them without the list would write an identifier onto a picking
      sheet for good. */
-  if (reasons.isError)
+  if (preparing && reasons.isError)
     return (
       <>
         <PageHeader title="Run a session" />
         <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />
       </>
     );
-  if (preferenceRuleHealth !== null && preferenceRuleHealth.errors.length > 0)
+  if (preparing && preferenceRuleHealth !== null && preferenceRuleHealth.errors.length > 0)
     return (
       <>
         <PageHeader title="Run a session" />
@@ -364,42 +423,86 @@ export function RunSessionDetailScreen() {
         </div>
       </>
     );
-  if (reconcile.isError)
+  if (preparing && reconcile.isError)
     return (
       <>
         <PageHeader title="Run a session" />
         <ErrorNotice error={reconcile.error} />
       </>
     );
-  if (pickList.isError)
+  const readOnlyReason = describeReadOnlySession(session.data.status);
+  /*
+   * A session that never had a pick list — cancelled before anybody opened it —
+   * is a `404` on the read, and reads as an empty session rather than as a
+   * failure. Only worth saying on a read-only session: while one is being run
+   * the `GET` follows a `POST` that has just created the list.
+   */
+  const noPickList = readOnly === true && pickList.isError && isNotFound(pickList.error);
+  if (pickList.isError && !noPickList)
     return (
       <>
         <PageHeader title="Run a session" />
+        <SessionLine session={session.data} />
+        {/* Announced here too. The `ErrorNotice` beside it says the pick list
+            would not load; this says why the session cannot be changed, and
+            that sentence is the only thing explaining the missing controls. */}
+        {readOnlyReason !== null && (
+          <p className={styles.readOnlyNotice} role="status">
+            {readOnlyReason}
+          </p>
+        )}
         <ErrorNotice error={pickList.error} onRetry={() => void pickList.refetch()} />
       </>
     );
-  if (pickList.data === undefined) return null;
-  const currentParcels = pickList.data.parcels.filter(isCurrentParcel);
+  /*
+   * **Never render one session's households under another session's heading.**
+   *
+   * The pick list is fetched through `pickListSessionId`, which an effect sets,
+   * while the heading comes straight from the route. Moving between two
+   * sessions does not remount this screen, so on the render after the route
+   * changes the two disagree for one paint — and if the previous session's pick
+   * list is still cached (a minute's `staleTime`, and going back and forth
+   * between two sessions is ordinary), nothing above is pending, so the old
+   * parcels would render under the new session's date. Names, outcomes and
+   * pick-list information, on the wrong session.
+   *
+   * The same rule `ParcelPanel`'s `key={parcel.id}` enforces one level down, on
+   * the household rather than the session, and for the same reason.
+   */
+  if (pickListSessionId !== sessionId) return null;
+  if (pickList.data === undefined && !noPickList) return null;
+  const currentParcels = (pickList.data?.parcels ?? []).filter(isCurrentParcel);
   const allOutcomesRecorded = currentParcels.every((parcel) => parcel.attendance !== 'pending');
-  const readyToPrint = allParcelsReviewed(currentParcels);
+  const readyToPrint = pickList.data !== undefined && allParcelsReviewed(currentParcels);
 
   return (
     <>
       <PageHeader title="Run a session" />
       <SessionLine session={session.data} />
-      {reconcile.data !== undefined && (reconcile.data.parcelsCreated ?? 0) > 0 && (
-        <p role="status">
-          {reconcile.data.parcelsCreated} new pick list
-          {reconcile.data.parcelsCreated === 1 ? '' : 's'}{' '}
-          {pickList.data.pickList.firstPrintedAt === null
-            ? 'created.'
-            : 'created — print again to include them.'}
+      {readOnlyReason !== null && (
+        <p className={styles.readOnlyNotice} role="status">
+          {readOnlyReason}
         </p>
       )}
+      {reconcile.data !== undefined &&
+        pickList.data !== undefined &&
+        (reconcile.data.parcelsCreated ?? 0) > 0 && (
+          <p role="status">
+            {reconcile.data.parcelsCreated} new pick list
+            {reconcile.data.parcelsCreated === 1 ? '' : 's'}{' '}
+            {pickList.data.pickList.firstPrintedAt === null
+              ? 'created.'
+              : 'created — print again to include them.'}
+          </p>
+        )}
       <h2>Clients</h2>
       <p>
         {readyToPrint ? (
-          <Link to={`/run-sessions/${sessionId}/print`}>Print all pick lists</Link>
+          <Link to={`/run-sessions/${sessionId}/print`}>
+            {readOnly === true ? 'View all pick lists' : 'Print all pick lists'}
+          </Link>
+        ) : readOnly === true ? (
+          <span>No pick lists were prepared for this session.</span>
         ) : (
           <PrintUnavailable />
         )}
@@ -408,27 +511,37 @@ export function RunSessionDetailScreen() {
         {' · '}
         <Link to={`/run-sessions/${sessionId}/referral-details`}>Referral details</Link>
       </p>
-      <button
-        disabled={session.data.status === 'confirmed' || !allOutcomesRecorded || complete.isPending}
-        onClick={() => {
-          complete.mutate(sessionId);
-        }}
-        type="button"
-      >
-        Complete session
-      </button>
+      {/* Absent rather than disabled once the session is closed: after
+          `POST /sessions/{id}/confirm` there is no override to offer, and a
+          greyed-out button on a session from three weeks ago only invites
+          somebody to wonder what is wrong. */}
+      {readOnly === false && (
+        <button
+          disabled={!allOutcomesRecorded || complete.isPending}
+          onClick={() => {
+            complete.mutate(sessionId);
+          }}
+          type="button"
+        >
+          Complete session
+        </button>
+      )}
       {complete.error !== null && <SessionRefusal error={complete.error} />}
       <ul>
         {currentParcels.map((parcel) => (
           <ClientRow
             key={parcel.id}
             parcel={parcel}
+            readOnly={readOnly === true}
             sessionId={sessionId}
-            sessionStatus={session.data.status}
           />
         ))}
       </ul>
-      <SessionSmsPanel parcels={currentParcels} sessionId={sessionId} />
+      <SessionSmsPanel
+        parcels={currentParcels}
+        readOnly={readOnly === true}
+        sessionId={sessionId}
+      />
     </>
   );
 }
@@ -487,12 +600,12 @@ function describeParcel(parcel: Parcel): string {
 
 function ClientRow({
   parcel,
+  readOnly,
   sessionId,
-  sessionStatus,
 }: {
   parcel: Parcel;
+  readOnly: boolean;
   sessionId: string;
-  sessionStatus: Session['status'];
 }) {
   const attendance = useRecordAttendance();
   const status =
@@ -508,9 +621,14 @@ function ClientRow({
     <li>
       #{parcel.pickNumber} {parcel.refereeFirstName ?? 'Unknown'} {parcel.refereeSurname ?? ''} |{' '}
       {status} |{' '}
-      {!reviewed && parcel.attendance === 'pending' ? (
+      {/* On a finished session the workspace is still worth opening — it is
+          where the parcel's contents are — but there is nothing left to review,
+          so the link says what it now does. */}
+      {readOnly ? (
+        <Link to={`/run-sessions/${sessionId}/clients/${parcel.id}`}>View Pick list</Link>
+      ) : !reviewed && parcel.attendance === 'pending' ? (
         <Link to={`/run-sessions/${sessionId}/clients/${parcel.id}`}>Review Pick list</Link>
-      ) : sessionStatus !== 'confirmed' ? (
+      ) : (
         /*
          * Named for the household, not just the outcome. Every row renders the
          * same two words, so a screen reader's list of buttons on a session of
@@ -544,7 +662,7 @@ function ClientRow({
             {missedLabel(parcel)}
           </button>
         </>
-      ) : null}
+      )}
     </li>
   );
 }
@@ -618,7 +736,7 @@ export function RunSessionClientScreen() {
         }}
         parcel={parcel}
         pendingAction={pendingAction}
-        sessionStatus={session.data.status}
+        readOnly={isSessionReadOnly(session.data.status)}
       />
     </>
   );
@@ -626,13 +744,13 @@ export function RunSessionClientScreen() {
 
 function ParcelPanel({
   parcel,
-  sessionStatus,
+  readOnly,
   pendingAction,
   onPendingActionHandled,
   onDirtyChange,
 }: {
   parcel: Parcel;
-  sessionStatus: Session['status'];
+  readOnly: boolean;
   pendingAction: (() => void) | null;
   onPendingActionHandled: () => void;
   onDirtyChange: (dirty: boolean) => void;
@@ -651,9 +769,9 @@ function ParcelPanel({
   const [draftNotes, setDraftNotes] = useState(parcel.notes ?? '');
   const [showUnselectedStockItems, setShowUnselectedStockItems] = useState(true);
   // A recorded outcome stops the parcel changing, but does not stop it being
-  // corrected. Only confirming the containing session locks both.
-  const parcelLinesLocked = parcel.attendance !== 'pending' || sessionStatus === 'confirmed';
-  const notesLocked = sessionStatus === 'confirmed';
+  // corrected. Only closing the containing session locks both.
+  const parcelLinesLocked = parcel.attendance !== 'pending' || readOnly;
+  const notesLocked = readOnly;
   const answers = describeAnswers(
     referralFormDefinition,
     { answers: parcel.answers, piiPurgedAt: null },
@@ -716,37 +834,43 @@ function ParcelPanel({
           asks for the review button "at the top", and a team lead working down a
           hall reaches for Save and Mark reviewed far more often than they retype
           the note. */}
-      <div className={styles.reviewAction}>
-        <button
-          className={styles.reviewButton}
-          disabled={!isDirty || saveLines.isPending || review.isPending}
-          onClick={() => {
-            save();
-          }}
-          type="button"
-        >
-          {saveLines.isPending ? 'Saving…' : 'Save pick list'}
-        </button>
-        {parcel.reviewedAt === null && sessionStatus !== 'confirmed' && (
+      {/* Both controls are absent on a finished session rather than disabled.
+          Nothing here can become dirty once the inputs are locked, so a Save
+          button would sit permanently greyed out saying only that something is
+          wrong. */}
+      {!readOnly && (
+        <div className={styles.reviewAction}>
           <button
             className={styles.reviewButton}
-            disabled={saveLines.isPending || review.isPending || needsAttention}
+            disabled={!isDirty || saveLines.isPending || review.isPending}
             onClick={() => {
-              save(() => {
-                review.mutate(parcel.id);
-              });
+              save();
             }}
             type="button"
           >
-            {review.isPending ? 'Marking reviewed…' : 'Mark pick list reviewed'}
+            {saveLines.isPending ? 'Saving…' : 'Save pick list'}
           </button>
-        )}
-        {needsAttention && (
-          <p role="alert">
-            Set a quantity for every item marked “Needs attention” before reviewing.
-          </p>
-        )}
-      </div>
+          {parcel.reviewedAt === null && (
+            <button
+              className={styles.reviewButton}
+              disabled={saveLines.isPending || review.isPending || needsAttention}
+              onClick={() => {
+                save(() => {
+                  review.mutate(parcel.id);
+                });
+              }}
+              type="button"
+            >
+              {review.isPending ? 'Marking reviewed…' : 'Mark pick list reviewed'}
+            </button>
+          )}
+          {needsAttention && (
+            <p role="alert">
+              Set a quantity for every item marked “Needs attention” before reviewing.
+            </p>
+          )}
+        </div>
+      )}
       <div className={styles.pickListInformationEditor}>
         <label htmlFor={`pick-list-information-${parcel.id}`}>Information for pickers</label>
         <textarea

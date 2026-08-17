@@ -1,10 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addCalendarDays,
   formatLondonDate,
   formatLondonDateTime,
   formatSessionDate,
   formatTimeRange,
 } from './london-time';
+
+describe('addCalendarDays', () => {
+  it('adds and subtracts whole days', () => {
+    expect(addCalendarDays('2026-08-17', 6)).toBe('2026-08-23');
+    expect(addCalendarDays('2026-08-17', -14)).toBe('2026-08-03');
+    expect(addCalendarDays('2026-08-17', 0)).toBe('2026-08-17');
+  });
+
+  it('rolls over a month end, a year end and a leap day', () => {
+    expect(addCalendarDays('2026-01-31', 1)).toBe('2026-02-01');
+    expect(addCalendarDays('2026-01-01', -1)).toBe('2025-12-31');
+    expect(addCalendarDays('2028-02-28', 1)).toBe('2028-02-29');
+  });
+
+  it('does not move a day when the clocks do', () => {
+    // BST begins on 29 March 2026 and ends on 25 October. Both ends are pinned
+    // to UTC midnight, where a day is always twenty-four hours, so neither
+    // changeover can knock a date onto its neighbour.
+    expect(addCalendarDays('2026-03-28', 2)).toBe('2026-03-30');
+    expect(addCalendarDays('2026-10-24', 2)).toBe('2026-10-26');
+  });
+
+  it('returns what it was given when that will not parse', () => {
+    expect(addCalendarDays('not a date', 1)).toBe('not a date');
+    expect(addCalendarDays('2026-02-30', 1)).toBe('2026-02-30');
+  });
+});
 
 describe('formatLondonDateTime', () => {
   it('shows the London wall clock, not UTC, in summer', () => {

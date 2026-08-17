@@ -17,19 +17,6 @@ export const SESSION_STATUS_LABELS: Record<SessionStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-export function isSessionStatus(value: unknown): value is SessionStatus {
-  return typeof value === 'string' && Object.hasOwn(SESSION_STATUS_LABELS, value);
-}
-
-export interface StatusOption {
-  readonly value: SessionStatus;
-  readonly label: string;
-}
-
-export const SESSION_STATUS_OPTIONS: readonly StatusOption[] = Object.entries(
-  SESSION_STATUS_LABELS,
-).flatMap(([value, label]) => (isSessionStatus(value) ? [{ value, label }] : []));
-
 /**
  * Soonest first, **ordered on `startsAtUtc` and never on the wall clock** — the
  * same reasoning as `sortByStart` in the referrals feature. The server already

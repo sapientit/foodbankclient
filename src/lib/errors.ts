@@ -136,6 +136,19 @@ export function pendingPickNumbers(error: ApiError): readonly number[] | null {
   return numbers.length === raw.length ? numbers : null;
 }
 
+/**
+ * Whether a failure is the resource simply not being there.
+ *
+ * Read through `ApiError` rather than compared at the call site, because a
+ * network failure reaches a screen as a plain `Error` with no status at all and
+ * `error.status === 404` on one of those is a type error waiting to be silenced
+ * with a cast. "There is nothing here" and "the request did not happen" are
+ * different sentences for a volunteer.
+ */
+export function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404;
+}
+
 /** `409` on a full session carries both halves of "25 of 25". */
 export function sessionCapacity(error: ApiError): { capacity: number; booked: number } | null {
   const capacity = error.details?.capacity;

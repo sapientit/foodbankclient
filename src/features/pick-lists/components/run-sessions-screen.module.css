@@ -224,6 +224,24 @@
   margin-block-start: 0.5rem;
 }
 
+/* Why the session cannot be changed. Stated once at the top, because every
+   control that would change something is absent below it and an unexplained
+   absence reads as a broken screen. Informational rather than a fault, so it is
+   given the same weight as the refusal without its alarm. */
+.readOnlyNotice {
+  margin-block: 0.75rem;
+  padding: 0.75rem 1rem;
+  max-inline-size: 60ch;
+  border-inline-start: 4px solid #005a9c;
+  background: #eef4f9;
+}
+
+@media print {
+  .readOnlyNotice {
+    display: none;
+  }
+}
+
 /* Four aligned columns: date, hours, collection-only, booked. `auto` on the
    third so an empty cell still holds its place and the booked count stays put
    down a list — the whole reason these are columns rather than a sentence.

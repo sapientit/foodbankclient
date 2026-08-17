@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -61,7 +61,7 @@ describe('an admin’s planning view', () => {
     expect(within(main).getByRole('link', { name: 'Weekly sessions' })).toBeInTheDocument();
   });
 
-  it('never sends from or to — the window is the token’s job, not this client’s', async () => {
+  it('sends the window it is showing, and never a status — the far end is still the token’s job', async () => {
     let requestedUrl = '';
     server.use(
       http.get(SESSIONS, ({ request }) => {
@@ -81,11 +81,16 @@ describe('an admin’s planning view', () => {
     });
 
     const url = new URL(requestedUrl);
-    expect(url.searchParams.has('from')).toBe(false);
-    expect(url.searchParams.has('to')).toBe(false);
+    // A window is sent because the server puts no lower bound on the past at
+    // all, and `Show completed` would otherwise ask for every session ever run.
+    expect(url.searchParams.get('from')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(url.searchParams.get('to')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // `status` takes one value and this screen wants two of them, so the
+    // narrowing is done on the response instead.
+    expect(url.searchParams.has('status')).toBe(false);
   });
 
-  it('puts each session date on its own line, in the order the server sent them', async () => {
+  it('puts each session in its own row, in the order the server sent them', async () => {
     server.use(
       http.get(SESSIONS, () =>
         HttpResponse.json({
@@ -115,11 +120,13 @@ describe('an admin’s planning view', () => {
 
     renderApp('/sessions');
 
-    expect(await screen.findAllByText('Tue, 4 Aug 2026')).toHaveLength(2);
-    expect(screen.getByText('Tue, 11 Aug 2026')).toBeInTheDocument();
+    // The link is named by date and hours together, so two sessions on one day
+    // are told apart by a screen reader moving between links.
+    expect(await screen.findAllByRole('link', { name: /Tue, 4 Aug 2026/ })).toHaveLength(2);
+    expect(screen.getByRole('link', { name: /Tue, 11 Aug 2026/ })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /4 Aug 2026/ })).toBeNull();
-    // Scoped to <main>: the nav is also a <ul> of <li>s.
-    expect(within(screen.getByRole('main')).getAllByRole('listitem')).toHaveLength(3);
+    // One header row plus one per session.
+    expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(4);
   });
 
   it('shows an over-capacity session plainly, not as an error', async () => {
@@ -131,9 +138,9 @@ describe('an admin’s planning view', () => {
 
     renderApp('/sessions');
 
-    const main = await screen.findByRole('main');
-    const row = await within(main).findByRole('listitem');
-    expect(within(row).getByText(/27 of 25 booked/)).toBeInTheDocument();
+    // Found by what it says rather than by its index, so this keeps testing the
+    // rule if a column is ever added before it.
+    const row = await screen.findByRole('row', { name: /27 of 25 booked/ });
     expect(within(row).getByText(/over capacity/)).toBeInTheDocument();
     // Not flagged as a failure: the shared error surface never appears.
     expect(screen.queryByRole('alert')).toBeNull();
@@ -161,34 +168,62 @@ describe('an admin’s planning view', () => {
 
     renderApp('/sessions');
 
-    expect(await screen.findByRole('link', { name: '10:00–11:00' })).toBeInTheDocument();
+    expect(await screen.findByText('10:00–11:00')).toBeInTheDocument();
   });
 
-  it('filters by status through the URL', async () => {
-    let lastStatus: string | null = 'unset';
+  it('hides a completed or cancelled session until Show completed is ticked', async () => {
+    server.use(
+      http.get(SESSIONS, () =>
+        HttpResponse.json({
+          sessions: [
+            session({ id: 's1', sessionDate: '2026-08-04', status: 'planned' }),
+            session({ id: 's2', sessionDate: '2026-08-05', status: 'confirmed' }),
+            session({ id: 's3', sessionDate: '2026-08-06', status: 'cancelled' }),
+          ],
+        }),
+      ),
+    );
+
+    renderApp('/sessions');
+
+    expect(await screen.findByRole('link', { name: /Tue, 4 Aug 2026/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Wed, 5 Aug 2026/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Thu, 6 Aug 2026/ })).toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText('Show completed'));
+
+    // Both, and cancelled deliberately: dropping the status filter left this as
+    // the only route to a cancelled session, and the status column tells them
+    // apart.
+    expect(await screen.findByRole('link', { name: /Wed, 5 Aug 2026/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Thu, 6 Aug 2026/ })).toBeInTheDocument();
+    expect(screen.getByText('Confirmed')).toBeInTheDocument();
+    expect(screen.getByText('Cancelled')).toBeInTheDocument();
+  });
+
+  it('narrows the window it asks for when a date is changed', async () => {
+    let requestedUrl = '';
     server.use(
       http.get(SESSIONS, ({ request }) => {
-        lastStatus = new URL(request.url).searchParams.get('status');
+        requestedUrl = request.url;
         return HttpResponse.json({ sessions: [] });
       }),
     );
 
     renderApp('/sessions');
     await screen.findByRole('heading', { name: 'Sessions' });
-
-    // Waited for, not asserted outright: the heading renders before the query
-    // fires, so a bare `expect` here races the request and reads the sentinel
-    // instead of the captured value. The second half of this test already had
-    // to wait for the same reason.
     await waitFor(() => {
-      expect(lastStatus).toBeNull();
+      expect(requestedUrl).not.toBe('');
     });
 
-    const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText('Status'), 'cancelled');
+    // `fireEvent` rather than `userEvent.type`: a date input takes keystrokes in
+    // the locale's segment order, so typing an ISO string into one lands
+    // somewhere else entirely. This is what a date picker does.
+    fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-07-01' } });
 
     await waitFor(() => {
-      expect(lastStatus).toBe('cancelled');
+      expect(new URL(requestedUrl).searchParams.get('from')).toBe('2026-07-01');
     });
   });
 });

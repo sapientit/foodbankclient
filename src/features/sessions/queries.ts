@@ -56,15 +56,24 @@ async function fetchSessions(filters: SessionListFilters): Promise<Session[]> {
 }
 
 /**
- * **No `from`/`to` is ever sent by this client.** That is the whole point: the
+ * **The two session lists send a window; everything else sends nothing.**
+ *
+ * This client used to send no `from`/`to` at all, on the grounds that the
  * server derives the window from the caller's role — six weeks materialised for
- * an admin, today through today+6 for a team lead — and clamps a `to` that
- * tries to reach past it rather than refusing. Sending an explicit window from
- * here would just be this client guessing at a cap the token already carries,
- * and getting it right buys nothing while getting it wrong (a `to` narrower
- * than the real horizon) silently hides sessions that are genuinely there.
- * `status` is the only filter offered, because it is the only one that means
- * the same thing regardless of who is asking.
+ * an admin, today through today+6 for a team lead — so any window sent from
+ * here would be guessing at a cap the token already carries. The far end of
+ * that argument still holds and is why nothing here computes a horizon: a `to`
+ * past the caller's is **clamped rather than refused**, so the lists send a
+ * flat today+6 and let the server decide whether that is the whole of it.
+ *
+ * The near end does not hold any more. The server applies **no lower bound at
+ * all**, which was harmless while the lists only ever showed open sessions and
+ * is not once completed ones can be asked for — without a `from`, ticking
+ * `Show completed` asks for every session the food bank has ever run. So the
+ * lists bound the past themselves; see `session-list-filters.logic.ts`.
+ *
+ * `status` is still never sent, for a different reason: the parameter takes one
+ * value and the lists want two of them.
  */
 export function useSessions(filters: SessionListFilters = {}) {
   return useQuery({ queryKey: sessionKeys.list(filters), queryFn: () => fetchSessions(filters) });

@@ -14,8 +14,31 @@ import {
 } from '../queries';
 import styles from './sms-panel.module.css';
 
-export function SessionSmsPanel({ sessionId, parcels }: { sessionId: string; parcels: Parcel[] }) {
-  const summary = useSmsSummary(sessionId);
+/**
+ * `readOnly` is the containing session being finished with, and it takes every
+ * write on this panel away: no reminders, no replies, and **opening a
+ * conversation no longer marks it read**. That last one is the easy one to miss
+ * — it is a write with no button in front of it — and marking a year-old thread
+ * read by scrolling past it loses the only signal an administrator has that
+ * somebody said something nobody answered.
+ *
+ * The server does not enforce any of this: neither
+ * `POST /sessions/{id}/sms-reminders` nor `POST /referrals/{id}/sms-messages`
+ * carries a confirmed-session rule. It is this client's decision, and it is
+ * written down in `screenDetails.md` rather than left implicit here.
+ */
+export function SessionSmsPanel({
+  sessionId,
+  parcels,
+  readOnly,
+}: {
+  sessionId: string;
+  parcels: Parcel[];
+  readOnly: boolean;
+}) {
+  // The app's one sanctioned poll exists for a session being run. On a finished
+  // one it is a request every five seconds for a number that cannot change.
+  const summary = useSmsSummary(sessionId, !readOnly);
   const send = useSendSmsReminders();
   const sending = useRef(false);
   const [result, setResult] = useState<{
@@ -39,30 +62,34 @@ export function SessionSmsPanel({ sessionId, parcels }: { sessionId: string; par
           {summary.data.unreadTotal === 1 ? 'message' : 'messages'}
         </p>
       )}
-      <button
-        aria-disabled={send.isPending}
-        onClick={() => {
-          if (sending.current) return;
-          sending.current = true;
-          send.mutate(sessionId, {
-            onSuccess: (response) => {
-              setResult(response);
-            },
-            onSettled: () => {
-              sending.current = false;
-            },
-          });
-        }}
-        type="button"
-      >
-        {send.isPending ? 'Sending SMS reminders…' : 'Send SMS reminders'}
-      </button>
-      {send.isError && <ErrorNotice error={send.error} />}
-      {result !== undefined && (
-        <p role="status">
-          {result.reminded} sent; {result.failed} failed; {result.alreadyReminded} already sent.
-          {result.failed > 0 && <strong> Failed reminders need attention.</strong>}
-        </p>
+      {!readOnly && (
+        <>
+          <button
+            aria-disabled={send.isPending}
+            onClick={() => {
+              if (sending.current) return;
+              sending.current = true;
+              send.mutate(sessionId, {
+                onSuccess: (response) => {
+                  setResult(response);
+                },
+                onSettled: () => {
+                  sending.current = false;
+                },
+              });
+            }}
+            type="button"
+          >
+            {send.isPending ? 'Sending SMS reminders…' : 'Send SMS reminders'}
+          </button>
+          {send.isError && <ErrorNotice error={send.error} />}
+          {result !== undefined && (
+            <p role="status">
+              {result.reminded} sent; {result.failed} failed; {result.alreadyReminded} already sent.
+              {result.failed > 0 && <strong> Failed reminders need attention.</strong>}
+            </p>
+          )}
+        </>
       )}
       <ul className={styles.households}>
         {parcels.map((parcel) => {
@@ -71,6 +98,7 @@ export function SessionSmsPanel({ sessionId, parcels }: { sessionId: string; par
             <SmsConversation
               key={parcel.referralId}
               name={`${parcel.refereeFirstName ?? 'Unknown'} ${parcel.refereeSurname ?? ''}`.trim()}
+              readOnly={readOnly}
               referralId={parcel.referralId}
               unreadCount={count?.unreadCount ?? 0}
               messageCount={count?.messageCount ?? 0}
@@ -85,11 +113,13 @@ export function SessionSmsPanel({ sessionId, parcels }: { sessionId: string; par
 function SmsConversation({
   referralId,
   name,
+  readOnly,
   unreadCount,
   messageCount,
 }: {
   referralId: string;
   name: string;
+  readOnly: boolean;
   unreadCount: number;
   messageCount: number;
 }) {
@@ -104,7 +134,7 @@ function SmsConversation({
         onToggle={(event) => {
           const expanded = event.currentTarget.open;
           setOpen(expanded);
-          if (expanded && unreadCount > 0) markRead.mutate(referralId);
+          if (expanded && unreadCount > 0 && !readOnly) markRead.mutate(referralId);
         }}
       >
         <summary className={unreadCount > 0 ? styles.unreadButton : undefined}>
@@ -127,36 +157,40 @@ function SmsConversation({
             ))}
           </ol>
         )}
-        <label>
-          Reply by SMS
-          <textarea
-            maxLength={480}
-            onChange={(event) => {
-              setBody(event.target.value);
-            }}
-            value={body}
-          />
-        </label>
-        <p className={styles.warning}>
-          Do not include the household’s name, address, or anything that identifies them.
-        </p>
-        <button
-          disabled={body.trim() === '' || reply.isPending}
-          onClick={() => {
-            reply.mutate(
-              { referralId, body: body.trim() },
-              {
-                onSuccess: () => {
-                  setBody('');
-                },
-              },
-            );
-          }}
-          type="button"
-        >
-          Send reply
-        </button>
-        {reply.isError && <ErrorNotice error={reply.error} />}
+        {!readOnly && (
+          <>
+            <label>
+              Reply by SMS
+              <textarea
+                maxLength={480}
+                onChange={(event) => {
+                  setBody(event.target.value);
+                }}
+                value={body}
+              />
+            </label>
+            <p className={styles.warning}>
+              Do not include the household’s name, address, or anything that identifies them.
+            </p>
+            <button
+              disabled={body.trim() === '' || reply.isPending}
+              onClick={() => {
+                reply.mutate(
+                  { referralId, body: body.trim() },
+                  {
+                    onSuccess: () => {
+                      setBody('');
+                    },
+                  },
+                );
+              }}
+              type="button"
+            >
+              Send reply
+            </button>
+            {reply.isError && <ErrorNotice error={reply.error} />}
+          </>
+        )}
       </details>
     </li>
   );

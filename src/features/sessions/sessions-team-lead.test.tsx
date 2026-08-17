@@ -69,7 +69,7 @@ describe('a team lead’s shift view', () => {
     expect(await within(main).findByText('10 of 25 booked')).toBeInTheDocument();
   });
 
-  it('sends the same bare request an admin does, and lets the token decide the window', async () => {
+  it('sends the same request an admin does, and never computes a narrower horizon of its own', async () => {
     let requestedUrl = '';
     server.use(
       http.get(SESSIONS, ({ request }) => {
@@ -87,9 +87,15 @@ describe('a team lead’s shift view', () => {
       expect(requestedUrl).not.toBe('');
     });
 
+    // **The same window both roles send**, not one worked out from the role. A
+    // `to` past the caller's horizon is clamped by the server rather than
+    // refused, so nothing here has to know that a team lead sees six days and an
+    // admin six weeks — and a client that guessed and got it narrow would
+    // silently hide sessions that are genuinely there.
     const url = new URL(requestedUrl);
-    expect(url.searchParams.has('from')).toBe(false);
-    expect(url.searchParams.has('to')).toBe(false);
+    expect(url.searchParams.get('from')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(url.searchParams.get('to')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(url.searchParams.has('status')).toBe(false);
   });
 
   it('does not offer the Weekly sessions link in the main navigation either', async () => {

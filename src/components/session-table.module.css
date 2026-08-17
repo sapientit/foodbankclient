@@ -1,0 +1,68 @@
+.tableWrap {
+  overflow-x: auto;
+}
+
+.tableWrap:focus-visible {
+  outline: 3px solid #005a9c;
+  outline-offset: 2px;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.caption {
+  margin-block-end: 0.5rem;
+  text-align: start;
+  font-weight: 600;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+  vertical-align: top;
+  border-block-end: 1px solid #d4d4d4;
+}
+
+.table thead th {
+  border-block-end: 2px solid #1a1a1a;
+}
+
+/* The link fills its cell rather than only its glyphs. The padding belongs to
+   the cell, so without this the space around a short date is dead to a tap —
+   and this is the control a volunteer uses to open a session on a phone, in a
+   hall, in a hurry. The negative margin puts the padding on the anchor without
+   changing the row's height. */
+.rowLink {
+  display: block;
+  margin: -0.5rem -0.75rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.time,
+.bookings {
+  font-variant-numeric: tabular-nums;
+}
+
+.status {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid currentcolor;
+  border-radius: 1rem;
+  white-space: nowrap;
+}
+
+/* Colour is never the only signal — the label text already says the status —
+   but a quiet visual grouping helps a list scan quickly. */
+.status[data-status='cancelled'] {
+  color: #595959;
+}
+
+@media print {
+  .tableWrap {
+    overflow-x: visible;
+  }
+}

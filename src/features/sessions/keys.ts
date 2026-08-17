@@ -17,12 +17,18 @@
 export type SessionStatus = 'planned' | 'in_progress' | 'confirmed' | 'cancelled';
 
 /**
- * Deliberately just `status`. `from`/`to` exist on the endpoint but this app
- * never sends them — see `queries.ts` for why leaving the window to the server
- * is the whole point of the admin/team-lead split.
+ * Deliberately just the date window. `status` exists on the endpoint and this
+ * app does not send it: the lists want *planned or in progress*, and the
+ * parameter takes one value, so the narrowing is done on the response instead —
+ * see `session-list-filters.logic.ts`.
+ *
+ * Both filters absent is a real and common call: `useSessions()` with no
+ * arguments is how a screen resolves an arbitrary session id to a date, and it
+ * must not be bounded by a window.
  */
 export interface SessionListFilters {
-  readonly status?: SessionStatus;
+  readonly from?: string;
+  readonly to?: string;
 }
 
 export const sessionKeys = {

@@ -79,7 +79,16 @@ export function useListenerSheet(sessionId: string) {
   });
 }
 
-export function useSmsSummary(sessionId: string) {
+/**
+ * `poll` is the session still being run.
+ *
+ * The SMS contract explicitly makes this the sole polling target while the
+ * run-session screen is open; all other queries keep the global no-poll rule.
+ * **That exception is for a session in progress and does not survive it** — on a
+ * finished session the unread count cannot change, so polling it would be a
+ * request every five seconds, on a hall's wifi, for an answer already known.
+ */
+export function useSmsSummary(sessionId: string, poll: boolean) {
   return useQuery({
     queryKey: pickListKeys.smsSummary(sessionId),
     enabled: sessionId !== '',
@@ -87,9 +96,7 @@ export function useSmsSummary(sessionId: string) {
       unwrap(
         api.GET('/api/v1/sessions/{sessionId}/sms-summary', { params: { path: { sessionId } } }),
       ),
-    // The SMS contract explicitly makes this the sole polling target while the
-    // run-session screen is open; all other queries keep the global no-poll rule.
-    refetchInterval: 5_000,
+    refetchInterval: poll ? 5_000 : false,
   });
 }
 
