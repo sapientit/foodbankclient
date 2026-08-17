@@ -32,10 +32,30 @@ interface PendingCompletion {
   spreadsheetId: string;
 }
 
+/**
+ * `12 rows added to Sheets`. Sessions are what the extract works through, but
+ * rows are what land in the spreadsheet and what an administrator counts when
+ * they go and check it — a session with no referrals on it adds none at all.
+ */
+function rowsAdded(rows: number): string {
+  return `${String(rows)} ${rows === 1 ? 'row' : 'rows'} added to Sheets`;
+}
+
 export function ExtractScreen() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [batchCount, setBatchCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  /**
+   * Rows appended to the archive, counted **when the Sheets write returns** and
+   * not when the session is marked extracted.
+   *
+   * The two are deliberately different moments. A write that succeeds and a
+   * completion that then fails leaves rows in the spreadsheet against a session
+   * still queued — that is the intended failure direction, and it is exactly
+   * when somebody needs to know how many rows went in, because they are the
+   * ones that will be duplicated by the next run.
+   */
+  const [rowCount, setRowCount] = useState(0);
   const [runSequence, setRunSequence] = useState(0);
   const [error, setError] = useState<unknown>(null);
   const [pendingCompletion, setPendingCompletion] = useState<PendingCompletion | null>(null);
@@ -99,6 +119,10 @@ export function ExtractScreen() {
           'The reasons for referral could not be loaded. Nothing was written.',
         );
       await writeClaim(sheet, token, response.claim, reasonOptionSources(reasons.data ?? []));
+      // One archive row per referral on the session, and they are in the sheet
+      // now — counted here rather than after the mark, which may yet fail.
+      const written = response.claim.rows.length;
+      setRowCount((count) => count + written);
       try {
         await complete.mutateAsync(response.claim.claimId);
       } catch (reason) {
@@ -150,11 +174,46 @@ export function ExtractScreen() {
     setBatchCount(0);
     setPhase('configuring');
   }
+  /**
+   * Ends the run. **The counts go back to zero with it**, because `stop` drops
+   * the Google token and the next run therefore has to ask for consent again —
+   * and a non-zero total is what tells the confirmation dialog it is continuing
+   * an authorised run rather than beginning one. Leaving them behind meant
+   * stopping and starting again skipped consent and then failed on a token the
+   * screen no longer held.
+   */
   function stop(): void {
     accessToken.current = null;
     spreadsheetId.current = null;
     started.current = false;
+    setBatchCount(0);
+    setTotalCount(0);
+    setRowCount(0);
     setPhase('idle');
+  }
+
+  /**
+   * Picks the run back up after a failure, without going round the confirmation
+   * and the Google consent prompt again where they still hold.
+   *
+   * **It claims the next waiting session, not the one that just failed.** That
+   * one is already reserved to this browser and cannot be claimed again until
+   * its ten minutes are up, at which point it returns to the queue on its own.
+   * So this is "carry on with the rest", not "have another go at that" — which
+   * is also why nothing here retries the Google write itself.
+   *
+   * A failure before consent — no spreadsheet configured, Google refusing — has
+   * no token to carry on with, so that starts again from the top rather than
+   * from a permission this screen does not hold.
+   */
+  function retryRun(): void {
+    setError(null);
+    if (accessToken.current === null || spreadsheetId.current === null) {
+      setPhase('configuring');
+      return;
+    }
+    setPhase('running');
+    setRunSequence((sequence) => sequence + 1);
   }
 
   return (
@@ -178,12 +237,15 @@ export function ExtractScreen() {
         <p role="status">
           {phase === 'authorising'
             ? 'Waiting for Google Sheets permission…'
-            : `Extracting sessions: ${String(totalCount)} completed in this run.`}
+            : `Extracting sessions: ${String(totalCount)} completed in this run, ${rowsAdded(rowCount)}.`}
         </p>
       )}
       {phase === 'done' && (
         <>
-          <p role="status">There are no unextracted confirmed sessions waiting.</p>
+          <p role="status">
+            There are no unextracted confirmed sessions waiting. {String(totalCount)} extracted in
+            this run, {rowsAdded(rowCount)}.
+          </p>
           <button onClick={stop} type="button">
             Finish
           </button>
@@ -192,20 +254,41 @@ export function ExtractScreen() {
       {phase === 'error' && (
         <>
           <ErrorNotice error={error} />
+          {/* What the run actually left behind. "Nothing was marked extracted"
+              is the reassurance somebody needs before they go and look at the
+              spreadsheet, and the row count is what they compare it against —
+              rows can be in the sheet on a session that is still queued. */}
+          <p>
+            No session was marked extracted by this failure, and any session claimed for it returns
+            to the queue within ten minutes. {rowsAdded(rowCount)} before it stopped.
+          </p>
+          {/* "Finish" said this run had finished, on a screen that had just
+              failed to do it — which is why it was believed to be what marked
+              sessions extracted. It never wrote anything; it says what it does
+              now. Carrying on picks up the next waiting session, not the one
+              that failed: see `retryRun`. */}
+          <button onClick={retryRun} type="button">
+            Try again
+          </button>
           <button onClick={stop} type="button">
-            Finish
+            Stop extracting
           </button>
         </>
       )}
       {phase === 'completion-error' && (
         <>
           <ErrorNotice error={error} />
-          <p>The rows may be in the spreadsheet. Google will not be called again.</p>
+          <p>
+            The rows may be in the spreadsheet. Google will not be called again.{' '}
+            {rowsAdded(rowCount)} in this run.
+          </p>
           <button onClick={() => void retryCompletion()} type="button">
             Try marking this session extracted again
           </button>
+          {/* Leaving here genuinely leaves work undone — rows written, session
+              still queued — so this must not say "Finish" either. */}
           <button onClick={stop} type="button">
-            Finish
+            Stop extracting
           </button>
         </>
       )}
