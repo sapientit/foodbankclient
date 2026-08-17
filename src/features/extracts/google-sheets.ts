@@ -1,4 +1,5 @@
 import { answerKeys, archiveRows, FIXED_HEADERS } from './archive-rows.logic';
+import { ShowableError } from '../../lib/errors';
 import type { OptionSources } from '../referrals/referral-form-definition';
 import type { ExtractClaim } from './queries';
 
@@ -7,7 +8,15 @@ const ARCHIVE = 'archive';
 const MAPPING = 'mapping';
 type Cell = string | number | boolean;
 
-export class GoogleSheetsError extends Error {}
+/**
+ * Extends `ShowableError` so the sentence reaches the screen. Every message
+ * raised here names the thing that is wrong with the spreadsheet, and an
+ * administrator is the only person who can go and fix it — which they cannot do
+ * if they are told the server is unreachable.
+ */
+export class GoogleSheetsError extends ShowableError {
+  override readonly name = 'GoogleSheetsError';
+}
 
 /**
  * `sources` are the maintained lookups an answer may have been chosen from —
@@ -92,9 +101,17 @@ async function archiveKeys(
   const row = values[0];
   if (row === undefined || row.length === 0) return { keys: [...FIXED_HEADERS], isEmpty: true };
   const keys = row.map(String);
-  if (FIXED_HEADERS.some((header, index) => keys[index] !== header))
+  /*
+   * **Name the column that disagrees.** "Does not match the extract format" is
+   * true and useless: the administrator holding it has a hidden row of thirty
+   * keys and no way to tell which one is wrong without reading the network tab,
+   * which is exactly how this was diagnosed the first time. The column letter
+   * and both keys are what they need to go and fix it.
+   */
+  const wrong = FIXED_HEADERS.findIndex((header, index) => keys[index] !== header);
+  if (wrong !== -1)
     throw new GoogleSheetsError(
-      'The hidden archive key row does not match the extract format. Nothing was written.',
+      `The archive's hidden key row does not match the extract format, so nothing was written. Column ${columnName(wrong + 1)} should be “${FIXED_HEADERS[wrong] ?? ''}” and reads “${keys[wrong] ?? '(empty)'}”.`,
     );
   return { keys, isEmpty: false };
 }

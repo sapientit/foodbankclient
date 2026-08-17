@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, type ApiErrorCode } from '../lib/errors';
+import { ApiError, ShowableError, type ApiErrorCode } from '../lib/errors';
 import { ErrorNotice } from './error-notice';
 
 function apiError(
@@ -32,6 +32,34 @@ describe('ErrorNotice', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'That reason is no longer offered on the form',
     );
+  });
+
+  /**
+   * The extract's own failures are the reason this exists. A spreadsheet whose
+   * hidden key row is in the wrong order used to be reported as "We could not
+   * reach the server", which sent an administrator to check their wifi over a
+   * problem in a spreadsheet — a wrong diagnosis being worse than a vague one.
+   */
+  it('shows a ShowableError’s own sentence rather than blaming the connection', () => {
+    render(
+      <ErrorNotice
+        error={new ShowableError('Column B should be “sessionLocation” and reads “sessionId”.')}
+      />,
+    );
+
+    const notice = screen.getByRole('alert');
+    expect(notice).toHaveTextContent('Column B should be “sessionLocation” and reads “sessionId”.');
+    expect(notice).not.toHaveTextContent('We could not reach the server');
+  });
+
+  it('still blames the connection for an error nobody wrote for a reader', () => {
+    // The fallback has to survive: a request that never left is what a hall's
+    // wifi looks like, and "try again" is the right answer to it.
+    render(<ErrorNotice error={new TypeError('Failed to fetch')} />);
+
+    const notice = screen.getByRole('alert');
+    expect(notice).toHaveTextContent('We could not reach the server');
+    expect(notice).not.toHaveTextContent('Failed to fetch');
   });
 
   it('shows a copyable request id for a 500', async () => {

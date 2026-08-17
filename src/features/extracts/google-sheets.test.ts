@@ -2,7 +2,7 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { FIXED_HEADERS, HOUSEHOLD_COMPOSITION_SHEET_COLUMNS } from './archive-rows.logic';
-import { writeClaim } from './google-sheets';
+import { GoogleSheetsError, writeClaim } from './google-sheets';
 import type { ExtractClaim } from './queries';
 import {
   emptyHouseholdComposition,
@@ -257,5 +257,74 @@ describe('the first claim written to an empty spreadsheet', () => {
 
     expect(sheet.archive[0]).toEqual([...FIXED_HEADERS]);
     await expect(writeClaim('sheet-1', 'google-token', claim, {})).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * The real key row from the charity's test spreadsheet, as Google returned it
+ * on 2026-08-17. An older format: it identifies the session by id rather than
+ * by where it was, and it carries seven columns of names, addresses, emails and
+ * phone numbers that the extract is not allowed to write — `screenDetails.md`:
+ * "The extract contains no names, addresses, email addresses or telephone
+ * numbers. Its only personal-information columns are postcode and date of
+ * birth."
+ *
+ * Kept verbatim because refusing this sheet is the behaviour that matters most
+ * in this file: the check is the last thing standing between a household's
+ * address and a Google spreadsheet.
+ */
+const OLD_FORMAT_KEY_ROW = [
+  'sessionDate',
+  'sessionId',
+  'referralId',
+  'status',
+  'referredAt',
+  'referrerOrganisation',
+  'referrerName',
+  'referrerEmail',
+  'referrerPhone',
+  'refereeFirstName',
+  'refereeSurname',
+  'refereeDateOfBirth',
+  'refereeAddress',
+  'refereePostcode',
+  'refereePhone',
+  'adults',
+  'children',
+  'isDelivery',
+  'needsFuelHelp',
+  'reason',
+  'reviewComment',
+  'Contact approved',
+  'Household',
+  'Oil',
+];
+
+describe('an archive whose key row is not the extract format', () => {
+  it('refuses a sheet still carrying name and address columns, and writes nothing', async () => {
+    const writes = stubSheets(OLD_FORMAT_KEY_ROW, [['key', 'column']]);
+
+    await expect(writeClaim('sheet-1', 'google-token', claim, {})).rejects.toBeInstanceOf(
+      GoogleSheetsError,
+    );
+    // Nothing at all, and that is the point: the check runs before the mapping
+    // sheet is read or seeded, so a wrong sheet is left exactly as it was.
+    expect(writes).toEqual([]);
+  });
+
+  it('names the column that disagrees, so an administrator can go and fix it', async () => {
+    stubSheets(OLD_FORMAT_KEY_ROW, [['key', 'column']]);
+
+    // "Does not match the extract format" is true and useless against thirty
+    // hidden keys. This is the sentence that gets read off the screen.
+    await expect(writeClaim('sheet-1', 'google-token', claim, {})).rejects.toThrow(
+      /Column B should be .sessionLocation. and reads .sessionId./,
+    );
+  });
+
+  it('says which cell is empty when the key row is short rather than wrong', async () => {
+    stubSheets(['sessionDate'], [['key', 'column']]);
+
+    await expect(writeClaim('sheet-1', 'google-token', claim, {})).rejects.toThrow(/\(empty\)/);
   });
 });

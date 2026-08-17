@@ -1,3 +1,5 @@
+import { ShowableError } from '../../lib/errors';
+
 declare global {
   interface Window {
     google?: {
@@ -23,11 +25,14 @@ export function requestSheetsAccess(clientId: string): Promise<string> {
           scope: 'https://www.googleapis.com/auth/spreadsheets',
           callback: (response) => {
             if (typeof response.access_token === 'string') resolve(response.access_token);
-            else reject(new Error(response.error ?? 'Google did not grant Sheets permission.'));
+            else
+              reject(
+                new ShowableError(response.error ?? 'Google did not grant Sheets permission.'),
+              );
           },
         });
         if (client === undefined) {
-          reject(new Error('Google sign-in could not start.'));
+          reject(new ShowableError('Google sign-in could not start.'));
           return;
         }
         client.requestAccessToken({ prompt: 'consent' });
@@ -44,7 +49,7 @@ function loadGis(): Promise<void> {
       resolve();
     };
     script.onerror = () => {
-      reject(new Error('Google sign-in could not load.'));
+      reject(new ShowableError('Google sign-in could not load.'));
     };
     document.head.append(script);
   });

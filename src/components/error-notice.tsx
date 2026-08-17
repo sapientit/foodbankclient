@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { ApiError, describeApiError, issuesToFieldErrors } from '../lib/errors';
+import { ApiError, ShowableError, describeApiError, issuesToFieldErrors } from '../lib/errors';
 import styles from './error-notice.module.css';
 
 /**
@@ -30,6 +30,24 @@ export function ErrorNotice({ error, onRetry }: { error: unknown; onRetry?: () =
         Try again
       </button>
     );
+
+  /*
+   * A failure this client raised on purpose, whose sentence is the whole point
+   * of it — a spreadsheet in the wrong format, Google refusing consent, a
+   * deployment with no spreadsheet configured. Shown as written.
+   *
+   * This has to come before the fallback below, which would otherwise report
+   * every one of them as a connection problem and send somebody to check their
+   * wifi over a spreadsheet with its columns in the wrong order.
+   */
+  if (error instanceof ShowableError) {
+    return (
+      <Notice headline="We could not do that">
+        <p>{error.message}</p>
+        {retry}
+      </Notice>
+    );
+  }
 
   /*
    * Everything the API layer throws is an `ApiError` — `unwrap` builds one from

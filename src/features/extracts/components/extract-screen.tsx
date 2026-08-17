@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
+import { ShowableError } from '../../../lib/errors';
 import { requestSheetsAccess } from '../google-auth';
 import { writeClaim } from '../google-sheets';
 import { useCompleteExtractClaim, useExtractClaim, useExtractConfig } from '../queries';
@@ -60,7 +61,9 @@ export function ExtractScreen() {
         config.data.spreadsheetId === undefined ||
         config.data.googleClientId === undefined
       ) {
-        setError(new Error('Spreadsheet extraction is not configured for this deployment.'));
+        setError(
+          new ShowableError('Spreadsheet extraction is not configured for this deployment.'),
+        );
         setPhase('error');
         return;
       }
@@ -88,11 +91,13 @@ export function ExtractScreen() {
       const token = accessToken.current;
       const sheet = spreadsheetId.current;
       if (token === null || sheet === null)
-        throw new Error('Google Sheets permission is no longer available.');
+        throw new ShowableError('Google Sheets permission is no longer available.');
       // Nothing is written without the lookup: a row already in the archive
       // cannot be corrected from here, so an unresolved id would stay one.
       if (ANSWERS_NEED_LOOKUPS && reasons.data === undefined)
-        throw new Error('The reasons for referral could not be loaded. Nothing was written.');
+        throw new ShowableError(
+          'The reasons for referral could not be loaded. Nothing was written.',
+        );
       await writeClaim(sheet, token, response.claim, reasonOptionSources(reasons.data ?? []));
       try {
         await complete.mutateAsync(response.claim.claimId);

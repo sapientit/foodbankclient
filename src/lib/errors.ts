@@ -58,6 +58,26 @@ interface ApiErrorInit {
   readonly details: Readonly<Record<string, unknown>> | null;
 }
 
+/**
+ * A failure whose `message` was written to be read by the person who caused it.
+ *
+ * **`ErrorNotice` shows this verbatim; everything else that is not an `ApiError`
+ * it reports as the request never having left.** That default is right for a
+ * hall's wifi and wrong for anything we raised deliberately: the extract's
+ * "The hidden archive key row does not match the extract format" became "We
+ * could not reach the server", which sent an administrator to check their
+ * connection over a spreadsheet whose columns were in the wrong order. A
+ * wrong diagnosis is worse than a vague one.
+ *
+ * Not for anything a server said — that arrives as `ApiError` and carries a
+ * status the notice switches on. This is for failures raised in this client,
+ * against a third party or a misconfiguration, where the sentence is all there
+ * is.
+ */
+export class ShowableError extends Error {
+  override readonly name: string = 'ShowableError';
+}
+
 export class ApiError extends Error {
   override readonly name = 'ApiError';
 
