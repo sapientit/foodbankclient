@@ -1,8 +1,10 @@
 import {
   findQuestion,
   isDynamicQuestion,
+  optionsFor,
   type ChoiceQuestion,
   type DynamicQuestion,
+  type OptionSources,
   type ReferralFormDefinition,
 } from './referral-form-definition';
 
@@ -60,16 +62,24 @@ export interface ReferralAnswersSource {
   readonly piiPurgedAt: string | null;
 }
 
+/**
+ * `sources` carries the lookups the questions draw on — the reason list, today.
+ * It is a required argument rather than an optional one because a caller that
+ * forgets it would render an id at somebody, and nothing about the output would
+ * say so; `needsOptionSources` tells a screen whether it has to fetch anything.
+ * `{}` is the honest answer where the form marks no lookup-backed question.
+ */
 export function describeAnswers(
   definition: ReferralFormDefinition,
   referral: ReferralAnswersSource,
+  sources: OptionSources,
 ): AnswersDisplay {
   if (referral.piiPurgedAt !== null) return { kind: 'purged' };
 
   const entries = Object.entries(referral.answers);
   if (entries.length === 0) return { kind: 'no-answers' };
 
-  const lines = entries.map(([key, value]) => renderAnswerLine(definition, key, value));
+  const lines = entries.map(([key, value]) => renderAnswerLine(definition, key, value, sources));
   return { kind: 'answers', lines };
 }
 
@@ -77,6 +87,7 @@ function renderAnswerLine(
   definition: ReferralFormDefinition,
   key: string,
   value: unknown,
+  sources: OptionSources,
 ): AnswerLine {
   const question = findQuestion(definition, key);
 
@@ -96,16 +107,20 @@ function renderAnswerLine(
   return {
     key,
     label: question.label,
-    value: describeKnownValue(question, value),
+    value: describeKnownValue(question, value, sources),
     isUnknownKey: false,
     isPreference: question.preference,
   };
 }
 
-function describeKnownValue(question: DynamicQuestion, value: unknown): string {
+function describeKnownValue(
+  question: DynamicQuestion,
+  value: unknown,
+  sources: OptionSources,
+): string {
   switch (question.type) {
     case 'choice':
-      return describeChoiceValue(question, value);
+      return describeChoiceValue(question, value, sources);
     case 'number':
       return typeof value === 'number' ? String(value) : describeRawValue(value);
     case 'text':
@@ -120,24 +135,34 @@ function describeKnownValue(question: DynamicQuestion, value: unknown): string {
  * that is how it was stored: a single-answer question keeps `Eggs: "Yes"`
  * rather than `["Yes"]`. Both render as the labels, comma separated.
  */
-function describeChoiceValue(question: ChoiceQuestion, value: unknown): string {
+function describeChoiceValue(
+  question: ChoiceQuestion,
+  value: unknown,
+  sources: OptionSources,
+): string {
   const stored = typeof value === 'string' ? [value] : value;
   if (!Array.isArray(stored)) return describeRawValue(value);
 
   const labels = stored.map((entry: unknown) =>
-    typeof entry === 'string' ? describeOption(question, entry) : describeRawValue(entry),
+    typeof entry === 'string' ? describeOption(question, entry, sources) : describeRawValue(entry),
   );
   return labels.join(', ');
 }
 
-function describeOption(question: ChoiceQuestion, value: string): string {
-  // The option list can change between releases, and a question whose options
-  // come from a server lookup has none here at all; a stored value that matches
-  // nothing still has to render as *something*, not vanish.
-  if (question.optionsFrom !== undefined) return value;
+function describeOption(question: ChoiceQuestion, value: string, sources: OptionSources): string {
+  const option = optionsFor(question, sources).find((candidate) => candidate.value === value);
+  if (option !== undefined) return option.label;
 
-  const option = question.options.find((candidate) => candidate.value === value);
-  return option === undefined ? `${value} (no longer offered)` : option.label;
+  // The option list can change between releases, so a stored value matching
+  // nothing still has to render as *something*, not vanish. A question whose
+  // options came from the form config stored the words themselves, and showing
+  // them says more than the note added after; one whose options came from a
+  // server lookup stored an **id**, which nobody may be shown — so the id is
+  // withheld and the line says what happened instead. `GET
+  // /public/referral-reasons` sends the active reasons only, so a reason
+  // retired since the referral was made lands here for a team lead. A guess,
+  // marked as Q37 in the server's `OPEN-QUESTIONS.md`.
+  return question.optionsFrom === undefined ? `${value} (no longer offered)` : 'No longer listed';
 }
 
 /**

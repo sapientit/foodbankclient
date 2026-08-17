@@ -284,11 +284,34 @@ export function findQuestion(
   );
 }
 
+/**
+ * The runtime lists a question may draw its choices from, once fetched.
+ *
+ * Passed rather than reached for, because these come from the server and this
+ * file does no fetching. Every screen that renders an answer back needs one:
+ * a question choosing from a lookup stores the option's **id**, and an id is
+ * not something anybody may be shown.
+ */
+export type OptionSources = Readonly<Partial<Record<ChoiceSource, readonly FormOption[]>>>;
+
 /** The choices a question offers, once a runtime list has been fetched for the ones that need one. */
 export function optionsFor(
   question: ChoiceQuestion,
-  sources: Readonly<Partial<Record<ChoiceSource, readonly FormOption[]>>>,
+  sources: OptionSources,
 ): readonly FormOption[] {
   if (question.optionsFrom === undefined) return question.options;
   return sources[question.optionsFrom] ?? [];
+}
+
+/**
+ * Whether reading these questions' answers back needs a lookup fetching first.
+ *
+ * The marker is the charity's to move, so no screen may assume which questions
+ * choose from a server list: it asks, and skips the request when the answer is
+ * no rather than holding a screen up for a list nothing on it reads.
+ */
+export function needsOptionSources(questions: readonly FormQuestion[]): boolean {
+  return questions.some(
+    (question) => question.type === 'choice' && question.optionsFrom !== undefined,
+  );
 }

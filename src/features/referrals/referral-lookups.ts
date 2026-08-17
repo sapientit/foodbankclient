@@ -1,6 +1,7 @@
 import { formatSessionDate } from '../../lib/london-time';
 import { describeSessionChoice } from '../../lib/session-description';
 import type { ClosedLookup } from './referral-key-fields';
+import type { OptionSources } from './referral-form-definition';
 
 /**
  * The two runtime lists the form draws on, and the one place that turns an
@@ -53,6 +54,20 @@ export function describeSession(session: SessionOption): string {
     `${formatSessionDate(session.sessionDate)} at ${session.startTime}`,
     session,
   );
+}
+
+/**
+ * The reason lookup as the form's options, which is what every screen reading
+ * an answer back needs.
+ *
+ * The same rule as the form itself, applied to the other direction: a question
+ * choosing from this list stores the reason's id, so a screen showing an answer
+ * without the list shows a UUID. Both directions resolve through this file.
+ */
+export function reasonOptionSources(reasons: readonly ReasonOption[]): OptionSources {
+  return {
+    referralReasons: reasons.map((reason) => ({ value: reason.id, label: reason.label })),
+  };
 }
 
 /**

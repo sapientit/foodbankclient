@@ -54,6 +54,7 @@ describe('buildPickListInformation', () => {
             },
           },
         ],
+        {},
         definition,
       ),
     ).toEqual([
@@ -68,6 +69,7 @@ describe('buildPickListInformation', () => {
     expect(
       buildPickListInformation(
         [{ id: 'referral-1', answers: { Allergies: '  ', Dietary: 'Vegetarian' } }],
+        {},
         definition,
       ),
     ).toEqual([]);

@@ -279,6 +279,27 @@ describe('the admin referral detail screen', () => {
     });
   });
 
+  it('reads an answer chosen from the reason lookup as the words, never its id', async () => {
+    // The secondary cause of crisis picks from the same maintained list as the
+    // main one, so it is stored as the reason's id. An administrator reads it
+    // through the admin list, which names retired reasons too.
+    server.use(
+      http.get(REASONS, () =>
+        HttpResponse.json({
+          referralReasons: [REASON, { ...REASON, id: 'q2', code: 'debt', label: 'Debt' }],
+        }),
+      ),
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', answers: { Secondary: 'q2' } })),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+
+    expect(await screen.findByText('Debt')).toBeInTheDocument();
+    expect(screen.queryByText('q2')).toBeNull();
+  });
+
   it('shows a known answer by its label and an unknown key still, flagged as older', async () => {
     server.use(
       http.get(REFERRAL, () =>

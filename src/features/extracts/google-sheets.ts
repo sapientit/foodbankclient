@@ -1,4 +1,5 @@
 import { answerKeys, archiveRows, FIXED_HEADERS } from './archive-rows.logic';
+import type { OptionSources } from '../referrals/referral-form-definition';
 import type { ExtractClaim } from './queries';
 
 const API = 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -8,10 +9,17 @@ type Cell = string | number | boolean;
 
 export class GoogleSheetsError extends Error {}
 
+/**
+ * `sources` are the maintained lookups an answer may have been chosen from —
+ * the reason list, today. Threaded from the screen because an answer chosen
+ * from one is stored as an id, and this writes to the charity's archive, where
+ * a wrong cell is permanent.
+ */
 export async function writeClaim(
   spreadsheetId: string,
   accessToken: string,
   claim: ExtractClaim,
+  sources: OptionSources,
 ): Promise<void> {
   const { keys, isEmpty } = await archiveKeys(spreadsheetId, accessToken);
   await readMappings(spreadsheetId, accessToken, keys);
@@ -66,6 +74,7 @@ export async function writeClaim(
       { sessionDate: claim.sessionDate, sessionLocation: claim.sessionLocation },
       claim.rows,
       allKeys,
+      sources,
     ),
   );
 }

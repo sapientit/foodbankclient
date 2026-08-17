@@ -11,9 +11,10 @@ import { formatSessionDate, formatTimeRange } from '../../../lib/london-time';
 import { collectionOnlyLabel, describeSessionChoice } from '../../../lib/session-description';
 import { useSession, useSessions, type Session } from '../../sessions/queries';
 import { useStockItems, type StockItem } from '../../stock/queries';
-import { useReferrals } from '../../referrals/queries';
+import { useReferrals, useReferralOptionSources } from '../../referrals/queries';
 import { describeAnswers } from '../../referrals/referral-answers.logic';
 import { referralFormDefinition } from '../../referrals/referral-form-config';
+import { dynamicQuestions, needsOptionSources } from '../../referrals/referral-form-definition';
 import {
   HOUSEHOLD_COMPONENTS_KEY,
   isHouseholdComposition,
@@ -32,7 +33,20 @@ import {
 import styles from './run-sessions-screen.module.css';
 import { SessionSmsPanel } from './sms-panel';
 import { resolvePreferenceLines, validatePreferenceRules } from '../preference-rules';
-import { buildPickListInformation } from '../pick-list-information';
+import {
+  buildPickListInformation,
+  pickListInformationNeedsOptionSources,
+} from '../pick-list-information';
+
+/**
+ * Whether a parcel's preferences can only be read with a server lookup in hand
+ * — a question choosing from one stores an id, and no screen may show that.
+ * Read from the shipped configuration once, because the marker moves with a
+ * release and not while a session is being run.
+ */
+const PREFERENCES_NEED_OPTION_SOURCES = needsOptionSources(
+  dynamicQuestions(referralFormDefinition).filter((question) => question.preference),
+);
 
 /**
  * The operational view: no session or referral maintenance controls live here.
@@ -242,6 +256,15 @@ export function RunSessionDetailScreen() {
   const requested = useRef<string | null>(null);
   const [pickListSessionId, setPickListSessionId] = useState('');
   const reconcile = useReconcilePickList(setPickListSessionId);
+  /*
+   * The reason lookup, needed only while the form marks a pick-list question
+   * that chooses from it. The notes are composed here once and **saved on the
+   * parcel**, so composing them without the list would print an id on a picking
+   * sheet and leave it there — worth waiting for the list, and worth not
+   * fetching at all the rest of the time, because this is the request standing
+   * between a team lead and their pick lists.
+   */
+  const reasons = useReferralOptionSources(pickListInformationNeedsOptionSources());
   const preferenceRuleHealth = useMemo(
     () => (stockItems.data === undefined ? null : validatePreferenceRules(stockItems.data)),
     [stockItems.data],
@@ -253,6 +276,8 @@ export function RunSessionDetailScreen() {
       requested.current !== sessionId &&
       referrals.data !== undefined &&
       stockItems.data !== undefined &&
+      !reasons.isPending &&
+      !reasons.isError &&
       preferenceRuleHealth?.errors.length === 0
     ) {
       requested.current = sessionId;
@@ -260,10 +285,19 @@ export function RunSessionDetailScreen() {
       reconcile.mutate({
         sessionId,
         preferenceLines: resolvePreferenceLines(referrals.data, stockItems.data),
-        pickListInformation: buildPickListInformation(referrals.data),
+        pickListInformation: buildPickListInformation(referrals.data, reasons.sources),
       });
     }
-  }, [preferenceRuleHealth, reconcile, referrals.data, sessionId, stockItems.data]);
+  }, [
+    preferenceRuleHealth,
+    reasons.isError,
+    reasons.isPending,
+    reasons.sources,
+    reconcile,
+    referrals.data,
+    sessionId,
+    stockItems.data,
+  ]);
 
   const pickList = useSessionPickList(pickListSessionId);
   const complete = useConfirmSession();
@@ -272,6 +306,7 @@ export function RunSessionDetailScreen() {
     session.isPending ||
     referrals.isPending ||
     stockItems.isPending ||
+    reasons.isPending ||
     (reconcile.isPending && pickList.data === undefined) ||
     (reconcile.isSuccess && pickList.isPending)
   ) {
@@ -301,6 +336,17 @@ export function RunSessionDetailScreen() {
       <>
         <PageHeader title="Run a session" />
         <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
+      </>
+    );
+  /* Only reachable while a pick-list question chooses from the reason lookup,
+     and then the pick lists must wait: their notes are saved on the parcel, so
+     composing them without the list would write an identifier onto a picking
+     sheet for good. */
+  if (reasons.isError)
+    return (
+      <>
+        <PageHeader title="Run a session" />
+        <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />
       </>
     );
   if (preferenceRuleHealth !== null && preferenceRuleHealth.errors.length > 0)
@@ -594,6 +640,11 @@ function ParcelPanel({
   const review = useReviewParcel();
   const saveLines = useSetParcelLines();
   const stockItems = useStockItems();
+  // Only the preferences are shown here, so the lookup is fetched only if one
+  // of *them* chooses from it — which none do today. It is what keeps an id off
+  // the screen if the charity ever marks one that does, and every card shares
+  // the one cached query rather than making a request each.
+  const reasons = useReferralOptionSources(PREFERENCES_NEED_OPTION_SOURCES);
   const [savedLines, setSavedLines] = useState(() => toDraftLines(parcel.lines));
   const [draftLines, setDraftLines] = useState(() => toDraftLines(parcel.lines));
   const [savedNotes, setSavedNotes] = useState(parcel.notes ?? '');
@@ -603,10 +654,11 @@ function ParcelPanel({
   // corrected. Only confirming the containing session locks both.
   const parcelLinesLocked = parcel.attendance !== 'pending' || sessionStatus === 'confirmed';
   const notesLocked = sessionStatus === 'confirmed';
-  const answers = describeAnswers(referralFormDefinition, {
-    answers: parcel.answers,
-    piiPurgedAt: null,
-  });
+  const answers = describeAnswers(
+    referralFormDefinition,
+    { answers: parcel.answers, piiPurgedAt: null },
+    reasons.sources,
+  );
   const preferences =
     answers.kind === 'answers' ? answers.lines.filter((line) => line.isPreference) : [];
   const changedLines = changedDraftLines(savedLines, draftLines);
@@ -784,7 +836,11 @@ function ParcelPanel({
         </section>
         <section className={styles.editorPane}>
           <h2 className={styles.paneHeading}>Preferences</h2>
-          {preferences.length === 0 ? (
+          {/* Only reachable while a preference chooses from the reason lookup:
+              the answers are ids until it arrives. */}
+          {reasons.isPending ? (
+            <Spinner label="Loading the answers…" />
+          ) : preferences.length === 0 ? (
             <p>No food preferences were given.</p>
           ) : (
             <table className={styles.preferencesTable}>

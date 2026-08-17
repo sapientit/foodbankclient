@@ -62,10 +62,7 @@ describe('fuel columns', () => {
     expect(
       column === undefined
         ? undefined
-        : fuelColumnValue(column, {
-            ...HOUSEHOLD,
-            answers: { 'new fuel question': 'Shown' },
-          }),
+        : fuelColumnValue(column, { ...HOUSEHOLD, answers: { 'new fuel question': 'Shown' } }, {}),
     ).toBe('Shown');
   });
 
@@ -95,7 +92,7 @@ describe('fuel columns', () => {
 
     expect(electricityCrisis).toBeDefined();
     if (electricityCrisis !== undefined) {
-      expect(fuelColumnValue(electricityCrisis, HOUSEHOLD)).toBe('Example Energy');
+      expect(fuelColumnValue(electricityCrisis, HOUSEHOLD, {})).toBe('Example Energy');
     }
     expect(byKey.has('Cause Details')).toBe(false);
   });
@@ -108,8 +105,8 @@ describe('fuel columns', () => {
       // A calendar date, formatted in UTC like every other one in this app —
       // never `new Date('1975-08-04')` read in the device's zone, which moves a
       // birthday to the day before for anyone west of Greenwich.
-      expect(fuelColumnValue(dateOfBirth, HOUSEHOLD)).toBe('4 Aug 1975');
-      expect(fuelColumnValue(dateOfBirth, { ...HOUSEHOLD, refereeDateOfBirth: null })).toBe(
+      expect(fuelColumnValue(dateOfBirth, HOUSEHOLD, {})).toBe('4 Aug 1975');
+      expect(fuelColumnValue(dateOfBirth, { ...HOUSEHOLD, refereeDateOfBirth: null }, {})).toBe(
         'Not provided',
       );
     }

@@ -1,10 +1,11 @@
 import type { ListenerSheet } from './queries';
 import { referralFormDefinition } from '../referrals/referral-form-config';
-import { optionsFor } from '../referrals/referral-form-definition';
+import { needsOptionSources, optionsFor } from '../referrals/referral-form-definition';
 import type {
   FormOption,
   FormQuestion,
   KeyFieldName,
+  OptionSources,
   ReferralFormDefinition,
 } from '../referrals/referral-form-definition';
 
@@ -70,23 +71,21 @@ export function listenerColumns(
  * of crisis and nothing else, but the marker is the charity's to move.
  */
 export function listenerColumnsNeedReferralReasons(columns: readonly ListenerColumn[]): boolean {
-  return columns.some(
-    (column) => column.question.type === 'choice' && column.question.optionsFrom !== undefined,
-  );
+  return needsOptionSources(columns.map((column) => column.question));
 }
 
 /**
  * One column's value, without reaching for an answer that carries no marker.
  *
- * `referralReasons` is the maintained reason lookup, as options. A question
- * choosing from it stores the reason's **id**, so without the lookup this sheet
- * prints an identifier at somebody who is about to read it aloud — the reason
- * the secondary cause of crisis is passed a list rather than rendered raw.
+ * `sources` carries the maintained reason lookup. A question choosing from it
+ * stores the reason's **id**, so without the lookup this sheet prints an
+ * identifier at somebody who is about to read it aloud — the reason the
+ * secondary cause of crisis is passed a list rather than rendered raw.
  */
 export function listenerColumnValue(
   column: ListenerColumn,
   household: ListenerSheetHousehold,
-  referralReasons: readonly FormOption[],
+  sources: OptionSources,
 ): string {
   if (column.question.type === 'keyField') {
     return KEY_FIELD_READERS[column.question.field]?.(household) ?? 'Not provided';
@@ -94,7 +93,7 @@ export function listenerColumnValue(
 
   const answer = household.answers[column.key];
   if (column.question.type === 'choice' && column.question.optionsFrom !== undefined) {
-    return optionText(optionsFor(column.question, { referralReasons }), answer);
+    return optionText(optionsFor(column.question, sources), answer);
   }
   return answerText(answer);
 }

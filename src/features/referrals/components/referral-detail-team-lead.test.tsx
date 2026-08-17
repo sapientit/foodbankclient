@@ -24,6 +24,14 @@ const REFERRAL = '/api/v1/referrals/r1';
 const REPEAT_REFERRALS = '/api/v1/referrals/r1/repeat-referrals';
 const SESSIONS = '/api/v1/sessions';
 const REASONS = '/api/v1/referral-reasons';
+const PUBLIC_REASONS = '/api/v1/public/referral-reasons';
+
+/*
+ * The public reason lookup, which a team lead may read and the admin one they
+ * may not. An answer chosen from the reason list is stored as the reason's id,
+ * so this is what stands between them and a UUID on the screen.
+ */
+const PUBLIC_REASON = { id: 'q2', code: 'debt', label: 'Debt', displayOrder: 1 };
 
 function teamLeadReferral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral {
   return {
@@ -82,6 +90,7 @@ beforeEach(() => {
       }),
     ),
     http.get(SESSIONS, () => HttpResponse.json({ sessions: [session({ id: 's1' })] })),
+    http.get(PUBLIC_REASONS, () => HttpResponse.json({ referralReasons: [PUBLIC_REASON] })),
   );
 });
 
@@ -135,6 +144,31 @@ describe('a team lead’s referral detail view', () => {
     // requested — see the module comment on `useReferralReasons`.
     expect(reasonsRequested).not.toHaveBeenCalled();
     expect(repeatReferralsRequested).not.toHaveBeenCalled();
+  });
+
+  it('reads an answer chosen from the reason lookup as the words, through the public list', async () => {
+    // The secondary cause of crisis is stored as the reason's id, and the admin
+    // lookup that names retired reasons is refused to a team lead — so this is
+    // the list they read, and it must still never leave them looking at an id.
+    const adminReasonsRequested = vi.fn();
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(teamLeadReferral({ id: 'r1', answers: { Secondary: 'q2' } })),
+      ),
+      http.get(REASONS, () => {
+        adminReasonsRequested();
+        return HttpResponse.json(
+          { error: { code: 'FORBIDDEN', message: 'admin only', requestId: 'r1' } },
+          { status: 403 },
+        );
+      }),
+    );
+
+    renderApp('/referrals/r1');
+
+    expect(await screen.findByText('Debt')).toBeInTheDocument();
+    expect(screen.queryByText('q2')).toBeNull();
+    expect(adminReasonsRequested).not.toHaveBeenCalled();
   });
 
   it('shows a team lead the composition grid in place of the operational counts', async () => {

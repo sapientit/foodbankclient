@@ -1,9 +1,11 @@
 import type { FuelHelpList } from './queries';
 import { formatCalendarDate } from '../../lib/london-time';
 import { referralFormDefinition } from '../referrals/referral-form-config';
+import { needsOptionSources, optionsFor } from '../referrals/referral-form-definition';
 import type {
   FormQuestion,
   KeyFieldName,
+  OptionSources,
   ReferralFormDefinition,
 } from '../referrals/referral-form-definition';
 
@@ -67,12 +69,50 @@ export function fuelColumns(
   );
 }
 
-/** Formats one configured fuel column without exposing answers that lack the marker. */
-export function fuelColumnValue(column: FuelColumn, household: FuelHelpHousehold): string {
+/** Whether any column's answer was chosen from a server lookup, and so needs one fetching. */
+export function fuelColumnsNeedOptionSources(columns: readonly FuelColumn[]): boolean {
+  return needsOptionSources(columns.map((column) => column.question));
+}
+
+/**
+ * Formats one configured fuel column without exposing answers that lack the
+ * marker.
+ *
+ * `sources` carries the maintained lookups: a question choosing from one stored
+ * the option's id, and this list is copied into a spreadsheet and worked from.
+ */
+export function fuelColumnValue(
+  column: FuelColumn,
+  household: FuelHelpHousehold,
+  sources: OptionSources,
+): string {
   if (column.question.type === 'keyField') {
     return KEY_FIELD_READERS[column.question.field]?.(household) ?? 'Not provided';
   }
-  return answerText(household.answers[column.key]);
+
+  const answer = household.answers[column.key];
+  if (column.question.type === 'choice' && column.question.optionsFrom !== undefined) {
+    return optionText(optionsFor(column.question, sources), answer);
+  }
+  return answerText(answer);
+}
+
+/** A stored option as the words the charity gave it — see `listener-sheet.logic.ts`. */
+function optionText(
+  options: readonly { readonly value: string; readonly label: string }[],
+  answer: unknown,
+): string {
+  const stored = typeof answer === 'string' ? [answer] : answer;
+  if (!Array.isArray(stored)) return 'Not answered';
+
+  const chosen = stored.filter(
+    (entry: unknown): entry is string => typeof entry === 'string' && entry.trim() !== '',
+  );
+  if (chosen.length === 0) return 'Not answered';
+
+  return chosen
+    .map((entry) => options.find((option) => option.value === entry)?.label ?? 'No longer listed')
+    .join(', ');
 }
 
 function answerText(answer: unknown): string {

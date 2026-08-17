@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { api, publicApi } from '../../api/client';
 import type { components, paths } from '../../api/schema';
 import { unwrap } from '../../api/unwrap';
@@ -6,6 +7,7 @@ import { pickListKeys } from '../pick-lists/keys';
 import { sessionKeys } from '../sessions/keys';
 import { publicReferralKeys, referralKeys, type ReferralListFilters } from './keys';
 import { looksLikeEmail, sortByStart } from './public-referral.logic';
+import { reasonOptionSources } from './referral-lookups';
 import { sortReferrals } from './referrals.logic';
 
 /**
@@ -117,6 +119,34 @@ export function usePublicReferralReasons(enabled = true) {
     staleTime: LOOKUP_STALE_MS,
     enabled,
   });
+}
+
+/**
+ * The lookups an answer renderer needs, for every staff screen that shows a
+ * referral's answers back.
+ *
+ * **The public list, deliberately, on screens behind a login.** A question
+ * choosing from the reason lookup stores the reason's id, so reading it back
+ * needs the list — and `GET /referral-reasons` is admin-only, which would leave
+ * a team lead looking at a UUID on the one sheet they read aloud. It is the
+ * same list the form offered, cached with the same generous `staleTime`.
+ * An administrator's screen may pass the admin list instead, which names
+ * retired reasons too; nothing else can.
+ *
+ * `enabled` follows `needsOptionSources`: no request at all where the form
+ * marks no question that chooses from a lookup.
+ */
+export function useReferralOptionSources(enabled = true) {
+  const reasons = usePublicReferralReasons(enabled);
+  const sources = useMemo(() => reasonOptionSources(reasons.data ?? []), [reasons.data]);
+
+  return {
+    sources,
+    isPending: enabled && reasons.isPending,
+    isError: enabled && reasons.isError,
+    error: reasons.error,
+    refetch: reasons.refetch,
+  };
 }
 
 /**

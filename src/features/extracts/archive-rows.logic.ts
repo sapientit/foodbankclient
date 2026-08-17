@@ -7,6 +7,13 @@ import {
   type HouseholdAgeBand,
   type HouseholdGender,
 } from '../referrals/household-composition';
+import { referralFormDefinition } from '../referrals/referral-form-config';
+import {
+  findQuestion,
+  optionsFor,
+  type OptionSources,
+  type ReferralFormDefinition,
+} from '../referrals/referral-form-definition';
 
 /**
  * Stable hidden Sheet keys for the grid. Row two is freely editable, but these
@@ -75,23 +82,36 @@ export interface ArchiveSession {
   readonly sessionLocation: string;
 }
 
+/**
+ * `sources` carries the maintained lookups an answer may have been chosen from.
+ * An answer that was stores the option's **id**, and a UUID in a spreadsheet
+ * helps nobody who has to read one — the same reason `reason` is the label
+ * rather than `reasonId` above. Required, because a caller that omitted it
+ * would write ids into the archive permanently.
+ */
 export function archiveRows(
   session: ArchiveSession,
   rows: readonly ExtractRow[],
   headers: readonly string[],
+  sources: OptionSources,
+  definition: ReferralFormDefinition = referralFormDefinition,
 ): (string | number | boolean)[][] {
-  return rows.map((row) => headers.map((header) => fixedValue(header, session, row)));
+  return rows.map((row) =>
+    headers.map((header) => fixedValue(header, session, row, sources, definition)),
+  );
 }
 function fixedValue(
   header: string,
   session: ArchiveSession,
   row: ExtractRow,
+  sources: OptionSources,
+  definition: ReferralFormDefinition,
 ): string | number | boolean {
   if (header === 'sessionLocation') return session.sessionLocation;
   if (header === 'sessionDate') return session.sessionDate;
   const compositionCell = compositionValue(header, row.answers[HOUSEHOLD_COMPONENTS_KEY]);
   if (compositionCell !== null) return compositionCell;
-  if (header in row.answers) return valueForSheet(row.answers[header]);
+  if (header in row.answers) return answerCell(header, row.answers[header], sources, definition);
   const values: Record<string, string | number | boolean | null> = {
     referralId: row.referralId,
     status: row.status,
@@ -107,6 +127,34 @@ function fixedValue(
     reviewComment: row.reviewComment,
   };
   return valueForSheet(values[header]);
+}
+
+/**
+ * One answer cell, with an option chosen from a server lookup written as the
+ * words rather than the id it was stored as.
+ *
+ * An id the lookup cannot name is written as "No longer listed" — the same
+ * wording the screens use, and the same guess, marked as Q37 in the server's
+ * `OPEN-QUESTIONS.md`. Every other answer is written exactly as it was stored.
+ */
+function answerCell(
+  header: string,
+  value: unknown,
+  sources: OptionSources,
+  definition: ReferralFormDefinition,
+): string | number | boolean {
+  const question = findQuestion(definition, header);
+  if (question?.type !== 'choice' || question.optionsFrom === undefined)
+    return valueForSheet(value);
+
+  const options = optionsFor(question, sources);
+  const stored = typeof value === 'string' ? [value] : value;
+  if (!Array.isArray(stored)) return valueForSheet(value);
+
+  return stored
+    .filter((entry: unknown): entry is string => typeof entry === 'string' && entry !== '')
+    .map((entry) => options.find((option) => option.value === entry)?.label ?? 'No longer listed')
+    .join(', ');
 }
 
 function compositionValue(header: string, value: unknown): number | '' | null {

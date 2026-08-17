@@ -2,7 +2,8 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatSessionDate } from '../../../lib/london-time';
-import { fuelColumns, fuelColumnValue } from '../fuel-help.logic';
+import { fuelColumns, fuelColumnsNeedOptionSources, fuelColumnValue } from '../fuel-help.logic';
+import { useReferralOptionSources } from '../../referrals/queries';
 import { useFuelHelpList } from '../queries';
 import styles from './fuel-help-list-screen.module.css';
 
@@ -14,8 +15,11 @@ import styles from './fuel-help-list-screen.module.css';
 export function FuelHelpListScreen() {
   const list = useFuelHelpList();
   const columns = fuelColumns();
+  // Only where a marked question chooses from a lookup, which none do today:
+  // its answer would otherwise be copied into the spreadsheet as an id.
+  const reasons = useReferralOptionSources(fuelColumnsNeedOptionSources(columns));
 
-  if (list.isPending) {
+  if (list.isPending || reasons.isPending) {
     return (
       <>
         <PageHeader title="Fuel help list" />
@@ -29,6 +33,15 @@ export function FuelHelpListScreen() {
       <>
         <PageHeader title="Fuel help list" />
         <ErrorNotice error={list.error} onRetry={() => void list.refetch()} />
+      </>
+    );
+  }
+
+  if (reasons.isError) {
+    return (
+      <>
+        <PageHeader title="Fuel help list" />
+        <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />
       </>
     );
   }
@@ -65,7 +78,7 @@ export function FuelHelpListScreen() {
                   <tr key={household.referralId}>
                     <td>{formatSessionDate(household.sessionDate)}</td>
                     {columns.map((column, index) => {
-                      const value = fuelColumnValue(column, household);
+                      const value = fuelColumnValue(column, household, reasons.sources);
                       return index === 0 ? (
                         <th key={column.key} scope="row">
                           {value}

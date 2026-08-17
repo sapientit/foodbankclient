@@ -156,7 +156,7 @@ describe('writing a claim to the spreadsheet', () => {
       rows: [{ ...extractRow, answers: { [DYNAMIC_KEY]: 'No money for food' } }],
     };
 
-    await writeClaim('sheet-1', 'google-token', claimWithAnswer);
+    await writeClaim('sheet-1', 'google-token', claimWithAnswer, {});
 
     expect(writes.filter((write) => write.method === 'PUT')).toEqual([]);
     const archiveWrite = writeAt(writes, '/v4/spreadsheets/sheet-1/values/archive!A:ZZ:append');
@@ -172,7 +172,7 @@ describe('writing a claim to the spreadsheet', () => {
       rows: [{ ...extractRow, answers: { [DYNAMIC_KEY]: 'No money for food' } }],
     };
 
-    await writeClaim('sheet-1', 'google-token', claimWithAnswer);
+    await writeClaim('sheet-1', 'google-token', claimWithAnswer, {});
 
     expect(writeAt(writes, '/v4/spreadsheets/sheet-1/values/archive!O1:O1').body).toEqual({
       values: [[DYNAMIC_KEY]],
@@ -199,10 +199,15 @@ describe('writing a claim to the spreadsheet', () => {
       'state-pension-age': { male: 2 },
     };
 
-    await writeClaim('sheet-1', 'google-token', {
-      ...claim,
-      rows: [{ ...extractRow, answers: { [HOUSEHOLD_COMPONENTS_KEY]: composition } }],
-    });
+    await writeClaim(
+      'sheet-1',
+      'google-token',
+      {
+        ...claim,
+        rows: [{ ...extractRow, answers: { [HOUSEHOLD_COMPONENTS_KEY]: composition } }],
+      },
+      {},
+    );
 
     expect(writeAt(writes, '/v4/spreadsheets/sheet-1/values/archive!O1:AH1').body).toEqual({
       values: [HOUSEHOLD_COMPOSITION_SHEET_COLUMNS],
@@ -232,12 +237,14 @@ describe('the first claim written to an empty spreadsheet', () => {
   it('writes the fixed keys with the new one, so the next extract can still read the key row', async () => {
     const sheet = stubSpreadsheet();
 
-    await writeClaim('sheet-1', 'google-token', claimWithAnswer);
+    await writeClaim('sheet-1', 'google-token', claimWithAnswer, {});
 
     expect(sheet.archive[0]).toEqual([...FIXED_HEADERS, DYNAMIC_KEY]);
     expect(sheet.archive[1]).toEqual([...FIXED_HEADERS, DYNAMIC_KEY]);
 
-    await expect(writeClaim('sheet-1', 'google-token', claimWithAnswer)).resolves.toBeUndefined();
+    await expect(
+      writeClaim('sheet-1', 'google-token', claimWithAnswer, {}),
+    ).resolves.toBeUndefined();
     expect(sheet.archive[0]).toEqual([...FIXED_HEADERS, DYNAMIC_KEY]);
   });
 
@@ -246,9 +253,9 @@ describe('the first claim written to an empty spreadsheet', () => {
     // all, the appended data row becomes row one and *is* the hidden key row.
     const sheet = stubSpreadsheet();
 
-    await writeClaim('sheet-1', 'google-token', claim);
+    await writeClaim('sheet-1', 'google-token', claim, {});
 
     expect(sheet.archive[0]).toEqual([...FIXED_HEADERS]);
-    await expect(writeClaim('sheet-1', 'google-token', claim)).resolves.toBeUndefined();
+    await expect(writeClaim('sheet-1', 'google-token', claim, {})).resolves.toBeUndefined();
   });
 });

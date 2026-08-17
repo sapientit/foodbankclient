@@ -17,14 +17,17 @@ import { useSessions, type Session } from '../../sessions/queries';
 import { describeAnswers, type AnswersDisplay } from '../referral-answers.logic';
 import { referralFormDefinition } from '../referral-form-config';
 import {
+  allQuestions,
   dynamicQuestions,
   isAnswerableQuestion,
   isDynamicQuestion,
+  needsOptionSources,
   type DynamicQuestion,
   type FormPage,
   type KeyFieldName,
   type KeyFieldQuestion,
 } from '../referral-form-definition';
+import { reasonOptionSources } from '../referral-lookups';
 import { buildPageSchema } from '../referral-form-schema';
 import { HOUSEHOLD_COMPONENTS_KEY, isHouseholdComposition } from '../household-composition';
 import {
@@ -46,6 +49,7 @@ import {
   type Referral,
   type RepeatReferralMatch,
   type ReviewDecision,
+  useReferralOptionSources,
 } from '../queries';
 import {
   MAX_CANCEL_REASON_LENGTH,
@@ -126,13 +130,30 @@ function ReferralDetail({ referral }: { referral: Referral }) {
   // Never fetched for a team lead — see the module comment and
   // `useReferralReasons`'s own comment on why `enabled` exists at all.
   const reasons = useReferralReasons(isAdminView);
+  /*
+   * Reading the answers back needs the same lookup the form chose from, because
+   * a question drawing on it stored the reason's id. An administrator already
+   * has the admin list above, which names retired reasons too; a team lead is
+   * refused that endpoint and reads the public list instead.
+   */
+  const answerLookupNeeded = needsOptionSources(allQuestions(referralFormDefinition)) && !purged;
+  const publicReasons = useReferralOptionSources(answerLookupNeeded && !isAdminView);
+  const answerSources = isAdminView
+    ? reasonOptionSources(reasons.data ?? [])
+    : publicReasons.sources;
+  const answerLookupPending = isAdminView ? reasons.isPending : publicReasons.isPending;
+  const answerLookupError = isAdminView ? reasons.error : publicReasons.error;
 
   const session = sessions.data?.find((candidate) => candidate.id === referral.sessionId);
   // Household composition has its own compact grid in the referral details.
   // Keeping it out of the generic list prevents the stored JSON appearing a
   // second time under the form's historical label, "Generated".
   const { [HOUSEHOLD_COMPONENTS_KEY]: _householdComposition, ...otherAnswers } = referral.answers;
-  const answers = describeAnswers(referralFormDefinition, { ...referral, answers: otherAnswers });
+  const answers = describeAnswers(
+    referralFormDefinition,
+    { ...referral, answers: otherAnswers },
+    answerSources,
+  );
 
   const title = refereeName(referral) ?? 'Referral';
 
@@ -310,7 +331,23 @@ function ReferralDetail({ referral }: { referral: Referral }) {
           preferences-only view is the pick-list screen's job. */}
       <section className={styles.section}>
         <h2>Answers from the referral form</h2>
-        <AnswersList display={answers} />
+        {/* Held until the lookup lands: an answer chosen from it is an id until
+            then, and an id is not something anybody may be shown. Only where
+            there are answers to resolve — a purged referral says so at once. */}
+        {answers.kind !== 'answers' ? (
+          <AnswersList display={answers} />
+        ) : answerLookupPending ? (
+          <Spinner label="Loading reasons for referral…" />
+        ) : answerLookupError !== null ? (
+          <ErrorNotice
+            error={answerLookupError}
+            onRetry={() => {
+              void (isAdminView ? reasons.refetch() : publicReasons.refetch());
+            }}
+          />
+        ) : (
+          <AnswersList display={answers} />
+        )}
       </section>
     </>
   );

@@ -5,6 +5,17 @@ import { PageHeader } from '../../../components/page-header';
 import { requestSheetsAccess } from '../google-auth';
 import { writeClaim } from '../google-sheets';
 import { useCompleteExtractClaim, useExtractClaim, useExtractConfig } from '../queries';
+import { useReferralReasons } from '../../admin-setup/queries';
+import { referralFormDefinition } from '../../referrals/referral-form-config';
+import { allQuestions, needsOptionSources } from '../../referrals/referral-form-definition';
+import { reasonOptionSources } from '../../referrals/referral-lookups';
+
+/**
+ * Whether any answer could have been chosen from a maintained lookup, and so is
+ * stored as an id the archive must not be given. Read from the shipped
+ * configuration, which is where the marker lives.
+ */
+const ANSWERS_NEED_LOOKUPS = needsOptionSources(allQuestions(referralFormDefinition));
 
 type Phase =
   | 'idle'
@@ -33,6 +44,13 @@ export function ExtractScreen() {
   const config = useExtractConfig(phase === 'configuring');
   const claim = useExtractClaim();
   const complete = useCompleteExtractClaim();
+  /*
+   * The reason lookup, so an answer chosen from it is archived as the words it
+   * was chosen by. The admin list rather than the public one — this screen is
+   * an administrator's, and only that list names a retired reason, which is
+   * exactly what an archive of past referrals is full of.
+   */
+  const reasons = useReferralReasons(ANSWERS_NEED_LOOKUPS);
 
   useEffect(() => {
     if (phase !== 'configuring' || !config.isSuccess) return;
@@ -71,7 +89,11 @@ export function ExtractScreen() {
       const sheet = spreadsheetId.current;
       if (token === null || sheet === null)
         throw new Error('Google Sheets permission is no longer available.');
-      await writeClaim(sheet, token, response.claim);
+      // Nothing is written without the lookup: a row already in the archive
+      // cannot be corrected from here, so an unresolved id would stay one.
+      if (ANSWERS_NEED_LOOKUPS && reasons.data === undefined)
+        throw new Error('The reasons for referral could not be loaded. Nothing was written.');
+      await writeClaim(sheet, token, response.claim, reasonOptionSources(reasons.data ?? []));
       try {
         await complete.mutateAsync(response.claim.claimId);
       } catch (reason) {
