@@ -1,0 +1,89 @@
+/* The stock check sits between the session actions and the client list, so it
+   is bounded rather than left to run into the heading below it: a team lead who
+   opened it needs to see where the answer stops. */
+.panel {
+  margin-block: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #555555;
+}
+
+.heading {
+  margin-block: 0 0.5rem;
+  font-size: 1.17em;
+}
+
+.summary {
+  margin-block: 0 0.75rem;
+  max-inline-size: 60ch;
+  font-weight: 600;
+}
+
+/* Scrolls within its own frame on a narrow screen rather than pushing the page
+   sideways — the same treatment as the client list, and this table still has
+   four columns on a phone held in a hall. */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+  vertical-align: top;
+  border-block-end: 1px solid #d4d4d4;
+}
+
+.table thead th {
+  vertical-align: bottom;
+  border-block-end: 2px solid #1a1a1a;
+}
+
+/* Quantities line up on their digits so a column of them can be read down
+   rather than one number at a time. */
+.table .numeric {
+  text-align: end;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.itemCell {
+  font-weight: 600;
+}
+
+.itemDescription {
+  display: block;
+  max-inline-size: 40ch;
+  color: #444444;
+  font-weight: 400;
+  font-size: 0.9rem;
+}
+
+/* An item the warehouse cannot cover. The row is marked three ways over —
+   the figure in the shortfall column, the weight, and the rule down the leading
+   edge — because a hall's lighting on a volunteer's own phone is exactly where
+   a tint alone disappears. The tint stays pale so the text on it keeps its
+   contrast. */
+.table tbody tr[data-short='true'] {
+  background: #fdf1ea;
+  box-shadow: inset 0.25rem 0 0 0 #8a3b0c;
+}
+
+.table tbody tr[data-short='true'] th,
+.table tbody tr[data-short='true'] td {
+  font-weight: 700;
+}
+
+/* The table's own title, for anyone who cannot see the heading above it. */
+.visuallyHidden {
+  position: absolute;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+}

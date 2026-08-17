@@ -863,6 +863,63 @@ describe('a team lead running a session', () => {
     expect(screen.queryByText(/cannot be undone/i)).toBeNull();
   });
 
+  /**
+   * Reviewing settles the quantities; it does not close the list. The lines
+   * stay editable right up to the session being confirmed — which is the whole
+   * of what a picker finding an empty shelf, or a stock check answering that an
+   * item is short, then does something about. Losing the way back into the
+   * household is losing that.
+   */
+  it('keeps a way back into a reviewed pick list, and stops offering it once stock has moved', async () => {
+    let attendance = 'pending';
+    const reviewedParcel: Parcel = { ...PARCEL, reviewedAt: '2026-08-05T10:00:00.000Z' };
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [{ ...reviewedParcel, attendance }] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.post('/api/v1/parcels/:id/attendance', () => {
+        attendance = 'attended';
+        return HttpResponse.json({
+          id: PARCEL.id,
+          attendance,
+          stockMoved: true,
+          alreadyRecorded: false,
+        });
+      }),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+    const user = userEvent.setup();
+
+    // Named for the household, like the outcome buttons it stands beside.
+    const amend = await screen.findByRole('link', {
+      name: 'Amend Pick list — pick #1, Sam Taylor',
+    });
+    expect(amend).toHaveAttribute('href', `/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+
+    // …and it really does open the editable workspace, rather than a link that
+    // reaches a screen with every quantity locked.
+    await user.click(amend);
+    await screen.findByRole('heading', { level: 1, name: 'Pick #1: Sam Taylor' });
+    expect(await screen.findByRole('spinbutton', { name: /Baked beans/ })).toBeEnabled();
+
+    await user.click(screen.getByRole('link', { name: 'Back to clients' }));
+
+    // An outcome is what stops the parcel changing, because by then its stock
+    // has left the shelves. The link stays — the contents are still worth
+    // reading — but it no longer promises an amendment it cannot deliver.
+    await user.click(await screen.findByRole('button', { name: 'Attended — pick #1, Sam Taylor' }));
+    expect(
+      await screen.findByRole('link', { name: 'View Pick list — pick #1, Sam Taylor' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^Amend Pick list/ })).toBeNull();
+  });
+
   it('does not offer attendance controls after a session is confirmed', async () => {
     const confirmedSession: Session = { ...SESSION, status: 'confirmed' };
     const reviewedPendingParcel: Parcel = {

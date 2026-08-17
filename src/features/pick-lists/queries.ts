@@ -20,6 +20,9 @@ export type SmsSummary =
 export type SmsThread =
   paths['/api/v1/referrals/{id}/sms-messages']['get']['responses'][200]['content']['application/json'];
 export type SmsMessage = components['schemas']['SmsMessage'];
+export type StockRequirement =
+  paths['/api/v1/sessions/{sessionId}/stock-requirement']['get']['responses'][200]['content']['application/json'];
+export type StockRequirementLine = components['schemas']['StockRequirementLine'];
 export type SessionReferralDetails = components['schemas']['SessionReferralDetails'];
 
 export function useSessionReferralDetails(sessionId: string) {
@@ -58,6 +61,38 @@ export function useSessionPickList(sessionId: string) {
     queryKey: pickListKeys.session(sessionId),
     enabled: sessionId !== '',
     queryFn: () => fetchSessionPickList(sessionId),
+  });
+}
+
+/**
+ * What the session asks for off the shelves, against what is on them.
+ *
+ * **Asked for, never fetched with the screen.** It is one line per stock item
+ * the session's parcels between them call for, and a team lead wants it once,
+ * when they are about to go and look — so it is read when the panel is opened
+ * rather than on every visit to a session.
+ *
+ * **No `staleTime`**, against the client's minute everywhere else. Both halves
+ * of the comparison move under it: a parcel's quantity is edited on this very
+ * screen, and `quantityOnHand` changes with a stock take, an adjustment or an
+ * attendance outcome recorded on another volunteer's phone. Somebody acts on
+ * this figure by walking to a shelf, so closing the panel and opening it again
+ * has to ask again rather than repeat the answer from when the session opened.
+ *
+ * Shelf order is the server's default and is left alone: the reason to read
+ * this is to walk the warehouse once.
+ */
+export function useSessionStockRequirement(sessionId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: pickListKeys.stockRequirement(sessionId),
+    enabled: enabled && sessionId !== '',
+    staleTime: 0,
+    queryFn: (): Promise<StockRequirement> =>
+      unwrap(
+        api.GET('/api/v1/sessions/{sessionId}/stock-requirement', {
+          params: { path: { sessionId } },
+        }),
+      ),
   });
 }
 

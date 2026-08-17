@@ -169,3 +169,52 @@ done in one pass rather than argued about one at a time.
 The referral-details query in `pick-lists/queries.ts` also builds its key inline
 (`[...pickListKeys.session(sessionId), 'referral-details']`) rather than naming it in `keys.ts`.
 Worth folding in while touching that file.
+
+---
+
+## W6 — A button says whether it can be used by its colour, on every screen but the session ones
+
+`Raised: 2026-08-17` · `Decided by: Pete` · `Found by: the stock check being reported as a disabled
+button while it was working` · `Risk: a volunteer not using a control that works`
+
+**The decision: an available button is blue; an unavailable one is grey; the text colour on each is
+whatever keeps it readable.** Settled by Pete on 2026-08-17.
+
+**Done on the run-a-session screens, and outstanding everywhere else.** Pete asked on 2026-08-17 for
+that page to be fixed on its own, having seen it: the screen that was misread is the one run standing
+up in a hall, and it was not going to wait for a shared button style. So the risk this entry was
+written to avoid is now real and deliberate — `run-sessions-screen.module.css` draws blue and grey,
+every other screen still draws black on white, and a black button elsewhere now has blue ones to be
+compared against. **What is left is the rest of the app, not the rule.** The palette to match is
+`#0b5cab` on white for available, `#dcdcdc` with `#333333` text and a `#767676` border for
+unavailable, and a `#1a1a1a` focus ring; take those from that stylesheet when the shared style is
+written and delete the local copy.
+
+What went wrong, which is the case for the rule. On the run-session actions row, an available
+control and an unavailable one differed by `#1a1a1a` against `#555555` inside identical white boxes.
+The only strong signal of "you can use this" was the underline — and that is not a decision anybody
+made: four of those controls are `<a>` elements, which browsers underline, and the two `<button>`s
+are not. So the first genuinely useful button on that row was read as the greyed-out one beside it,
+and reported as broken. `Complete session` has the same problem and nobody has met it only because
+it spends most of a session unavailable.
+
+When it is done:
+
+- **There is no shared button component or style today** — `src/components/` has no button of its
+  own and each feature's CSS module draws its own. Doing this properly means one shared style the
+  screens use, not a colour repeated in fifteen modules. That is most of the work.
+- **Contrast is not optional**: 4.5:1 for the text against its own background, 3:1 for the border.
+  Grey has to stay readable, because an unavailable control here is deliberately still focusable and
+  still carries the sentence saying why.
+- **Colour must not be the only signal.** The existing pattern stays: `aria-disabled` rather than
+  `disabled`, and a reason below the row tied by `aria-describedby`.
+- **Blue is for buttons, underline stays with links.** A control that navigates is still drawn as a
+  control — it is filled and padded like the buttons beside it — but it keeps its underline, because
+  the point of the split is that one navigates and the other acts.
+- **There is no disclosure caret**, reversing what this entry said when it was raised. Pete settled
+  on 2026-08-17 that the mark on the stock check goes: the panel opening beneath the control is what
+  says it is open, and `aria-expanded` still says so to anyone not looking at the screen. Do not
+  reintroduce one for a shared style.
+
+Recorded as a requirement in `screenDetails.md` under "#Run a session", which is the target state
+rather than what is on screen today.

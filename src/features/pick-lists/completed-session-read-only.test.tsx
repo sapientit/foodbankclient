@@ -235,6 +235,25 @@ describe('a completed session', () => {
     expect(writes.confirm).toBe(0);
   });
 
+  /**
+   * **Gone, not greyed.** Settled by Pete on 2026-08-17, closing the second
+   * half of Q41. The stock check answers "can the warehouse cover this
+   * session", and once the session has been run it cannot answer anything: an
+   * attended household's stock has left `quantityOnHand` while its parcel still
+   * counts towards what was needed, so every line would read as a shortage that
+   * never happened. A disabled control would invite somebody to work out why;
+   * there is nothing to work out.
+   */
+  it('does not offer the stock check at all', async () => {
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    expect(await screen.findByRole('heading', { name: 'Clients' })).toBeInTheDocument();
+    // The sheets are still there to read — this is the one control that goes.
+    expect(screen.getByRole('link', { name: 'View all pick lists' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Stock check' })).toBeNull();
+    expect(screen.queryByText(/before checking stock/)).toBeNull();
+  });
+
   it('still opens each household’s pick list, with nothing on it editable', async () => {
     renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
 

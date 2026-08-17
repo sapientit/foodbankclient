@@ -140,29 +140,90 @@
   margin-block: 1rem;
 }
 
-/* The three sheets are links and the fourth control is a button, but they are
-   one set of things to do, so they are drawn alike and sized alike. The links
-   keep their underline: the border says "control", the underline still says
-   "this one navigates". Generous padding because these are pressed with a thumb
-   in a hall. */
+/* **Whether a control can be used is said by its colour: blue works, grey does
+   not.** Settled by Pete on 2026-08-17, and applied here on the run-a-session
+   screens only — `DEFERRED-WORK.md` W6 carries the rest of the app.
+
+   What it replaced: an available control and an unavailable one differed by
+   `#1a1a1a` against `#555555` inside identical white boxes, and the only strong
+   "you can press this" signal was an underline nobody had chosen — the links
+   have one because browsers underline links, the buttons had none. So the one
+   genuinely useful button on the row read as the greyed-out one beside it, and
+   a working stock check was reported as broken.
+
+   Every control a team lead acts on during a session is drawn from these two
+   looks — the actions row, the pick-list link on each client, the two outcome
+   buttons, and Save and Mark reviewed in the workspace — because a black button
+   left among blue ones reads as dead just as surely.
+
+   Links keep their underline and buttons do not: the fill says "control", the
+   underline still says "this one navigates". Colour is never the only signal —
+   an unavailable control keeps `aria-disabled` and the sentence below the row
+   saying why.
+
+   The shape, which every one of them shares whether it can be used or not: an
+   unavailable control that also changed size would move the row under a thumb
+   already on its way down. */
 .action,
-.unavailable {
-  padding: 0.6rem 1rem;
-  border: 1px solid #555555;
-  background: #ffffff;
-  color: inherit;
+.unavailable,
+.pickListLink,
+.reviewButton,
+.rowActions button {
+  border: 1px solid;
   font: inherit;
 }
 
-/* `aria-disabled` rather than `disabled`, so the reason stays reachable — see
-   `SessionActions`. That means the unavailable look has to be drawn here,
-   because only the real attribute gets it from the browser. Kept legible rather
-   than greyed to the edge of readability: this control is still in the tab
-   order, so somebody will land on it and need to read it. #555555 on white is
-   7.5:1. */
+/* Generous padding: these are pressed with a thumb in a hall. */
+.action,
 .unavailable {
-  color: #555555;
-  border-color: #777777;
+  padding: 0.6rem 1rem;
+}
+
+/* Available. Deliberately not written as "everything, then grey on top of it":
+   a control that says it can be used is the dangerous half of this, so it names
+   the states it applies to rather than the one it does not. */
+.action:not([aria-disabled='true']),
+.pickListLink,
+.reviewButton:enabled,
+.rowActions button:enabled {
+  border-color: #0b5cab;
+  background: #0b5cab;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.action:not([aria-disabled='true']):hover,
+.pickListLink:hover,
+.reviewButton:enabled:hover,
+.rowActions button:enabled:hover {
+  background: #084684;
+  border-color: #084684;
+}
+
+/* The fill is dark enough that the browser's own focus ring disappears into it,
+   and this is the one screen run standing up in a hall. */
+.action:focus-visible,
+.unavailable:focus-visible,
+.pickListLink:focus-visible,
+.reviewButton:focus-visible,
+.rowActions button:focus-visible {
+  outline: 3px solid #1a1a1a;
+  outline-offset: 2px;
+}
+
+/* Unavailable, in all three of the ways this screen says it. `aria-disabled` is
+   the usual one — see `SessionActions`: the control stays in the tab order so
+   the reason beside it stays reachable, which means the look has to be drawn
+   here rather than left to the browser. Kept well clear of the edge of
+   readability, because somebody will land on it and read it: #333333 on #dcdcdc
+   is 9.2:1, and the border is 3.3:1 against the fill it encloses. */
+.unavailable,
+.action[aria-disabled='true'],
+.reviewButton:disabled,
+.rowActions button:disabled {
+  background: #dcdcdc;
+  border-color: #767676;
+  color: #333333;
   cursor: not-allowed;
 }
 
@@ -278,12 +339,28 @@
 .rowActions {
   display: flex;
   flex-wrap: wrap;
+  /* The pick-list link sits in this row beside the two outcome buttons: centred
+     so the three read as one group of controls rather than as one hanging off
+     the top of the other two. */
+  align-items: center;
   gap: 0.75rem;
 }
 
 .rowActions button {
   padding: 0.75rem 1rem;
-  font: inherit;
+}
+
+/* The way into a household's pick list — Review it, Amend it, or read it back
+   on a session that is finished with. Drawn as a control rather than left as a
+   run of text: in every state but the first it stands beside the two outcome
+   buttons, and a bare underlined phrase next to them read as a caption rather
+   than as the thing a team lead presses to put an item back. `inline-block`
+   because in the two states where it is the only control in the cell there is
+   no flex row to give it its shape. */
+.pickListLink {
+  display: inline-block;
+  padding: 0.75rem 1rem;
+  text-align: center;
 }
 
 .preferencesTable {
@@ -358,7 +435,11 @@
   .readOnlyNotice,
   .reconciledNotice,
   .actions,
-  .hints {
+  .hints,
+  /* Like every other control: it does nothing on paper, and a filled block of
+     colour costs a charity's toner. The app shell already hides `<button>`
+     globally for the same reason, which this link would otherwise slip past. */
+  .pickListLink {
     display: none;
   }
 

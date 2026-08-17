@@ -46,6 +46,7 @@ import {
 } from '../run-session.logic';
 import styles from './run-sessions-screen.module.css';
 import { SessionSmsPanel } from './sms-panel';
+import { StockCheckPanel } from './stock-check-panel';
 import { resolvePreferenceLines, validatePreferenceRules } from '../preference-rules';
 import {
   buildPickListInformation,
@@ -173,21 +174,29 @@ function SessionActions({
   allOutcomesRecorded,
   completing,
   onComplete,
+  onToggleStockCheck,
   readOnly,
   readyToPrint,
   sessionId,
+  stockCheckOpen,
+  stockCheckPanelId,
 }: {
   readonly allOutcomesRecorded: boolean;
   readonly completing: boolean;
   readonly onComplete: () => void;
+  readonly onToggleStockCheck: () => void;
   readonly readOnly: boolean;
   readonly readyToPrint: boolean;
   readonly sessionId: string;
+  readonly stockCheckOpen: boolean;
+  readonly stockCheckPanelId: string;
 }) {
   const printReasonId = useId();
   const completeReasonId = useId();
+  const stockCheckReasonId = useId();
   const printUnavailable = !readOnly && !readyToPrint;
   const completeUnavailable = !readOnly && !allOutcomesRecorded;
+  const stockCheckUnavailable = !readOnly && !readyToPrint;
 
   return (
     <>
@@ -206,6 +215,35 @@ function SessionActions({
             type="button"
           >
             Print all pick lists
+          </button>
+        )}
+        {/* **Gone on a finished session, not greyed.** Settled by Pete on
+            2026-08-17. The comparison answers "what does this session ask for,
+            and is it on the shelves" — a question with a use before the doors
+            open and none afterwards, because an attended household's stock has
+            already left `quantityOnHand` while its parcel still counts towards
+            what was needed, so every line would read as a shortage that never
+            happened. Unlike the two controls above, this one is not waiting for
+            anything a team lead could do, so there is no sentence to keep
+            reachable and nothing to explain. */}
+        {readOnly ? null : stockCheckUnavailable ? (
+          <button
+            aria-describedby={stockCheckReasonId}
+            aria-disabled
+            className={styles.unavailable}
+            type="button"
+          >
+            Stock check
+          </button>
+        ) : (
+          <button
+            aria-controls={stockCheckPanelId}
+            aria-expanded={stockCheckOpen}
+            className={styles.action}
+            onClick={onToggleStockCheck}
+            type="button"
+          >
+            Stock check
           </button>
         )}
         <Link className={styles.action} to={`/run-sessions/${sessionId}/listener`}>
@@ -250,9 +288,15 @@ function SessionActions({
           </button>
         )}
       </div>
-      {(printUnavailable || completeUnavailable) && (
+      {(printUnavailable || stockCheckUnavailable || completeUnavailable) && (
         <div className={styles.hints}>
           {printUnavailable && <p id={printReasonId}>Review every pick list before printing.</p>}
+          {stockCheckUnavailable && (
+            <p id={stockCheckReasonId}>
+              Review every pick list before checking stock — until then the quantities are still
+              moving.
+            </p>
+          )}
           {completeUnavailable && (
             <p id={completeReasonId}>
               Record an outcome for every client before completing session.
@@ -392,6 +436,13 @@ export function RunSessionDetailScreen() {
   const session = useSession(sessionId);
   /** `null` while the session is still loading — not yet known to be either. */
   const readOnly = session.data === undefined ? null : isSessionReadOnly(session.data.status);
+  /*
+   * The stock check is asked for rather than shown. It is a second request, and
+   * the answer is a table long enough to push the client list — the thing this
+   * screen is for — off a phone.
+   */
+  const stockCheckPanelId = useId();
+  const [stockCheckOpen, setStockCheckOpen] = useState(false);
   const referrals = useReferrals({ sessionId });
   const stockItems = useStockItems();
   const requested = useRef<string | null>(null);
@@ -586,6 +637,13 @@ export function RunSessionDetailScreen() {
   const currentParcels = (pickList.data?.parcels ?? []).filter(isCurrentParcel);
   const allOutcomesRecorded = currentParcels.every((parcel) => parcel.attendance !== 'pending');
   const readyToPrint = pickList.data !== undefined && allParcelsReviewed(currentParcels);
+  /*
+   * The panel follows the control rather than the state behind it. A late
+   * referral reconciled in arrives unreviewed, which takes the check away — and
+   * an open panel whose button has become unavailable is a panel with nothing
+   * left to close it, still showing a total that no longer holds.
+   */
+  const stockCheckOnScreen = stockCheckOpen && readOnly === false && readyToPrint;
 
   return (
     <>
@@ -613,11 +671,20 @@ export function RunSessionDetailScreen() {
         onComplete={() => {
           complete.mutate(sessionId);
         }}
+        onToggleStockCheck={() => {
+          setStockCheckOpen((open) => !open);
+        }}
         readOnly={readOnly === true}
         readyToPrint={readyToPrint}
         sessionId={sessionId}
+        stockCheckOpen={stockCheckOnScreen}
+        stockCheckPanelId={stockCheckPanelId}
       />
       {complete.error !== null && <SessionRefusal error={complete.error} />}
+      {/* Between the actions and the client list: it answers a question about
+          the session as a whole, and it belongs under the control that opened
+          it rather than below twenty households. */}
+      <StockCheckPanel id={stockCheckPanelId} open={stockCheckOnScreen} sessionId={sessionId} />
       <h2>Clients</h2>
       {currentParcels.length === 0 ? (
         <p>No clients on this session.</p>
@@ -710,6 +777,16 @@ function describeParcel(parcel: Parcel): string {
   return `pick #${String(parcel.pickNumber)}, ${parcelName(parcel)}`;
 }
 
+/**
+ * What opening a reviewed household's pick list now does — which is not the
+ * same thing all session. Until an outcome is recorded the lines can still be
+ * changed; after one they cannot, and a link still saying Amend would send a
+ * team lead in to find every quantity locked with nothing saying why.
+ */
+function pickListLabel(parcel: Parcel): string {
+  return parcel.attendance === 'pending' ? 'Amend Pick list' : 'View Pick list';
+}
+
 function ClientRow({
   canOpenReferral,
   parcel,
@@ -754,9 +831,19 @@ function ClientRow({
             where the parcel's contents are — but there is nothing left to
             review, so the link says what it now does. */}
         {readOnly ? (
-          <Link to={`/run-sessions/${sessionId}/clients/${parcel.id}`}>View Pick list</Link>
+          <Link
+            className={styles.pickListLink}
+            to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
+          >
+            View Pick list
+          </Link>
         ) : !reviewed && parcel.attendance === 'pending' ? (
-          <Link to={`/run-sessions/${sessionId}/clients/${parcel.id}`}>Review Pick list</Link>
+          <Link
+            className={styles.pickListLink}
+            to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
+          >
+            Review Pick list
+          </Link>
         ) : (
           /*
            * Named for the household, not just the outcome. Every row renders the
@@ -791,6 +878,27 @@ function ClientRow({
             >
               {missedLabel(parcel)}
             </button>
+            {/*
+             * The way back into the household's pick list, which reviewing used
+             * to take away. Reviewing settles the quantities; it does not close
+             * the list — the server keeps the lines editable right up to the
+             * session being confirmed, and a stock check answering that an item
+             * is short is exactly the moment a team lead needs to go back in and
+             * take it out of a bag. Recording an outcome is the step that stops
+             * the parcel changing, because by then its stock has moved, so from
+             * there the same link only reads.
+             *
+             * Named for the household like the buttons beside it: three controls
+             * a row, twenty rows, and the pick number and name that tell them
+             * apart sit in neighbouring cells that no accessible name reaches.
+             */}
+            <Link
+              aria-label={`${pickListLabel(parcel)} — ${describeParcel(parcel)}`}
+              className={styles.pickListLink}
+              to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
+            >
+              {pickListLabel(parcel)}
+            </Link>
           </div>
         )}
       </td>

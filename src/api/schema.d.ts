@@ -484,6 +484,20 @@ export interface paths {
          * @description The next 14 days, excluding cancelled sessions and any that are full.
          *     The window is fixed and cannot be widened by a parameter.
          *
+         *     **Referrals close at 16:00 `Europe/London` the day before a session**,
+         *     and this list stops offering it once 16:00 has gone by. So the soonest
+         *     session listed is tomorrow's up to and including 16:00 today, and the
+         *     day after tomorrow's from 16:01; a session is never listed on its own
+         *     day. 16:00 itself still makes the deadline. The far
+         *     end stays 14 days from today, so the list shortens over the afternoon
+         *     rather than sliding forward.
+         *
+         *     **`POST /api/v1/public/referrals` does not enforce the cutoff.** It is
+         *     applied here and nowhere else, deliberately: a referrer who loaded the
+         *     form at 15:55 can still submit at 16:05, and the referral is taken.
+         *     Do not re-check the clock in the client and do not filter this list
+         *     further — submit whatever session the referrer chose.
+         *
          *     Deliberately narrow: no capacity, no remaining places, no status.
          *     Anything listed can be referred to.
          */
@@ -1623,9 +1637,25 @@ export interface paths {
          *     administrators working the queue at the same time get different
          *     sessions; neither can be handed one the other is already writing.
          *
-         *     `claim: null` means nothing is waiting — the queue is empty, or
-         *     everything in it is claimed by somebody still working. **This is how a
-         *     batch ends and is not an error.**
+         *     `claim: null` means nothing could be handed out — the queue is empty,
+         *     **or everything left in it is currently reserved.** This is how a batch
+         *     ends and is not an error.
+         *
+         *     **`claim: null` does not mean the work is done. Check `remaining`
+         *     before telling the administrator the spreadsheet is up to date.** The
+         *     two are different states and the response distinguishes them only by
+         *     that number: `remaining: 0` is finished, `remaining > 0` with a null
+         *     claim means those sessions are reserved and not yet written.
+         *
+         *     This is not a rare edge. A browser whose Google write fails stops
+         *     without completing, and **there is no way to hand a reservation back
+         *     early** — the session stays reserved for the full 10 minutes. So the
+         *     very next `POST /extracts/claims` skips it, and once everything
+         *     unextracted is reserved this returns `claim: null` while `remaining`
+         *     still counts every one of them. Reporting that as "extract complete"
+         *     tells an administrator the spreadsheet is up to date when it is not,
+         *     and they will have no reason to look again. Say that sessions are
+         *     reserved and will return to the queue shortly.
          *
          *     The referrals come back with the claim rather than behind a second
          *     call: the browser can do nothing with one without the other, and a
@@ -3853,6 +3883,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{sessionId}/stock-requirement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What the session needs off the shelves, against what is on them
+         * @description One line per stock item the session's parcels between them call for —
+         *     **not the whole catalogue.** An item nothing on that morning needs is
+         *     left out rather than returned as a nought, so the list is only as long
+         *     as the work is.
+         *
+         *     `requiredQuantity` is the total across the session's parcels;
+         *     `quantityOnHand` is the level as `GET /stock/levels` reports it, summed
+         *     from the ledger and possibly negative; `shortfall` is what is missing,
+         *     floored at zero, so a surplus reads as `0` rather than a negative
+         *     number a screen has to interpret.
+         *
+         *     **Cancelled parcels are left out of the total**, on the same grounds as
+         *     they are left off the printed sheets: nothing is picked for a household
+         *     that is not coming. **A parcel already marked attended is still
+         *     counted**, while the stock it issued has already left `quantityOnHand`
+         *     — the figure is what the session as a whole asks for, not what is left
+         *     to pick. Read it before the session starts and the two agree.
+         *
+         *     **Available once every parcel has been reviewed** — the same point
+         *     `GET /pick-lists/{id}/print` waits for, and not a moment later. The
+         *     list does **not** need to be confirmed; waiting for that would put the
+         *     answer after the work it is meant to inform.
+         *
+         *     Defaults to shelf order, because the person asking is usually about to
+         *     go and look.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` follows the shelf numbers so a volunteer walks the warehouse once — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
+                    order?: components["parameters"]["StockOrder"];
+                };
+                header?: never;
+                path: {
+                    sessionId: components["parameters"]["SessionId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The requirement, one line per item the session needs */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            pickListId: string;
+                            items: components["schemas"]["StockRequirementLine"][];
+                        };
+                    };
+                };
+                /** @description Unrecognised `order` */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["NotFound"];
+                /** @description A parcel on the list has not been reviewed, so its quantities are not settled yet (a cancelled parcel is not waited for); or a line still says an item needs attention, which is not a quantity and cannot be added up. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pick-lists/{id}": {
         parameters: {
             query?: never;
@@ -5108,7 +5227,7 @@ export interface components {
             rows: components["schemas"]["ExtractRow"][];
         };
         ExtractClaimResponse: components["schemas"]["ExtractProgress"] & {
-            /** @description `null` when nothing is waiting, or everything waiting is claimed by somebody still working. That is how a batch ends, not an error. */
+            /** @description `null` when nothing could be handed out — the queue is empty, or everything left in it is currently reserved. That is how a batch ends, not an error. **It does not mean the work is done:** read `remaining` to tell "finished" from "the rest are reserved", including by an extract of your own that failed and cannot give its reservation back before it expires. */
             claim: components["schemas"]["ExtractClaim"] | null;
         };
         ExtractCompleteResponse: components["schemas"]["ExtractProgress"] & {
@@ -5280,6 +5399,12 @@ export interface components {
         StockLevel: components["schemas"]["StockItem"] & {
             /** @description Derived by summing the ledger. **May be negative** — parcels go out between counts, and nothing stops an item going below what the last count said was there. */
             quantityOnHand: number;
+        };
+        StockRequirementLine: components["schemas"]["StockLevel"] & {
+            /** @description How many of this item the session's parcels ask for in total, cancelled parcels excluded. Always positive — an item nothing needs has no line. */
+            requiredQuantity: number;
+            /** @description `requiredQuantity - quantityOnHand`, floored at zero. Non-zero means the warehouse cannot cover the session as it stands. */
+            shortfall: number;
         };
         /** @description One household on the listener sheet. The narrowest response in the API, and the only one carrying the reason for referral to a team leader. */
         ListenerSheetHousehold: {
