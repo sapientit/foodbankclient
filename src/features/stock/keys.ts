@@ -20,7 +20,7 @@
  */
 export const stockKeys = {
   all: ['stock'] as const,
-  items: () => [...stockKeys.all, 'items'] as const,
+  items: (order: 'category' | 'shelf' = 'category') => [...stockKeys.all, 'items', order] as const,
   levels: () => [...stockKeys.all, 'levels'] as const,
 
   /**

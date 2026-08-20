@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -28,7 +28,7 @@ const SESSION: Session = {
   location: 'St Mary’s Hall',
   deliveryWindowStart: null,
   deliveryWindowEnd: null,
-  deliveriesAllowed: false,
+  deliveryCapacity: 0,
   capacity: 25,
   booked: 1,
   status: 'planned',
@@ -489,7 +489,7 @@ describe('a team lead running a session', () => {
     expect(await screen.findByText('Client not found')).toBeInTheDocument();
   });
 
-  it('offers every active item and a retired parcel line in category and name order', async () => {
+  it('offers every active item and a retired parcel line in server shelf order', async () => {
     const apples = {
       id: 'stock-apples',
       name: 'Apples',
@@ -527,13 +527,17 @@ describe('a team lead running a session', () => {
         },
       ],
     };
+    let stockOrder: string | null = null;
     server.use(
       http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
       http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json({ pickList: PICK_LIST, parcels: [parcelWithRetiredLine] }),
       ),
-      http.get('/api/v1/stock/items', () => HttpResponse.json({ items: [oats, apples, beans] })),
+      http.get('/api/v1/stock/items', ({ request }) => {
+        stockOrder = new URL(request.url).searchParams.get('order');
+        return HttpResponse.json({ items: [beans, apples, oats] });
+      }),
     );
 
     renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
@@ -542,15 +546,13 @@ describe('a team lead running a session', () => {
 
     const quantities = await screen.findAllByRole('spinbutton');
     expect(quantities).toHaveLength(3);
-    expect(
-      screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent),
-    ).toEqual(['Breakfast', 'Fresh food', 'Tinned goods']);
-    expect(quantities[0]).toHaveAccessibleName('Oats (retired)');
-    expect(quantities[0]).toHaveValue(1);
+    expect(stockOrder).toBe('shelf');
+    expect(quantities[0]).toHaveAccessibleName(/^Baked beans/);
+    expect(quantities[0]).toHaveValue(2);
     expect(quantities[1]).toHaveAccessibleName('Apples');
     expect(quantities[1]).toHaveValue(null);
-    expect(quantities[2]).toHaveAccessibleName(/^Baked beans/);
-    expect(quantities[2]).toHaveValue(2);
+    expect(quantities[2]).toHaveAccessibleName('Oats (retired)');
+    expect(quantities[2]).toHaveValue(1);
   });
 
   it('keeps pick-list information editable after attendance until the session is confirmed', async () => {
@@ -1202,7 +1204,57 @@ describe('a team lead running a session', () => {
               deliveryPhone: null,
               notes: 'Allergies: Gluten-free food for one person',
               reason: 'Never print this',
-              lines: [],
+              lines: [
+                {
+                  stockItemId: 'a1',
+                  name: 'Apples',
+                  description: null,
+                  shelfNumber: 'A1',
+                  quantity: 1,
+                },
+                {
+                  stockItemId: 'a2',
+                  name: 'Baked beans',
+                  description: 'In tomato sauce',
+                  shelfNumber: 'A2',
+                  quantity: 2,
+                },
+                {
+                  stockItemId: 'a10',
+                  name: 'Cereal',
+                  description: null,
+                  shelfNumber: 'A10',
+                  quantity: 3,
+                },
+                {
+                  stockItemId: 'b1',
+                  name: 'Dried pasta',
+                  description: null,
+                  shelfNumber: 'B1',
+                  quantity: 4,
+                },
+                {
+                  stockItemId: 'b2',
+                  name: 'Eggs',
+                  description: null,
+                  shelfNumber: 'B2',
+                  quantity: 5,
+                },
+                {
+                  stockItemId: 'c1',
+                  name: 'Flour',
+                  description: null,
+                  shelfNumber: 'C1',
+                  quantity: 6,
+                },
+                {
+                  stockItemId: 'c2',
+                  name: 'Jam',
+                  description: null,
+                  shelfNumber: 'C2',
+                  quantity: 7,
+                },
+              ],
             },
           ],
         }),
@@ -1215,14 +1267,38 @@ describe('a team lead running a session', () => {
 
     renderApp(`/run-sessions/${SESSION.id}/print`);
 
+    const openPrint = await screen.findByRole('button', { name: 'Open print dialog' });
+    expect(openPrint).toBeInTheDocument();
     await waitFor(() => {
       expect(markedPrinted).toBe(true);
       expect(printSpy).toHaveBeenCalledOnce();
     });
+    await userEvent.setup().click(openPrint);
+    expect(printSpy).toHaveBeenCalledTimes(2);
     expect(screen.getByRole('table', { name: 'Household composition' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Information for pickers' })).toHaveTextContent(
       'Allergies: Gluten-free food for one person',
     );
+    expect(
+      within(screen.getByRole('table', { name: 'Picking items, column 1' }))
+        .getAllByRole('rowheader')
+        .map((cell) => cell.textContent),
+    ).toEqual(['Apples', 'Baked beansIn tomato sauce', 'Cereal']);
+    expect(
+      within(screen.getByRole('table', { name: 'Picking items, column 2' }))
+        .getAllByRole('rowheader')
+        .map((cell) => cell.textContent),
+    ).toEqual(['Dried pasta', 'Eggs', 'Flour']);
+    expect(
+      within(screen.getByRole('table', { name: 'Picking items, column 3' }))
+        .getAllByRole('rowheader')
+        .map((cell) => cell.textContent),
+    ).toEqual(['Jam']);
+    expect(
+      within(screen.getByRole('table', { name: 'Picking items, column 1' })).getByRole('cell', {
+        name: '2',
+      }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Allergies' })).toBeNull();
     expect(screen.queryByText('Never print this')).toBeNull();
     expect(screen.queryByText('Never print this either')).toBeNull();

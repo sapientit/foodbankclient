@@ -19,12 +19,23 @@ function template(
     location: 'St Mary’s Hall',
     deliveryWindowStart: null,
     deliveryWindowEnd: null,
-    deliveriesAllowed: false,
+    deliveryCapacity: 0,
     capacity: 25,
     activeFrom: '2026-01-01',
     activeUntil: null,
     ...overrides,
   };
+}
+
+/**
+ * The delivery capacity is a number box now rather than a tick, so a test that
+ * wants delivering occurrences has to say how many — and one that wants none
+ * says nought rather than unticking.
+ */
+async function setDeliveryCapacity(user: ReturnType<typeof userEvent.setup>, places: string) {
+  const box = screen.getByLabelText('Delivery capacity');
+  await user.clear(box);
+  await user.type(box, places);
 }
 
 beforeEach(() => {
@@ -108,7 +119,7 @@ describe('the weekly session list', () => {
               id: 't1',
               deliveryWindowStart: null,
               deliveryWindowEnd: null,
-              deliveriesAllowed: true,
+              deliveryCapacity: 8,
             }),
           ],
         }),
@@ -126,14 +137,14 @@ describe('the weekly session list', () => {
       http.get(RECURRING, () =>
         HttpResponse.json({
           recurringSessions: [
-            template({ id: 't1', name: 'Delivers', deliveriesAllowed: false }),
+            template({ id: 't1', name: 'Delivers', deliveryCapacity: 0 }),
             template({
               id: 't2',
               name: 'Windowed',
               weekday: 3,
               deliveryWindowStart: '09:00',
               deliveryWindowEnd: '11:00',
-              deliveriesAllowed: true,
+              deliveryCapacity: 8,
             }),
           ],
         }),
@@ -268,7 +279,7 @@ describe('adding a weekly session', () => {
       // Deliberately the opposite of the server's own create default of
       // `true` — settled 2026-08-16 — so an untouched checkbox opts a new
       // template out of deliveries and the window pair is omitted entirely.
-      deliveriesAllowed: false,
+      deliveryCapacity: 0,
     });
     expect(posted).not.toHaveProperty('deliveryWindowStart');
     expect(posted).not.toHaveProperty('deliveryWindowEnd');
@@ -304,7 +315,7 @@ describe('adding a weekly session', () => {
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
     await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
     await user.type(screen.getByLabelText('Starts from'), '2026-01-01');
-    await user.click(screen.getByLabelText('Every occurrence takes deliveries'));
+    await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
 
@@ -314,7 +325,7 @@ describe('adding a weekly session', () => {
     expect(posted).toMatchObject({
       deliveryWindowStart: '09:00',
       deliveryWindowEnd: '11:00',
-      deliveriesAllowed: true,
+      deliveryCapacity: 8,
     });
   });
 
@@ -336,7 +347,7 @@ describe('adding a weekly session', () => {
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
     await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
     await user.type(screen.getByLabelText('Starts from'), '2026-01-01');
-    await user.click(screen.getByLabelText('Every occurrence takes deliveries'));
+    await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
 
     await user.click(screen.getByRole('button', { name: 'Add weekly session' }));
@@ -420,7 +431,7 @@ describe('amending a weekly session', () => {
             id: 't1',
             deliveryWindowStart: '09:00',
             deliveryWindowEnd: '11:00',
-            deliveriesAllowed: true,
+            deliveryCapacity: 8,
           }),
         );
       }),
@@ -430,7 +441,7 @@ describe('amending a weekly session', () => {
     const user = userEvent.setup();
 
     await screen.findByDisplayValue('St Mary’s Hall');
-    await user.click(screen.getByLabelText('Every occurrence takes deliveries'));
+    await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -440,11 +451,11 @@ describe('amending a weekly session', () => {
     expect(posted).toMatchObject({
       deliveryWindowStart: '09:00',
       deliveryWindowEnd: '11:00',
-      deliveriesAllowed: true,
+      deliveryCapacity: 8,
     });
   });
 
-  it('clears an existing delivery window by sending explicit null on both keys when the checkbox is unticked', async () => {
+  it('clears an existing delivery window by sending explicit null on both keys when the capacity returns to nought', async () => {
     let posted: unknown = null;
     server.use(
       http.get(RECURRING, () =>
@@ -455,7 +466,7 @@ describe('amending a weekly session', () => {
               name: 'Tuesday session',
               deliveryWindowStart: '09:00',
               deliveryWindowEnd: '11:00',
-              deliveriesAllowed: true,
+              deliveryCapacity: 8,
             }),
           ],
         }),
@@ -470,7 +481,7 @@ describe('amending a weekly session', () => {
     const user = userEvent.setup();
 
     await screen.findByDisplayValue('09:00');
-    await user.click(screen.getByLabelText('Every occurrence takes deliveries'));
+    await setDeliveryCapacity(user, '0');
 
     const start = screen.getByLabelText('Delivery window starts');
     const end = screen.getByLabelText('Delivery window ends');
@@ -485,14 +496,12 @@ describe('amending a weekly session', () => {
     expect(posted).toMatchObject({ deliveryWindowStart: null, deliveryWindowEnd: null });
   });
 
-  it('toggles deliveriesAllowed and round-trips it and its now-required window in the save', async () => {
+  it('changes the delivery capacity and round-trips it and its now-required window in the save', async () => {
     let posted: unknown = null;
     server.use(
       http.get(RECURRING, () =>
         HttpResponse.json({
-          recurringSessions: [
-            template({ id: 't1', name: 'Tuesday session', deliveriesAllowed: false }),
-          ],
+          recurringSessions: [template({ id: 't1', name: 'Tuesday session', deliveryCapacity: 0 })],
         }),
       ),
       http.patch(`${RECURRING}/t1`, async ({ request }) => {
@@ -500,7 +509,7 @@ describe('amending a weekly session', () => {
         return HttpResponse.json(
           template({
             id: 't1',
-            deliveriesAllowed: true,
+            deliveryCapacity: 8,
             deliveryWindowStart: '09:00',
             deliveryWindowEnd: '11:00',
           }),
@@ -512,7 +521,7 @@ describe('amending a weekly session', () => {
     const user = userEvent.setup();
 
     await screen.findByDisplayValue('St Mary’s Hall');
-    await user.click(screen.getByLabelText('Every occurrence takes deliveries'));
+    await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -520,7 +529,7 @@ describe('amending a weekly session', () => {
     await screen.findByRole('heading', { name: 'Weekly sessions' });
 
     expect(posted).toMatchObject({
-      deliveriesAllowed: true,
+      deliveryCapacity: 8,
       deliveryWindowStart: '09:00',
       deliveryWindowEnd: '11:00',
     });

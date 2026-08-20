@@ -168,6 +168,14 @@ export const DURATION_BOUNDS = { minimum: 1, maximum: 1440 };
 /** `capacity`: `minimum: 0, maximum: 1000`. Zero is valid — a session can be closed to new referrals without being deleted. */
 export const CAPACITY_BOUNDS = { minimum: 0, maximum: 1000 };
 
+/**
+ * `deliveryCapacity`: the same `minimum: 0, maximum: 1000` as `capacity`, which
+ * it is a share of. Zero is not merely valid but the ordinary case — it is the
+ * only way to say a session takes no deliveries, there being no flag beside it
+ * any more.
+ */
+export const DELIVERY_CAPACITY_BOUNDS = { minimum: 0, maximum: 1000 };
+
 export const DEFAULT_CAPACITY = 25;
 
 /** `location`: `maxLength: 200` on every session endpoint. */
@@ -183,11 +191,11 @@ export type DeliveryWindowProblem = 'start-required' | 'end-required' | 'end-not
  * maintenance forms — settled 2026-08-16 — which is stricter than the
  * server's `400`s (`API.md` "A session's delivery window") because the form
  * no longer lets "both blank while deliveries are on" happen at all: **while
- * `deliveriesAllowed` is off the two times are irrelevant** and this reports
- * no problem however the boxes read, because the form clears and disables
- * them; **while it is on, both are required**, and an end at or before the
- * start is still invalid. A *stored* both-null window with deliveries on is
- * still a real, valid state the server can return — see
+ * the session's delivery capacity is nought the two times are irrelevant** and
+ * this reports no problem however the boxes read, because the form clears and
+ * disables them; **above nought, both are required**, and an end at or before
+ * the start is still invalid. A *stored* both-null window on a session that
+ * does deliver is still a real, valid state the server can return — see
  * `describeDeliveryWindow` — it just cannot be produced from this form any
  * more.
  *
@@ -196,11 +204,11 @@ export type DeliveryWindowProblem = 'start-required' | 'end-required' | 'end-not
  * `sortRecurringSessions` already relies on for `startTime`.
  */
 export function validateDeliveryWindow(
-  deliveriesAllowed: boolean,
+  takesDeliveries: boolean,
   start: string,
   end: string,
 ): DeliveryWindowProblem | null {
-  if (!deliveriesAllowed) return null;
+  if (!takesDeliveries) return null;
   if (start === '') return 'start-required';
   if (end === '') return 'end-required';
   if (end <= start) return 'end-not-after-start';
@@ -226,17 +234,38 @@ export function describeDeliveryWindow(window: {
 }
 
 /**
- * `deliveriesAllowed: false` means the session has nobody to drive — that
+ * A `deliveryCapacity` of nought means the session has nobody to drive — that
  * takes precedence over the window, which is otherwise meaningless. See
- * `API.md` "Deliveries can be switched off per session".
+ * `API.md` "A session has a numeric delivery capacity".
  */
 export function describeDeliveries(session: {
-  readonly deliveriesAllowed: boolean;
+  readonly deliveryCapacity: number;
   readonly deliveryWindowStart: string | null;
   readonly deliveryWindowEnd: string | null;
 }): string {
-  if (!session.deliveriesAllowed) return 'This session does not take deliveries.';
+  if (session.deliveryCapacity === 0) return 'This session does not take deliveries.';
   return describeDeliveryWindow(session);
+}
+
+export type DeliveryCapacityProblem = 'exceeds-capacity';
+
+/**
+ * The client's mirror of the server's one cross-field rule on these two
+ * numbers: **a session's delivery places are a share of its overall capacity
+ * and can never exceed it.**
+ *
+ * Worth checking here rather than leaving to the server, because the two
+ * endpoints disagree about how they refuse it — a `400` on create, whose field
+ * issues these forms can map onto the box, but a **`422` on patch**, which
+ * carries no field at all and would land as a page-level notice beside two
+ * boxes that both look fine. Catching it in the form is what makes the two
+ * behave the same way.
+ */
+export function validateDeliveryCapacity(
+  capacity: number,
+  deliveryCapacity: number,
+): DeliveryCapacityProblem | null {
+  return deliveryCapacity > capacity ? 'exceeds-capacity' : null;
 }
 
 /** A cancellation `reason`: `maxLength: 500`. */

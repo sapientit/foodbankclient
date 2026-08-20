@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 import { formatSessionDate, formatTimeRange } from '../lib/london-time';
-import { collectionOnlyLabel } from '../lib/session-description';
+import { deliveryLabel, standingFromCapacity } from '../lib/session-description';
 import {
   SESSION_STATUS_LABELS,
   describeOccupancy,
@@ -12,6 +12,11 @@ import styles from './session-table.module.css';
 /**
  * A list of sessions, as five aligned columns: the date, the hours,
  * `Collection Only` or nothing, how many households are booked, and the status.
+ *
+ * **Never `No deliveries` here, unlike the referrer's dropdown.** `Session`
+ * carries the delivery capacity an administrator set but no count of the
+ * deliveries booked against it, so this cannot tell a session whose places have
+ * gone from one with places left — see `src/lib/session-description.ts`.
  *
  * **One table for both lists.** `Run a session` and `Manage Sessions` show the
  * same five facts about the same rows and differ only in what a row links to
@@ -32,7 +37,7 @@ export interface TabulatedSession {
   readonly sessionDate: string;
   readonly startTime: string;
   readonly durationMinutes: number;
-  readonly deliveriesAllowed: boolean;
+  readonly deliveryCapacity: number;
   readonly booked: number;
   readonly capacity: number;
   readonly status: SessionStatus;
@@ -112,8 +117,8 @@ function SessionTableRow({
       <td className={styles.time}>{hours}</td>
       {/* Where the hall's name used to be. One location, so it read the same on
           every row; whether a session takes deliveries does not. The cell stays
-          empty for an ordinary session — see `src/lib/session-description.ts`. */}
-      <td>{collectionOnlyLabel(session)}</td>
+          empty for a session that does — see `src/lib/session-description.ts`. */}
+      <td>{deliveryLabel(standingFromCapacity(session.deliveryCapacity))}</td>
       <td className={styles.bookings}>
         {describeOccupancy(stats)}
         {/* Over capacity is a deliberate admin action, not a fault — see

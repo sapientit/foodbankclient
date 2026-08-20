@@ -11,6 +11,7 @@ import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
 import { useAmendRecurringSession, useRecurringSession, type RecurringSession } from '../queries';
 import {
   CAPACITY_BOUNDS,
+  DELIVERY_CAPACITY_BOUNDS,
   DURATION_BOUNDS,
   MAX_LOCATION_LENGTH,
   MAX_RECURRING_NAME_LENGTH,
@@ -18,6 +19,7 @@ import {
   isLocalTime,
   isWeekday,
   parseWholeNumber,
+  validateDeliveryCapacity,
   validateDeliveryWindow,
 } from '../sessions.logic';
 import styles from './session-form.module.css';
@@ -33,6 +35,13 @@ const CAPACITY_MESSAGES: Record<string, string> = {
   empty: 'Enter how many households each session can take.',
   'not-a-whole-number': 'Use a whole number of households, for example 25.',
   'below-minimum': 'Capacity cannot be negative.',
+  'above-maximum': 'Use 1000 or fewer.',
+};
+
+const DELIVERY_CAPACITY_MESSAGES: Record<string, string> = {
+  empty: 'Enter how many households each session can deliver to, or 0 for none.',
+  'not-a-whole-number': 'Use a whole number of households, for example 5, or 0 for none.',
+  'below-minimum': 'Delivery capacity cannot be negative.',
   'above-maximum': 'Use 1000 or fewer.',
 };
 
@@ -70,14 +79,20 @@ const amendRecurringSessionSchema = z
     activeFrom: z.string().min(1, 'Choose when this weekly session starts.'),
     activeUntil: z.string(),
     // Both blank clears a previously-set window — see the submit handler.
-    // Required only while `deliveriesAllowed` is on — see `validateDeliveryWindow`.
+    // Required only while the delivery capacity is above nought — see
+    // `validateDeliveryWindow`.
     deliveryWindowStart: z.string().refine((value) => value === '' || isLocalTime(value), {
       message: 'Enter a time as HH:MM.',
     }),
     deliveryWindowEnd: z.string().refine((value) => value === '' || isLocalTime(value), {
       message: 'Enter a time as HH:MM.',
     }),
-    deliveriesAllowed: z.boolean(),
+    deliveryCapacity: z.string().superRefine((value, ctx) => {
+      const parsed = parseWholeNumber(value, DELIVERY_CAPACITY_BOUNDS);
+      if (!parsed.ok) {
+        ctx.addIssue({ code: 'custom', message: DELIVERY_CAPACITY_MESSAGES[parsed.problem] });
+      }
+    }),
   })
   .superRefine((values, ctx) => {
     if (values.activeUntil !== '' && values.activeUntil < values.activeFrom) {
@@ -88,14 +103,31 @@ const amendRecurringSessionSchema = z
       });
     }
 
+    const capacity = parseWholeNumber(values.capacity, CAPACITY_BOUNDS);
+    const deliveryCapacity = parseWholeNumber(values.deliveryCapacity, DELIVERY_CAPACITY_BOUNDS);
+
     const problem = validateDeliveryWindow(
-      values.deliveriesAllowed,
+      deliveryCapacity.ok && deliveryCapacity.value > 0,
       values.deliveryWindowStart,
       values.deliveryWindowEnd,
     );
     if (problem !== null) {
       const path = problem === 'start-required' ? 'deliveryWindowStart' : 'deliveryWindowEnd';
       ctx.addIssue({ code: 'custom', path: [path], message: DELIVERY_WINDOW_MESSAGES[problem] });
+    }
+
+    // Only checked once both numbers parse — a box that already fails on its
+    // own already says why, and stacking a second, cross-field complaint on
+    // top of it is noise for the same box.
+    if (capacity.ok && deliveryCapacity.ok) {
+      const capacityProblem = validateDeliveryCapacity(capacity.value, deliveryCapacity.value);
+      if (capacityProblem !== null) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['deliveryCapacity'],
+          message: 'A session cannot have more delivery places than places.',
+        });
+      }
     }
   });
 
@@ -176,7 +208,8 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
   const windowStartErrorId = useId();
   const windowEndId = useId();
   const windowEndErrorId = useId();
-  const deliveriesAllowedId = useId();
+  const deliveryCapacityId = useId();
+  const deliveryCapacityErrorId = useId();
 
   const {
     control,
@@ -198,17 +231,20 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
       activeUntil: row.activeUntil ?? '',
       deliveryWindowStart: row.deliveryWindowStart ?? '',
       deliveryWindowEnd: row.deliveryWindowEnd ?? '',
-      deliveriesAllowed: row.deliveriesAllowed,
+      deliveryCapacity: String(row.deliveryCapacity),
     },
   });
 
-  const deliveriesAllowed = useWatch({ control, name: 'deliveriesAllowed' });
+  const deliveryCapacityText = useWatch({ control, name: 'deliveryCapacity' });
+  const parsedDeliveryCapacity = parseWholeNumber(deliveryCapacityText, DELIVERY_CAPACITY_BOUNDS);
+  const takesDeliveries = parsedDeliveryCapacity.ok && parsedDeliveryCapacity.value > 0;
 
   const submit = handleSubmit(async (values) => {
     const duration = parseWholeNumber(values.durationMinutes, DURATION_BOUNDS);
     const capacity = parseWholeNumber(values.capacity, CAPACITY_BOUNDS);
+    const deliveryCapacity = parseWholeNumber(values.deliveryCapacity, DELIVERY_CAPACITY_BOUNDS);
     const weekday = Number(values.weekday);
-    if (!duration.ok || !capacity.ok || !isWeekday(weekday)) return;
+    if (!duration.ok || !capacity.ok || !deliveryCapacity.ok || !isWeekday(weekday)) return;
 
     try {
       await amend.mutateAsync({
@@ -222,13 +258,13 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
           capacity: capacity.value,
           activeFrom: values.activeFrom,
           activeUntil: values.activeUntil === '' ? null : values.activeUntil,
-          deliveriesAllowed: values.deliveriesAllowed,
-          // Never a window for occurrences that take no deliveries — off has
-          // to reach the server as explicit `null` on both keys to clear a
-          // previously-set window, since this form saves every field on
+          deliveryCapacity: deliveryCapacity.value,
+          // Never a window for occurrences that take no deliveries — nought
+          // has to reach the server as explicit `null` on both keys to clear
+          // a previously-set window, since this form saves every field on
           // every submit.
-          deliveryWindowStart: values.deliveriesAllowed ? values.deliveryWindowStart : null,
-          deliveryWindowEnd: values.deliveriesAllowed ? values.deliveryWindowEnd : null,
+          deliveryWindowStart: deliveryCapacity.value > 0 ? values.deliveryWindowStart : null,
+          deliveryWindowEnd: deliveryCapacity.value > 0 ? values.deliveryWindowEnd : null,
         },
       });
       await navigate('/sessions/recurring');
@@ -405,35 +441,52 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
         </div>
 
         <div className={styles.field}>
-          <label className={styles.checkboxField} htmlFor={deliveriesAllowedId}>
-            <input
-              {...register('deliveriesAllowed', {
-                onChange: (event: ChangeEvent<HTMLInputElement>) => {
-                  // Off means no window: the pair is cleared the instant the
-                  // box is unticked — see `windowStartId`'s help text.
-                  if (!event.target.checked) {
-                    setValue('deliveryWindowStart', '');
-                    setValue('deliveryWindowEnd', '');
-                  }
-                },
-              })}
-              // Points at the delivery times' guidance as well as its own label: while
-              // this is unticked those inputs are disabled, so they are skipped by the
-              // tab order and by a screen reader's field list, and the sentence saying
-              // what ticking it turns on would otherwise be unreachable from here.
-              aria-describedby={`${windowStartId}-help`}
-              id={deliveriesAllowedId}
-              type="checkbox"
-            />
-            Every occurrence takes deliveries
-          </label>
+          <label htmlFor={deliveryCapacityId}>Delivery capacity</label>
+          <p className={styles.help} id={`${deliveryCapacityId}-help`}>
+            Copied onto every occurrence, and overridable there. Households, not people — and must
+            not exceed the capacity above. Nought means no occurrence takes deliveries.
+          </p>
+          <input
+            {...register('deliveryCapacity', {
+              onChange: (event: ChangeEvent<HTMLInputElement>) => {
+                // Off means no window: the pair is cleared the instant the
+                // typed value parses to nought — see `windowStartId`'s help
+                // text.
+                const parsed = parseWholeNumber(event.target.value, DELIVERY_CAPACITY_BOUNDS);
+                if (parsed.ok && parsed.value === 0) {
+                  setValue('deliveryWindowStart', '');
+                  setValue('deliveryWindowEnd', '');
+                }
+              },
+            })}
+            aria-describedby={
+              [
+                `${deliveryCapacityId}-help`,
+                `${windowStartId}-help`,
+                errors.deliveryCapacity === undefined ? null : deliveryCapacityErrorId,
+              ]
+                .filter((id) => id !== null)
+                .join(' ') || undefined
+            }
+            aria-invalid={errors.deliveryCapacity === undefined ? undefined : true}
+            autoComplete="off"
+            className={styles.input}
+            id={deliveryCapacityId}
+            inputMode="numeric"
+            type="text"
+          />
+          {errors.deliveryCapacity !== undefined && (
+            <p className={styles.fieldError} id={deliveryCapacityErrorId}>
+              {errors.deliveryCapacity.message}
+            </p>
+          )}
         </div>
 
         <div className={styles.field}>
           <label htmlFor={windowStartId}>Delivery window starts</label>
           <p className={styles.help} id={`${windowStartId}-help`}>
-            Copied onto every occurrence. Both times are required while occurrences take deliveries,
-            and are disabled and cleared while they do not.
+            Copied onto every occurrence. Both times are required while the delivery capacity is
+            above nought, and are disabled and cleared while it is not.
           </p>
           <input
             {...register('deliveryWindowStart')}
@@ -447,9 +500,9 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
             }
             aria-invalid={errors.deliveryWindowStart === undefined ? undefined : true}
             className={styles.input}
-            disabled={!deliveriesAllowed}
+            disabled={!takesDeliveries}
             id={windowStartId}
-            required={deliveriesAllowed}
+            required={takesDeliveries}
             type="time"
           />
           {errors.deliveryWindowStart !== undefined && (
@@ -471,9 +524,9 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
               .join(' ')}
             aria-invalid={errors.deliveryWindowEnd === undefined ? undefined : true}
             className={styles.input}
-            disabled={!deliveriesAllowed}
+            disabled={!takesDeliveries}
             id={windowEndId}
-            required={deliveriesAllowed}
+            required={takesDeliveries}
             type="time"
           />
           {errors.deliveryWindowEnd !== undefined && (
@@ -516,7 +569,7 @@ function applyFieldErrors(
       path === 'activeUntil' ||
       path === 'deliveryWindowStart' ||
       path === 'deliveryWindowEnd' ||
-      path === 'deliveriesAllowed'
+      path === 'deliveryCapacity'
     ) {
       setError(path, { message });
     }

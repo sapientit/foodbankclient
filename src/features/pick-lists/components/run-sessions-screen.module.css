@@ -5,8 +5,21 @@
   border: 1px solid #555555;
 }
 
+.printHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.75rem 1rem;
+  align-items: start;
+}
+
 .pickNumber {
   font-size: 2.25rem;
+}
+
+.printName {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
 .delivery {
@@ -24,6 +37,42 @@
 .pickListInformation h2,
 .pickListInformation p {
   margin: 0;
+}
+
+.printLineColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin-block-start: 1rem;
+}
+
+.printLines {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.printLines th,
+.printLines td {
+  padding: 0.25rem 0.35rem;
+  text-align: start;
+  vertical-align: top;
+  border-block-end: 1px solid #555555;
+}
+
+.printLines th {
+  overflow-wrap: anywhere;
+}
+
+.printLines td {
+  inline-size: 2.5rem;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.printLineDescription {
+  display: block;
+  font-size: 0.875em;
+  font-weight: 400;
 }
 
 .pickListInformation p {
@@ -381,7 +430,17 @@
 }
 
 @media print {
+  @page {
+    size: A4 landscape;
+    margin: 1cm;
+  }
+
+  .screenOnly {
+    display: none;
+  }
+
   .printSheet {
+    max-inline-size: none;
     break-after: page;
     border: 0;
     margin: 0;
@@ -392,7 +451,37 @@
     break-after: auto;
   }
 
-  .printSheet ul {
+  .printHeader {
+    gap: 0.35rem 0.75rem;
+  }
+
+  .pickNumber {
+    margin: 0;
+    font-size: 1.5rem;
+  }
+
+  .printName {
+    font-size: 1rem;
+  }
+
+  .delivery,
+  .pickListInformation {
+    margin: 0;
+    padding: 0.4rem;
+  }
+
+  .pickListInformation {
+    margin-block-start: 0.5rem;
+    border-width: 2px;
+  }
+
+  .printLineColumns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-block-start: 0.5rem;
+  }
+
+  .printLines {
     break-inside: avoid;
   }
 }

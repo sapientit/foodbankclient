@@ -27,7 +27,7 @@ const SESSION: Session = {
   location: 'St Mary’s Hall',
   deliveryWindowStart: null,
   deliveryWindowEnd: null,
-  deliveriesAllowed: false,
+  deliveryCapacity: 0,
   capacity: 25,
   booked: 1,
   status: 'planned',

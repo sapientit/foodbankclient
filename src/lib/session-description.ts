@@ -10,34 +10,54 @@
  * rather than in the six screens that used to spell it out separately.
  *
  * **What replaces it is the one thing about a session that changes what a
- * referrer may ask for**: whether it takes deliveries. A session with nobody to
- * drive is collection only, and that is worth a column where the hall's name
- * never was.
+ * referrer may ask for**: whether a delivery can still be had from it.
  *
- * Structural parameter types, not the generated `Session`, so this stays a
- * pure module that both a staff screen and the public form can use — the
- * generated types satisfy them, and `PublicSession` (which has no `capacity`
- * or `booked`) satisfies the narrow ones.
+ * This takes a `DeliveryStanding` rather than a session, because **the two
+ * audiences do not know the same thing** and that difference is load-bearing.
+ * A referrer's `PublicSession` carries `deliveryAvailability` and can tell all
+ * three apart; a staff `Session` carries `deliveryCapacity` — the number an
+ * administrator set — and **no count of deliveries booked against it**, so it
+ * can never say `full`. Mapping at the call site is what keeps that visible
+ * instead of hiding it behind an overload that silently answers wrong.
  *
  * No React, no fetching, tested directly.
  */
 
-/** Shown only when a session takes no deliveries; there is no opposite label, because collection is the ordinary case and saying so on every row is noise. */
+/**
+ * Whether a delivery can be had from this session, as the person reading it can
+ * tell. `open` covers "there is still room" and is the ordinary case.
+ */
+export type DeliveryStanding = 'none' | 'full' | 'open';
+
+/** Nobody is driving this session at all. */
 export const COLLECTION_ONLY = 'Collection Only';
 
-export interface DeliveryCapability {
-  readonly deliveriesAllowed: boolean;
-}
+/**
+ * The session delivers, but its delivery places have all gone.
+ *
+ * Deliberately close to the referral form's `No deliveries available for this
+ * session`, which means the *other* one — see `delivery-window.logic.ts`. Pete
+ * accepted the near-collision on 2026-08-19: a referrer reads one of them in a
+ * dropdown and the other beside a confirmation, never the two together, and
+ * both answer the only question being asked, which is whether this session can
+ * deliver.
+ */
+export const NO_DELIVERIES = 'No deliveries';
 
 /**
- * `Collection Only`, or `null` where the session takes deliveries as usual.
+ * The words a session carries about deliveries, or `null` where it delivers as
+ * usual.
  *
  * `null` rather than `''` so a caller has to decide what an absent label
  * renders as: a dropdown option leaves it out of the sentence entirely, and a
- * column layout leaves the cell empty so the columns still line up.
+ * column layout leaves the cell empty so the columns still line up. Collection
+ * is the ordinary case and saying so on every row would be the noise the
+ * location used to be.
  */
-export function collectionOnlyLabel(session: DeliveryCapability): string | null {
-  return session.deliveriesAllowed ? null : COLLECTION_ONLY;
+export function deliveryLabel(standing: DeliveryStanding): string | null {
+  if (standing === 'none') return COLLECTION_ONLY;
+  if (standing === 'full') return NO_DELIVERIES;
+  return null;
 }
 
 /**
@@ -50,7 +70,20 @@ export function collectionOnlyLabel(session: DeliveryCapability): string | null 
  * sends somebody to a locked hall. Keeping that decision at the call site is
  * what stops this function quietly standardising it away.
  */
-export function describeSessionChoice(when: string, session: DeliveryCapability): string {
-  const label = collectionOnlyLabel(session);
+export function describeSessionChoice(when: string, standing: DeliveryStanding): string {
+  const label = deliveryLabel(standing);
   return label === null ? when : `${when}, ${label}`;
+}
+
+/**
+ * What a staff screen can say from a `Session`.
+ *
+ * **Never `full`, and that is a limit of the contract rather than an
+ * oversight.** `Session` carries `deliveryCapacity` but no count of the
+ * deliveries booked against it, so an administrator's table cannot tell a
+ * session whose places have gone from one with places left. If the charity
+ * wants that column to say so, the server has to send the count first.
+ */
+export function standingFromCapacity(deliveryCapacity: number): DeliveryStanding {
+  return deliveryCapacity === 0 ? 'none' : 'open';
 }

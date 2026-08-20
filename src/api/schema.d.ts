@@ -492,11 +492,14 @@ export interface paths {
          *     end stays 14 days from today, so the list shortens over the afternoon
          *     rather than sliding forward.
          *
-         *     **`POST /api/v1/public/referrals` does not enforce the cutoff.** It is
-         *     applied here and nowhere else, deliberately: a referrer who loaded the
-         *     form at 15:55 can still submit at 16:05, and the referral is taken.
-         *     Do not re-check the clock in the client and do not filter this list
-         *     further — submit whatever session the referrer chose.
+         *     **`POST /api/v1/public/referrals` enforces the same cutoff**, refusing
+         *     a session that has closed for booking with `409`. The clock is read at
+         *     the moment of submission, not when the form was loaded, so a session
+         *     still listed here when the referrer opened the form can still be
+         *     refused if they submit after 16:00 — the same gap that used to let a
+         *     late submission through now closes it instead. Do not re-check the
+         *     clock in the client and do not filter this list further — submit
+         *     whatever session the referrer chose and let the server decide.
          *
          *     Deliberately narrow: no capacity, no remaining places, no status.
          *     Anything listed can be referred to.
@@ -692,21 +695,27 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
                 };
-                /** @description The session is full, cancelled, or already confirmed */
+                /** @description The session is full, cancelled, or already confirmed; the session has closed for booking (16:00 `Europe/London` the day before); or it is a delivery and the session's delivery places are full. Five distinct causes share this status; read `error.message` (and `error.details` where present) to tell them apart — do not match on status code alone. */
                 409: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
                 };
                 /** @description The chosen reason is no longer offered */
                 422: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
                 };
                 429: components["responses"]["RateLimited"];
             };
@@ -850,11 +859,8 @@ export interface paths {
                         deliveryWindowStart?: components["schemas"]["LocalTime"];
                         /** @description End of that window. **Both ends are sent together or neither is** — a half-set window is a `400`, and so is an end at or before the start. Absent on both means the session delivers across its own hours. */
                         deliveryWindowEnd?: components["schemas"]["LocalTime"];
-                        /**
-                         * @description False means this session has nobody to drive. **Not enforced server-side** — a delivery referral to such a session is still accepted and an administrator sorts it out at review. See `Session.deliveriesAllowed`.
-                         * @default true
-                         */
-                        deliveriesAllowed?: boolean;
+                        /** @description How many of `capacity`'s places may be deliveries. Zero means this session takes no deliveries at all. Must not exceed `capacity` — a `400` otherwise. See `Session.deliveryCapacity`. */
+                        deliveryCapacity: number;
                     };
                 };
             };
@@ -947,7 +953,8 @@ export interface paths {
                          *     Explicit `null` on **both** clears the window, putting deliveries back across the session's own hours.
                          */
                         deliveryWindowEnd?: components["schemas"]["LocalTime"] | null;
-                        deliveriesAllowed?: boolean;
+                        /** @description Must not exceed the resulting `capacity` — a `422` otherwise, checked against whichever of the two this patch does not touch. */
+                        deliveryCapacity?: number;
                     };
                 };
             };
@@ -1157,8 +1164,8 @@ export interface paths {
                         deliveryWindowStart?: components["schemas"]["LocalTime"];
                         /** @description Copied onto every occurrence. **Both ends together or neither** — a half-set window is a `400`, and so is an end at or before the start. Absent on both means every occurrence delivers across its own hours. */
                         deliveryWindowEnd?: components["schemas"]["LocalTime"];
-                        /** @default true */
-                        deliveriesAllowed?: boolean;
+                        /** @description Copied onto every occurrence. How many of `capacity`'s places may be deliveries; zero means no occurrence takes them. Must not exceed `capacity` — a `400` otherwise. */
+                        deliveryCapacity: number;
                         /** @default 25 */
                         capacity?: number;
                         /** Format: date */
@@ -1227,7 +1234,8 @@ export interface paths {
                         deliveryWindowStart?: components["schemas"]["LocalTime"] | null;
                         /** @description **The pair moves together.** One key without the other is a `400`, as is an end at or before the start. Explicit `null` on **both** puts deliveries back across the session's own hours. */
                         deliveryWindowEnd?: components["schemas"]["LocalTime"] | null;
-                        deliveriesAllowed?: boolean;
+                        /** @description Must not exceed the resulting `capacity` — a `422` otherwise, checked against whichever of the two this patch does not touch. */
+                        deliveryCapacity?: number;
                         capacity?: number;
                         /** Format: date */
                         activeFrom?: string;
@@ -1287,6 +1295,15 @@ export interface paths {
          *     because they are not coming, and **deliveries are left off** because
          *     nobody walks in for one, so a listener will never have that
          *     conversation.
+         *
+         *     **Every household on the sheet carries a `pickNumber`.** This used to
+         *     be available whether or not a pick list had been made — the listener
+         *     conversation was independent of picking — and that is no longer so:
+         *     the sheet and the picking sheets are carried round the same hall, and
+         *     a listener has to be able to match a household between the two. A
+         *     household referred since the pick list was made, or before one has
+         *     ever been generated, has no parcel and so no number, and the whole
+         *     sheet is refused rather than printed with gaps in it.
          */
         get: {
             parameters: {
@@ -1318,6 +1335,21 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description `NEW_CLIENTS_ASSIGNED` — one or more households coming to the session have not been picked for yet, so they have no pick number to print. `details.missingParcels` names the referrals; generate or reconcile the session's pick list first. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"] & {
+                            error?: {
+                                details?: {
+                                    missingParcels?: string[];
+                                };
+                            };
+                        };
+                    };
                 };
             };
         };
@@ -4878,7 +4910,7 @@ export interface components {
         Error: {
             error: {
                 /** @enum {string} */
-                code: "BAD_REQUEST" | "VALIDATION_FAILED" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "UNPROCESSABLE" | "INTERNAL_ERROR";
+                code: "BAD_REQUEST" | "VALIDATION_FAILED" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "UNPROCESSABLE" | "NEW_CLIENTS_ASSIGNED" | "INTERNAL_ERROR";
                 /** @description Safe to show a user. Never contains personal data. */
                 message: string;
                 /** @description Structured context, such as which fields failed. */
@@ -4941,10 +4973,11 @@ export interface components {
              */
             deliveryWindowEnd: components["schemas"]["LocalTime"];
             /**
-             * @description False means this session takes no deliveries — nobody is driving.
-             *     **Neither the form nor the server refuses such a delivery.** The form states that no deliveries are available for the session in place of the window, still offers delivery and still accepts the submission; an administrator sorts it out at review. Settled by Pete on 2026-08-16 — a delivery option that silently disappears tells the referrer nothing about why. Do not read this as a gap the form is covering; it is not.
+             * @description Whether a delivery referral can still be made for this session. `not_offered` means nobody is driving (`deliveryCapacity` is zero); `full` means every delivery place is taken but collection may still have room. Never the raw capacity or booked count, which would leak operational detail.
+             *     **`POST /public/referrals` refuses a delivery outright once this reads anything other than `available`** — a `409`, the same hard stop as a session at its overall capacity. A collection is never affected, however full delivery is. Settled by Pete on 2026-08-19, reversing the earlier position that only an administrator sorted this out at review.
+             * @enum {string}
              */
-            deliveriesAllowed: boolean;
+            deliveryAvailability: "not_offered" | "full" | "available";
         };
         Session: {
             /** Format: uuid */
@@ -4964,10 +4997,10 @@ export interface components {
              */
             deliveryWindowEnd: string | null;
             /**
-             * @description False means this session takes no deliveries — nobody is driving.
-             *     **The server does not enforce it, and nor does the referral form.** A referral with `isDelivery: true` to such a session is still accepted at both ends; an administrator sees it at review and sorts it out. Settled by Pete on 2026-08-16; see `STATUS.md`. This is not a gap the form is covering.
+             * @description How many of `capacity`'s places may be deliveries. Zero means this session takes no deliveries at all — nobody is driving.
+             *     **`POST /public/referrals` refuses a delivery outright once this is reached** — a `409`, the same hard stop as a session at its overall capacity. A collection is never affected by this figure, however full it is. This check applies to public submission only; an admin move or copy is unaffected by delivery capacity, same as before.
              */
-            deliveriesAllowed: boolean;
+            deliveryCapacity: number;
             /** @description Counts households, not people. A session of capacity 25 takes 25 referrals however large the households are. */
             capacity: number;
             /**
@@ -4996,8 +5029,8 @@ export interface components {
             deliveryWindowStart: string | null;
             /** @description Copied onto every occurrence, and overridable there. Both null means each occurrence delivers across its own hours. */
             deliveryWindowEnd: string | null;
-            /** @description Copied onto every occurrence. */
-            deliveriesAllowed: boolean;
+            /** @description Copied onto every occurrence, and overridable there. */
+            deliveryCapacity: number;
             capacity: number;
             /** Format: date */
             activeFrom: string;
@@ -5410,6 +5443,8 @@ export interface components {
         ListenerSheetHousehold: {
             /** Format: uuid */
             referralId: string;
+            /** @description So the sheet and the picking sheets carried round the same hall can be matched against each other. Always present — a household with no parcel yet is never on this list; see `409` on `GET /sessions/{sessionId}/listener-sheet`. */
+            pickNumber: number;
             refereeFirstName: string | null;
             refereeSurname: string | null;
             /** @description The reason's **label**, not its id. It **survives a purge** — the reason is outside the PII block so reporting still works once nobody is identifiable. A reason the charity has since retired still appears, because the referral was made under it. */
@@ -5523,6 +5558,8 @@ export interface components {
             refereePostcode: string | null;
             /** @description Here because the follow-up is a phone call. Free text as the referrer typed it — it is **not** normalised on the way in, so format it for display rather than assuming a shape. Null when the referral gave no number. */
             refereePhone: string | null;
+            /** @description Always `true` on this list — the repository filters on it — but a real column read off the referral rather than an implied constant, because the client form shows this question as a fixed field everywhere else it appears. Survives the PII purge, unlike the other fields on this row. */
+            needsFuelHelp: boolean;
             /** @description The dynamic answers, whole. Extract the pre-payment-meter and permission-to-ring answers here; the server does not know which keys they are and will not guess. */
             answers: {
                 [key: string]: unknown;

@@ -1,10 +1,15 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import foodbankLogo from '../../../assets/foodbank-logo.webp';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
+import { ApiError, describeApiError } from '../../../lib/errors';
 import { useDebouncedValue } from '../../../lib/use-debounced-value';
-import { describeDeliveryWindow } from '../delivery-window.logic';
+import {
+  deliveryWindowConfirmation,
+  describeDeliveryWindow,
+  refusedForDeliveryPlaces,
+} from '../delivery-window.logic';
 import {
   CHECK_DEBOUNCE_MS,
   normaliseEmail,
@@ -75,6 +80,14 @@ import styles from './public-referral-screen.module.css';
 const REFERRER_EMAIL_KEY = keyFieldKey(referralFormDefinition, 'referrerEmail');
 const REFERRER_ORGANISATION_KEY = keyFieldKey(referralFormDefinition, 'referrerOrganisation');
 const SESSION_KEY = keyFieldKey(referralFormDefinition, 'sessionId');
+const REASON_KEY = keyFieldKey(referralFormDefinition, 'reasonId');
+
+/**
+ * The tick a delivery refusal takes back, or `null` where this questionnaire
+ * asks for no such confirmation. Read from the config once, like the key
+ * fields above, because the charity's form is what names its own questions.
+ */
+const WINDOW_CONFIRMATION = deliveryWindowConfirmation(referralFormDefinition);
 
 export function PublicReferralScreen() {
   const sessions = usePublicSessions();
@@ -91,11 +104,53 @@ export function PublicReferralScreen() {
   // it is what separates "we do not recognise you" from a verdict on half a
   // domain, and `change` withdraws it the moment they edit the address again.
   const [addressLeft, setAddressLeft] = useState(false);
+  // Whether a submission may have landed without us hearing so. See `sending`.
+  const [sendUncertain, setSendUncertain] = useState(false);
+
+  /**
+   * The lock on the one unauthenticated write in the system, and the one whose
+   * duplicate books a household onto a session twice and takes two places off
+   * it that another household needed.
+   *
+   * **A ref rather than `disabled`, per `.claude/rules/data-fetching.md`.**
+   * `disabled` lands on the next render and a real double tap gets both clicks
+   * in first; `aria-disabled` lets the second click reach this handler, where
+   * the ref refuses it. It also has to be independent of `submit.isPending`,
+   * which is observer state and goes back to idle if the mutation is reset —
+   * as it is on every page change, so that a refusal does not follow the
+   * referrer forward.
+   *
+   * **Released only on a `4xx`, where the food bank has said it wrote
+   * nothing.** A network failure or a `5xx` may well have written, and
+   * re-arming the button after one is exactly how the duplicate gets made.
+   */
+  const sending = useRef(false);
 
   const summaryId = useId();
+  const uncertainNoticeId = useId();
+
+  /*
+   * The page the referrer is actually on, readable from an `await` that
+   * started on another one. `recoverOnPageOne` reads it after its refetch, and
+   * a stale capture there would be the difference between a correct form and a
+   * dead end — see the guard at its use.
+   *
+   * Written from an effect rather than during render, which a lint rule
+   * forbids: this is only ever read from a continuation that resumes long
+   * after paint, so the effect's timing costs it nothing.
+   */
+  const pageRef = useRef(pageIndex);
+  useEffect(() => {
+    pageRef.current = pageIndex;
+  }, [pageIndex]);
 
   const page = referralFormDefinition.pages[pageIndex];
   const isLastPage = pageIndex === referralFormDefinition.pages.length - 1;
+  // Only a 4xx proves the food bank wrote nothing. A timeout or 5xx keeps the
+  // separate uncertain-outcome warning below, because a second referral could
+  // book the household twice.
+  const submissionRefused =
+    submit.error instanceof ApiError && submit.error.status >= 400 && submit.error.status < 500;
 
   const lookups: QuestionLookups = useMemo(
     () => ({
@@ -243,20 +298,126 @@ export function PublicReferralScreen() {
     return false;
   };
 
-  const goNext = () => {
-    if (!validatePage()) return;
-    setPageIndex((index) => index + 1);
+  /**
+   * A refusal belongs to the page it sent the referrer to, and to nothing
+   * after it. Without this, "that session is full" follows them onto the page
+   * about pet food and reads as a form that has broken — the same reasoning as
+   * the field errors cleared beside it, applied to the one notice that
+   * survives a page change.
+   */
+  const leavePage = (to: (index: number) => number) => {
+    submit.reset();
+    setPageIndex(to);
     // A wizard that changes its whole content without moving focus leaves a
     // screen-reader user on a button that no longer exists.
     document.getElementById(summaryId)?.focus();
+  };
+
+  const goNext = () => {
+    if (!validatePage()) return;
+    leavePage((index) => index + 1);
   };
 
   const goBack = () => {
     // Deliberately not validated: going back to fix something must never be
     // blocked by the thing you are going back to fix.
     setErrors({});
-    setPageIndex((index) => Math.max(0, index - 1));
+    leavePage((index) => Math.max(0, index - 1));
+  };
+
+  /**
+   * Puts a referrer back where they can act on a refusal, and refreshes the
+   * list that produced it.
+   *
+   * **The food bank refuses six things outright.** Five are `409`s — the
+   * session at its capacity, cancelled, or already signed off; the 16:00
+   * cut-off the day before having passed; and a delivery to a session whose
+   * delivery places are gone, which includes one that takes no deliveries at
+   * all. The sixth is a `422`, a cause of crisis no longer offered. Every one
+   * of them is answered on page one, and every one is a race rather than a
+   * mistake: what the referrer chose was true of the list when they chose it.
+   * So this is a recovery and not an error screen — nothing they typed is
+   * thrown away, and they arrive at the one page holding the answers to
+   * change.
+   *
+   * **Nothing here names the cause, deliberately.** All five `409`s carry
+   * `code: "CONFLICT"`; `openapi.yaml` documents each one's sentence and puts
+   * `details` on two of them, but the only thing separating the other three is
+   * free text, and a client that matched on it would break silently the day
+   * the food bank reworded a message. So the server's own sentence is the
+   * whole of what is said about what went wrong — the submission failure notice
+   * renders `409` and `422` verbatim — and this adds no wording of its own. One cause *is*
+   * read, and structurally: see `WINDOW_CONFIRMATION` below.
+   *
+   * **Refetching is what stops the second refusal.** A session that has just
+   * filled is gone from the list by the time they look, so the same doomed
+   * choice cannot be made twice. And where the chosen one has gone the answer
+   * is cleared with it: the question is a controlled `<select>`, so an id no
+   * longer among the options renders as an empty box that the form still holds
+   * as answered — the referrer would see nothing wrong, press send, and be
+   * refused again for a session they can no longer see.
+   */
+  const recoverOnPageOne = async (error: ApiError) => {
+    const { status } = error;
+    setPageIndex(0);
+    // Page seven's failures are not page one's. Anything still showing here
+    // belongs to a page they are no longer on.
+    setErrors({});
+    // The same move `goNext` and `goBack` make: a wizard that changes its
+    // whole content without moving focus leaves a screen-reader user on a
+    // button that no longer exists. The refusal itself is announced by
+    // the submission failure notice's `role="alert"`, independently of where
+    // focus lands.
     document.getElementById(summaryId)?.focus();
+
+    /*
+     * **The one confirmation a refusal can invalidate.**
+     * `screenDetails.md`: a delivery refusal takes back the tick saying the
+     * household will be at home for the delivery time, because the session
+     * they pick next may quote a different window — and a referrer must not be
+     * left having visibly confirmed a line they were never shown. The other
+     * tick, that the household meets the criteria for delivery, is a fact
+     * about the household and survives untouched.
+     *
+     * **Only this refusal, and only read from `details`.** A full, cancelled or
+     * confirmed session, or one whose cutoff has passed, leaves the window
+     * exactly as it was, so clearing the tick there would make somebody
+     * re-answer something that never changed.
+     */
+    if (WINDOW_CONFIRMATION !== null && refusedForDeliveryPlaces(error.details)) {
+      const { key: confirmationKey, value } = WINDOW_CONFIRMATION;
+      setAnswers((current) => {
+        const ticked = current[confirmationKey];
+        if (!Array.isArray(ticked) || !ticked.includes(value)) return current;
+        return { ...current, [confirmationKey]: ticked.filter((tick) => tick !== value) };
+      });
+    }
+
+    const stale = status === 422 ? await reasons.refetch() : await sessions.refetch();
+    const options = stale.data;
+    const key = status === 422 ? REASON_KEY : SESSION_KEY;
+    if (options === undefined || key === undefined) return;
+
+    /*
+     * **Only while they are still on page one.** The refetch is a round trip,
+     * and on a hall's wifi it is a slow one — long enough for somebody to press
+     * Next through the pages they have already filled in and reach Send again.
+     * Clearing the answer under a page they have moved past would punch a hole
+     * in a page the form has already validated and will not validate again: it
+     * validates a page at a time, so nothing downstream catches it, and the
+     * submission fails as a *missing field* — which the screen reports as a
+     * fault at our end, and never clears. Leaving the stale id alone instead
+     * costs them a second refusal, which recovers exactly like the first.
+     */
+    if (pageRef.current !== 0) return;
+
+    setAnswers((current) => {
+      const chosen = current[key];
+      if (typeof chosen !== 'string' || options.some((option) => option.id === chosen)) {
+        return current;
+      }
+      return { ...current, [key]: '' };
+    });
   };
 
   const send = async () => {
@@ -272,13 +433,29 @@ export function PublicReferralScreen() {
       return;
     }
 
+    if (sending.current) return;
+    sending.current = true;
+
     try {
       const result = await submit.mutateAsync(built.body);
       setReceipt(result);
-    } catch {
-      // Rendered by `ErrorNotice` below. Never retried automatically: a
-      // referral submission is not idempotent, and a retry that succeeds the
-      // second time may have succeeded the first.
+    } catch (error) {
+      // Rendered by the dedicated failure notice below. Never retried
+      // automatically: a referral submission is not idempotent, and a retry
+      // that succeeds the second time may have succeeded the first.
+      const refused = error instanceof ApiError && error.status >= 400 && error.status < 500;
+      if (refused) {
+        sending.current = false;
+      } else {
+        // The lock stays on, because the referral may well have landed. Say so
+        // rather than leaving a button that looks live and swallows the click,
+        // which is indistinguishable from a broken form.
+        setSendUncertain(true);
+      }
+
+      if (error instanceof ApiError && (error.status === 409 || error.status === 422)) {
+        await recoverOnPageOne(error);
+      }
     }
   };
 
@@ -303,7 +480,15 @@ export function PublicReferralScreen() {
         />
       )}
 
-      {submit.error !== null && <ErrorNotice error={submit.error} />}
+      {submissionRefused && <SubmissionFailureNotice error={submit.error} />}
+
+      {sendUncertain && (
+        <p className={styles.finalNotice} id={uncertainNoticeId} role="alert">
+          This referral may or may not have reached the food bank.{' '}
+          <strong>Do not send it again</strong> — that could book the household in twice and take
+          two places on the session. Please phone the food bank to check.
+        </p>
+      )}
 
       {misconfigured.length > 0 && (
         <p className={styles.finalNotice} role="alert">
@@ -356,12 +541,39 @@ export function PublicReferralScreen() {
               Back
             </button>
           )}
-          <button aria-disabled={submit.isPending} className={styles.primary} type="submit">
+          <button
+            aria-describedby={sendUncertain ? uncertainNoticeId : undefined}
+            aria-disabled={submit.isPending || sendUncertain}
+            className={styles.primary}
+            type="submit"
+          >
             {isLastPage ? 'Send this referral' : 'Next'}
           </button>
         </div>
       </form>
     </main>
+  );
+}
+
+/**
+ * A submission failure must interrupt somebody who has just completed seven
+ * pages. Its reason is deliberately the server's sentence where available;
+ * this client cannot safely infer why a session refusal happened.
+ */
+function SubmissionFailureNotice({ error }: { error: unknown }) {
+  const reason =
+    error instanceof ApiError
+      ? describeApiError(error)
+      : 'We could not reach the food bank. Check your connection and try again.';
+
+  return (
+    <section className={styles.submissionFailure} role="alert">
+      <h2 className={styles.submissionFailureHeading}>FAILED!!</h2>
+      <p className={styles.submissionFailureSummary}>
+        This client could not be referred for the selected session
+      </p>
+      <p className={styles.submissionFailureReason}>Reason: {reason}</p>
+    </section>
   );
 }
 

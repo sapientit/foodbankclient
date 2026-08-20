@@ -45,7 +45,7 @@ const TUESDAY: PublicSession = {
   // mistake these tests exist to catch.
   deliveryWindowStart: '13:00',
   deliveryWindowEnd: '15:00',
-  deliveriesAllowed: true,
+  deliveryAvailability: 'available',
 };
 
 const THURSDAY: PublicSession = {
@@ -57,7 +57,24 @@ const THURSDAY: PublicSession = {
   location: 'The Community Centre',
   deliveryWindowStart: '14:30',
   deliveryWindowEnd: '16:00',
-  deliveriesAllowed: false,
+  deliveryAvailability: 'not_offered',
+};
+
+/**
+ * Delivers, but every delivery place has gone. The third of the three
+ * positions, and the one that only exists because the food bank now refuses a
+ * delivery to it.
+ */
+const FRIDAY: PublicSession = {
+  id: 's-fri',
+  sessionDate: '2026-08-07',
+  startTime: '09:00',
+  startsAtUtc: '2026-08-07T08:00:00.000Z',
+  durationMinutes: 120,
+  location: 'St Mary’s Hall',
+  deliveryWindowStart: '13:00',
+  deliveryWindowEnd: '15:00',
+  deliveryAvailability: 'full',
 };
 
 const HARDSHIP: ReferralReason = {
@@ -631,13 +648,59 @@ describe('the questions themselves', () => {
       'Delivery Time: No deliveries available for this session',
     );
 
-    // Settled on 2026-08-16: this does NOT block the referral. The referrer is
-    // left confirming, in as many words, that the household will be at home for
-    // "No deliveries available for this session" — which an administrator picks
-    // up at review. Blocking it would cost a validation path for one case.
+    // **The form states the position and does not police it** — Pete,
+    // 2026-08-19. The food bank itself now refuses this delivery, with a `409`
+    // on submission, but the form does not pre-empt that: a referrer who has
+    // read the line above has already been told, and the only case a check
+    // could catch is the race no client-side check can win.
     for (const box of screen.getAllByRole('checkbox', { name: /^The client/ })) {
       await user.click(box);
     }
+    await user.click(next());
+    expect(await screen.findByRole('heading', { name: 'Food Preference' })).toBeInTheDocument();
+  });
+
+  it('says a session has no delivery places left, which is not the same as having no driver', async () => {
+    // The third position. `not_offered` is a session with nobody driving;
+    // this one drives, and its places have gone — so a referrer reading it may
+    // find room on the next session rather than none at all.
+    server.use(http.get(SESSIONS, () => HttpResponse.json({ sessions: [TUESDAY, FRIDAY] })));
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await user.selectOptions(screen.getByRole('combobox', { name: /Session date/ }), 's-fri');
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
+      'Delivery Requested',
+    );
+
+    expect(screen.getByText('Delivery Time:').parentElement).toHaveTextContent(
+      'Delivery Time: No delivery slots available for this session',
+    );
+  });
+
+  it('still lets a delivery be asked for on a session whose delivery places have gone', async () => {
+    /*
+     * The regression test for Pete's decision of 2026-08-19, and it protects an
+     * *absence*: the form deliberately does not check what it has just told the
+     * referrer. Anybody adding a pre-emptive block here — which reads like an
+     * improvement — breaks this, which is the point of writing it down.
+     */
+    server.use(http.get(SESSIONS, () => HttpResponse.json({ sessions: [TUESDAY, FRIDAY] })));
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await user.selectOptions(screen.getByRole('combobox', { name: /Session date/ }), 's-fri');
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
+      'Delivery Requested',
+    );
+    for (const box of screen.getAllByRole('checkbox', { name: /^The client/ })) {
+      await user.click(box);
+    }
+
     await user.click(next());
     expect(await screen.findByRole('heading', { name: 'Food Preference' })).toBeInTheDocument();
   });
@@ -734,10 +797,22 @@ describe('submitting', () => {
   /** Every page filled and sent. Long, because the thing being proved is the whole journey. */
   async function submitTheForm(user: ReturnType<typeof userEvent.setup>) {
     await fillPageOne(user);
+    await sendFromPageOne(user);
+  }
+
+  /**
+   * Pages two to seven, and Send. Split from `submitTheForm` so a test can fill
+   * page one its own way — asking for a delivery, say — and still make the
+   * same journey through the rest.
+   */
+  async function sendFromPageOne(user: ReturnType<typeof userEvent.setup>) {
     await user.click(next());
 
     await screen.findByText('Page 2 of 7');
-    await user.click(screen.getByLabelText('Oven'));
+    // Only if it needs it — this walk is made twice by tests that are refused
+    // and send again, and a second click would untick what the first set.
+    const oven = screen.getByLabelText<HTMLInputElement>('Oven');
+    if (!oven.checked) await user.click(oven);
     await user.click(next());
 
     await screen.findByText('Page 3 of 7');
@@ -874,13 +949,436 @@ describe('submitting', () => {
     expect(screen.getByText(/Nobody should turn up to a session until/)).toBeInTheDocument();
   });
 
+  /**
+   * A refusal from the food bank, as one of the five it makes: the session
+   * full, cancelled or already signed off, the 16:00 cutoff passed, or the
+   * session's delivery places gone. All five arrive as a `409` carrying
+   * `code: "CONFLICT"`, two of them with `details` and the rest separated by
+   * free text alone — so these tests assert the *recovery*, which is identical
+   * for every one of them, and never that the form named a cause it must not
+   * try to identify.
+   *
+   * **The sentences are the food bank's own**, copied from `openapi.yaml`'s
+   * examples for this endpoint rather than invented here. A fixture that
+   * paraphrased them would prove the screen renders *something*, not that it
+   * renders what a referrer actually reads.
+   */
+  function refuses(message: string) {
+    return http.post(SUBMIT, () =>
+      HttpResponse.json({ error: { code: 'CONFLICT', message, requestId: 'r1' } }, { status: 409 }),
+    );
+  }
+
+  /** A delivery refusal, which is the only one that carries `deliveryCapacity`. */
+  function refusesDelivery() {
+    return http.post(SUBMIT, () =>
+      HttpResponse.json(
+        {
+          error: {
+            code: 'CONFLICT',
+            message: 'Delivery places for that session are full',
+            details: { deliveryCapacity: 8, booked: 8 },
+            requestId: 'r1',
+          },
+        },
+        { status: 409 },
+      ),
+    );
+  }
+
+  /** Page one, filled in and asking for a delivery, with both confirmations ticked. */
+  async function askForDelivery(user: ReturnType<typeof userEvent.setup>) {
+    await fillPageOne(user);
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
+      'Delivery Requested',
+    );
+    for (const box of screen.getAllByRole('checkbox', { name: /^The client/ })) {
+      await user.click(box);
+    }
+  }
+
+  it('takes back the confirmation about the delivery window when the delivery is refused', async () => {
+    /*
+     * `screenDetails.md`: the session they pick next may quote a different
+     * window, and a referrer must not be left having visibly confirmed a line
+     * they were never shown.
+     */
+    server.use(refusesDelivery());
+    renderRefer();
+    const user = userEvent.setup();
+
+    await askForDelivery(user);
+    await sendFromPageOne(user);
+    await screen.findByText('Page 1 of 7');
+
+    expect(
+      screen.getByRole('checkbox', { name: /at home for the delivery time/ }),
+    ).not.toBeChecked();
+  });
+
+  it('leaves the confirmation about the household alone, which no session can make wrong', async () => {
+    // The first tick is a fact about the household — that they meet the
+    // criteria for delivery — true whichever session they are on. Making a
+    // referrer re-answer it is how a form teaches people to tick without
+    // reading.
+    server.use(refusesDelivery());
+    renderRefer();
+    const user = userEvent.setup();
+
+    await askForDelivery(user);
+    await sendFromPageOne(user);
+    await screen.findByText('Page 1 of 7');
+
+    expect(screen.getByRole('checkbox', { name: /meets the criteria/ })).toBeChecked();
+  });
+
+  it('holds the referrer on page one until they confirm the new window', async () => {
+    // Half a confirmation is not a confirmation: the question takes both or
+    // the form does not move on, so the reset is what makes them look at the
+    // delivery line again rather than a courtesy they can click past.
+    server.use(refusesDelivery());
+    renderRefer();
+    const user = userEvent.setup();
+
+    await askForDelivery(user);
+    await sendFromPageOne(user);
+    await screen.findByText('Page 1 of 7');
+
+    await user.click(next());
+    expect(screen.getByText('Page 1 of 7')).toBeInTheDocument();
+  });
+
+  it('leaves both confirmations alone when the refusal was not about the delivery', async () => {
+    // A full, cancelled or confirmed session, or one past its cutoff, delivers
+    // on exactly the hours it always did. Clearing the tick there would make
+    // somebody re-answer something that never changed.
+    server.use(refuses('That session is full'));
+    renderRefer();
+    const user = userEvent.setup();
+
+    await askForDelivery(user);
+    await sendFromPageOne(user);
+    await screen.findByText('Page 1 of 7');
+
+    for (const box of screen.getAllByRole('checkbox', { name: /^The client/ })) {
+      expect(box).toBeChecked();
+    }
+  });
+
+  it('puts a refused referrer back on page one, where the answers to change are', async () => {
+    server.use(refuses('Delivery places for that session are full'));
+    renderRefer();
+
+    await submitTheForm(userEvent.setup());
+
+    // Page one, not page seven, and not a dead end.
+    expect(await screen.findByText('Page 1 of 7')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Referrer and client details' }),
+    ).toBeInTheDocument();
+
+    // The food bank's own sentence, and nothing this form invented about a
+    // cause it cannot tell apart from the other two.
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Delivery places for that session are full',
+    );
+  });
+
+  it('keeps every answer a refused referrer typed, on page one and beyond', async () => {
+    // The failure this prevents: somebody who has filled in seven pages
+    // believing they have lost the lot. The refusal is a race, not a mistake.
+    server.use(refuses('That session is full'));
+    renderRefer();
+    const user = userEvent.setup();
+
+    await submitTheForm(user);
+    await screen.findByText('Page 1 of 7');
+
+    expect(screen.getByLabelText(/Client's surname/)).toHaveValue('Rowe');
+    expect(screen.getByLabelText(/Referrer's name/)).toHaveValue('Sam Referrer');
+
+    // And the later pages too, not merely the one they were returned to.
+    await user.click(next());
+    await screen.findByText('Page 2 of 7');
+    expect(screen.getByLabelText('Oven')).toBeChecked();
+  });
+
+  it('does not carry the refusal onto the pages after the one it sent them to', async () => {
+    // "That session is full" on the page about pet food reads as a form that
+    // has broken. The notice belongs to page one, where the answer it is about
+    // is given, and to nothing after it.
+    server.use(refuses('That session is full'));
+    renderRefer();
+    const user = userEvent.setup();
+
+    await submitTheForm(user);
+    await screen.findByText('Page 1 of 7');
+    expect(screen.getByRole('alert')).toHaveTextContent('That session is full');
+
+    await user.click(next());
+
+    await screen.findByText('Page 2 of 7');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('fetches the sessions again, so the same refused choice cannot be sent twice', async () => {
+    const lists = vi.fn();
+    server.use(
+      http.get(SESSIONS, () => {
+        lists();
+        return HttpResponse.json({ sessions: [TUESDAY, THURSDAY] });
+      }),
+      refuses('That session is full'),
+    );
+    renderRefer();
+
+    await submitTheForm(userEvent.setup());
+    await screen.findByText('Page 1 of 7');
+
+    // Once on load, once on the refusal. A session that has just filled is
+    // gone from the list by the time the referrer looks at it.
+    await waitFor(() => {
+      expect(lists).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('clears the chosen session when the refusal has taken it off the list', async () => {
+    /*
+     * The trap this exists for: the session question is a controlled `<select>`
+     * with an explicit empty option, so an id no longer among the options
+     * renders as an *empty box the form still holds as answered*. The referrer
+     * would see nothing wrong, press send, and be refused a second time for a
+     * session they can no longer see.
+     */
+    let listed = [TUESDAY, THURSDAY];
+    server.use(
+      http.get(SESSIONS, () => HttpResponse.json({ sessions: listed })),
+      http.post(SUBMIT, () => {
+        listed = [THURSDAY];
+        return HttpResponse.json(
+          { error: { code: 'CONFLICT', message: 'That session is full', requestId: 'r1' } },
+          { status: 409 },
+        );
+      }),
+    );
+    renderRefer();
+
+    await submitTheForm(userEvent.setup());
+    await screen.findByText('Page 1 of 7');
+
+    const chosen = screen.getByRole('combobox', { name: /Session date/ });
+    await waitFor(() => {
+      expect(chosen).toHaveValue('');
+    });
+    // Gone as an option too, so it cannot simply be picked again.
+    expect(within(chosen).queryByRole('option', { name: /4 Aug 2026/ })).toBeNull();
+  });
+
+  it('never clears an answer under a page the referrer has already moved past', async () => {
+    /*
+     * The refetch is a round trip, and somebody on a hall's wifi can press Next
+     * through the pages they have already filled in before it lands. Clearing
+     * the session then would punch a hole in a page the form validated a page
+     * at a time and will not validate again — the submission would fail as a
+     * *missing field*, which the screen reports as "a fault at our end" and
+     * never clears. A second refusal is recoverable; that dead end is not.
+     *
+     * The **second** GET is the one held open: the first has to arrive for the
+     * form to render at all, and holding both would prove nothing.
+     */
+    const recoveryFetch = deferred();
+    let listed = [TUESDAY, THURSDAY];
+    let lists = 0;
+    server.use(
+      http.get(SESSIONS, async () => {
+        lists += 1;
+        if (lists > 1) await recoveryFetch.promise;
+        return HttpResponse.json({ sessions: listed });
+      }),
+      http.post(SUBMIT, () => {
+        listed = [THURSDAY];
+        return HttpResponse.json(
+          { error: { code: 'CONFLICT', message: 'That session is full', requestId: 'r1' } },
+          { status: 409 },
+        );
+      }),
+    );
+    renderRefer();
+    const user = userEvent.setup();
+
+    await submitTheForm(user);
+    await screen.findByText('Page 1 of 7');
+
+    // Forward again while the recovery's refetch is still in flight.
+    await user.click(next());
+    await screen.findByText('Page 2 of 7');
+
+    // Only now does the list come back, saying their session has gone.
+    recoveryFetch.resolve();
+    await settle();
+
+    /*
+     * The answer is left alone, so no hole opens in the page behind them.
+     * Asserted by walking page one again rather than by reading the box: the
+     * box renders empty either way, the chosen session having left the options,
+     * and that is precisely the trap. What separates the two is whether page
+     * one still validates — a cleared answer would hold them there.
+     */
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByText('Page 1 of 7');
+    await user.click(next());
+    expect(await screen.findByText('Page 2 of 7')).toBeInTheDocument();
+    expect(screen.queryByText(/fault at our end/)).toBeNull();
+  });
+
+  it('leaves the chosen session alone when the refusal was not about it', async () => {
+    // A cutoff refusal takes nothing off the list. Clearing the answer anyway
+    // would make a referrer re-pick the session they had already chosen
+    // correctly, for no reason they could see.
+    server.use(refuses('Referrals for that session have closed'));
+    renderRefer();
+
+    await submitTheForm(userEvent.setup());
+    await screen.findByText('Page 1 of 7');
+
+    await settle();
+    expect(screen.getByRole('combobox', { name: /Session date/ })).toHaveValue('s-tue');
+  });
+
+  it('refuses a second submission while the first is still in flight', async () => {
+    /*
+     * The one unauthenticated write in the system, and the one whose duplicate
+     * books a household onto a session twice and takes two places off it. The
+     * Send button is `aria-disabled` rather than `disabled` on purpose —
+     * `.claude/rules/data-fetching.md` — so a real double tap still reaches the
+     * handler, and it is the handler that has to refuse it.
+     */
+    const posts = vi.fn();
+    const held = deferred();
+    server.use(
+      http.post(SUBMIT, async () => {
+        posts();
+        await held.promise;
+        return HttpResponse.json(receipt('active'), { status: 201 });
+      }),
+    );
+    renderRefer();
+    const user = userEvent.setup();
+
+    await submitTheForm(user);
+    await user.click(screen.getByRole('button', { name: 'Send this referral' }));
+
+    held.resolve();
+    await screen.findByRole('heading', { name: 'Referral sent' });
+    expect(posts).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a second submission after the referrer has wandered off and back during the first', async () => {
+    // Page seven carries a Back button beside Send, so "let me just check
+    // something" is an ordinary thing to do while the request is in flight —
+    // and it must not re-arm the send.
+    const posts = vi.fn();
+    const held = deferred();
+    server.use(
+      http.post(SUBMIT, async () => {
+        posts();
+        await held.promise;
+        return HttpResponse.json(receipt('active'), { status: 201 });
+      }),
+    );
+    renderRefer();
+    const user = userEvent.setup();
+
+    await submitTheForm(user);
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByText('Page 6 of 7');
+    await user.click(next());
+    await screen.findByText('Page 7 of 7');
+    await user.click(screen.getByRole('button', { name: 'Send this referral' }));
+
+    held.resolve();
+    await screen.findByRole('heading', { name: 'Referral sent' });
+    expect(posts).toHaveBeenCalledTimes(1);
+  });
+
+  it('says a referral may have landed when the food bank never answered, and refuses to send it again', async () => {
+    /*
+     * Only a `4xx` proves nothing was written. A `500` or a dropped connection
+     * may well have booked the household, so the lock stays on — and a button
+     * that looks live and silently swallows the click is indistinguishable
+     * from a broken form, which is why this says so instead.
+     */
+    const posts = vi.fn();
+    server.use(
+      http.post(SUBMIT, () => {
+        posts();
+        return HttpResponse.json(
+          { error: { code: 'INTERNAL_ERROR', message: 'Something went wrong.', requestId: 'r1' } },
+          { status: 500 },
+        );
+      }),
+    );
+    renderRefer();
+    const user = userEvent.setup();
+
+    await submitTheForm(user);
+
+    expect(
+      await screen.findByText(/may or may not have reached the food bank/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/phone the food bank to check/)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'FAILED!!' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Send this referral' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Send this referral' })).toHaveAccessibleDescription(
+      /do not send it again/i,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Send this referral' }));
+    await settle();
+    expect(posts).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets a refused referral be sent again once its answers are corrected', async () => {
+    // The other side of the lock: a `4xx` says the food bank wrote nothing, so
+    // the referrer must be able to fix the session and send. A lock that never
+    // released would turn every refusal into a dead end.
+    const posts = vi.fn();
+    let refuse = true;
+    server.use(
+      http.post(SUBMIT, () => {
+        posts();
+        if (!refuse) return HttpResponse.json(receipt('active'), { status: 201 });
+        refuse = false;
+        return HttpResponse.json(
+          { error: { code: 'CONFLICT', message: 'That session is full', requestId: 'r1' } },
+          { status: 409 },
+        );
+      }),
+    );
+    renderRefer();
+    const user = userEvent.setup();
+
+    await submitTheForm(user);
+    await screen.findByText('Page 1 of 7');
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /Session date/ }), 's-thu');
+    await sendFromPageOne(user);
+
+    expect(await screen.findByRole('heading', { name: 'Referral sent' })).toBeInTheDocument();
+    expect(posts).toHaveBeenCalledTimes(2);
+  });
+
   it('never retries a failed submission, because a referral is not idempotent', async () => {
     const posts = vi.fn();
     server.use(
       http.post(SUBMIT, () => {
         posts();
         return HttpResponse.json(
-          { error: { code: 'CONFLICT', message: 'That session is now full.', requestId: 'r1' } },
+          { error: { code: 'CONFLICT', message: 'That session is full', requestId: 'r1' } },
           { status: 409 },
         );
       }),
@@ -891,7 +1389,11 @@ describe('submitting', () => {
 
     // The `409` message is written to be shown — "the session is full" is the
     // one useful sentence, and a generic apology throws it away.
-    expect(await screen.findByRole('alert')).toHaveTextContent('That session is now full.');
+    expect(await screen.findByRole('heading', { name: 'FAILED!!' })).toBeInTheDocument();
+    expect(
+      screen.getByText('This client could not be referred for the selected session'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Reason: That session is full');
     await settle();
     expect(posts).toHaveBeenCalledTimes(1);
   });

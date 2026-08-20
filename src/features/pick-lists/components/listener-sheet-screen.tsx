@@ -1,8 +1,12 @@
-import { Link, useParams } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
-import { useReferralOptionSources } from '../../referrals/queries';
+import { isNewClientsAssigned } from '../../../lib/errors';
+import { referralKeys } from '../../referrals/keys';
+import { fetchReferrals, useReferralOptionSources } from '../../referrals/queries';
 import {
   listenerColumns,
   listenerColumnsNeedReferralReasons,
@@ -24,6 +28,10 @@ import styles from './listener-sheet-screen.module.css';
  */
 export function ListenerSheetScreen() {
   const { sessionId = '' } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [rebuildError, setRebuildError] = useState<unknown>(null);
+  const [rebuilding, setRebuilding] = useState(false);
   const sheet = useListenerSheet(sessionId);
   const columns = listenerColumns();
 
@@ -31,18 +39,72 @@ export function ListenerSheetScreen() {
   const needsReasons = listenerColumnsNeedReferralReasons(columns);
   const reasons = useReferralOptionSources(needsReasons);
 
-  if (sheet.isPending || reasons.isPending)
+  async function acknowledgeNewClients() {
+    setRebuilding(true);
+    setRebuildError(null);
+    try {
+      const filters = { sessionId };
+      const queryKey = referralKeys.list(filters);
+      // The conflict proves this tab may hold an apparently fresh but now old
+      // referral list. Reconciliation must use a read made after acknowledgement.
+      await queryClient.invalidateQueries({ queryKey });
+      await queryClient.fetchQuery({
+        queryKey,
+        queryFn: () => fetchReferrals(filters),
+        staleTime: 0,
+      });
+      void navigate(`/run-sessions/${sessionId}`);
+    } catch (error) {
+      setRebuildError(error);
+      setRebuilding(false);
+    }
+  }
+
+  if (sheet.isPending)
     return (
       <>
         <PageHeader title="Listener sheet" />
         <Spinner label="Loading the listener sheet…" />
       </>
     );
-  if (sheet.isError)
+  if (sheet.isError) {
+    if (isNewClientsAssigned(sheet.error))
+      return (
+        <>
+          <PageHeader title="Listener sheet" />
+          <section className={styles.newClientsAssigned} role="alert">
+            <h2>New clients assigned</h2>
+            <p>{sheet.error.message}</p>
+            <p>
+              Return to the session to rebuild the client list, then select Listener sheet again.
+            </p>
+            {rebuildError === null ? (
+              <button
+                aria-busy={rebuilding}
+                disabled={rebuilding}
+                onClick={() => void acknowledgeNewClients()}
+                type="button"
+              >
+                {rebuilding ? 'Rebuilding client list…' : 'Acknowledge and return to session'}
+              </button>
+            ) : (
+              <ErrorNotice error={rebuildError} onRetry={() => void acknowledgeNewClients()} />
+            )}
+          </section>
+        </>
+      );
     return (
       <>
         <PageHeader title="Listener sheet" />
         <ErrorNotice error={sheet.error} onRetry={() => void sheet.refetch()} />
+      </>
+    );
+  }
+  if (reasons.isPending)
+    return (
+      <>
+        <PageHeader title="Listener sheet" />
+        <Spinner label="Loading the listener sheet…" />
       </>
     );
   // Held back rather than printed with an identifier where a cause of crisis
@@ -80,6 +142,7 @@ export function ListenerSheetScreen() {
         <table className={styles.table}>
           <thead>
             <tr>
+              <th scope="col">Pick number</th>
               {columns.map((column) => (
                 <th key={column.key} scope="col">
                   {column.label}
@@ -90,6 +153,7 @@ export function ListenerSheetScreen() {
           <tbody>
             {sheet.data.households.map((household) => (
               <tr key={household.referralId}>
+                <td>#{household.pickNumber}</td>
                 {columns.map((column, index) => {
                   const value = listenerColumnValue(column, household, reasons.sources);
                   // The first column heads its row: a listener finds a household

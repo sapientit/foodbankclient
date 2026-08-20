@@ -1,4 +1,9 @@
 import { formatSessionDate } from '../../lib/london-time';
+import {
+  allQuestions,
+  type ChoiceQuestion,
+  type ReferralFormDefinition,
+} from './referral-form-definition';
 
 /**
  * The sentence a referrer is shown about when a delivery would arrive, and the
@@ -34,30 +39,44 @@ export const DELIVERY_TIME_LABEL = 'Delivery Time:';
  * **`PublicSession` carries the *resolved* window, never null** — a session
  * that sets none of its own reports its own hours, the server having done that
  * fallback once rather than in every client. So there is no "no window set"
- * case to handle here; there is only "this session takes no deliveries".
+ * case to handle here; there are only the two ways a delivery cannot be had.
  */
 export interface DeliverySession {
   readonly sessionDate: string;
   readonly deliveryWindowStart: string;
   readonly deliveryWindowEnd: string;
-  readonly deliveriesAllowed: boolean;
+  readonly deliveryAvailability: 'not_offered' | 'full' | 'available';
 }
 
+/** Where the session has nobody to drive at all. */
+export const NO_DELIVERIES_OFFERED = 'No deliveries available for this session';
+
+/** Where it does deliver, but every delivery place has gone. */
+export const NO_DELIVERY_SLOTS_LEFT = 'No delivery slots available for this session';
+
 /**
- * What `$deliveryTime` reads as for the chosen session.
+ * What `$deliveryTime` reads as for the chosen session: the window, or which of
+ * the two reasons there is no window to quote.
  *
- * A session with nobody to drive says so plainly rather than quoting a window
- * it cannot keep. **This does not stop the referral.** The charity settled on
- * 2026-08-16 that delivery stays on offer for such a session and submission is
- * not blocked: the referrer is then confirming, in as many words, that the
- * household will be at home for "No deliveries available for this session",
- * which is a conversation the food bank can have with them. Blocking it would
- * cost a validation path for one case and tell the referrer nothing about why
- * the option had vanished. The server does not refuse it either — an
- * administrator sorts it out at review.
+ * **This states the position; it does not enforce it.** The food bank now
+ * refuses a delivery to a session that takes none and to one whose delivery
+ * places have gone — a `409` on submission, the same hard stop as a session at
+ * its overall capacity. Settled by Pete on 2026-08-19, reversing the earlier
+ * position that an administrator sorted it out at review.
+ *
+ * **The form still does not check any of that before submitting, and that is a
+ * decision rather than an omission.** A referrer choosing the session has
+ * already read this line, so a second refusal from the form would tell them
+ * nothing they were not told here; and the only case a check could catch is the
+ * race — the last delivery place going between this line being read and the
+ * form being sent — which no client-side check can win anyway. Delivery stays
+ * offered, the referral is still sent, and the refusal that matters comes from
+ * the one place that can be sure of it. See `public-referral-screen.tsx` for
+ * what a referrer meets when it does.
  */
 export function describeDeliveryWindow(session: DeliverySession): string {
-  if (!session.deliveriesAllowed) return 'No deliveries available for this session';
+  if (session.deliveryAvailability === 'not_offered') return NO_DELIVERIES_OFFERED;
+  if (session.deliveryAvailability === 'full') return NO_DELIVERY_SLOTS_LEFT;
 
   return `between ${session.deliveryWindowStart} and ${session.deliveryWindowEnd} on ${formatSessionDate(session.sessionDate)}`;
 }
@@ -121,4 +140,72 @@ export function applyFormVariables(
             ...ordinary(between),
           ],
     );
+}
+
+/**
+ * Whether a refusal was the delivery one — the `409` raised because a
+ * session's delivery places are gone, which includes a session that takes no
+ * deliveries at all.
+ *
+ * **Read from `details`, never from the message.** Five causes share
+ * `409 CONFLICT` on this endpoint; `openapi.yaml` documents a sentence for
+ * each and puts `details` on two of them, and the sentences are the food
+ * bank's to reword whenever it likes. A client that matched on the wording
+ * would quietly stop doing this the day one changed, with no test failing
+ * anywhere — so the structural key is the only thing read here. The capacity
+ * refusal carries `capacity`; this one carries `deliveryCapacity`.
+ */
+export function refusedForDeliveryPlaces(
+  details: Readonly<Record<string, unknown>> | null,
+): boolean {
+  return details !== null && Object.hasOwn(details, 'deliveryCapacity');
+}
+
+/** Where a confirmation lives, and the one answer within it that is about the window. */
+export interface WindowConfirmation {
+  readonly key: string;
+  readonly value: string;
+}
+
+/**
+ * The tick that says the household will be at home for the delivery window,
+ * found from the config rather than named here.
+ *
+ * A delivery takes two confirmations together and **only the second is about
+ * the session**: the first is a fact about the household, true whichever
+ * session it is on. So the second is the one a refusal invalidates, and the
+ * first must survive — making a referrer re-answer something that was never
+ * wrong is how a form teaches people to tick without reading.
+ *
+ * **Derived, because the questionnaire is the charity's and this screen does
+ * not get to name its questions.** The `$deliveryTime` line already carries
+ * the condition under which a delivery is being asked about; the confirmation
+ * is the answerable question standing under the same condition, and the answer
+ * about the window is the second one the charity wrote. Nothing here is keyed
+ * on a question id or on the wording of an option.
+ *
+ * `null` where the config has no such pair — a form that does not ask for the
+ * confirmation has nothing to reset, and that is not an error.
+ */
+export function deliveryWindowConfirmation(
+  definition: ReferralFormDefinition,
+): WindowConfirmation | null {
+  const line = allQuestions(definition).find(
+    (question) =>
+      question.type === 'information' && question.label.includes(DELIVERY_TIME_VARIABLE),
+  );
+  const gate = line?.enabledWhen;
+  if (gate === undefined) return null;
+
+  const confirmation = allQuestions(definition).find(
+    (question): question is ChoiceQuestion =>
+      question.type === 'choice' &&
+      question.enabledWhen?.questionKey === gate.questionKey &&
+      question.enabledWhen.hasAnswer === gate.hasAnswer,
+  );
+
+  const window = confirmation?.options[1];
+  if (confirmation === undefined || window === undefined) return null;
+
+  return { key: confirmation.key, value: window.value };
 }

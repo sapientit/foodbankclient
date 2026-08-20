@@ -25,6 +25,7 @@ export type ApiErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'UNPROCESSABLE'
+  | 'NEW_CLIENTS_ASSIGNED'
   | 'INTERNAL_ERROR';
 
 /**
@@ -45,6 +46,7 @@ const API_ERROR_CODES: Record<ApiErrorCode, true> = {
   NOT_FOUND: true,
   CONFLICT: true,
   UNPROCESSABLE: true,
+  NEW_CLIENTS_ASSIGNED: true,
   INTERNAL_ERROR: true,
 };
 
@@ -167,6 +169,15 @@ export function pendingPickNumbers(error: ApiError): readonly number[] | null {
  */
 export function isNotFound(error: unknown): boolean {
   return error instanceof ApiError && error.status === 404;
+}
+
+/**
+ * The listener sheet is an all-or-nothing pick-list snapshot. This explicit
+ * conflict is what sends the team lead back to reconcile it before trying the
+ * sheet again; matching a human-readable message would break on a copy edit.
+ */
+export function isNewClientsAssigned(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 409 && error.code === 'NEW_CLIENTS_ASSIGNED';
 }
 
 /** `409` on a full session carries both halves of "25 of 25". */

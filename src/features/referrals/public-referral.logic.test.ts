@@ -17,7 +17,7 @@ function session(overrides: Partial<PublicSession> & { id: string }): PublicSess
     location: 'St Mary’s Hall',
     deliveryWindowStart: '10:00',
     deliveryWindowEnd: '12:00',
-    deliveriesAllowed: false,
+    deliveryAvailability: 'not_offered',
     ...overrides,
   };
 }

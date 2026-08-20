@@ -79,6 +79,22 @@ shared `Spinner` is deliberately not used inside that region, because it is
 itself a `role="status"` and a nested live region is the usual cause of a
 double announcement; that reasoning is also untested.
 
+**Nothing proves a screen reader announces the referral form's refusal.** When
+the food bank refuses a submission, `public-referral-screen.tsx` moves the
+referrer to page one, moves focus to the progress paragraph, and mounts
+`ErrorNotice` — a `role="alert"` — carrying the reason. Three things therefore
+land in one paint: a programmatic focus move onto text that has itself just
+changed ("Page 7 of 7" to "Page 1 of 7"), an assertive region appearing, and the
+polite `role="status"` referrer verdict re-appearing with page one. A freshly
+inserted alert is announced per the ARIA spec, which is why focus is left on the
+progress line rather than dragged into the notice; but how NVDA, JAWS and
+VoiceOver actually order and interrupt those three is not consistent between
+them, and jsdom models none of it. **The failure to look for is a referrer who
+hears "Page 1 of 7" and never hears why they were sent there** — they would be
+looking at a form that appears to have thrown their work away. Needs a real
+screen reader before go-live; if it is wrong, the fix is to give the notice a
+focus target and land focus on it instead.
+
 **The clipboard copy on a 500 is tested against a stub**, not a real
 `navigator.clipboard`. Failure is swallowed and the `requestId` stays on screen
 with `user-select: all`, so the fallback is "select it yourself" — also untested

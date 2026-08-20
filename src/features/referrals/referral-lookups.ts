@@ -1,5 +1,5 @@
 import { formatSessionDate } from '../../lib/london-time';
-import { describeSessionChoice } from '../../lib/session-description';
+import { describeSessionChoice, type DeliveryStanding } from '../../lib/session-description';
 import type { ClosedLookup } from './referral-key-fields';
 import type { OptionSources } from './referral-form-definition';
 
@@ -25,7 +25,23 @@ export interface SessionOption {
   readonly id: string;
   readonly sessionDate: string;
   readonly startTime: string;
-  readonly deliveriesAllowed: boolean;
+  readonly deliveryAvailability: 'not_offered' | 'full' | 'available';
+}
+
+/**
+ * What a referrer's `PublicSession` can say about deliveries.
+ *
+ * **The one place all three states are distinguishable.** `deliveryAvailability`
+ * is the only field in the API that separates "nobody is driving" from "the
+ * delivery places have gone", and it is deliberately words rather than a count:
+ * the unauthenticated list never carries a raw capacity or booked figure.
+ */
+export function standingFromAvailability(
+  availability: SessionOption['deliveryAvailability'],
+): DeliveryStanding {
+  if (availability === 'not_offered') return 'none';
+  if (availability === 'full') return 'full';
+  return 'open';
 }
 
 export interface ReasonOption {
@@ -52,7 +68,7 @@ export interface ReferralLookups {
 export function describeSession(session: SessionOption): string {
   return describeSessionChoice(
     `${formatSessionDate(session.sessionDate)} at ${session.startTime}`,
-    session,
+    standingFromAvailability(session.deliveryAvailability),
   );
 }
 

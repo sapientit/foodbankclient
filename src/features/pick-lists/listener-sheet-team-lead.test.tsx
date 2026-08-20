@@ -1,13 +1,30 @@
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { QueryClient } from '@tanstack/react-query';
 import { HttpResponse, http } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
+import { referralKeys } from '../referrals/keys';
 import { listenerColumns } from './listener-sheet.logic';
 import type { ListenerSheet } from './queries';
 import type { ReferralReason } from '../referrals/queries';
 
 const SESSION_ID = 'session-1';
+
+// A minimal valid rule makes the fresh referral contribute a distinctive line
+// to reconciliation. The maintained rules themselves are covered separately.
+vi.mock('./preference-rules.config.json', () => ({
+  default: {
+    rules: [
+      {
+        when: { key: 'Tea/Coffee' },
+        cases: [],
+        otherwise: { set: [{ stock: '$selectedAnswer', quantity: 1 }] },
+      },
+    ],
+  },
+}));
 
 /*
  * The maintained reason lookup. A question choosing from it — the secondary
@@ -37,6 +54,7 @@ const LISTENER_SHEET = {
   households: [
     {
       referralId: 'referral-active',
+      pickNumber: 1,
       refereeFirstName: 'Amina',
       refereeSurname: 'Ahmed',
       reason: 'Unexpected expenses',
@@ -51,6 +69,7 @@ const LISTENER_SHEET = {
     },
     {
       referralId: 'referral-awaiting-review',
+      pickNumber: 2,
       refereeFirstName: 'Ben',
       refereeSurname: 'Brown',
       reason: 'Benefit delay',
@@ -59,6 +78,7 @@ const LISTENER_SHEET = {
     },
     {
       referralId: 'referral-approved',
+      pickNumber: 3,
       refereeFirstName: 'Cora',
       refereeSurname: 'Cole',
       reason: 'Low income',
@@ -95,6 +115,161 @@ describe('a team lead listener sheet', () => {
     expect(await screen.findByRole('row', { name: /Amina Ahmed/ })).toBeInTheDocument();
     expect(screen.getByRole('row', { name: /Ben Brown/ })).toBeInTheDocument();
     expect(screen.getByRole('row', { name: /Cora Cole/ })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Pick number' })).toBeInTheDocument();
+    expect(screen.getByText('#1')).toBeInTheDocument();
+    expect(screen.getByText('#2')).toBeInTheDocument();
+    expect(screen.getByText('#3')).toBeInTheDocument();
+  });
+
+  it('refreshes the client list before returning to rebuild pick lists after new clients are acknowledged', async () => {
+    const user = userEvent.setup();
+    let referralReads = 0;
+    let reconciliationPosts = 0;
+    let reconciliationBody: unknown;
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'NEW_CLIENTS_ASSIGNED',
+              message: 'New clients have been assigned to this session.',
+              requestId: 'request-1',
+              details: { missingParcels: ['referral-new'] },
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+      http.get('/api/v1/referrals', ({ request }) => {
+        expect(new URL(request.url).searchParams.get('sessionId')).toBe(SESSION_ID);
+        referralReads += 1;
+        return HttpResponse.json({
+          referrals: [
+            { id: 'referral-new', adults: 1, children: 0, answers: { 'Tea/Coffee': 'Tea' } },
+          ],
+        });
+      }),
+      http.get('/api/v1/sessions/:sessionId', () =>
+        HttpResponse.json({
+          id: SESSION_ID,
+          sessionDate: '2099-08-06',
+          startTime: '10:00',
+          startsAtUtc: '2099-08-06T09:00:00.000Z',
+          durationMinutes: 90,
+          location: 'St Mary’s Hall',
+          deliveryWindowStart: null,
+          deliveryWindowEnd: null,
+          deliveryCapacity: 0,
+          capacity: 25,
+          booked: 1,
+          status: 'planned',
+          cancelledReason: null,
+          isCustomised: false,
+          recurringSessionId: null,
+          occurrenceDate: null,
+        }),
+      ),
+      http.get('/api/v1/stock/items', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'tea',
+              name: 'Tea',
+              category: 'Drinks',
+              description: null,
+              shelfNumber: 'A1',
+              isActive: true,
+            },
+            {
+              id: 'coffee',
+              name: 'Coffee',
+              category: 'Drinks',
+              description: null,
+              shelfNumber: 'A2',
+              isActive: true,
+            },
+            {
+              id: 'decaf',
+              name: 'Decaf Coffee',
+              category: 'Drinks',
+              description: null,
+              shelfNumber: 'A3',
+              isActive: true,
+            },
+            {
+              id: 'chocolate',
+              name: 'Hot Chocolate',
+              category: 'Drinks',
+              description: null,
+              shelfNumber: 'A4',
+              isActive: true,
+            },
+          ],
+        }),
+      ),
+      http.post('/api/v1/sessions/:sessionId/pick-list', async ({ params, request }) => {
+        expect(params.sessionId).toBe(SESSION_ID);
+        reconciliationPosts += 1;
+        reconciliationBody = await request.json();
+        return HttpResponse.json({ sessionId: SESSION_ID });
+      }),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: {
+            id: 'pick-list-1',
+            sessionId: SESSION_ID,
+            status: 'draft',
+            generatedAt: '2099-08-06T09:00:00.000Z',
+            firstPrintedAt: null,
+            confirmedAt: null,
+          },
+          parcels: [
+            {
+              id: 'parcel-new',
+              referralId: 'referral-new',
+              pickNumber: 1,
+              refereeFirstName: 'Nora',
+              refereeSurname: 'New',
+              isDelivery: false,
+              adults: 1,
+              children: 0,
+              householdSize: 1,
+              reviewedAt: null,
+              attendance: 'pending',
+              notes: null,
+              answers: {},
+              lines: [],
+            },
+          ],
+        }),
+      ),
+      reasonsHandler(),
+    );
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60_000 }, mutations: { retry: false } },
+    });
+    await queryClient.fetchQuery({
+      queryKey: referralKeys.list({ sessionId: SESSION_ID }),
+      queryFn: () => Promise.resolve([]),
+    });
+    const { router } = renderApp(`/run-sessions/${SESSION_ID}/listener`, queryClient);
+
+    expect(
+      await screen.findByRole('heading', { name: 'New clients assigned' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('New clients have been assigned to this session.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Print listener sheet' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Acknowledge and return to session' }));
+    expect(referralReads).toBe(1);
+    expect(await screen.findByRole('row', { name: /#1.*Nora New/ })).toBeInTheDocument();
+    expect(reconciliationPosts).toBe(1);
+    expect(reconciliationBody).toEqual({
+      preferenceLines: [
+        { referralId: 'referral-new', lines: [{ stockItemId: 'tea', quantity: 1 }] },
+      ],
+    });
+    expect(router.state.location.pathname).toBe(`/run-sessions/${SESSION_ID}`);
   });
 
   it('shows every question the form marks for the listener sheet, and no other referral data', async () => {

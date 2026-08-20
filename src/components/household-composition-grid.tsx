@@ -28,25 +28,25 @@ export function HouseholdCompositionGrid({
       <thead>
         <tr>
           <th scope="col">
-            <span className={styles.visuallyHidden}>Age</span>
+            <span className={styles.visuallyHidden}>Gender</span>
           </th>
-          {HOUSEHOLD_GENDERS.map((gender) => (
-            <th key={gender.key} scope="col" title={gender.label}>
-              <GenderIcon gender={gender.key} />
-              <span className={styles.visuallyHidden}>{gender.label}</span>
+          {HOUSEHOLD_AGE_BANDS.map((band) => (
+            <th key={band.key} scope="col" title={band.label}>
+              <AgeIcon ageBand={band.key} />
+              <span className={styles.visuallyHidden}>{band.label}</span>
             </th>
           ))}
         </tr>
       </thead>
       <tbody>
-        {HOUSEHOLD_AGE_BANDS.map((band) => (
-          <tr key={band.key}>
-            <th scope="row" title={band.label}>
-              <AgeIcon ageBand={band.key} />
-              <span className={styles.visuallyHidden}>{band.label}</span>
+        {HOUSEHOLD_GENDERS.map((gender) => (
+          <tr key={gender.key}>
+            <th scope="row" title={gender.label}>
+              <GenderIcon gender={gender.key} />
+              <span className={styles.visuallyHidden}>{gender.label}</span>
             </th>
-            {HOUSEHOLD_GENDERS.map((gender) => (
-              <td key={gender.key}>
+            {HOUSEHOLD_AGE_BANDS.map((band) => (
+              <td key={band.key}>
                 <span className={styles.visuallyHidden}>
                   {band.label}, {gender.label}: {composition[band.key]?.[gender.key] ?? 0}
                 </span>

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useAuth } from '../../../auth/auth-context';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
@@ -11,7 +11,7 @@ import { SessionTable } from '../../../components/session-table';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, describeApiError, isNotFound, pendingPickNumbers } from '../../../lib/errors';
 import { formatSessionDate, formatTimeRange, londonToday } from '../../../lib/london-time';
-import { collectionOnlyLabel } from '../../../lib/session-description';
+import { deliveryLabel, standingFromCapacity } from '../../../lib/session-description';
 import { useSession, useSessions, type Session } from '../../sessions/queries';
 import {
   filterSessionsByStatus,
@@ -52,6 +52,7 @@ import {
   buildPickListInformation,
   pickListInformationNeedsOptionSources,
 } from '../pick-list-information';
+import { splitPrintLines } from '../pick-list-print.logic';
 
 /**
  * Whether a parcel's preferences can only be read with a server lookup in hand
@@ -142,7 +143,7 @@ function SessionLine({ session }: { session: Session }) {
       <span className={styles.sessionHours}>
         {formatTimeRange(session.startTime, session.durationMinutes)}
       </span>
-      <span>{collectionOnlyLabel(session)}</span>
+      <span>{deliveryLabel(standingFromCapacity(session.deliveryCapacity))}</span>
       <span>{session.booked} booked</span>
     </p>
   );
@@ -318,6 +319,20 @@ export function PickListPrintScreen() {
   const markPrinted = useMarkPickListPrinted();
   const printed = useRef<string | null>(null);
   const readOnly = session.data === undefined ? null : isSessionReadOnly(session.data.status);
+  const openPrintDialog = useCallback(
+    (pickListId: string) => {
+      /*
+       * **The sheets still render; the record of a print does not get written.**
+       * `POST /pick-lists/{id}/print` is a `409` on a confirmed list, and there
+       * is nothing to record anyway — a reprint of a session that is finished is
+       * somebody wanting to read what was picked, not the session's first sheets
+       * going to paper. `firstPrintedAt` must keep saying when they did.
+       */
+      if (!readOnly) markPrinted.mutate(pickListId);
+      window.print();
+    },
+    [markPrinted, readOnly],
+  );
 
   useEffect(() => {
     if (
@@ -326,17 +341,9 @@ export function PickListPrintScreen() {
       printed.current !== print.data.pickList.id
     ) {
       printed.current = print.data.pickList.id;
-      /*
-       * **The sheets still render; the record of a print does not get written.**
-       * `POST /pick-lists/{id}/print` is a `409` on a confirmed list, and there
-       * is nothing to record anyway — a reprint of a session that is finished is
-       * somebody wanting to read what was picked, not the session's first sheets
-       * going to paper. `firstPrintedAt` must keep saying when they did.
-       */
-      if (!readOnly) markPrinted.mutate(print.data.pickList.id);
-      window.print();
+      openPrintDialog(print.data.pickList.id);
     }
-  }, [markPrinted, print.data, readOnly]);
+  }, [openPrintDialog, print.data, readOnly]);
 
   if (session.isPending || list.isPending || (readyToPrint && print.isPending))
     return <Spinner label="Preparing print sheets…" />;
@@ -355,7 +362,22 @@ export function PickListPrintScreen() {
   if (print.data === undefined) return <Spinner label="Preparing print sheets…" />;
   return (
     <>
-      <PageHeader title="Pick lists" />
+      <div className={styles.screenOnly}>
+        <PageHeader
+          title="Pick lists"
+          action={
+            <button
+              className={styles.action}
+              onClick={() => {
+                openPrintDialog(print.data.pickList.id);
+              }}
+              type="button"
+            >
+              Open print dialog
+            </button>
+          }
+        />
+      </div>
       <div className={styles.printSheets}>
         {print.data.parcels
           .filter((parcel) =>
@@ -368,21 +390,28 @@ export function PickListPrintScreen() {
             const householdComposition = sessionParcel?.answers[HOUSEHOLD_COMPONENTS_KEY];
             return (
               <section className={styles.printSheet} key={parcel.pickNumber}>
-                <h1 className={styles.pickNumber}>Pick #{parcel.pickNumber}</h1>
-                <p>
-                  {parcel.refereeFirstName ?? 'Unknown'} {parcel.refereeSurname ?? ''}
-                </p>
-                {parcel.isDelivery && (
-                  <p className={styles.delivery}>
-                    DELIVERY
-                    <br />
-                    {parcel.deliveryAddress}
-                    <br />
-                    {parcel.deliveryPostcode}
-                    <br />
-                    {parcel.deliveryPhone}
-                  </p>
-                )}
+                <header className={styles.printHeader}>
+                  <div>
+                    <h1 className={styles.pickNumber}>Pick #{parcel.pickNumber}</h1>
+                    <p className={styles.printName}>
+                      {parcel.refereeFirstName ?? 'Unknown'} {parcel.refereeSurname ?? ''}
+                    </p>
+                  </div>
+                  {parcel.isDelivery && (
+                    <p className={styles.delivery}>
+                      DELIVERY
+                      <br />
+                      {parcel.deliveryAddress}
+                      <br />
+                      {parcel.deliveryPostcode}
+                      <br />
+                      {parcel.deliveryPhone}
+                    </p>
+                  )}
+                  {isHouseholdComposition(householdComposition) && (
+                    <HouseholdCompositionGrid composition={householdComposition} />
+                  )}
+                </header>
                 {parcel.notes !== null && parcel.notes.trim() !== '' && (
                   /* The same words the team lead typed it under, because the
                      picker holding this sheet is the "picker" that label
@@ -395,17 +424,37 @@ export function PickListPrintScreen() {
                     <p>{parcel.notes}</p>
                   </section>
                 )}
-                {isHouseholdComposition(householdComposition) && (
-                  <HouseholdCompositionGrid composition={householdComposition} />
-                )}
-                <ul>
-                  {parcel.lines.map((line) => (
-                    <li key={line.stockItemId}>
-                      {line.name}: {line.quantity}
-                      {line.description !== null && <div>{line.description}</div>}
-                    </li>
+                <div className={styles.printLineColumns}>
+                  {splitPrintLines(parcel.lines).map((column, index) => (
+                    <table
+                      aria-label={`Picking items, column ${String(index + 1)}`}
+                      className={styles.printLines}
+                      key={index}
+                    >
+                      <thead className={styles.visuallyHidden}>
+                        <tr>
+                          <th scope="col">Item</th>
+                          <th scope="col">Quantity</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {column.map((line) => (
+                          <tr key={line.stockItemId}>
+                            <th scope="row">
+                              {line.name}
+                              {line.description !== null && (
+                                <span className={styles.printLineDescription}>
+                                  {line.description}
+                                </span>
+                              )}
+                            </th>
+                            <td>{line.quantity}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   ))}
-                </ul>
+                </div>
               </section>
             );
           })}
@@ -492,6 +541,7 @@ export function RunSessionDetailScreen() {
       sessionId !== '' &&
       requested.current !== sessionId &&
       referrals.data !== undefined &&
+      !referrals.isFetching &&
       stockItems.data !== undefined &&
       !reasons.isPending &&
       !reasons.isError &&
@@ -513,6 +563,7 @@ export function RunSessionDetailScreen() {
     reasons.sources,
     reconcile,
     referrals.data,
+    referrals.isFetching,
     sessionId,
     stockItems.data,
   ]);
@@ -996,7 +1047,7 @@ function ParcelPanel({
 }) {
   const review = useReviewParcel();
   const saveLines = useSetParcelLines();
-  const stockItems = useStockItems();
+  const stockItems = useStockItems('shelf');
   // Only the preferences are shown here, so the lookup is fetched only if one
   // of *them* chooses from it — which none do today. It is what keeps an id off
   // the screen if the charity ever marks one that does, and every card shares
@@ -1142,53 +1193,42 @@ function ParcelPanel({
             <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
           ) : (
             <ul className={styles.itemList}>
-              {groupStockItemsByCategory(displayedStockItems).map(({ category, items }) => (
-                <li className={styles.categoryGroup} key={category}>
-                  <h3 className={styles.categoryHeading}>{category}</h3>
-                  <ul className={styles.categoryItems}>
-                    {items.map((item) => {
-                      const line = draftLines.find(
-                        (candidate) => candidate.stockItemId === item.id,
-                      );
-                      return (
-                        <li key={item.id}>
-                          <LineEditor
-                            item={item}
-                            line={line}
-                            locked={parcelLinesLocked}
-                            onChange={(quantity) => {
-                              setDraftLines((lines) => {
-                                const current = lines.find(
-                                  (candidate) => candidate.stockItemId === item.id,
-                                );
-                                if (quantity === null)
-                                  return lines.filter(
-                                    (candidate) => candidate.stockItemId !== item.id,
-                                  );
-                                if (current === undefined)
-                                  return [
-                                    ...lines,
-                                    {
-                                      stockItemId: item.id,
-                                      name: item.name,
-                                      shelfNumber: item.shelfNumber,
-                                      quantity,
-                                    },
-                                  ];
-                                return lines.map((candidate) =>
-                                  candidate.stockItemId === item.id
-                                    ? { ...candidate, quantity }
-                                    : candidate,
-                                );
-                              });
-                            }}
-                          />
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </li>
-              ))}
+              {displayedStockItems.map((item) => {
+                const line = draftLines.find((candidate) => candidate.stockItemId === item.id);
+                return (
+                  <li key={item.id}>
+                    <LineEditor
+                      item={item}
+                      line={line}
+                      locked={parcelLinesLocked}
+                      onChange={(quantity) => {
+                        setDraftLines((lines) => {
+                          const current = lines.find(
+                            (candidate) => candidate.stockItemId === item.id,
+                          );
+                          if (quantity === null)
+                            return lines.filter((candidate) => candidate.stockItemId !== item.id);
+                          if (current === undefined)
+                            return [
+                              ...lines,
+                              {
+                                stockItemId: item.id,
+                                name: item.name,
+                                shelfNumber: item.shelfNumber,
+                                quantity,
+                              },
+                            ];
+                          return lines.map((candidate) =>
+                            candidate.stockItemId === item.id
+                              ? { ...candidate, quantity }
+                              : candidate,
+                          );
+                        });
+                      }}
+                    />
+                  </li>
+                );
+              })}
             </ul>
           )}
           {/* Only while the dialog is closed — it renders the same error itself,
@@ -1305,18 +1345,6 @@ function LineEditor({
       />
     </label>
   );
-}
-
-function groupStockItemsByCategory(items: readonly StockItem[]) {
-  const groups: { category: string; items: StockItem[] }[] = [];
-
-  for (const item of items) {
-    const current = groups.at(-1);
-    if (current?.category === item.category) current.items.push(item);
-    else groups.push({ category: item.category, items: [item] });
-  }
-
-  return groups;
 }
 
 function allParcelsReviewed(parcels: readonly Parcel[]): boolean {

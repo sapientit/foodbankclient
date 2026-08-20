@@ -30,7 +30,7 @@ const SESSION: Session = {
   location: 'St Mary’s Hall',
   deliveryWindowStart: null,
   deliveryWindowEnd: null,
-  deliveriesAllowed: false,
+  deliveryCapacity: 0,
   capacity: 25,
   booked: 1,
   status: 'confirmed',
@@ -296,9 +296,13 @@ describe('a completed session', () => {
 
     renderApp(`/run-sessions/${SESSION.id}/print`);
 
+    const openPrintDialog = await screen.findByRole('button', { name: 'Open print dialog' });
     await waitFor(() => {
       expect(printSpy).toHaveBeenCalledOnce();
     });
+
+    await userEvent.setup().click(openPrintDialog);
+    expect(printSpy).toHaveBeenCalledTimes(2);
     // `firstPrintedAt` must keep saying when the sheets actually went to paper.
     expect(writes.markPrinted).toBe(0);
     // And the sheet is the same sheet: still no reason for referral on it.

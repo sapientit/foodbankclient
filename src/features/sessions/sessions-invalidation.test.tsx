@@ -32,7 +32,7 @@ function session(overrides: Partial<Session> = {}): Session {
     location: 'Old hall',
     deliveryWindowStart: null,
     deliveryWindowEnd: null,
-    deliveriesAllowed: false,
+    deliveryCapacity: 0,
     capacity: 25,
     booked: 10,
     status: 'planned',

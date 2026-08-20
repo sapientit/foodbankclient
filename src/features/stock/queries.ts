@@ -33,13 +33,13 @@ export type StockItemCreateInput =
 export type StockItemPatch =
   paths['/api/v1/stock/items/{id}']['patch']['requestBody']['content']['application/json'];
 
-async function fetchStockItems(): Promise<StockItem[]> {
+async function fetchStockItems(order: 'category' | 'shelf'): Promise<StockItem[]> {
   const { items } = await unwrap(
-    api.GET('/api/v1/stock/items', { params: { query: { includeInactive: 'true' } } }),
+    api.GET('/api/v1/stock/items', { params: { query: { includeInactive: 'true', order } } }),
   );
 
-  // The API now orders by category then item name. Preserve that order rather
-  // than duplicating its sort rule in the browser.
+  // The server owns both orderings, including its numeric shelf sort key. Never
+  // reproduce it in the browser: a string sort puts A10 before A2.
   return [...items];
 }
 
@@ -57,14 +57,17 @@ async function fetchStockLevels(): Promise<StockLevel[]> {
   return [...items];
 }
 
-export function useStockItems() {
-  return useQuery({ queryKey: stockKeys.items(), queryFn: fetchStockItems });
+export function useStockItems(order: 'category' | 'shelf' = 'category') {
+  return useQuery({
+    queryKey: stockKeys.items(order),
+    queryFn: () => fetchStockItems(order),
+  });
 }
 
 export function useStockItem(id: string) {
   return useQuery({
     queryKey: stockKeys.items(),
-    queryFn: fetchStockItems,
+    queryFn: () => fetchStockItems('category'),
     select: (items: StockItem[]) => items.find((item) => item.id === id) ?? null,
   });
 }

@@ -11,7 +11,7 @@ import {
   formatLondonDateTime,
   formatSessionDate,
 } from '../../../lib/london-time';
-import { describeSessionChoice } from '../../../lib/session-description';
+import { describeSessionChoice, standingFromCapacity } from '../../../lib/session-description';
 import { useReferralReasons, type AdminReferralReason } from '../../admin-setup/queries';
 import { useSessions, type Session } from '../../sessions/queries';
 import { describeAnswers, type AnswersDisplay } from '../referral-answers.logic';
@@ -230,7 +230,7 @@ function ReferralDetail({ referral }: { referral: Referral }) {
             <Link to={`/sessions/${referral.sessionId}`}>
               {describeSessionChoice(
                 `${formatSessionDate(session.sessionDate)}, ${session.startTime}`,
-                session,
+                standingFromCapacity(session.deliveryCapacity),
               )}
             </Link>
           )}
@@ -1400,7 +1400,7 @@ function ReferralActionsPanel({
                 <option key={session.id} value={session.id}>
                   {describeSessionChoice(
                     `${formatSessionDate(session.sessionDate)}, ${session.startTime}`,
-                    session,
+                    standingFromCapacity(session.deliveryCapacity),
                   )}{' '}
                   ({session.booked} of {session.capacity} booked)
                 </option>
@@ -1453,7 +1453,7 @@ function ReferralActionsPanel({
                 <option key={session.id} value={session.id}>
                   {describeSessionChoice(
                     `${formatSessionDate(session.sessionDate)}, ${session.startTime}`,
-                    session,
+                    standingFromCapacity(session.deliveryCapacity),
                   )}{' '}
                   ({session.booked} of {session.capacity} booked)
                 </option>

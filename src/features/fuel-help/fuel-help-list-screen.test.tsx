@@ -19,6 +19,7 @@ const LIST: FuelHelpList = {
       refereeAddress: '1 Example Street',
       refereePostcode: 'AB1 2CD',
       refereePhone: '01234 567890',
+      needsFuelHelp: true,
       answers: {
         refereeEmail: 'jamie@example.org',
         FuelPension: 'Yes',

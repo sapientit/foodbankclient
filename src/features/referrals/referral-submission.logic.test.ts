@@ -30,7 +30,7 @@ const lookups: ReferralLookups = {
       id: SESSION_ID,
       sessionDate: '2026-08-11',
       startTime: '10:00',
-      deliveriesAllowed: true,
+      deliveryAvailability: 'available',
     },
   ],
   referralReasons: [{ id: REASON_ID, label: 'Low income' }],

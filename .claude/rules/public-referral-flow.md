@@ -33,6 +33,26 @@ POST /api/v1/public/referrals          submit → 201, active or pending_review
   `POST /public/referrals` is gone.
 - **A page at a time, validated a page at a time.** Somebody on page four is not told about page one,
   and nobody reaches page two with a mandatory box blank on page one.
+- **The food bank refuses five things on submission, and the form does not pre-empt any of them.**
+  A session at capacity, cancelled or already confirmed; anything after the 16:00 cut-off; and a
+  delivery to a session whose delivery places have gone, which includes one that takes none at all.
+  All five are `409`s. **Do not add a client-side check for them** — the referrer has already
+  been told the session's delivery position on the line above the confirmation, and the only case a
+  check could catch is the race no client can win. Settled by Pete on 2026-08-19; a test in
+  `public-referral-screen.test.tsx` protects the absence.
+- **A refusal returns the referrer to page one, where the session, the collection method and the
+  reason for referral all live, and refetches the sessions list.** Nothing they typed is thrown away. All five `409`s carry `code: "CONFLICT"`;
+  `openapi.yaml` documents each one's message and puts `details` on two of them, but three are
+  separated by free text alone, so **the client must not name a cause** — show the server's message
+  and add no wording of its own. If a cause ever has to be read, read `error.details`, never the
+  message: a reworded sentence must not silently change what this form does. Where the refused session has left the refetched list, clear that
+  answer: the question is a controlled `<select>`, so a stale id renders as an empty box the form
+  still holds as answered, and the referrer would be refused a second time without seeing why.
+- **The delivery refusal, and only that one, takes back the confirmation about the delivery window.**
+  The other tick — that the client meets the criteria for delivery — is a fact about the household
+  and survives. Identify the refusal by `error.details` carrying `deliveryCapacity`, and the
+  confirmation from the questionnaire rather than by name: `deliveryWindowConfirmation` derives it
+  from the question standing under the same condition as the `$deliveryTime` line.
 - **Nothing is written to disk.** No draft, no resume, no autosave — see
   [`.claude/rules/pii-security.md`](./pii-security.md). A wizard is exactly where somebody would
   reach for `localStorage`; navigating away loses the form and the screen says so before the last

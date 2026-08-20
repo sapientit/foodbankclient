@@ -299,7 +299,7 @@ export type ReferralSearchRequest = components['schemas']['ReferralSearchRequest
 export type ReferralSearchResponse = components['schemas']['ReferralSearchResponse'];
 export type ReferralSearchResult = components['schemas']['ReferralSearchResult'];
 
-async function fetchReferrals(filters: ReferralListFilters): Promise<Referral[]> {
+export async function fetchReferrals(filters: ReferralListFilters): Promise<Referral[]> {
   const { referrals } = await unwrap(api.GET('/api/v1/referrals', { params: { query: filters } }));
   return sortReferrals(referrals);
 }

@@ -152,6 +152,30 @@
   border-inline-start: 4px solid currentcolor;
 }
 
+.submissionFailure {
+  margin-block: 1.5rem;
+  padding: 1rem;
+  border: 4px solid #b00020;
+  background: #fff0f2;
+}
+
+.submissionFailureHeading {
+  margin: 0;
+  font-size: 2.5rem;
+  line-height: 1;
+  color: #b00020;
+}
+
+.submissionFailureSummary {
+  margin-block: 0.75rem;
+  color: #b00020;
+}
+
+.submissionFailureReason {
+  margin: 0;
+  color: #000000;
+}
+
 .finalNotice,
 .pendingNotice {
   color: #7a4b00;

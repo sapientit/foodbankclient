@@ -68,7 +68,7 @@ function sessionRow(overrides: Partial<Session> & Pick<Session, 'id'>): Session 
     location: 'St Mary’s Hall',
     deliveryWindowStart: null,
     deliveryWindowEnd: null,
-    deliveriesAllowed: false,
+    deliveryCapacity: 0,
     capacity: 25,
     booked,
     status: 'planned',

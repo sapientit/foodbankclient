@@ -16,6 +16,7 @@ import {
   parseWholeNumber,
   sortRecurringSessions,
   sortSessions,
+  validateDeliveryCapacity,
   validateDeliveryWindow,
 } from './sessions.logic';
 
@@ -28,7 +29,7 @@ function session(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
     location: 'St Mary’s Hall',
     deliveryWindowStart: null,
     deliveryWindowEnd: null,
-    deliveriesAllowed: true,
+    deliveryCapacity: 8,
     capacity: 25,
     booked: 10,
     status: 'planned',
@@ -51,7 +52,7 @@ function recurring(
     location: 'St Mary’s Hall',
     deliveryWindowStart: null,
     deliveryWindowEnd: null,
-    deliveriesAllowed: true,
+    deliveryCapacity: 8,
     capacity: 25,
     activeFrom: '2026-01-01',
     activeUntil: null,
@@ -304,7 +305,7 @@ describe('describeDeliveries', () => {
   it('says a session takes no deliveries before ever mentioning the window', () => {
     expect(
       describeDeliveries({
-        deliveriesAllowed: false,
+        deliveryCapacity: 0,
         deliveryWindowStart: '09:00',
         deliveryWindowEnd: '11:00',
       }),
@@ -314,10 +315,45 @@ describe('describeDeliveries', () => {
   it('otherwise describes the window', () => {
     expect(
       describeDeliveries({
-        deliveriesAllowed: true,
+        deliveryCapacity: 8,
         deliveryWindowStart: '09:00',
         deliveryWindowEnd: '11:00',
       }),
     ).toBe('09:00–11:00');
+  });
+
+  it('reads a single delivery place as delivering, not as nought', () => {
+    // Nought is the only figure that means "nobody is driving". One is a
+    // session with a single delivery on it, and its window is still what the
+    // household is told.
+    expect(
+      describeDeliveries({
+        deliveryCapacity: 1,
+        deliveryWindowStart: '09:00',
+        deliveryWindowEnd: '11:00',
+      }),
+    ).toBe('09:00–11:00');
+  });
+});
+
+describe('validateDeliveryCapacity', () => {
+  it('allows delivery places up to and including every place on the session', () => {
+    // The two are independent except for this one bound, so a session may be
+    // entirely deliveries.
+    expect(validateDeliveryCapacity(25, 0)).toBeNull();
+    expect(validateDeliveryCapacity(25, 8)).toBeNull();
+    expect(validateDeliveryCapacity(25, 25)).toBeNull();
+  });
+
+  it('refuses more delivery places than the session has places', () => {
+    // A promise of more rounds than there are households on the session.
+    expect(validateDeliveryCapacity(25, 26)).toBe('exceeds-capacity');
+  });
+
+  it('refuses any delivery place at all on a session closed to referrals', () => {
+    // A capacity of nought is a real, valid state — a session closed to new
+    // referrals without being deleted — and nothing can be delivered from it.
+    expect(validateDeliveryCapacity(0, 1)).toBe('exceeds-capacity');
+    expect(validateDeliveryCapacity(0, 0)).toBeNull();
   });
 });

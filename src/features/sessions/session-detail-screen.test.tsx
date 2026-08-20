@@ -18,7 +18,7 @@ function session(overrides: Partial<Session> = {}): Session {
     location: 'St Mary’s Hall',
     deliveryWindowStart: null,
     deliveryWindowEnd: null,
-    deliveriesAllowed: false,
+    deliveryCapacity: 0,
     capacity: 25,
     booked: 10,
     status: 'planned',
@@ -28,6 +28,17 @@ function session(overrides: Partial<Session> = {}): Session {
     occurrenceDate: null,
     ...overrides,
   };
+}
+
+/**
+ * The delivery capacity is a number box now rather than a tick, so a test that
+ * wants a delivering session has to say how many — and one that wants none
+ * says nought rather than unticking.
+ */
+async function setDeliveryCapacity(user: ReturnType<typeof userEvent.setup>, places: string) {
+  const box = screen.getByLabelText('Delivery capacity');
+  await user.clear(box);
+  await user.type(box, places);
 }
 
 beforeEach(() => {
@@ -77,15 +88,13 @@ describe('the session detail screen', () => {
       // explicitly, because this form saves every field on every submit.
       deliveryWindowStart: null,
       deliveryWindowEnd: null,
-      deliveriesAllowed: false,
+      deliveryCapacity: 0,
     });
     expect(posted).not.toHaveProperty('startsAtUtc');
   });
 
   it('reads a both-null stored window as delivering across the session’s own hours, never as a gap', async () => {
-    server.use(
-      http.get(SESSION_URL, () => HttpResponse.json(session({ deliveriesAllowed: true }))),
-    );
+    server.use(http.get(SESSION_URL, () => HttpResponse.json(session({ deliveryCapacity: 8 }))));
 
     renderApp('/sessions/s1');
 
@@ -101,7 +110,7 @@ describe('the session detail screen', () => {
           session({
             deliveryWindowStart: '09:00',
             deliveryWindowEnd: '11:00',
-            deliveriesAllowed: true,
+            deliveryCapacity: 8,
           }),
         ),
       ),
@@ -112,7 +121,7 @@ describe('the session detail screen', () => {
     expect(await screen.findByText('09:00–11:00')).toBeInTheDocument();
   });
 
-  it('disables and un-marks the delivery times until the checkbox is ticked', async () => {
+  it('disables and un-marks the delivery times until the delivery capacity is above nought', async () => {
     server.use(http.get(SESSION_URL, () => HttpResponse.json(session())));
 
     renderApp('/sessions/s1');
@@ -125,7 +134,7 @@ describe('the session detail screen', () => {
     expect(end).not.toBeRequired();
   });
 
-  it('sets a delivery window on amend, once the checkbox is ticked', async () => {
+  it('sets a delivery window on amend, once the session is given delivery places', async () => {
     let posted: unknown = null;
     server.use(
       http.get(SESSION_URL, () => HttpResponse.json(session())),
@@ -141,7 +150,7 @@ describe('the session detail screen', () => {
     const user = userEvent.setup();
 
     await screen.findByDisplayValue('St Mary’s Hall');
-    await user.click(screen.getByLabelText('This session takes deliveries'));
+    await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -151,11 +160,11 @@ describe('the session detail screen', () => {
     expect(posted).toMatchObject({
       deliveryWindowStart: '09:00',
       deliveryWindowEnd: '11:00',
-      deliveriesAllowed: true,
+      deliveryCapacity: 8,
     });
   });
 
-  it('clears an existing delivery window by sending explicit null on both keys when the checkbox is unticked', async () => {
+  it('clears an existing delivery window by sending explicit null on both keys when the capacity returns to nought', async () => {
     let posted: unknown = null;
     server.use(
       http.get(SESSION_URL, () =>
@@ -163,7 +172,7 @@ describe('the session detail screen', () => {
           session({
             deliveryWindowStart: '09:00',
             deliveryWindowEnd: '11:00',
-            deliveriesAllowed: true,
+            deliveryCapacity: 8,
           }),
         ),
       ),
@@ -177,7 +186,7 @@ describe('the session detail screen', () => {
     const user = userEvent.setup();
 
     await screen.findByDisplayValue('09:00');
-    await user.click(screen.getByLabelText('This session takes deliveries'));
+    await setDeliveryCapacity(user, '0');
 
     const start = screen.getByLabelText('Delivery window starts');
     const end = screen.getByLabelText('Delivery window ends');
@@ -246,17 +255,18 @@ describe('the session detail screen', () => {
     renderApp('/sessions/s1');
 
     const guidance =
-      'Both times are required while this session takes deliveries, and are disabled and cleared while it does not.';
+      'Both times are required while the delivery capacity is above nought, and are disabled and cleared while it is not.';
     const start = await screen.findByLabelText('Delivery window starts');
     const end = screen.getByLabelText('Delivery window ends');
-    // The checkbox too. This session takes no deliveries, so both inputs are
-    // disabled — skipped by the tab order and by a screen reader's field list —
-    // and the checkbox is the only place left to learn what ticking it turns
-    // on. Without this, the guidance exists on a control nobody can reach.
-    const checkbox = screen.getByLabelText('This session takes deliveries');
+    // The capacity box too. This session takes no deliveries, so both inputs
+    // are disabled — skipped by the tab order and by a screen reader's field
+    // list — and the capacity box is the only place left to learn what a
+    // figure above nought turns on. Without this, the guidance exists on a
+    // control nobody can reach.
+    const capacity = screen.getByLabelText('Delivery capacity');
     expect(start).toBeDisabled();
 
-    for (const control of [checkbox, start, end]) {
+    for (const control of [capacity, start, end]) {
       const described = (control.getAttribute('aria-describedby') ?? '')
         .split(' ')
         .map((id) => document.getElementById(id)?.textContent)
@@ -265,7 +275,7 @@ describe('the session detail screen', () => {
     }
   });
 
-  it('refuses a ticked-on window missing its start or end, before making a request', async () => {
+  it('refuses a delivering session’s window missing its start or end, before making a request', async () => {
     const patched = vi.fn();
     server.use(
       http.get(SESSION_URL, () => HttpResponse.json(session())),
@@ -279,7 +289,7 @@ describe('the session detail screen', () => {
     const user = userEvent.setup();
 
     await screen.findByDisplayValue('St Mary’s Hall');
-    await user.click(screen.getByLabelText('This session takes deliveries'));
+    await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
@@ -287,15 +297,15 @@ describe('the session detail screen', () => {
     expect(patched).not.toHaveBeenCalled();
   });
 
-  it('toggles deliveriesAllowed and round-trips it and its now-required window in the save', async () => {
+  it('changes the delivery capacity and round-trips it and its now-required window in the save', async () => {
     let posted: unknown = null;
     server.use(
-      http.get(SESSION_URL, () => HttpResponse.json(session({ deliveriesAllowed: false }))),
+      http.get(SESSION_URL, () => HttpResponse.json(session({ deliveryCapacity: 0 }))),
       http.patch(SESSION_URL, async ({ request }) => {
         posted = await request.json();
         return HttpResponse.json(
           session({
-            deliveriesAllowed: true,
+            deliveryCapacity: 8,
             deliveryWindowStart: '09:00',
             deliveryWindowEnd: '11:00',
           }),
@@ -307,7 +317,7 @@ describe('the session detail screen', () => {
     const user = userEvent.setup();
 
     await screen.findByDisplayValue('St Mary’s Hall');
-    await user.click(screen.getByLabelText('This session takes deliveries'));
+    await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -315,7 +325,7 @@ describe('the session detail screen', () => {
     await screen.findByRole('heading', { name: 'Sessions' });
 
     expect(posted).toMatchObject({
-      deliveriesAllowed: true,
+      deliveryCapacity: 8,
       deliveryWindowStart: '09:00',
       deliveryWindowEnd: '11:00',
     });
