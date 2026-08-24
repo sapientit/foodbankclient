@@ -1083,7 +1083,16 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            status: "confirmed";
+                            /** Format: date-time */
+                            confirmedAt: string;
+                        };
+                    };
                 };
                 /** @description Somebody has not been marked attended or not */
                 409: {
@@ -3086,12 +3095,17 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Recorded */
+                /** @description Recorded, or already had it */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            /** @enum {boolean} */
+                            ok: true;
+                        };
+                    };
                 };
                 /** @description Missing or wrong credentials */
                 401: {
@@ -3577,12 +3591,20 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description Still used by the grid; the response lists the cells */
+                /** @description Still used by the grid; `details.cells` lists the cell keys that still reference it */
                 409: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Error"] & {
+                            error?: {
+                                details: {
+                                    cells: string[];
+                                };
+                            };
+                        };
+                    };
                 };
             };
         };
@@ -3704,14 +3726,33 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            /** @description The grid exactly as saved, echoed back. */
+                            grid: {
+                                [key: string]: string;
+                            };
+                        };
+                    };
                 };
-                /** @description Names a model parcel that does not exist, or a cell that is not a real household size */
+                /** @description Names a model parcel that does not exist (`details.unknownParcels`), or a cell that is not a real household size (`details.unexpectedCells`) */
                 422: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Error"] & {
+                            error?: {
+                                details: {
+                                    unknownParcels: {
+                                        cell: string;
+                                        name: string;
+                                    }[];
+                                    unexpectedCells: string[];
+                                };
+                            };
+                        };
+                    };
                 };
             };
         };
@@ -5091,7 +5132,7 @@ export interface components {
          *     Every field is optional and **only what you send is written**, so a one-field correction stays a one-field request. `answers` is the exception: it **replaces** the stored set rather than merging into it, because you hold the form and a key you omit has been removed. Which key counts as "other information" is yours to know — the server holds no form definition and does not police which of them changed.
          *     **The referrer's own details are not here and cannot be amended.** `referrerEmail` above all: it is what the authorisation decision was made on, so editing it would leave a referral whose accepted-or-held status no longer follows from its address. Name, phone and organisation stay fixed too — who sent a referral is a matter of record.
          *     **A correction overwrites and the original is not kept.** Nothing records what a field used to say, so there is nothing to show a user as "previously" and no undo.
-         *     Corrections are still worth writing into the form's "other information" answer as well, and often should be: a corrected address reaches the driver, while a note saying why reaches the person handing the bag over — the answers appear beside the parcel on the picking screen and on the listener sheet.
+         *     The form's "other information" answer is a free note to whoever runs the session, not a substitute for correcting a field — nearly everything here has its own field and is corrected outright, above. It earns its place for what a field can't say: a corrected address reaches the driver, while a note explaining why reaches the person handing the bag over — the answers appear beside the parcel on the picking screen and on the listener sheet.
          */
         ReferralAmend: {
             refereeFirstName?: string;
@@ -5376,6 +5417,7 @@ export interface components {
              * Format: date-time
              * @description When set, the **referee's** fields above are null by design, `answers` is empty and `adminInfo` is null.
              *     The referrer's own details are **not** purged — `referrerName`, `referrerEmail`, `referrerPhone` and `reviewComment` all survive. The retention period exists to forget the household that needed feeding, not the professional who referred them. `adminInfo` is the one administrator-written field that goes: it describes the household rather than a decision about the referral.
+             *     This describes the anonymising purge as it runs today. The charity has since settled (Q27, Q12) that a forgotten referral should be deleted outright rather than reduced to this shape — see `INITIAL_SPEC1.txt`, `#Forgetting a referral`, and the "Agreed but not yet built" table in `STATUS.md`. Nothing here changes until that is built.
              */
             piiPurgedAt: string | null;
             /**

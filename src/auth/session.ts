@@ -21,12 +21,19 @@ import { unwrap, unwrapVoid } from '../api/unwrap';
  * The memoised promise is what makes "once" true. React's StrictMode
  * double-invokes effects in development, so the route guard's effect runs,
  * cleans up and runs again; without this the second call is a second
- * `POST /auth/refresh`, the server sees the first token replayed, revokes the
- * family, and every development reload signs you out for reasons that look
- * supernatural. It is never cleared: one page load, one boot.
+ * `POST /auth/refresh` after the first may race its token rotation. It is never
+ * cleared after a successful restore or real sign-out: one page load, one boot.
  */
 export function ensureSession(): Promise<AuthUser | null> {
-  boot ??= refreshSession();
+  if (boot === null) {
+    const attempt = refreshSession();
+    boot = attempt;
+    // A failed network restore can be retried from the guarded route. A real
+    // signed-out result stays memoised for this page load, as before.
+    void attempt.catch(() => {
+      if (boot === attempt) boot = null;
+    });
+  }
   return boot;
 }
 

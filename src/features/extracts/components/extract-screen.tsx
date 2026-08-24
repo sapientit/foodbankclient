@@ -270,7 +270,7 @@ export function ExtractScreen() {
           <button onClick={retryRun} type="button">
             Try again
           </button>
-          <button onClick={stop} type="button">
+          <button className="button-secondary" onClick={stop} type="button">
             Stop extracting
           </button>
         </>
@@ -287,7 +287,7 @@ export function ExtractScreen() {
           </button>
           {/* Leaving here genuinely leaves work undone — rows written, session
               still queued — so this must not say "Finish" either. */}
-          <button onClick={stop} type="button">
+          <button className="button-secondary" onClick={stop} type="button">
             Stop extracting
           </button>
         </>

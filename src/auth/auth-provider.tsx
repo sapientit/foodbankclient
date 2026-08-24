@@ -38,26 +38,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState(
           event.type === 'refreshed'
             ? { status: 'signed-in', user: event.user }
-            : { status: 'signed-out' },
+            : { status: 'signed-out', reason: event.reason },
         );
       }),
     [],
   );
 
   const restoreSession = useCallback(() => {
-    setState((current) => (current.status === 'unknown' ? { status: 'restoring' } : current));
+    setState((current) =>
+      current.status === 'unknown' || current.status === 'restore-failed'
+        ? { status: 'restoring' }
+        : current,
+    );
 
-    void ensureSession().then((user) => {
-      // Only ever resolves the restore. A guard that mounts later — after a
-      // sign-out, say — must not be able to reinstate the memoised boot result.
-      setState((current) =>
-        current.status === 'restoring'
-          ? user === null
-            ? { status: 'signed-out' }
-            : { status: 'signed-in', user }
-          : current,
-      );
-    });
+    void ensureSession()
+      .then((user) => {
+        // Only ever resolves the restore. A guard that mounts later — after a
+        // sign-out, say — must not be able to reinstate the memoised boot result.
+        setState((current) =>
+          current.status === 'restoring'
+            ? user === null
+              ? { status: 'signed-out', reason: 'signed-out' }
+              : { status: 'signed-in', user }
+            : current,
+        );
+      })
+      .catch(() => {
+        setState((current) =>
+          current.status === 'restoring' ? { status: 'restore-failed' } : current,
+        );
+      });
   }, []);
 
   const signIn = useCallback(async (email: string) => {
@@ -68,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await endSession();
-    setState({ status: 'signed-out' });
+    setState({ status: 'signed-out', reason: 'signed-out' });
   }, []);
 
   const value = useMemo<AuthContextValue>(

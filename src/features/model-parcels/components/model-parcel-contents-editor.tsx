@@ -127,6 +127,7 @@ export function ModelParcelContentsEditor({
                   </td>
                   <td>
                     <button
+                      className="button-secondary"
                       onClick={() => {
                         onChange(lines.filter((row) => row.stockItemId !== line.stockItemId));
                       }}

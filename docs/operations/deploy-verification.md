@@ -4,6 +4,13 @@
 hand the first time the proxy is deployed, and again whenever `src/worker/index.ts` or
 `wrangler.jsonc` changes.
 
+For the test system, run `deploy_foodbank` first. It runs both repositories'
+checks before either deployment, checks that the generated client API types
+match the server's `openapi.yaml`, deploys the server before the client, and
+then confirms server health/readiness, the client shell, and a public API read
+through the deployed proxy. Those automatic checks are necessary but do not
+replace the deployed-browser checks below.
+
 The same checklist is tracked, with what has and has not been confirmed so far, in
 [`KNOWN-GAPS.md`](../../KNOWN-GAPS.md) under "Deploy-time checks only a human can do". The reasoning
 behind all three is in
@@ -44,10 +51,16 @@ unaltered.
 
 Beyond this repo, and owned by the server:
 
-- **`TURNSTILE_SECRET_KEY` must be set**, and a Turnstile widget must exist in this client, before
-  `POST /public/referrals` can be submitted from production. The server verifies a token whenever a
-  secret is configured and **refuses to boot in production without one**; this client has no widget
-  yet, because it has no submission yet. See [`STATUS.md`](../../STATUS.md).
+- **`TURNSTILE_SECRET_KEY` must be set on each deployed server**, and the widget it belongs to must
+  be the one whose sitekey that environment's build carries. The client half is built — the check is
+  on the last page of `/refer` — and it is **inert wherever no sitekey is configured**, so a
+  half-configured deployment is the dangerous one: a server with a secret and a client without a
+  sitekey refuses every referral, and a client with a sitekey against a server without a secret
+  accepts them unchecked. The account's workers.dev subdomain is `losttemple`; the test widget
+  `foodbank-referral-test` covers `foodbank-client.losttemple.workers.dev` and `localhost` only, so
+  **production needs its own widget** — a token minted against test must not verify against
+  production, for the same reason the test deployment has its own database. See
+  [`STATUS.md`](../../STATUS.md).
 - **`PII_RETENTION_DAYS` is unset**, so the purge job runs nightly and purges nothing. That is
   `OPEN-QUESTIONS.md` Q2 and it **blocks going live with real data**. Only Pete closes it.
 - The server's own go-live sequence is in `../foodbankserver/docs/operations/production.md`.

@@ -13,8 +13,9 @@ import type { AuthUser } from '../api/token-store';
 export type AuthState =
   | { status: 'unknown' }
   | { status: 'restoring' }
+  | { status: 'restore-failed' }
   | { status: 'signed-in'; user: AuthUser }
-  | { status: 'signed-out' };
+  | { status: 'signed-out'; reason: 'session-ended' | 'signed-out' };
 
 export interface AuthContextValue {
   readonly state: AuthState;

@@ -144,7 +144,7 @@ describe('routing', () => {
 
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/login');
-    expect(router.state.location.search).toBe('?next=%2Fsessions');
+    expect(router.state.location.search).toBe('?next=%2Fsessions&session=ended');
   });
 
   it('returns them to where they were after signing in', async () => {

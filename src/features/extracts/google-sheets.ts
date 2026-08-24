@@ -31,7 +31,7 @@ export async function writeClaim(
   sources: OptionSources,
 ): Promise<void> {
   const { keys, isEmpty } = await archiveKeys(spreadsheetId, accessToken);
-  await readMappings(spreadsheetId, accessToken, keys);
+  await assertMappingsValid(spreadsheetId, accessToken, keys);
   const additions = answerKeys(claim.rows).filter((key) => !keys.includes(key));
   const allKeys = [...keys, ...additions];
 
@@ -130,15 +130,15 @@ function columnName(column: number): string {
   }
   return name;
 }
-async function readMappings(
+async function assertMappingsValid(
   id: string,
   token: string,
   keys: readonly string[],
-): Promise<Map<string, number>> {
+): Promise<void> {
   const values = await getValues(id, token, `${MAPPING}!A:B`);
   if (values.length === 0) {
     await putValues(id, token, `${MAPPING}!A1:B1`, [['key', 'column']]);
-    return new Map();
+    return;
   }
   const [first, ...rows] = values;
   if (first?.[0] !== 'key' || first[1] !== 'column')
@@ -161,7 +161,6 @@ async function readMappings(
       );
     mappings.set(key, column);
   }
-  return mappings;
 }
 async function getValues(id: string, token: string, range: string): Promise<unknown[][]> {
   const body = await request(id, token, `/values/${encodeURIComponent(range)}`);

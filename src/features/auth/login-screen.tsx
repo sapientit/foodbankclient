@@ -93,6 +93,12 @@ export function LoginScreen() {
         can do come from that account.
       </p>
 
+      {searchParams.get('session') === 'ended' && (
+        <p className={styles.formError} role="alert">
+          Your sign-in has ended. Sign in again to continue.
+        </p>
+      )}
+
       {formError !== null && (
         <p
           className={styles.formError}
@@ -144,6 +150,7 @@ export function LoginScreen() {
             {DEV_ACCOUNTS.map((email) => (
               <li key={email}>
                 <button
+                  className="button-plain"
                   onClick={() => {
                     setValue('email', email, { shouldValidate: true });
                   }}

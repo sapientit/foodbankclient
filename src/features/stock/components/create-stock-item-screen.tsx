@@ -168,7 +168,9 @@ export function CreateStockItemScreen() {
           >
             {isSubmitting ? 'Adding…' : 'Add item'}
           </button>
-          <Link to="/stock/items">Cancel</Link>
+          <Link className="button-link button-secondary" to="/stock/items">
+            Cancel
+          </Link>
         </div>
       </form>
     </>

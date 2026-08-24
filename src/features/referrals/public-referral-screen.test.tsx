@@ -3,11 +3,12 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { RouterProvider, createMemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { AuthProvider } from '../../auth/auth-provider';
 import { routes } from '../../routes';
 import type { PublicSession, ReferralReason, ReferrerCheck } from './queries';
+import { resetTurnstileLoaderForTests } from './turnstile';
 
 /**
  * The public referral form as a referrer meets it: the real route table, the
@@ -1396,6 +1397,345 @@ describe('submitting', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Reason: That session is full');
     await settle();
     expect(posts).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Turnstile', () => {
+  /**
+   * A fake for `window.turnstile`, in the shape `turnstile.ts` declares. jsdom
+   * never loads the real script, so a test that wants the widget stubs this
+   * itself — see `.claude/rules/public-referral-flow.md` §Turnstile and the
+   * task that added it.
+   *
+   * **`render` hands back a widget id and lets the test decide when to call
+   * back**, rather than minting a token the instant it is asked to render:
+   * the whole point of the check is the gap between "widget mounted" and
+   * "referrer has a token", and a fake that closed that gap instantly could
+   * not tell the waiting state from the ready one.
+   */
+  interface FakeWidget {
+    id: string;
+    container: HTMLElement;
+    sitekey: string;
+    emitToken: (token: string) => void;
+    expire: () => void;
+    fail: () => void;
+  }
+
+  function installTurnstileStub() {
+    const rendered: FakeWidget[] = [];
+    let nextId = 0;
+    const reset = vi.fn();
+    const remove = vi.fn();
+
+    window.turnstile = {
+      render: (container, options) => {
+        const id = `widget-${String(nextId)}`;
+        nextId += 1;
+        rendered.push({
+          id,
+          container,
+          sitekey: options.sitekey,
+          emitToken: options.callback,
+          expire: options['expired-callback'],
+          fail: options['error-callback'],
+        });
+        return id;
+      },
+      reset,
+      remove,
+    };
+
+    return { rendered, reset, remove };
+  }
+
+  afterEach(() => {
+    resetTurnstileLoaderForTests();
+    Reflect.deleteProperty(window, 'turnstile');
+  });
+
+  /**
+   * Pages one to seven, stopping short of pressing Send — so a test can
+   * inspect the send button and the widget on the last page before deciding
+   * whether to submit.
+   */
+  async function navigateToLastPage(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(next());
+
+    await screen.findByText('Page 2 of 7');
+    const oven = screen.getByLabelText<HTMLInputElement>('Oven');
+    if (!oven.checked) await user.click(oven);
+    await user.click(next());
+
+    await screen.findByText('Page 3 of 7');
+    await user.click(next());
+
+    for (const page of [4, 5, 6]) {
+      await screen.findByText(`Page ${String(page)} of 7`);
+      await user.click(next());
+    }
+
+    await screen.findByText('Page 7 of 7');
+  }
+
+  it('renders no security check and sends no cf-turnstile-response header when no sitekey is configured', async () => {
+    // `test/setup.ts` pins the sitekey to '' for every test unless a test
+    // turns it on for itself — this is the local-development path and the one
+    // that must not regress.
+    let hasHeader: boolean | null = null;
+    server.use(
+      http.post(SUBMIT, ({ request }) => {
+        hasHeader = request.headers.has('cf-turnstile-response');
+        return HttpResponse.json(receipt('active'), { status: 201 });
+      }),
+    );
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await navigateToLastPage(user);
+
+    expect(screen.queryByText('Security check')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Send this referral' })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Send this referral' }));
+    await screen.findByRole('heading', { name: 'Referral sent' });
+
+    // The absence of the header, not an empty one — an empty string is a
+    // token the server would try to verify and refuse.
+    expect(hasHeader).toBe(false);
+  });
+
+  it('sends the token the widget reports as cf-turnstile-response', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '1x00000000000000000000AA');
+    const { rendered } = installTurnstileStub();
+    let header: string | null = 'not recorded';
+    server.use(
+      http.post(SUBMIT, ({ request }) => {
+        header = request.headers.get('cf-turnstile-response');
+        return HttpResponse.json(receipt('active'), { status: 201 });
+      }),
+    );
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await navigateToLastPage(user);
+
+    await waitFor(() => {
+      expect(rendered).toHaveLength(1);
+    });
+    const widget = rendered[0];
+    if (widget === undefined) throw new Error('The widget was not rendered.');
+    act(() => {
+      widget.emitToken('tok-abc123');
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Send this referral' }));
+    await screen.findByRole('heading', { name: 'Referral sent' });
+
+    expect(header).toBe('tok-abc123');
+  });
+
+  it('disables the send button and explains why until the check reports a token', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '1x00000000000000000000AA');
+    const { rendered } = installTurnstileStub();
+    const posts = vi.fn();
+    server.use(
+      http.post(SUBMIT, () => {
+        posts();
+        return HttpResponse.json(receipt('active'), { status: 201 });
+      }),
+    );
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await navigateToLastPage(user);
+
+    const send = screen.getByRole('button', { name: 'Send this referral' });
+    expect(send).toHaveAttribute('aria-disabled', 'true');
+    expect(send).toHaveAccessibleDescription(/Waiting for the security check to finish/);
+
+    // `aria-disabled`, not `disabled`, so the click still reaches the
+    // handler — which must refuse it, since there is no token yet.
+    await user.click(send);
+    await settle();
+    expect(posts).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(rendered).toHaveLength(1);
+    });
+    const widget = rendered[0];
+    if (widget === undefined) throw new Error('The widget was not rendered.');
+    act(() => {
+      widget.emitToken('tok-ready');
+    });
+
+    expect(send).toHaveAttribute('aria-disabled', 'false');
+    expect(
+      screen.queryByText('Waiting for the security check to finish. It usually takes a moment.'),
+    ).toBeNull();
+  });
+
+  it('resets the widget after a refusal and never resends the spent token', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '1x00000000000000000000AA');
+    const { rendered, reset } = installTurnstileStub();
+    const headers: (string | null)[] = [];
+    let refuse = true;
+    server.use(
+      http.post(SUBMIT, ({ request }) => {
+        headers.push(request.headers.get('cf-turnstile-response'));
+        if (refuse) {
+          refuse = false;
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'BAD_REQUEST',
+                message: 'That security check has expired.',
+                requestId: 'r1',
+              },
+            },
+            { status: 400 },
+          );
+        }
+        return HttpResponse.json(receipt('active'), { status: 201 });
+      }),
+    );
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await navigateToLastPage(user);
+
+    await waitFor(() => {
+      expect(rendered).toHaveLength(1);
+    });
+    const widget = rendered[0];
+    if (widget === undefined) throw new Error('The widget was not rendered.');
+
+    act(() => {
+      widget.emitToken('tok-first');
+    });
+    await user.click(screen.getByRole('button', { name: 'Send this referral' }));
+
+    await waitFor(() => {
+      expect(headers).toHaveLength(1);
+    });
+    expect(headers[0]).toBe('tok-first');
+
+    // The spent token is worthless either way: the food bank refused it
+    // outright or refused the referral and the token along with it. Either
+    // way the widget is reset for a fresh one, and the button waits again.
+    await waitFor(() => {
+      expect(reset).toHaveBeenCalledWith(widget.id);
+    });
+    expect(screen.getByRole('button', { name: 'Send this referral' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+
+    act(() => {
+      widget.emitToken('tok-second');
+    });
+    await user.click(screen.getByRole('button', { name: 'Send this referral' }));
+    await screen.findByRole('heading', { name: 'Referral sent' });
+
+    // The single-use rule: the second submission carries the fresh token,
+    // never the first one repeated.
+    expect(headers).toEqual(['tok-first', 'tok-second']);
+  });
+
+  it('drops the token and waits again when the widget reports expiry, and resets for a fresh one', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '1x00000000000000000000AA');
+    const { rendered, reset } = installTurnstileStub();
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await navigateToLastPage(user);
+
+    await waitFor(() => {
+      expect(rendered).toHaveLength(1);
+    });
+    const widget = rendered[0];
+    if (widget === undefined) throw new Error('The widget was not rendered.');
+
+    act(() => {
+      widget.emitToken('tok-ready');
+    });
+    expect(screen.getByRole('button', { name: 'Send this referral' })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
+
+    act(() => {
+      widget.expire();
+    });
+
+    // Handled before it matters: the referrer never presses send against a
+    // token Turnstile has already let expire.
+    expect(screen.getByRole('button', { name: 'Send this referral' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(
+      screen.getByText('Waiting for the security check to finish. It usually takes a moment.'),
+    ).toBeInTheDocument();
+    expect(reset).toHaveBeenCalledWith(widget.id);
+  });
+
+  it('waits for a fresh token after going back from the final page', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '1x00000000000000000000AA');
+    const { rendered } = installTurnstileStub();
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await navigateToLastPage(user);
+
+    await waitFor(() => {
+      expect(rendered).toHaveLength(1);
+    });
+    const firstWidget = rendered[0];
+    if (firstWidget === undefined) throw new Error('The first widget was not rendered.');
+    act(() => {
+      firstWidget.emitToken('tok-before-back');
+    });
+    expect(screen.getByRole('button', { name: 'Send this referral' })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByText('Page 6 of 7');
+    await user.click(next());
+    await screen.findByText('Page 7 of 7');
+
+    await waitFor(() => {
+      expect(rendered).toHaveLength(2);
+    });
+    expect(screen.getByRole('button', { name: 'Send this referral' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(
+      screen.getByText('Waiting for the security check to finish. It usually takes a moment.'),
+    ).toBeInTheDocument();
+  });
+
+  it('mounts the security check on the last page only', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '1x00000000000000000000AA');
+    const { rendered } = installTurnstileStub();
+    renderRefer();
+
+    await screen.findByLabelText(/Referrer's name/);
+
+    expect(screen.queryByText('Security check')).toBeNull();
+    expect(rendered).toHaveLength(0);
   });
 });
 

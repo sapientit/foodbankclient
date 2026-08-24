@@ -47,6 +47,14 @@ afterEach(() => {
 });
 
 describe('sign-in screen', () => {
+  it('explains when an eight-hour sign-in has ended', () => {
+    renderLogin('/login?session=ended');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Your sign-in has ended. Sign in again to continue.',
+    );
+  });
+
   it('shows the Foodbank banner above the sign-in form', () => {
     renderLogin();
 

@@ -209,7 +209,9 @@ function AmendStockItemForm({ item }: { item: StockItem }) {
           >
             {isSubmitting ? 'Saving…' : 'Save changes'}
           </button>
-          <Link to="/stock/items">Cancel</Link>
+          <Link className="button-link button-secondary" to="/stock/items">
+            Cancel
+          </Link>
         </div>
       </form>
     </>

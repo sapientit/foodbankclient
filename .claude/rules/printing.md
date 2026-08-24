@@ -49,8 +49,10 @@ for changing it, not a plan for writing it.
   four guessed key names, none of which the real form uses, so it would have been `null` from the day
   the questions shipped.
 - `@media print` drops navigation, buttons and colour. Test at A4. Keep the print layout in its own
-  stylesheet next to the print component. `src/components/app-shell.module.css` already carries the
-  frame — `@page` margins and the nav/controls/colour drop — so inherit it rather than fight it.
+  stylesheet next to the print component. The frame already exists, so inherit it rather than fight
+  it: `src/components/app-shell.module.css` carries the `@page` margins and drops the nav and the
+  page's colour, and `src/index.css` drops every control — including a link drawn as one, which is
+  the case a sheet-specific stylesheet used to have to remember for itself.
 
 ## The API's shape, which the UI must not smooth over
 

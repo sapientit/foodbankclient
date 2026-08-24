@@ -34,8 +34,8 @@ the summary you were given. Check `../foodbankserver/API.md` for what the endpoi
   missing `await`, a value that can be `undefined` where it is used, an effect that runs twice under
   StrictMode, a stale closure.
 - **Requirements compliance** — does it match `screenDetails.md`? Has a requirement been quietly
-  reinterpreted? Has an entry in `../foodbankserver/OPEN-QUESTIONS.md` — the shared file for both
-  repos — been answered by the change rather than by Pete?
+  reinterpreted? Has an entry in the relevant `OPEN-QUESTIONS.md` file been answered by the change
+  rather than by Pete?
   Should a settled screen requirement have been written into `screenDetails.md` in this same change?
 - **Edge cases** — empty list, single item, a field that is **absent rather than `null`**, a purged
   referral (`piiPurgedAt` set, `answers` empty), a negative stock level, a household clamped at the

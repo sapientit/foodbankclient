@@ -6,6 +6,7 @@ import { PageHeader } from '../../../components/page-header';
 import { SessionListFilters } from '../../../components/session-list-filters';
 import { SessionTable } from '../../../components/session-table';
 import { Spinner } from '../../../components/spinner';
+import { classNames } from '../../../lib/class-names';
 import { londonToday } from '../../../lib/london-time';
 import { useSessions } from '../queries';
 import { filterSessionsByStatus, readSessionListSelection } from '../session-list-filters.logic';
@@ -51,7 +52,7 @@ export function SessionsScreen() {
           isAdmin ? (
             <div className={styles.actions}>
               <Link to="/sessions/recurring">Weekly sessions</Link>
-              <Link className={styles.add} to="/sessions/new">
+              <Link className={classNames(styles.add, 'button-link')} to="/sessions/new">
                 Add a session
               </Link>
             </div>

@@ -88,7 +88,7 @@ export function UsersScreen() {
       <PageHeader
         title="Users"
         action={
-          <Link className={styles.add} to="/users/new">
+          <Link className="button-link" to="/users/new">
             Add a user
           </Link>
         }
@@ -176,7 +176,9 @@ export function UsersScreen() {
                 </td>
                 <td>{formatLondonDate(row.createdAt)}</td>
                 <td className={styles.actions}>
-                  <Link to={`/users/${row.id}`}>Amend</Link>
+                  <Link className="button-link" to={`/users/${row.id}`}>
+                    Amend
+                  </Link>
 
                   {row.isActive ? (
                     <>

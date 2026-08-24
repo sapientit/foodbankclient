@@ -27,18 +27,14 @@
 
 .generate {
   padding: 0.5rem 0.9rem;
-  font: inherit;
   font-weight: 600;
-  color: #1a1a1a;
-  background: #f3f3f3;
-  border: 1px solid #1a1a1a;
-  border-radius: 0.25rem;
-  cursor: pointer;
 }
 
-.generate:disabled {
+/* Qualified by the element so it outranks the global `button:disabled`, which
+   would otherwise say `not-allowed`. The control is not unavailable here — it
+   is working, and the label says "Generating…" beside this. */
+button.generate:disabled {
   cursor: progress;
-  opacity: 0.65;
 }
 
 /* Reserves its line so the table below does not jump when a result appears. */

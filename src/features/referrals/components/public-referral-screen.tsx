@@ -42,7 +42,9 @@ import {
   useSubmitReferral,
   type ReferralReceipt,
 } from '../queries';
+import { turnstileSiteKey } from '../turnstile';
 import { ReferralQuestionField, type QuestionLookups } from './referral-question-field';
+import { TurnstileCheck } from './turnstile-check';
 import styles from './public-referral-screen.module.css';
 
 /**
@@ -107,6 +109,20 @@ export function PublicReferralScreen() {
   // Whether a submission may have landed without us hearing so. See `sending`.
   const [sendUncertain, setSendUncertain] = useState(false);
 
+  /*
+   * The bot check. `turnstileRequired` is a property of the deployment, not of
+   * the referrer: a client with no sitekey is one whose server has no secret,
+   * which is local development. Where it is required, the send button waits for
+   * a token — the alternative is a referrer completing seven pages and being
+   * told by the food bank that the form needs a check they were never shown.
+   *
+   * The token is **never** kept anywhere but this state. It is single-use, so
+   * `turnstileReset` spends it and asks for another after any refusal.
+   */
+  const turnstileRequired = turnstileSiteKey() !== null;
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
+
   /**
    * The lock on the one unauthenticated write in the system, and the one whose
    * duplicate books a household onto a session twice and takes two places off
@@ -128,6 +144,7 @@ export function PublicReferralScreen() {
 
   const summaryId = useId();
   const uncertainNoticeId = useId();
+  const awaitingCheckId = useId();
 
   /*
    * The page the referrer is actually on, readable from an `await` that
@@ -146,6 +163,18 @@ export function PublicReferralScreen() {
 
   const page = referralFormDefinition.pages[pageIndex];
   const isLastPage = pageIndex === referralFormDefinition.pages.length - 1;
+
+  /*
+   * The send button waits for the bot check rather than letting somebody press
+   * it into a refusal they cannot act on. Only on the last page, and only where
+   * a sitekey is configured — everywhere else this is false and the form is
+   * exactly what it was.
+   */
+  const awaitingCheck = isLastPage && turnstileRequired && turnstileToken === null;
+  const sendDescribedBy =
+    [sendUncertain ? uncertainNoticeId : null, awaitingCheck ? awaitingCheckId : null]
+      .filter((id) => id !== null)
+      .join(' ') || undefined;
   // Only a 4xx proves the food bank wrote nothing. A timeout or 5xx keeps the
   // separate uncertain-outcome warning below, because a second referral could
   // book the household twice.
@@ -306,6 +335,10 @@ export function PublicReferralScreen() {
    * survives a page change.
    */
   const leavePage = (to: (index: number) => number) => {
+    // Leaving the last page removes the widget. Its token must leave with it:
+    // returning mounts a new widget, and letting its predecessor enable Send
+    // would turn a normal Back/Next correction into a stale-token refusal.
+    if (isLastPage) setTurnstileToken(null);
     submit.reset();
     setPageIndex(to);
     // A wizard that changes its whole content without moving focus leaves a
@@ -433,11 +466,13 @@ export function PublicReferralScreen() {
       return;
     }
 
+    if (turnstileRequired && turnstileToken === null) return;
+
     if (sending.current) return;
     sending.current = true;
 
     try {
-      const result = await submit.mutateAsync(built.body);
+      const result = await submit.mutateAsync({ body: built.body, turnstileToken });
       setReceipt(result);
     } catch (error) {
       // Rendered by the dedicated failure notice below. Never retried
@@ -446,6 +481,14 @@ export function PublicReferralScreen() {
       const refused = error instanceof ApiError && error.status >= 400 && error.status < 500;
       if (refused) {
         sending.current = false;
+        /*
+         * The token is spent either way — the food bank verified it and
+         * refused the referral for some other reason, or refused the token
+         * itself. Sending the same one again earns "that bot check has
+         * expired", so the widget is asked for a fresh one the moment a
+         * retry becomes possible rather than at the moment it is pressed.
+         */
+        setTurnstileReset((count) => count + 1);
       } else {
         // The lock stays on, because the referral may well have landed. Say so
         // rather than leaving a button that looks live and swallows the click,
@@ -535,21 +578,42 @@ export function PublicReferralScreen() {
           </p>
         )}
 
+        {/*
+          Mounted on the last page only. A token minted on page one would be
+          five minutes stale by the time somebody had answered forty-three
+          questions, and the referrer would meet the expiry as a refusal rather
+          than as something the widget quietly handled.
+        */}
+        {isLastPage && <TurnstileCheck onToken={setTurnstileToken} resetSignal={turnstileReset} />}
+
         <div className={styles.actions}>
           {pageIndex > 0 && (
-            <button onClick={goBack} type="button">
+            <button className="button-secondary" onClick={goBack} type="button">
               Back
             </button>
           )}
           <button
-            aria-describedby={sendUncertain ? uncertainNoticeId : undefined}
-            aria-disabled={submit.isPending || sendUncertain}
+            aria-describedby={sendDescribedBy}
+            aria-disabled={submit.isPending || sendUncertain || awaitingCheck}
             className={styles.primary}
             type="submit"
           >
             {isLastPage ? 'Send this referral' : 'Next'}
           </button>
         </div>
+
+        {/*
+          Under the row rather than beside the button, which is what keeps the
+          row aligned; `aria-describedby` is what ties the sentence to the
+          control it explains. An unavailable control that says nothing is the
+          failure `screenDetails.md` describes under "#Buttons and other
+          controls".
+        */}
+        {awaitingCheck && (
+          <p className={styles.awaitingCheck} id={awaitingCheckId}>
+            Waiting for the security check to finish. It usually takes a moment.
+          </p>
+        )}
       </form>
     </main>
   );

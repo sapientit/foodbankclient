@@ -63,8 +63,7 @@ Return to the main agent, work unfinished, if your task turns out to need:
 
 - a screen requirement interpreted, or anything that belongs in `screenDetails.md`
 - a domain requirement, which belongs in the server's `INITIAL_SPEC1.txt`
-- an entry in `../foodbankserver/OPEN-QUESTIONS.md` closed — that is the shared file for both repos,
-  and **only Pete closes one**, never you
+- an entry in either `OPEN-QUESTIONS.md` file closed — **only Pete closes one**, never you
 - an architectural or cross-feature choice, or a new query-key root
 - a new dependency, or a loosened tsconfig/eslint rule
 - a change to `referral-form.config.json`'s questions or answer keys — the keys are frozen for the

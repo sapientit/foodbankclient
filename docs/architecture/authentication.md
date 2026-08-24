@@ -65,18 +65,16 @@ it is capped at the same instant.
 ## The contract changed under this code — believe the docs, not the comments
 
 Until 31 July 2026 the contract said a replayed refresh token was treated as **theft**: it revoked the
-whole token family and signed the user out everywhere. That hazard is the stated reason for both the
-single-flight refresh and the cross-tab lock, and it is why `runRefresh` in `auth-fetch.ts` calls
-`endSession()` on _any_ refresh failure and says so in its comment.
+whole token family and signed the user out everywhere. The server now refuses a spent token without
+ending the sign-in. `auth-fetch.ts` retries it once, then ends the session only when the second
+refresh is also refused. A network, timeout, server or malformed-response failure does not end a
+session: the next authenticated request gets another single-flight chance to refresh. When a refresh
+is genuinely refused, the sign-in screen says that the sign-in ended rather than presenting it as an
+unexplained failure.
 
-**The server now refuses a spent token and nothing more.** The sign-in carries on, and `API.md` says
-in terms not to sign the user out on it but to retry with the cookie now held.
-
-Nothing is broken today, because single-flight means the client rarely produces that `401` at all —
-but the sign-out branch is more aggressive than the contract requires, and the eight-hour cap has no
-handling anywhere, so a volunteer meeting it is bounced to the sign-in screen with a generic message.
-`DEFERRED-WORK.md` W1 carries the work. **Keep the single-flight refresh and the cross-tab lock when
-it lands**: their original justification is gone, but they remain correct.
+**Keep the single-flight refresh and the cross-tab lock**: their original justification is gone, but
+they remain correct. One refresh per failure is still fewer round trips, avoids a thundering herd of
+tabs, and makes the spent-cookie retry uncommon.
 
 ## Never touch the refresh cookie from JavaScript
 

@@ -90,4 +90,44 @@ describe('ConfirmDialog', () => {
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
+
+  /*
+   * Red is claimed by name here rather than proved by colour, because jsdom
+   * evaluates no stylesheet — `test/tooling/button-styles.test.ts` is what
+   * holds the other end of it. The rule worth protecting is that a
+   * confirmation is red only when the answer cannot be taken back: every
+   * dialog in the application used to be, including the ones asking whether
+   * somebody meant to save, and a warning that is always on is not a warning.
+   */
+  it('draws an answer that cannot be taken back in red, and an ordinary one as an ordinary action', () => {
+    const cancelTheSession = render(
+      <ConfirmDialog
+        confirmLabel="Cancel the session"
+        destructive
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        title="Cancel Thursday 5 June?"
+      >
+        <p>The households booked on it are told nothing by this.</p>
+      </ConfirmDialog>,
+    );
+
+    expect(cancelTheSession.getByRole('button', { name: 'Cancel the session' })).toHaveClass(
+      'button-danger',
+    );
+
+    cancelTheSession.unmount();
+    render(
+      <ConfirmDialog
+        confirmLabel="Save changes"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        title="Save these changes?"
+      >
+        <p>You can amend them again afterwards.</p>
+      </ConfirmDialog>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Save changes' })).not.toHaveClass('button-danger');
+  });
 });

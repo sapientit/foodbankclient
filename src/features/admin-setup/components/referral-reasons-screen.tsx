@@ -59,7 +59,7 @@ export function ReferralReasonsScreen() {
       <PageHeader
         title="Reasons for referral"
         action={
-          <Link className={styles.add} to="/referral-reasons/new">
+          <Link className="button-link" to="/referral-reasons/new">
             Add a reason
           </Link>
         }
@@ -73,7 +73,11 @@ export function ReferralReasonsScreen() {
 
       {reasons.data.length === 0 ? (
         <EmptyState
-          action={<Link to="/referral-reasons/new">Add a reason</Link>}
+          action={
+            <Link className="button-link" to="/referral-reasons/new">
+              Add a reason
+            </Link>
+          }
           headline="No reasons yet"
           sentence="Add the first one before anyone can submit a referral."
         />
@@ -96,7 +100,9 @@ export function ReferralReasonsScreen() {
                 <td className={styles.numeric}>{reason.displayOrder}</td>
                 <td>{reason.isActive ? 'Active' : 'Retired'}</td>
                 <td className={styles.actions}>
-                  <Link to={`/referral-reasons/${reason.id}`}>Amend</Link>
+                  <Link className="button-link" to={`/referral-reasons/${reason.id}`}>
+                    Amend
+                  </Link>
                   {reason.isActive ? (
                     <button
                       onClick={() => {

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { api, publicApi } from '../../api/client';
 import type { components, paths } from '../../api/schema';
 import { unwrap } from '../../api/unwrap';
+import { authorisedReferrerKeys } from '../admin-setup/keys';
 import { pickListKeys } from '../pick-lists/keys';
 import { sessionKeys } from '../sessions/keys';
 import { publicReferralKeys, referralKeys, type ReferralListFilters } from './keys';
@@ -260,10 +261,38 @@ export function buildSubmissionBody(
  */
 export function useSubmitReferral() {
   return useMutation({
-    mutationFn: (submission: ReferralSubmission): Promise<ReferralReceipt> =>
-      unwrap(publicApi.POST('/api/v1/public/referrals', { body: submission })),
+    mutationFn: ({ body, turnstileToken }: ReferralSubmissionAttempt): Promise<ReferralReceipt> =>
+      unwrap(
+        publicApi.POST('/api/v1/public/referrals', {
+          body,
+          /*
+           * Omitted entirely when there is no token, rather than sent empty.
+           * The server requires the header only when it has a secret
+           * configured, and an empty string is a token it would try to verify
+           * and refuse — turning "this deployment has no bot check" into "your
+           * bot check failed".
+           */
+          ...(turnstileToken === null
+            ? {}
+            : { headers: { 'cf-turnstile-response': turnstileToken } }),
+        }),
+      ),
     retry: false,
   });
+}
+
+/**
+ * A submission and the bot-check token that goes with it.
+ *
+ * The token travels **beside** the body rather than in it: it is a header on
+ * the request, never a field on the referral, and nothing about it is stored.
+ * `null` means this deployment has no Turnstile sitekey — see
+ * `turnstileSiteKey`, and the server's matching behaviour when it has no
+ * secret.
+ */
+export interface ReferralSubmissionAttempt {
+  body: ReferralSubmission;
+  turnstileToken: string | null;
 }
 
 /*
@@ -443,6 +472,17 @@ export function useAmendReferral() {
 
 export type ReviewDecision = 'accept' | 'reject';
 
+type ReferralAcceptBody = NonNullable<
+  paths['/api/v1/referrals/{id}/accept']['post']['requestBody']
+>['content']['application/json'];
+
+interface ReviewReferralInput {
+  id: string;
+  decision: ReviewDecision;
+  comment: string;
+  authoriseReferrer?: NonNullable<ReferralAcceptBody['authoriseReferrer']>;
+}
+
 /**
  * Accept or reject a referral waiting on an administrator, with the one line of
  * comment `screenDetails.md` asks for.
@@ -468,11 +508,8 @@ export function useReviewReferral() {
       id,
       decision,
       comment,
-    }: {
-      id: string;
-      decision: ReviewDecision;
-      comment: string;
-    }): Promise<Referral> => {
+      authoriseReferrer,
+    }: ReviewReferralInput): Promise<Referral> => {
       const path =
         decision === 'accept' ? '/api/v1/referrals/{id}/accept' : '/api/v1/referrals/{id}/reject';
       return unwrap(
@@ -481,15 +518,23 @@ export function useReviewReferral() {
           // An empty comment is dropped rather than sent as `''` — the same
           // choice `useCancelReferral` makes. The server's own bound is
           // `minLength: 1`, so `''` would be a `400` for a field nobody filled in.
-          body: comment.trim() === '' ? {} : { comment: comment.trim() },
+          body:
+            authoriseReferrer === undefined
+              ? comment.trim() === ''
+                ? {}
+                : { comment: comment.trim() }
+              : { authoriseReferrer },
         }),
       );
     },
-    onSuccess: (updated) => {
+    onSuccess: (updated, { authoriseReferrer }) => {
       queryClient.setQueryData(referralKeys.detail(updated.id), updated);
       void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: referralKeys.searches() });
+      if (authoriseReferrer !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: authorisedReferrerKeys.all });
+      }
       void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(updated.sessionId) });
       // Rejection can leave an immutable parcel snapshot behind. The
       // run-session screen can filter it only after this cached response has

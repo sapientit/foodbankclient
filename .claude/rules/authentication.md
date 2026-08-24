@@ -47,7 +47,7 @@ trade-offs and the history behind each rule:
   shape does not change; an unknown email starts being rejected. **Treat `401` from login as "not a
   known user" now**, with the same message as a bad credential.
 
-**The code does not yet match the last two rules.** `runRefresh` still signs the user out on any
-refresh failure, and the eight-hour cap has no handling anywhere. Believe this file over the code and
-over any comment in `auth-fetch.ts` still arguing from revoked token families. See `DEFERRED-WORK.md`
-W1 — it is priority-one code and wants its own change with its own tests.
+`auth-fetch.ts` retries one refused refresh before signing out. A transient network, timeout, server
+or malformed-response failure does not end the session. A genuine refresh refusal reaches sign-in
+with a clear message that the eight-hour sign-in ended. Keep this file, the code and the server's
+refresh-cycle contract aligned.

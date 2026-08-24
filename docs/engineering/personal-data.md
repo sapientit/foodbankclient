@@ -125,3 +125,16 @@ rather than merely dropped. Neither changes what the charity agreed to.
 **This acceptance covers the spreadsheet extract and nothing else.** Analytics, error reporting and
 session replay remain out without a fresh conversation — a stack trace from the referral form carries
 somebody's name, address and reason for referral to a company the charity has no agreement with.
+
+## Cloudflare Turnstile on the public referral form
+
+**The charity has accepted this**, on 23 August 2026. Turnstile runs Cloudflare's bot-check script in
+the public referral form and processes the visitor/browser/network data needed to distinguish a
+person from a bot. It is a condition of submitting a referral.
+
+The client does not send Cloudflare referral answers or other form contents: it supplies only the
+site key and later sends the resulting verification token to the food bank server. Cloudflare
+documents that Turnstile does not access, store or transmit form entries or other page inputs. The
+script runs in the same page as the form and so has the technical ability to read those inputs; the
+charity accepts reliance on Cloudflare's documented behaviour. This acceptance does not extend to
+other third-party scripts, analytics, error reporting or session replay.

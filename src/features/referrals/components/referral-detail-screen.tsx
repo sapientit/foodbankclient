@@ -5,6 +5,7 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { HouseholdCompositionGrid } from '../../../components/household-composition-grid';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
+import { classNames } from '../../../lib/class-names';
 import { ApiError } from '../../../lib/errors';
 import {
   formatCalendarDate,
@@ -572,27 +573,38 @@ function PreviousReferralsTable({ matches }: { matches: readonly RepeatReferralM
  * second — so the panel cannot appear on a referral the server would refuse to
  * review.
  *
- * There is no "approve and authorise this referrer for the future" button:
- * `referral details.txt` asks for one, but what it should write to the
- * authorised list is genuinely underdetermined — one address or a whole
- * domain, and under which organisation name. That is **Q22**, and inventing an
- * answer could quietly authorise an entire council.
+ * There are two ways to accept: this referral only, or the referral and the
+ * referrer's exact email address. The latter asks the administrator for the
+ * organisation name rather than copying the free text from the referral — the
+ * authorised list is used for reporting and needs the name the charity trusts.
  */
 function ReviewPanel({ referral }: { referral: Referral }) {
   const review = useReviewReferral();
   const [comment, setComment] = useState('');
-  const [confirming, setConfirming] = useState<ReviewDecision | null>(null);
+  const [confirming, setConfirming] = useState<ReviewDecision | 'authorise' | null>(null);
+  const [organisationName, setOrganisationName] = useState('');
+  const [organisationNameError, setOrganisationNameError] = useState<string | null>(null);
   const commentId = useId();
+  const organisationNameId = useId();
+  const organisationNameErrorId = useId();
 
-  const decide = async (decision: ReviewDecision) => {
+  const decide = async (decision: ReviewDecision | 'authorise') => {
+    const authoriseReferrer =
+      decision === 'authorise' ? { organisationName: organisationName.trim() } : undefined;
+    if (authoriseReferrer?.organisationName === '') {
+      setOrganisationNameError('Enter the organisation this referrer belongs to.');
+      return;
+    }
+
     setConfirming(null);
     try {
       // Approving sends no comment at all, whatever a reject dialog opened and
       // abandoned earlier left in the box.
       await review.mutateAsync({
         id: referral.id,
-        decision,
+        decision: decision === 'authorise' ? 'accept' : decision,
         comment: decision === 'reject' ? comment : '',
+        ...(authoriseReferrer === undefined ? {} : { authoriseReferrer }),
       });
     } catch {
       // Rendered by `ErrorNotice` below — a 409 here means another
@@ -625,9 +637,21 @@ function ReviewPanel({ referral }: { referral: Referral }) {
         >
           Approve this referral
         </button>
+        {referral.referrerEmail !== null && (
+          <button
+            aria-disabled={review.isPending}
+            onClick={() => {
+              setOrganisationNameError(null);
+              setConfirming('authorise');
+            }}
+            type="button"
+          >
+            Approve and authorise referrer
+          </button>
+        )}
         <button
           aria-disabled={review.isPending}
-          className={styles.danger}
+          className="button-danger"
           onClick={() => {
             setConfirming('reject');
           }}
@@ -640,18 +664,62 @@ function ReviewPanel({ referral }: { referral: Referral }) {
       {confirming !== null && (
         <ConfirmDialog
           busy={review.isPending}
-          confirmLabel={confirming === 'accept' ? 'Approve referral' : 'Reject referral'}
+          confirmLabel={
+            confirming === 'reject'
+              ? 'Reject referral'
+              : confirming === 'authorise'
+                ? 'Approve and authorise referrer'
+                : 'Approve referral'
+          }
+          destructive={confirming === 'reject'}
           onCancel={() => {
             setConfirming(null);
           }}
           onConfirm={() => void decide(confirming)}
-          title={confirming === 'accept' ? 'Approve this referral?' : 'Reject this referral?'}
+          title={
+            confirming === 'reject'
+              ? 'Reject this referral?'
+              : confirming === 'authorise'
+                ? 'Approve this referral and authorise the referrer?'
+                : 'Approve this referral?'
+          }
         >
           <p>
-            {confirming === 'accept'
-              ? 'This household will be booked in for the session and will appear on its pick list.'
-              : 'This household will not be booked in, and the place it was holding on the session is given back.'}
+            {confirming === 'reject'
+              ? 'This household will not be booked in, and the place it was holding on the session is given back.'
+              : 'This household will be booked in for the session and will appear on its pick list.'}
           </p>
+          {confirming === 'authorise' && (
+            <>
+              <div className={styles.field}>
+                <label htmlFor={organisationNameId}>Organisation</label>
+                <input
+                  aria-describedby={
+                    organisationNameError === null ? undefined : organisationNameErrorId
+                  }
+                  aria-invalid={organisationNameError === null ? undefined : true}
+                  className={styles.input}
+                  id={organisationNameId}
+                  maxLength={200}
+                  onChange={(event) => {
+                    setOrganisationName(event.target.value);
+                    if (organisationNameError !== null) setOrganisationNameError(null);
+                  }}
+                  type="text"
+                  value={organisationName}
+                />
+                {organisationNameError !== null && (
+                  <p className={styles.error} id={organisationNameErrorId} role="alert">
+                    {organisationNameError}
+                  </p>
+                )}
+              </div>
+              <p>
+                This authorises {referral.referrerEmail ?? 'this referrer’s email address'} only,
+                not everyone at that organisation’s domain.
+              </p>
+            </>
+          )}
           {/* Only a rejection is explained. Approving an unrecognised referrer
               is the ordinary outcome and needs no reason; a rejection is the
               one somebody asks about six months later, and there is no review
@@ -955,7 +1023,7 @@ function AnswerPageEditor({
           <button aria-disabled={amend.isPending} className={styles.submit} type="submit">
             {amend.isPending ? 'Saving…' : 'Save changes'}
           </button>
-          <button onClick={onCancel} type="button">
+          <button className="button-secondary" onClick={onCancel} type="button">
             Cancel
           </button>
         </div>
@@ -1077,6 +1145,7 @@ function DetailsForm({
         <div className={styles.editMenu}>
           {referralFormDefinition.pages.map((page, index) => (
             <button
+              className="button-plain"
               key={page.pageNum}
               onClick={() => {
                 setEditing(index);
@@ -1283,7 +1352,7 @@ function ReferralActionsPanel({
         <button
           aria-describedby={blocked === null ? undefined : blockedId}
           aria-disabled={blocked !== null}
-          className={styles.danger}
+          className={classNames(styles.submit, 'button-danger')}
           onClick={() => {
             open('cancel');
           }}
@@ -1331,6 +1400,7 @@ function ReferralActionsPanel({
         <ConfirmDialog
           busy={cancel.isPending}
           confirmLabel="Cancel the referral"
+          destructive
           onCancel={() => {
             setDialog(null);
           }}

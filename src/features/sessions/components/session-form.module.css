@@ -62,14 +62,6 @@
 
 .submit {
   padding: 0.6rem 1.25rem;
-  font: inherit;
-}
-
-.danger {
-  padding: 0.6rem 1.25rem;
-  font: inherit;
-  color: #b3261e;
-  border-color: #b3261e;
 }
 
 .reasonField {

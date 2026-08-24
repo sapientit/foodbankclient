@@ -41,8 +41,9 @@
 
 .disclosure {
   margin-inline-start: auto;
+  /* Compact: the header band is not the place for a thumb target. Colour comes
+     from the global control style in `index.css`; size is a screen's to set. */
   padding: 0.45rem 0.85rem;
-  font: inherit;
 }
 
 .navList {
@@ -115,7 +116,6 @@
 
 .signOut {
   padding: 0.4rem 0.85rem;
-  font: inherit;
 }
 
 .main {
@@ -152,12 +152,6 @@
   .main {
     max-inline-size: none;
     padding: 0;
-  }
-
-  /* Global on purpose: a control does nothing on paper, and colour costs a
-     charity's toner. */
-  :global(button) {
-    display: none;
   }
 
   :global(body) {

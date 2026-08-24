@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
+import { classNames } from '../../../lib/class-names';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
 import { formatSessionDate } from '../../../lib/london-time';
 import { useAmendSession, useCancelSession, useSession, type Session } from '../queries';
@@ -516,7 +517,7 @@ function SessionDetailForm({ session }: { session: Session }) {
       <button
         aria-describedby={locked === null ? undefined : lockedId}
         aria-disabled={locked !== null}
-        className={styles.danger}
+        className={classNames(styles.submit, 'button-danger')}
         onClick={() => {
           if (locked !== null) return;
           setCancelling(true);
@@ -530,6 +531,7 @@ function SessionDetailForm({ session }: { session: Session }) {
         <ConfirmDialog
           busy={cancel.isPending}
           confirmLabel="Cancel the session"
+          destructive
           onCancel={() => {
             setCancelling(false);
           }}

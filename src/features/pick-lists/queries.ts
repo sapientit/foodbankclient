@@ -27,7 +27,7 @@ export type SessionReferralDetails = components['schemas']['SessionReferralDetai
 
 export function useSessionReferralDetails(sessionId: string) {
   return useQuery({
-    queryKey: [...pickListKeys.session(sessionId), 'referral-details'] as const,
+    queryKey: pickListKeys.referralDetails(sessionId),
     enabled: sessionId !== '',
     queryFn: (): Promise<SessionReferralDetails> =>
       unwrap(

@@ -54,6 +54,7 @@ function addQuestionnaireMenu_() {
     .createMenu('Foodbank questionnaire')
     .addItem('Validate questionnaire', 'validateQuestionnaire')
     .addItem('Format as JSON', 'formatQuestionnaireAsJson')
+    .addItem('Copy reviewed JSON', 'copyReviewedQuestionnaireJson')
     .addToUi();
 }
 
@@ -88,7 +89,9 @@ function formatQuestionnaireAsJson() {
   ensureSize_(sheet, 2, 1);
   sheet
     .getRange('A1')
-    .setValue('Reviewed client questionnaire JSON — copy only after checking it.')
+    .setValue(
+      'Review this client questionnaire JSON, then choose Foodbank questionnaire > Copy reviewed JSON.',
+    )
     .setFontWeight('bold')
     .setBackground('#d9eaf7');
   sheet.getRange('A2').setValue(output).setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
@@ -96,8 +99,62 @@ function formatQuestionnaireAsJson() {
   sheet.setRowHeight(2, Math.min(Math.max(180, output.split('\n').length * 18), 1600));
   SpreadsheetApp.getUi().alert(
     'Questionnaire JSON generated',
-    'Check the generated JSON tab, then copy it into the reviewed client configuration workflow.',
+    'Check the generated JSON tab, then choose Copy reviewed JSON to place it on the clipboard.',
     SpreadsheetApp.getUi().ButtonSet.OK,
+  );
+}
+
+/** Copies reviewed generated JSON through a user-initiated browser action. */
+function copyReviewedQuestionnaireJson() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName(GENERATED_QUESTIONNAIRE_SHEET);
+  const output = sheet === null ? '' : String(sheet.getRange('A2').getValue());
+  if (output.trim() === '') {
+    SpreadsheetApp.getUi().alert(
+      'Format as JSON first',
+      'Format and review the questionnaire JSON before copying it to the client import workflow.',
+      SpreadsheetApp.getUi().ButtonSet.OK,
+    );
+    return;
+  }
+  showQuestionnaireJsonCopyDialog_(output);
+}
+
+function showQuestionnaireJsonCopyDialog_(output) {
+  const encoded = Utilities.base64Encode(output, Utilities.Charset.UTF_8);
+  const html = `<!doctype html>
+<html><body style="font-family:Arial,sans-serif;padding:12px">
+<p>Check that you reviewed the generated Questionnaire JSON, then copy it.</p>
+<button id="copy">Copy reviewed JSON</button><p id="status" role="status"></p>
+<script>
+const bytes = Uint8Array.from(atob('${encoded}'), character => character.charCodeAt(0));
+const output = new TextDecoder().decode(bytes);
+document.getElementById('copy').addEventListener('click', async () => {
+  const button = document.getElementById('copy');
+  const status = document.getElementById('status');
+  button.disabled = true;
+  try {
+    await navigator.clipboard.writeText(output);
+    status.textContent = 'Copied. Run import-foodbank-questionnaire on your Mac.';
+  } catch (clipboardError) {
+    const area = document.createElement('textarea');
+    try {
+      area.value = output;
+      document.body.append(area);
+      area.select();
+      if (!document.execCommand('copy')) throw new Error('The browser refused clipboard access.');
+      status.textContent = 'Copied. Run import-foodbank-questionnaire on your Mac.';
+    } catch (_) {
+      status.textContent = 'Could not copy. Select the JSON in the generated tab and copy it manually.';
+    } finally {
+      area.remove();
+    }
+  }
+  button.disabled = false;
+});
+</script></body></html>`;
+  SpreadsheetApp.getUi().showModalDialog(
+    HtmlService.createHtmlOutput(html).setWidth(420).setHeight(180),
+    'Copy reviewed Questionnaire JSON',
   );
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { menuGroupsFor } from '../auth/menu';
+import { classNames } from '../lib/class-names';
 import styles from './app-shell.module.css';
 
 /**
@@ -136,7 +137,7 @@ export function AppShell() {
         <div className={styles.account}>
           <span className={styles.userName}>{displayName}</span>
           <button
-            className={styles.signOut}
+            className={classNames(styles.signOut, 'button-secondary')}
             onClick={() => {
               void endSession();
             }}

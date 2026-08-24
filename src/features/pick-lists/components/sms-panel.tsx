@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
 import { ErrorNotice } from '../../../components/error-notice';
+import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatLondonDateTime } from '../../../lib/london-time';
-import type { Parcel } from '../queries';
+import type { Parcel, SmsMessage } from '../queries';
 import {
   useMarkSmsRead,
   useMarkUnmatchedSmsRead,
@@ -198,43 +199,52 @@ function SmsConversation({
 
 export function UnmatchedSmsScreen() {
   const messages = useUnmatchedSms();
-  const markRead = useMarkUnmatchedSmsRead();
-  if (messages.isPending) return <Spinner label="Loading unmatched messages…" />;
-  if (messages.isError)
-    return <ErrorNotice error={messages.error} onRetry={() => void messages.refetch()} />;
   return (
-    <section aria-labelledby="unmatched-sms-heading">
-      <h1 id="unmatched-sms-heading">Unmatched SMS replies</h1>
-      {messages.data.messages.length === 0 ? (
-        <p>No unmatched replies.</p>
-      ) : (
-        <ul className={styles.thread}>
-          {messages.data.messages.map((message) => (
-            <li key={message.id}>
-              <p>
-                <strong>{message.phone ?? 'No phone number'}</strong> — {message.body}
-              </p>
-              <p>
-                <time dateTime={message.occurredAt}>
-                  {formatLondonDateTime(message.occurredAt)}
-                </time>
-              </p>
-              {message.readAt === null && (
-                <button
-                  disabled={markRead.isPending}
-                  onClick={() => {
-                    markRead.mutate(message.id);
-                  }}
-                  type="button"
-                >
-                  Mark read
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
+    <>
+      <PageHeader title="Unmatched SMS replies" />
+      {messages.isPending && <Spinner label="Loading unmatched messages…" />}
+      {messages.isError && (
+        <ErrorNotice error={messages.error} onRetry={() => void messages.refetch()} />
+      )}
+      {messages.data !== undefined &&
+        (messages.data.messages.length === 0 ? (
+          <p>No unmatched replies.</p>
+        ) : (
+          <ul className={styles.thread}>
+            {messages.data.messages.map((message) => (
+              <UnmatchedSmsMessage key={message.id} message={message} />
+            ))}
+          </ul>
+        ))}
+    </>
+  );
+}
+
+/** A read failure belongs to the one message it left unread, not every row. */
+function UnmatchedSmsMessage({ message }: { message: SmsMessage }) {
+  const markRead = useMarkUnmatchedSmsRead();
+
+  return (
+    <li>
+      <p>
+        <strong>{message.phone ?? 'No phone number'}</strong> — {message.body}
+      </p>
+      <p>
+        <time dateTime={message.occurredAt}>{formatLondonDateTime(message.occurredAt)}</time>
+      </p>
+      {message.readAt === null && (
+        <button
+          className="button-plain"
+          disabled={markRead.isPending}
+          onClick={() => {
+            markRead.mutate(message.id);
+          }}
+          type="button"
+        >
+          Mark read
+        </button>
       )}
       {markRead.isError && <ErrorNotice error={markRead.error} />}
-    </section>
+    </li>
   );
 }

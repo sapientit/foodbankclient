@@ -2,13 +2,6 @@
   max-inline-size: 70ch;
 }
 
-.add {
-  display: inline-block;
-  padding: 0.5rem 1rem;
-  border: 1px solid currentcolor;
-  border-radius: 0.25rem;
-}
-
 .toggle {
   display: inline-flex;
   align-items: center;
@@ -39,13 +32,12 @@
   gap: 0.75rem;
 }
 
-.actions button {
+.actions button,
+.actions a {
   padding: 0.25rem 0.6rem;
-  font: inherit;
 }
 
 @media print {
-  .add,
   .toggle,
   .actions {
     display: none;

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { classNames } from '../lib/class-names';
 import styles from './confirm-dialog.module.css';
 
 /**
@@ -25,6 +26,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = 'Cancel',
   secondary,
+  destructive = false,
   busy = false,
   onConfirm,
   onCancel,
@@ -48,6 +50,18 @@ export function ConfirmDialog({
    * only has two makes the destructive answer easier to hit by accident.
    */
   secondary?: { label: string; onClick: () => void };
+  /**
+   * Whether confirming cannot be undone from the screen that asked — cancelling
+   * a session, deleting a model parcel, rejecting a referral. Those are drawn
+   * in red; everything else, including the confirmations that only ask "are you
+   * sure you meant to save that", is drawn as an ordinary action.
+   *
+   * Deliberately not the default, and deliberately not inferred from the label.
+   * Every confirmation used to be red, which made red mean "a dialog is open"
+   * rather than "you cannot take this back" — and a warning that is always on
+   * is not a warning.
+   */
+  destructive?: boolean;
   busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -100,12 +114,12 @@ export function ConfirmDialog({
       <div className={styles.body}>{children}</div>
 
       <div className={styles.actions}>
-        <button className={styles.cancel} onClick={onCancel} ref={cancelRef} type="button">
+        <button className="button-secondary" onClick={onCancel} ref={cancelRef} type="button">
           {cancelLabel}
         </button>
         {secondary !== undefined && (
           <button
-            className={styles.secondary}
+            className={classNames(styles.secondary, 'button-secondary')}
             disabled={busy}
             onClick={secondary.onClick}
             type="button"
@@ -113,7 +127,12 @@ export function ConfirmDialog({
             {secondary.label}
           </button>
         )}
-        <button className={styles.confirm} disabled={busy} onClick={onConfirm} type="button">
+        <button
+          className={destructive ? 'button-danger' : undefined}
+          disabled={busy}
+          onClick={onConfirm}
+          type="button"
+        >
           {busy ? 'Working…' : confirmLabel}
         </button>
       </div>

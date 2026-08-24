@@ -60,6 +60,35 @@ a real keyboard, whether the move panel's `role="status"` warning is
 announced sensibly when a screen reader user changes the session dropdown
 twice in a row, and the answers list's `<dl>` on a phone.
 
+**The application-wide control style has never been seen on a screen.** Blue
+for a control that can be used and grey for one that cannot now comes from
+`src/index.css` for every `<button>` in the app, with three variants over it
+(`button-secondary`, `button-danger`, `button-plain`). jsdom evaluates no CSS,
+so nothing in the suite renders any of it: `test/tooling/button-styles.test.ts`
+reads the stylesheets and proves only that no screen draws its own palette, and
+the contrast figures in the comments are calculated rather than measured. What
+to look for in a browser, on the screens that moved furthest — the confirmation
+dialogue, a table row's actions, the referral form's Back and Next, the
+development sign-in list: that no available control reads as dead, that a
+`button-plain` control still reads as something to press, that a link drawn as
+a control keeps its underline, and that nothing prints as a filled block of
+colour. The run-a-session screens are the one part with a sighted history: they
+carried this palette locally from 2026-08-17 and only lost their copy of it.
+
+**The Turnstile widget has never run against the real Cloudflare script.**
+`src/features/referrals/turnstile.ts` injects
+`https://challenges.cloudflare.com/turnstile/v0/api.js`, which jsdom will not
+load, so **every test drives a stub of `window.turnstile`** — a fake whose
+`render`, `reset` and `remove` the tests call by hand. What that proves is this
+client's half of the contract: that a token reaches the header, that a spent one
+is never sent twice, that the send button waits and says why. What it cannot
+prove is that the real script calls those callbacks when we think it does, that
+`expired-callback` genuinely fires at five minutes, or that the widget renders
+legibly on a phone above the send button. The dev sitekey in `.env.development.local` is the
+live test widget, so `npm run dev` against the local API is the cheapest real
+check: the local server now has a matching `TURNSTILE_SECRET_KEY`, so a
+submission that lands proves the whole path end to end.
+
 **The small-screen nav collapse is untested.** jsdom evaluates neither media
 queries nor layout, so the `~700 px` disclosure is pure CSS with no coverage. The
 keyboard behaviour (`aria-expanded`, `aria-controls`, Escape, focus return) _is_
@@ -193,20 +222,19 @@ this holds for exactly one route today.
 **The `404` copy for `AUTH_MODE ≠ dummy`** has never been seen against a real
 deployment.
 
-**A duplicate stock-item name on `PATCH /stock/items/{id}` is a `500`, and the
-client only hides it.** Verified against a running server on 2026-07-30:
+**A duplicate stock-item name on `PATCH /stock/items/{id}` is a `500`, though
+the client prevents it in normal use.** Verified against a running server on 2026-07-30:
 `POST /stock/items` refuses a duplicate with a clean
 `409 A stock item with that name already exists`, but the same duplicate on
 `PATCH` reaches the handler as an unmapped constraint violation and comes back
 as `INTERNAL_ERROR` with no explanation. `findStockItemByName` in
 `src/features/stock/stock.logic.ts` catches it before the request, matching the
 server's comparison (trimmed, case-folded, retired rows included, the item
-itself excluded — all four verified). **That check is a cached predicate, so the
-`500` is still reachable**: another admin renaming an item in the same minute,
-or a list fetched before they did. When it happens the volunteer sees "something
-went wrong at our end", which is neither true nor actionable. **The fix belongs
-in the server** — map the constraint to the same `409` the create path returns —
-and it is on the list to raise.
+itself excluded — all four verified). The remaining path requires a direct API
+caller, a future client regression, or two people editing stock items at once.
+The charity has one person doing that work, so this is **defence-in-depth, not
+work to prioritise**. If the workflow changes, the server should map the
+constraint to the same `409` the create path returns.
 
 **Per-IP rate limiting is proven to _happen_ through the proxy and nothing
 more.** Driving `GET /api/v1/public/sessions` through `localhost:5173` returns
@@ -247,55 +275,6 @@ the screen, which is the right thing to assert here, but nothing in this repo
 would notice if the **server's** sort regressed. The failure would be a picker
 walking the aisle twice.
 
-**The shop's double-submit guard has never faced a real double tap.** The
-synchronous ref lock in `record-shop-screen.tsx` is the only thing standing
-between a fumbled tap and a second shop on the ledger — `POST /stock/purchases`
-has no idempotency key, and the server mints a fresh `purchaseId` every time.
-The test dispatches two `click()`s inside one `act()`, both before React
-re-renders, and it was confirmed to post **twice** when the ref check is
-removed — and, importantly, **twice again when the ref is removed and the
-control is given a real `disabled` attribute instead**, which is the evidence
-that `disabled` alone would not have saved it even in jsdom. But jsdom's event
-timing is not a browser's: a real double tap on a phone involves touch events,
-a ~300 ms click delay on some configurations, and a compositor thread, none of
-which exist here. Nobody has yet tapped Save twice, fast, on a real device.
-Worth doing on a phone and on a trackpad, on a throttled connection so the
-request is still in flight for the second tap.
-
-The release rule is equally unproven by hand. `classifyPurchaseFailure` unlocks
-on a `4xx` and stays locked on a network failure or a `5xx`, on the reasoning
-that only the server can say nothing was written. The `5xx` half has never been
-seen: it is reached through MSW only, and it is the branch that tells a
-volunteer to go and look at the levels rather than offering them a button.
-
-**A duplicate `stockItemId` in one shop is a `500`, and the client only avoids
-it.** Verified against a running server on 2026-07-31: two lines naming the same
-item in one `POST /stock/purchases` reach the handler as an unmapped constraint
-violation and come back as `INTERNAL_ERROR`. Nothing was written (the level was
-unchanged), so it is the same class of bug as the duplicate-name `PATCH` above:
-a real refusal arriving as "something went wrong at our end". The shop screen
-cannot produce it — adding an item already on the list bumps that line's
-quantity rather than adding a second line, and that is **load-bearing rather
-than a nicety**. It is still reachable in principle by anything else that posts
-a purchase. Worse, this client classifies a `5xx` as _ambiguous_, so if it ever
-did happen the operator would be told the shop might have saved when in fact
-nothing did — safe, but wrong. **The fix belongs in the server**: either sum
-duplicate lines or map the violation to a `400`. On the list to raise.
-
-**The stock take's `409` copy is shown verbatim and its two causes are not told
-apart.** `POST /takes/{id}/commit` answers `409` for _already committed_ and for
-_no counts recorded_, and the real message for the second was confirmed to be
-`This stock take has no counts recorded`. Nothing branches on which, so both
-render through `ErrorNotice` as the server's sentence — which is right, but it
-means the screen cannot offer "save your counts first" as a next step for the
-one where that is the answer. A `details` discriminator would fix it; it is the
-same request already on the list for the user `409`s.
-
-**Nothing has confirmed what `POST /takes/{id}/counts` does to an item counted
-twice across two saves**, because the screen cannot do it: one page, one Save,
-and a second Save re-sends every non-blank box. The contract says a later count
-replaces an earlier one and that was taken on trust.
-
 **No screen has yet seen a real `400` from `/stock/adjustments`.** The three
 issue paths were read off a running server (`quantityDelta`, `movementType`,
 `reason`) and they match the form's field names, so `setError` lands — but the
@@ -319,27 +298,10 @@ jsdom proves the label text is computed correctly and that keyboard-driven
 `userEvent.selectOptions` reaches every cell, but not what a screen reader
 actually announces moving between cells, or whether the row/column headers
 read sensibly with VoiceOver or NVDA. The contents editor's `<select>`-to-add
-pattern is unverified the same way `record-shop-screen.tsx`'s autocomplete
-was before it was checked by hand — see the entry above for the shop and the
-stock take. Worth doing on Chrome, Safari and Firefox, and specifically with a
-screen reader on the grid.
+pattern is unverified in a real browser. Worth doing on Chrome, Safari and
+Firefox, and specifically with a screen reader on the grid.
 
 ## Contract gaps found while building this slice
-
-**`PUT /parcel-grid`'s `200` and two of this slice's error responses carry
-more than `openapi.yaml` says they do.** The spec declares the grid save's
-success response and the model-parcel delete's `409` with no content at all,
-and the grid save's `422` the same way — all three `content?: never`. Verified
-against a running server: the `200` actually echoes the saved grid back
-(`{"grid": {...}}`), the `409` carries `details.cells` (which grid cells still
-reference the parcel), and the `422` carries `details.unknownParcels` (cell
-and name pairs) and `details.unexpectedCells`. None of it is used —
-`useSaveParcelGrid` stays on `unwrapVoid` because the screen already has what
-it just sent, and both error notices show `error.message` only, which is the
-part the contract actually promises. If `openapi.yaml` is ever corrected to
-type these, the delete confirmation and the grid save's refusal could both
-name the affected cells instead of repeating one sentence for every cause —
-see `DEFERRED-WORK.md` W2.
 
 **Fixed, 31 July 2026: `PATCH /recurring-sessions/{id}` now names its
 properties.** It was declared `{ type: object, minProperties: 1 }` with no
@@ -383,17 +345,6 @@ from having always pointed at it. Guarding against it would mean tracking an
 id the contract never exposes to this client. Worth knowing before assuming a
 grid cell's meaning is stable across a delete-and-recreate.
 
-**A stock take can never be tidied away, and the screen can only warn about
-it.** `abandoned` exists in the database and no route produces it, so a take
-opened by mistake stays open for ever. Starting one is behind a confirmation
-that says so, and where several are already open the operator is told plainly
-that the extras cannot be removed — but the only way to clear one is to count
-something and commit it, which is what the two probe takes left in the local dev
-database on 2026-07-31 had to be closed with (both committed with counts
-matching the ledger exactly, so no stock moved). A deployed instance will
-accumulate them. **The fix belongs in the server**: a route that abandons a
-take. On the list to raise.
-
 **The count sheet shows a retired item only when it still holds a balance.**
 `countableLevels` includes every active item plus any retired one whose
 `quantityOnHand` is not zero, on the reasoning that a retired row with stock
@@ -409,12 +360,6 @@ styled as one — but a warehouse seeing `-45` on a shelf gets no hint from this
 screen about what to do next, and the only route back to zero is an adjustment
 they have to think of themselves. Deliberate for now: anything stronger would
 have to guess whether the ledger or the shelf is wrong.
-
-**A network blip during refresh signs the user out.** It is indistinguishable from
-a revoked token family without another round trip, and guessing "still signed in"
-leaves the app making requests that will all 401. Defensible, but more aggressive
-than the charter's wording implies, and it will be reported as "it randomly logs
-me out".
 
 **A thrown error replaces the whole shell.** `errorElement` sits on the layout
 route, and React Router does not render a route's `element` when its
@@ -513,75 +458,9 @@ findByRole('heading', …)` resolves when the heading renders, which can beat th
   `lintFiles` call pays for typescript-eslint's `projectService` building a
   TypeScript program over the app, and under full parallel load that exceeded the
   5s default timeout. It now sets 30s, with the reasoning in the file.
-- **`record-shop-screen.test.tsx`'s `addItem` helper returned before the item was
-  in the list.** Clicking "Add" is not the same as the line having rendered, so a
-  test adding two items raced the second add against the first render and posted
-  a shop with one line instead of two. The helper now waits for the line's own
-  quantity field before returning. **Improved, not closed — see below.**
-
-**One cause remains open: the shop's `addItem` can click a detached button.**
-`ItemSearch` renders its results only while the query for the _current_ debounced
-term is successful, so the list unmounts and remounts as the term settles. A
-button found immediately before that is detached when the click lands, and a
-click on a detached node silently does nothing. Roughly **one full
-`npm run check` in five** still fails on it. The helper's wait means it now fails
-at the add itself rather than downstream as a wrong payload, which is the honest
-place for it, but the race is real.
-
-**Do not fix it by only clicking when the line is absent.** That guard makes the
-second tap in `adds up a second tap on the same item` impossible; tried on
-31 July 2026 and it failed six `npm run check` runs out of six, having passed
-four of five before. The direction that should work is waiting for the results
-list to correspond to the term just typed before querying the button at all.
-
-**Two cautions learned in the fixing.** First: ten clean `vitest run`s said this
-was finished, and the very next full `npm run check` failed. `check` builds,
-types and lints before testing, so the machine and module graph are in a
-different state — confirm a flake is dead with `npm run check`, repeatedly, not
-with the test runner alone. Second: **"passes in isolation, fails in the suite"
-is a description, not a diagnosis.** Filing it as environmental three slices
-running cost more than the afternoon it took to look, and one of the causes was a
-teardown bug capable of masking a genuine failure anywhere in the repo.
-
-The lesson worth keeping: **"passes in isolation, fails in the suite" is a
-description, not a diagnosis.** Filing it as environmental three times running
-cost more than the afternoon it took to actually look, and one of the three was
-a teardown bug capable of masking a genuine failure in any test in the repo.
-
-**A further flake pattern, seen twice, not yet fixed: a `findBy*` query timing
-out, only under `npm run check`, in files this session never touched.** Found
-while building Slice 9 (referral maintenance), which touches neither
-`src/features/stock` nor `src/features/model-parcels` — confirmed with `git
-status`/`git diff --stat` before looking further each time. Two instances,
-different files, same shape:
-
-- `record-shop-screen.test.tsx > sends one request carrying every line`:
-  `Unable to find a label with the text of: How many Rice`, timing out inside
-  `addItem`'s own `await screen.findByLabelText(...)` — the exact wait the
-  31 July fix above added.
-- `amend-model-parcel-screen.test.tsx > sends no name field on save`: `Unable
-to find role="heading" and name "Model parcels"`, timing out on the redirect
-  after a successful save.
-- Both: clean across five consecutive isolated `vitest run <file>` runs each,
-  and clean across three consecutive plain `vitest run`s of the whole suite.
-  Each reproduced exactly once out of four `npm run check` runs in this
-  session, in different files each time.
-- That pattern — clean alone, clean in the plain suite, occasionally late only
-  behind `npm run check`'s build and `wrangler deploy --dry-run` — matches the
-  diagnosis already made for `eslint-rules.test.ts` above: a real async wait
-  whose default timeout (`findBy*`'s 1000 ms) is tight under the heavier CPU
-  contention `check` adds on top of the suite, not a logic bug in either test
-  or screen. It is not confined to one file or one feature, which argues
-  against fixing it file-by-file the way `eslint-rules.test.ts` was — a global
-  `asyncUtilTimeout` in the Testing Library config, or accepting the noise and
-  re-running `check` once on a genuine failure, are both more proportionate
-  than hunting one `findBy*` call at a time. Nobody has done either yet; this
-  entry exists so the next person who sees a `findBy*` timeout only-under-check
-  starts here instead of re-diagnosing it as environmental from scratch.
-
-**`Spinner`'s 150 ms delay now has callers** — the users screens — but nothing
-asserts what a volunteer sees during those 150 ms, because the mocked API answers
-within one. The delayed path is unit-tested directly.
+  **`Spinner`'s 150 ms delay now has callers** — the users screens — but nothing
+  asserts what a volunteer sees during those 150 ms, because the mocked API answers
+  within one. The delayed path is unit-tested directly.
 
 **`test/render-app.tsx` fixes one signed-in actor per test file.**
 `ensureSession()` is memoised per page load by design, and a test file is one

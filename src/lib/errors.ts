@@ -221,14 +221,16 @@ function readEnvelope(body: unknown): Envelope | null {
   const error = asRecord(asRecord(body)?.error);
   if (error === null) return null;
 
-  const code = error.code;
   const message = error.message;
-  if (!isApiErrorCode(code) || typeof message !== 'string') return null;
+  if (typeof message !== 'string') return null;
 
   const requestId = error.requestId;
 
   return {
-    code,
+    // The UI switches on HTTP status, not the server's expanding code
+    // vocabulary. Preserve a usable message when the server adds a code this
+    // version does not know yet, while keeping this client-side union closed.
+    code: isApiErrorCode(error.code) ? error.code : 'INTERNAL_ERROR',
     message,
     requestId: typeof requestId === 'string' ? requestId : null,
     details: asRecord(error.details),

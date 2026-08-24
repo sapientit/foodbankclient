@@ -4,6 +4,8 @@ export const pickListKeys = {
   session: (sessionId: string) => [...pickListKeys.all, 'session', sessionId] as const,
   print: (pickListId: string) => [...pickListKeys.all, 'print', pickListId] as const,
   listener: (sessionId: string) => [...pickListKeys.all, 'listener', sessionId] as const,
+  referralDetails: (sessionId: string) =>
+    [...pickListKeys.session(sessionId), 'referral-details'] as const,
   /**
    * Under this root deliberately: the requirement is the session's parcel lines
    * added up, so every mutation that already invalidates `pickListKeys.all` —

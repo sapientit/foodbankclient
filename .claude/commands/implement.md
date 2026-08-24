@@ -9,8 +9,10 @@ Work through this sequence. You own it end to end — subagents do slices, not t
 
 1. **Ground it in the requirement.** Screens are `screenDetails.md`; the domain is
    `../foodbankserver/INITIAL_SPEC1.txt`. If neither covers it, say so and either raise an entry in
-   `../foodbankserver/OPEN-QUESTIONS.md` or ask Pete — do not decide it yourself. If Pete settles a
-   screen requirement in conversation, write it into `screenDetails.md` **in this same change**.
+   this repo's `OPEN-QUESTIONS.md` (screen/browser question) or
+   `../foodbankserver/OPEN-QUESTIONS.md` (domain/API question), or ask Pete — do not decide it
+   yourself. If Pete settles a screen requirement in conversation, write it into
+   `screenDetails.md` **in this same change**.
 2. **Investigate.** Use the **Explore** agent for anything broad — where the pattern lives, which
    feature owns the keys, what already invalidates this. Read the scoped rules in `.claude/rules/`
    that govern the files you will touch, and `../foodbankserver/API.md` for any endpoint area new to

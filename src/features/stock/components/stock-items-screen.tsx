@@ -52,7 +52,7 @@ export function StockItemsScreen() {
       <PageHeader
         title="Stock items"
         action={
-          <Link className={styles.add} to="/stock/items/new">
+          <Link className="button-link" to="/stock/items/new">
             Add an item
           </Link>
         }
@@ -86,7 +86,11 @@ export function StockItemsScreen() {
         <EmptyState
           headline="No stock items yet"
           sentence="Add the first item to start the list."
-          action={<Link to="/stock/items/new">Add an item</Link>}
+          action={
+            <Link className="button-link" to="/stock/items/new">
+              Add an item
+            </Link>
+          }
         />
       ) : (
         <table className={styles.table}>
@@ -109,7 +113,9 @@ export function StockItemsScreen() {
                 <td>{item.shelfNumber}</td>
                 <td>{item.isActive ? 'Active' : 'Retired'}</td>
                 <td className={styles.actions}>
-                  <Link to={`/stock/items/${item.id}`}>Amend</Link>
+                  <Link className="button-link" to={`/stock/items/${item.id}`}>
+                    Amend
+                  </Link>
                   {item.isActive ? (
                     <button
                       onClick={() => {

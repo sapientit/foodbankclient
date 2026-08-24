@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { StrictMode, type ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router';
@@ -50,7 +51,12 @@ function Greeting() {
 
 function LoginStub() {
   const [params] = useSearchParams();
-  return <p>Sign in, then back to {params.get('next')}</p>;
+  return (
+    <p>
+      {params.get('session') === 'ended' && 'Your sign-in has ended. '}
+      Sign in, then back to {params.get('next')}
+    </p>
+  );
 }
 
 function renderApp(children: ReactNode, wrapper: (tree: ReactNode) => ReactNode = (tree) => tree) {
@@ -117,6 +123,32 @@ describe('AuthProvider', () => {
     renderApp(<Greeting />);
 
     expect(await screen.findByText(/Sign in, then back to/)).toHaveTextContent('/sessions?week=2');
+  });
+
+  it('identifies an ended eight-hour sign-in rather than a generic sign-out', async () => {
+    server.use(http.post(REFRESH, () => noSession()));
+
+    renderApp(<Greeting />);
+
+    expect(await screen.findByText(/Your sign-in has ended/)).toBeInTheDocument();
+  });
+
+  it('lets a connection failure retry the restore instead of signing out', async () => {
+    let refreshes = 0;
+    server.use(
+      http.post(REFRESH, () => {
+        refreshes += 1;
+        return refreshes === 1 ? HttpResponse.error() : refreshedAs('Pete Bennett');
+      }),
+    );
+
+    renderApp(<Greeting />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('We could not reconnect');
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Try again' }));
+
+    expect(await screen.findByText('Hello Pete Bennett')).toBeInTheDocument();
+    expect(refreshes).toBe(2);
   });
 
   it('does not restore the session until a guarded route asks it to', async () => {

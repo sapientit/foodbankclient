@@ -30,9 +30,14 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       // signed out" that every reload would otherwise show for a round trip.
       return <RestoringSession />;
 
+    case 'restore-failed':
+      return <RestoreFailed onRetry={restoreSession} />;
+
     case 'signed-out': {
       const next = `${location.pathname}${location.search}`;
-      return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
+      const search = new URLSearchParams({ next });
+      if (state.reason === 'session-ended') search.set('session', 'ended');
+      return <Navigate to={`/login?${search.toString()}`} replace />;
     }
 
     case 'signed-in':
@@ -48,6 +53,19 @@ function RestoringSession() {
           is blank until the refresh resolves, and a blank screen reads worse
           than a spinner that arrives at once. */}
       <Spinner delayMs={0} label="Signing you in…" />
+    </div>
+  );
+}
+
+function RestoreFailed({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div>
+      <p role="alert">
+        We could not reconnect to the food bank. Check the connection and try again.
+      </p>
+      <button onClick={onRetry} type="button">
+        Try again
+      </button>
     </div>
   );
 }

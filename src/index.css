@@ -1,6 +1,7 @@
 /*
  * Base styles only. Component styles live in CSS Modules beside their
- * component; this file is for the things that must be global.
+ * component; this file is for the things that must be global — the page, the
+ * focus ring, and the buttons.
  */
 
 *,
@@ -34,5 +35,176 @@ body {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Controls
+ *
+ * **Whether a control can be used is said by its colour: blue works, grey does
+ * not.** Settled by Pete on 2026-08-17, recorded in `screenDetails.md` under
+ * "#Buttons and other controls", and drawn here — once, for every screen at
+ * once.
+ *
+ * What it replaced: an available control and an unavailable one differed by
+ * `#1a1a1a` against `#555555` inside identical white boxes, and the only strong
+ * "you can press this" signal was an underline nobody had chosen — links have
+ * one because browsers underline links, the buttons had none. So a working
+ * stock check was read as the greyed-out control beside it and reported as
+ * broken, in the middle of a session.
+ *
+ * **Hung off `button` itself rather than off a class**, so a button written
+ * tomorrow is drawn correctly without anybody remembering this file exists.
+ * That is the whole point: the failure this replaces was fifteen stylesheets
+ * each drawing their own.
+ *
+ * Four looks, and only four:
+ *
+ *   - the default, blue — an action that can be taken;
+ *   - `button-secondary`, white with a blue edge — the other half of a pair,
+ *     the Cancel beside a Save. Available, and deliberately not where the eye
+ *     lands first. The one variant a `button-link` may carry too, because the
+ *     way back out of a form is usually a link and must not compete with
+ *     saving;
+ *   - `button-danger`, red — an action that **cannot be undone from this
+ *     screen**. Deactivate is not one of them: Reactivate is beside it;
+ *   - `button-plain`, no box at all — a control that is really a row in a list
+ *     or a word inside a sentence, where a filled block would be a lie about
+ *     what it is.
+ *
+ * Unavailable is grey in every one of them, and beats every one of them: the
+ * rules are written last and qualified by the element, so no variant can make
+ * a dead control look live.
+ *
+ * **Colour is never the only signal.** An unavailable control keeps
+ * `aria-disabled` rather than `disabled` where it needs to stay reachable, and
+ * the sentence saying why stays tied to it by `aria-describedby` — see
+ * `SessionActions`.
+ *
+ * A screen may still set a control's **size** — a table row wants a compact
+ * chip, a form filled in on a phone wants a thumb target. It must not set its
+ * colour, and `test/tooling/button-styles.test.ts` fails the build if one does.
+ * ------------------------------------------------------------------------ */
+
+/* **Every class below is wrapped in `:where()`, and that is load-bearing.** It
+   makes each rule weigh exactly one element selector, which buys two things.
+
+   A screen's own rule always outranks these on size. `.editMenu button` and
+   `.actions a` are a class and an element; unwrapped, `button.button-plain` and
+   `a.button-link` match them exactly, and because this file is bundled *after*
+   the CSS Modules it would quietly win every tie — a menu whose padding
+   collapses to nothing, a table row of compact chips beside a full-sized link.
+
+   And the unavailable rules at the foot of this file, which carry a
+   pseudo-class and are therefore heavier, outweigh every variant. Grey wins on
+   specificity rather than on being written last, so no reordering can put a
+   dead control back to looking live. The one exception is the plain control's
+   own grey, which ties with the general one and wins by sitting after it.
+
+   Square, not rounded: `screenDetails.md` describes the printing control as
+   "blue, square", and every button in the application is the same shape. */
+button,
+a:where(.button-link) {
+  padding: 0.6rem 1rem;
+  font: inherit;
+  border: 1px solid #0b5cab;
+  background: #0b5cab;
+  /* #ffffff on #0b5cab is 6.7:1. */
+  color: #ffffff;
+  cursor: pointer;
+}
+
+/* A link drawn as a control keeps its underline: the fill says "control", the
+   underline still says "this one goes somewhere". Inline-block so its padding
+   makes a box rather than overlapping the line above. */
+a:where(.button-link) {
+  display: inline-block;
+}
+
+button:not(:disabled, [aria-disabled='true']):hover,
+a:where(.button-link):hover {
+  background: #084684;
+  border-color: #084684;
+}
+
+/* The fill is dark enough that the page's own blue focus ring disappears into
+   it, and some of these screens are worked standing up in a hall. */
+button:focus-visible,
+a:where(.button-link):focus-visible {
+  outline: 3px solid #1a1a1a;
+  outline-offset: 2px;
+}
+
+button:where(.button-secondary),
+a:where(.button-link):where(.button-secondary) {
+  background: #ffffff;
+  border-color: #0b5cab;
+  /* #0b5cab on white is 6.7:1, and the border is 6.7:1 against the page. */
+  color: #0b5cab;
+}
+
+button:where(.button-secondary):not(:disabled, [aria-disabled='true']):hover,
+a:where(.button-link):where(.button-secondary):hover {
+  background: #eaf1f9;
+  border-color: #084684;
+  color: #084684;
+}
+
+button:where(.button-danger) {
+  background: #b3261e;
+  border-color: #b3261e;
+  /* #ffffff on #b3261e is 6.5:1. */
+  color: #ffffff;
+}
+
+button:where(.button-danger):not(:disabled, [aria-disabled='true']):hover {
+  background: #8c1e18;
+  border-color: #8c1e18;
+}
+
+/* No box, because it is not one: a row in a list, or a word in a sentence.
+   Blue and unadorned — not underlined, which stays with links. */
+button:where(.button-plain) {
+  padding: 0;
+  border: 0;
+  background: none;
+  /* #0b5cab on white is 6.7:1. */
+  color: #0b5cab;
+  text-align: inherit;
+}
+
+button:where(.button-plain):not(:disabled, [aria-disabled='true']):hover {
+  background: none;
+  color: #084684;
+}
+
+/* Unavailable, and last so that it wins. `aria-disabled` is drawn the same as
+   `disabled` because a control that stays in the tab order to explain itself
+   must still look dead. Kept well clear of the edge of readability, because
+   somebody will land on it and read it: #333333 on #dcdcdc is 9.2:1, and the
+   border is 3.3:1 against the fill and 4.5:1 against the page behind it. */
+button:disabled,
+button[aria-disabled='true'] {
+  background: #dcdcdc;
+  border-color: #767676;
+  color: #333333;
+  cursor: not-allowed;
+}
+
+/* A plain control has no box to grey, so it says it in the only way it has.
+   #595959 on white is 7:1. */
+button:where(.button-plain):disabled,
+button:where(.button-plain)[aria-disabled='true'] {
+  background: none;
+  color: #595959;
+  cursor: not-allowed;
+}
+
+@media print {
+  /* A control does nothing on paper, and colour costs a charity's toner. A
+     link drawn as a control would otherwise print as a filled blue block. */
+  button,
+  a:where(.button-link) {
+    display: none;
   }
 }

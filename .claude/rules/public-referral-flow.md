@@ -67,15 +67,27 @@ POST /api/v1/public/referrals          submit → 201, active or pending_review
 
 ## Turnstile
 
-`POST /public/referrals` requires a token in the **`cf-turnstile-response`** header whenever the
-server has a secret configured — **always in production, never in local development**. Two failure
-modes to build for:
+**Built**, in `src/features/referrals/turnstile.ts` and `components/turnstile-check.tsx`. These are
+rules for changing it.
 
-- **Tokens are single-use.** Never retry a submission with the same token — reset the widget and get
-  a fresh one.
-- **Tokens expire after five minutes.** Somebody filling in a long form slowly will hit this and get
-  a `400` saying the check expired. Reset the widget and let them resubmit. **Do not show a generic
-  error; they did nothing wrong.**
+`POST /public/referrals` requires a token in the **`cf-turnstile-response`** header whenever the
+server has a secret configured — **always in production, never in local development**. This client
+mirrors that with `turnstileSiteKey()`: no sitekey, no widget, no header, and the form is exactly
+what it was. Both failure modes below are handled before they can reach a referrer, and that is the
+part to preserve:
+
+- **Tokens are single-use.** Never retry a submission with the same token. Any `4xx` refusal bumps
+  the reset signal, so the next attempt carries a fresh token — the refusal may have been about the
+  session rather than the check, and the token is spent either way.
+- **Tokens expire after five minutes.** The widget mounts on the **last page only**, so the clock
+  starts when the referrer arrives there rather than seven pages earlier, and `expired-callback`
+  renews it in place. Somebody re-reading their answers should never learn it happened.
+- **Never tell a referrer to reload the page.** The server's own sentence for a stale token says
+  exactly that, and it is the worst possible advice here: nothing on this form is saved anywhere, so
+  a reload throws away every answer. The screen says the check is retrying, and to phone the food
+  bank if it does not clear.
+- **The send button waits for a token and says why**, tied by `aria-describedby`. A referrer must
+  never be able to press send into a refusal they were given no way to see coming.
 
 ## After submission there is no way back
 

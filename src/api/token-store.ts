@@ -24,7 +24,8 @@ export type AuthUser = components['schemas']['TokenResponse']['user'];
  * already owns the session state, and it is a plain callback so that the API
  * layer never imports React.
  */
-export type AuthEvent = { type: 'refreshed'; user: AuthUser } | { type: 'signed-out' };
+export type AuthEvent =
+  { type: 'refreshed'; user: AuthUser } | { type: 'signed-out'; reason: 'session-ended' };
 
 type AuthEventListener = (event: AuthEvent) => void;
 

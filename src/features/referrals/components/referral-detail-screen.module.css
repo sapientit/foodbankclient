@@ -90,6 +90,11 @@
   color: #595959;
 }
 
+.error {
+  margin: 0.25rem 0 0;
+  color: #a40000;
+}
+
 .answers {
   display: grid;
   gap: 0.75rem;
@@ -165,7 +170,6 @@
 
 .editButton {
   padding: 0.5rem 0.75rem;
-  font: inherit;
 }
 
 .editMenu {
@@ -177,7 +181,6 @@
 
 .editMenu button {
   padding: 0.5rem 0.75rem;
-  font: inherit;
   text-align: start;
 }
 
@@ -235,14 +238,6 @@
 
 .submit {
   padding: 0.6rem 1.25rem;
-  font: inherit;
-}
-
-.danger {
-  padding: 0.6rem 1.25rem;
-  font: inherit;
-  color: #b3261e;
-  border-color: #b3261e;
 }
 
 .reasonField {
@@ -267,7 +262,6 @@
 
 .actions button {
   padding: 0.6rem 1.25rem;
-  font: inherit;
 }
 
 .actionPanel + .actionPanel {

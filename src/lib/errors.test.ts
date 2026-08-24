@@ -50,12 +50,13 @@ describe('ApiError.from', () => {
     expect(error.requestId).toBeNull();
   });
 
-  it('ignores a code the client has never heard of', () => {
+  it('preserves the server message when a code is newer than this client', () => {
     const error = ApiError.from(response(418), {
       error: { code: 'TEAPOT', message: 'No.', requestId: 'r1' },
     });
 
     expect(error.code).toBe('INTERNAL_ERROR');
+    expect(describeApiError(error)).toBe('No.');
   });
 
   it('turns 400 issues into per-field errors', () => {

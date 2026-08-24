@@ -194,7 +194,9 @@ export function CreateReferralReasonScreen() {
           >
             {isSubmitting ? 'Adding…' : 'Add reason'}
           </button>
-          <Link to="/referral-reasons">Cancel</Link>
+          <Link className="button-link button-secondary" to="/referral-reasons">
+            Cancel
+          </Link>
         </div>
       </form>
     </>

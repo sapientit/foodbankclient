@@ -234,7 +234,9 @@ function AmendUserForm({ user, users }: { user: User; users: readonly User[] }) 
           >
             {isSubmitting ? 'Saving…' : 'Save changes'}
           </button>
-          <Link to="/users">Cancel</Link>
+          <Link className="button-link button-secondary" to="/users">
+            Cancel
+          </Link>
         </div>
       </form>
     </>

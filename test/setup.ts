@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, configure } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 import { server } from './msw/server';
 
 /*
@@ -62,9 +62,9 @@ afterEach(() => {
    * the test just ending settling into a re-render. With
    * `onUnhandledRequest: 'error'` above, that surfaces as "intercepted a request
    * without a matching handler" — and it is reported against whichever test runs
-   * *next*, which is why it read as three unrelated flaky tests
-   * (`sessions-team-lead`, `record-shop-screen`, `eslint-rules`) rather than as
-   * one teardown bug. Unmounting first leaves nothing alive to make the request.
+   * *next*, which is why it read as unrelated flaky tests
+   * (`sessions-team-lead`, `eslint-rules`) rather than as one teardown bug.
+   * Unmounting first leaves nothing alive to make the request.
    */
   cleanup();
   server.resetHandlers();
@@ -72,4 +72,27 @@ afterEach(() => {
 
 afterAll(() => {
   server.close();
+});
+
+/*
+ * **The suite must not depend on a developer's `.env.local`.**
+ *
+ * Vitest loads it — verified, not assumed — so a real `VITE_TURNSTILE_SITE_KEY`
+ * sitting on one machine silently changes what every referral test proves: the
+ * public form requires a Turnstile token whenever a sitekey is configured, so
+ * the whole submission path would take a different branch here than it does in
+ * CI, and each would look green to the person running it.
+ *
+ * Off is the honest default because it is what the server does — verification is
+ * skipped when no secret is set — and it is what local development looks like.
+ * A test that wants the widget turns it on for itself with
+ * `vi.stubEnv('VITE_TURNSTILE_SITE_KEY', …)`, which says so in the test rather
+ * than in the environment.
+ */
+beforeEach(() => {
+  vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '');
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });

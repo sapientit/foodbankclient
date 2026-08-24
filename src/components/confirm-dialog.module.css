@@ -28,24 +28,14 @@
   margin-block-start: 1.25rem;
 }
 
-.cancel,
-.secondary,
-.confirm {
+.actions button {
   padding: 0.5rem 1.1rem;
-  font: inherit;
 }
 
-/* The third answer sits between staying and confirming, and is styled as
-   neither: it is not the safe default and not the action the dialog is named
-   after. `margin-inline-end: auto` pushes the confirm button to the far edge so
-   the two ways of saying no do not read as one pair of buttons. */
+/* Both ways of saying no are drawn as secondary controls, leaving the filled
+   one as the answer the dialog is named after. `margin-inline-end: auto` pushes
+   that answer to the far edge so the two refusals do not read as one pair of
+   buttons with it. */
 .secondary {
   margin-inline-end: auto;
-}
-
-.confirm {
-  /* #b3261e on white is 5.9:1, and this is the button that retires an account. */
-  border: 1px solid #b3261e;
-  color: #b3261e;
-  background: #ffffff;
 }

@@ -700,6 +700,110 @@ describe('the admin referral detail screen', () => {
     });
   });
 
+  it('does not offer authorising a referrer when the referral has no email address', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'pending_review', referrerEmail: null })),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    expect(screen.getByRole('button', { name: 'Approve this referral' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve and authorise referrer' })).toBeNull();
+  });
+
+  it('approves a referral and authorises only its referrer email under the organisation the administrator types', async () => {
+    let body: unknown = null;
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
+      http.post(REFERRAL_ACCEPT, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', status: 'active' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Approve and authorise referrer' }));
+    const dialog = within(
+      screen.getByRole('dialog', { name: 'Approve this referral and authorise the referrer?' }),
+    );
+    expect(dialog.getByText(/referrer@riverside\.org only/)).toBeInTheDocument();
+    expect(dialog.getByText(/not everyone at that organisation’s domain/)).toBeInTheDocument();
+    const organisation = dialog.getByLabelText('Organisation');
+    expect(organisation).toHaveValue('');
+
+    await user.type(organisation, 'Riverside Community Church');
+    await user.click(dialog.getByRole('button', { name: 'Approve and authorise referrer' }));
+
+    await waitFor(() => {
+      expect(body).toEqual({
+        authoriseReferrer: { organisationName: 'Riverside Community Church' },
+      });
+    });
+  });
+
+  it('does not authorise a referrer until the administrator supplies an organisation', async () => {
+    const accept = vi.fn();
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
+      http.post(REFERRAL_ACCEPT, accept),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Approve and authorise referrer' }));
+    const dialog = within(
+      screen.getByRole('dialog', { name: 'Approve this referral and authorise the referrer?' }),
+    );
+    await user.click(dialog.getByRole('button', { name: 'Approve and authorise referrer' }));
+
+    expect(await dialog.findByRole('alert')).toHaveTextContent(
+      'Enter the organisation this referrer belongs to.',
+    );
+    expect(accept).not.toHaveBeenCalled();
+  });
+
+  it('shows the server’s message and leaves plain approval available if authorising the referrer races', async () => {
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
+      http.post(REFERRAL_ACCEPT, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'CONFLICT',
+              message: 'That referrer is already on the authorised list.',
+              requestId: 'r1',
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Approve and authorise referrer' }));
+    const dialog = within(
+      screen.getByRole('dialog', { name: 'Approve this referral and authorise the referrer?' }),
+    );
+    await user.type(dialog.getByLabelText('Organisation'), 'Riverside Community Church');
+    await user.click(dialog.getByRole('button', { name: 'Approve and authorise referrer' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'That referrer is already on the authorised list.',
+    );
+    expect(screen.getByRole('button', { name: 'Approve this referral' })).toBeInTheDocument();
+  });
+
   it('rejects with the reason typed in the rejection dialog', async () => {
     let body: unknown = null;
     server.use(

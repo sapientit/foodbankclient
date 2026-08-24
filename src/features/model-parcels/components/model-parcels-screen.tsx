@@ -61,7 +61,7 @@ export function ModelParcelsScreen() {
         title="Model parcels"
         action={
           <>
-            <Link className={styles.add} to="/model-parcels/new">
+            <Link className="button-link" to="/model-parcels/new">
               Add a model parcel
             </Link>
             <Link className={styles.gridLink} to="/model-parcels/grid">
@@ -81,7 +81,11 @@ export function ModelParcelsScreen() {
 
       {parcels.data.length === 0 ? (
         <EmptyState
-          action={<Link to="/model-parcels/new">Add a model parcel</Link>}
+          action={
+            <Link className="button-link" to="/model-parcels/new">
+              Add a model parcel
+            </Link>
+          }
           headline="No model parcels yet"
           sentence="Add the first one, then use it on the household grid."
         />
@@ -102,8 +106,11 @@ export function ModelParcelsScreen() {
                 <td className={styles.description}>{parcel.description ?? ''}</td>
                 <td>{parcel.contents.length}</td>
                 <td className={styles.actions}>
-                  <Link to={`/model-parcels/${parcel.id}`}>Amend</Link>
+                  <Link className="button-link" to={`/model-parcels/${parcel.id}`}>
+                    Amend
+                  </Link>
                   <button
+                    className="button-danger"
                     onClick={() => {
                       setDeleting(parcel);
                     }}
@@ -122,6 +129,7 @@ export function ModelParcelsScreen() {
         <ConfirmDialog
           busy={remove.isPending}
           confirmLabel="Delete"
+          destructive
           onCancel={() => {
             setDeleting(null);
           }}

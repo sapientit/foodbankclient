@@ -10,12 +10,10 @@ import { setAccessToken, subscribeToAuthEvents, type AuthEvent } from './token-s
  * enforces.
  *
  * Getting this wrong signs every user out, everywhere, intermittently. The
- * server rotates the refresh token on every use and treats a second
- * presentation of an already-rotated one as theft — it revokes the whole family.
- * So "refresh twice" is not a wasted round trip, it is a logout. The handlers
- * below model that: the second refresh in any test answers `401`, which is what
- * makes a per-caller implementation fail these tests rather than merely look
- * wasteful.
+ * server rotates the refresh token on every use. A race can present a spent
+ * cookie once, which is refused without ending the sign-in; the client retries
+ * it once. The handlers below model that so a per-caller implementation cannot
+ * merely look wasteful and pass these tests.
  */
 
 const SESSIONS = '/api/v1/sessions';
@@ -65,10 +63,8 @@ describe('authFetch', () => {
     server.use(
       http.post(REFRESH, async () => {
         refreshes.push('refresh');
-        // A second rotation is a replayed token as far as the server is
-        // concerned, and it answers by revoking the family. Modelling it here is
-        // what stops this test passing against an implementation that simply
-        // refreshes per caller.
+        // A second rotation presents a spent cookie and answers 401. The
+        // single-flight slot avoids it for callers in one tab.
         if (refreshes.length > 1) return unauthorized();
 
         // Long enough that the second caller's 401 genuinely arrives while this
@@ -142,7 +138,7 @@ describe('authFetch', () => {
     expect(response.status).toBe(401);
   });
 
-  it('signs out once when refresh is rejected', async () => {
+  it('retries a rejected refresh before signing out once', async () => {
     let refreshes = 0;
 
     server.use(
@@ -160,9 +156,77 @@ describe('authFetch', () => {
       authFetch(new Request(SESSIONS)),
     ]);
 
-    expect(refreshes).toBe(1);
+    expect(refreshes).toBe(2);
     expect(signOutCount()).toBe(1);
     expect(responses.map((response) => response.status)).toEqual([401, 401, 401]);
+  });
+
+  it('keeps the session when a rejected refresh succeeds on its one retry', async () => {
+    let refreshes = 0;
+
+    server.use(
+      http.post(REFRESH, () => {
+        refreshes += 1;
+        return refreshes === 1
+          ? unauthorized()
+          : HttpResponse.json(tokenResponse('replacement-token'));
+      }),
+      http.get(SESSIONS, ({ request }) =>
+        request.headers.get('authorization') === 'Bearer replacement-token'
+          ? HttpResponse.json({ ok: true })
+          : unauthorized(),
+      ),
+    );
+
+    const response = await authFetch(new Request(SESSIONS));
+
+    expect(response.status).toBe(200);
+    expect(refreshes).toBe(2);
+    expect(signOutCount()).toBe(0);
+  });
+
+  it('does not sign out when refresh cannot reach the server', async () => {
+    let refreshes = 0;
+
+    server.use(
+      http.post(REFRESH, () => {
+        refreshes += 1;
+        return HttpResponse.error();
+      }),
+      http.get(SESSIONS, () => unauthorized()),
+    );
+
+    const response = await authFetch(new Request(SESSIONS));
+
+    expect(response.status).toBe(401);
+    expect(refreshes).toBe(1);
+    expect(signOutCount()).toBe(0);
+  });
+
+  it('does not sign out when refresh receives a server failure', async () => {
+    server.use(
+      http.post(REFRESH, () =>
+        HttpResponse.json(envelope('UNAVAILABLE', 'Try again shortly.'), { status: 503 }),
+      ),
+      http.get(SESSIONS, () => unauthorized()),
+    );
+
+    const response = await authFetch(new Request(SESSIONS));
+
+    expect(response.status).toBe(401);
+    expect(signOutCount()).toBe(0);
+  });
+
+  it('does not sign out when refresh returns a malformed success response', async () => {
+    server.use(
+      http.post(REFRESH, () => HttpResponse.json({ accessToken: 123 })),
+      http.get(SESSIONS, () => unauthorized()),
+    );
+
+    const response = await authFetch(new Request(SESSIONS));
+
+    expect(response.status).toBe(401);
+    expect(signOutCount()).toBe(0);
   });
 
   it('a 401 after a completed refresh triggers a second refresh', async () => {

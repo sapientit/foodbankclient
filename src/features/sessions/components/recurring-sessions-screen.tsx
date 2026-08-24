@@ -3,6 +3,7 @@ import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
+import { classNames } from '../../../lib/class-names';
 import { formatSessionDate } from '../../../lib/london-time';
 import { useRecurringSessions, useRunSessionMaterialisation } from '../queries';
 import { WEEKDAY_LABELS, describeDeliveries, describeMaterialisation } from '../sessions.logic';
@@ -56,7 +57,7 @@ export function RecurringSessionsScreen() {
              it feeds without going via the menu. */
           <div className={styles.headerActions}>
             <Link to="/sessions">Back to sessions</Link>
-            <Link className={styles.add} to="/sessions/recurring/new">
+            <Link className={classNames(styles.add, 'button-link')} to="/sessions/recurring/new">
               Add a weekly session
             </Link>
           </div>

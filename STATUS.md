@@ -5,12 +5,12 @@ built. Kept here rather than in `CLAUDE.md` so it can be corrected without touch
 instructions.
 
 Screen requirements live in [`screenDetails.md`](./screenDetails.md), domain requirements in
-`../foodbankserver/INITIAL_SPEC1.txt`, unanswered product questions in
-`../foodbankserver/OPEN-QUESTIONS.md`. Things that are built but **less proven than the test count
+`../foodbankserver/INITIAL_SPEC1.txt`, client questions in [`OPEN-QUESTIONS.md`](./OPEN-QUESTIONS.md),
+and unresolved server/domain questions in `../foodbankserver/OPEN-QUESTIONS.md`. Things that are built but **less proven than the test count
 suggests** are in [`KNOWN-GAPS.md`](./KNOWN-GAPS.md); things with a known answer and no work done are
 in [`DEFERRED-WORK.md`](./DEFERRED-WORK.md).
 
-`npm run check` is green at 89 test files and 841 tests.
+`npm run check` is green at 96 test files and 979 tests.
 
 ---
 
@@ -28,10 +28,10 @@ in [`DEFERRED-WORK.md`](./DEFERRED-WORK.md).
 | **5 — sessions**              | `/sessions`, `/sessions/new`, `/sessions/:sessionId` and the three `/sessions/recurring*` screens. Create, amend and cancel; weekly-template maintenance; the ops call that materialises sessions without waiting for the cron.                                                                                                                                                                                                                            |
 | **6 — model parcels**         | `/model-parcels*` and the thirty-cell household grid at `/model-parcels/grid`, saved whole. Create, amend, delete, and a preview of what a household size receives.                                                                                                                                                                                                                                                                                        |
 | **7 — referrers and reasons** | `src/features/admin-setup/`: `/referrers*` and `/referral-reasons*`. Authorise by exact address or domain; add, amend and retire a reason.                                                                                                                                                                                                                                                                                                                 |
-| **8 — referral form machine** | `referral-form-definition.ts`, `referral-form-schema.ts`, `referral-answers.logic.ts`, `referral-form-guards.ts`. **Machinery only — no screen, no route.**                                                                                                                                                                                                                                                                                                |
+| **8 — referral form machine** | `referral-form-definition.ts`, `referral-form-schema.ts`, `referral-answers.logic.ts`, `referral-form-guards.ts`. The config-driven machinery used by Slice 11's public referral screen.                                                                                                                                                                                                                                                                   |
 | **9 — referral maintenance**  | `/referrals` (filterable by session and status) and `/referrals/:referralId` — fixed fields, amend, move with an over-capacity warning, cancel. `NotBuiltYet` deleted with its last caller. Answers became editable a page at a time later, reusing `ReferralQuestionField` rather than growing a second hand-written form. Copying a referral that came to nothing onto another session came later still, with the household's outcome beside the status. |
 | **10 — the real questions**   | `referral-form.config.json` — the charity's 43 questions over 7 pages — with `referral-form-config.ts`, `referral-key-fields.ts`, `referral-form.logic.ts`, `referral-submission.logic.ts`, `referral-answer-keys.frozen.ts` and `lib/postcode.ts`.                                                                                                                                                                                                        |
-| **11 — the referral flow**    | `/refer` takes referrals: seven pages driven by the config, the confirmation, and the review queue on `/referrals*`. Split name, date of birth, fuel help, `pending_review`/`rejected`, accept and reject with a one-line comment. **Turnstile is still outstanding.**                                                                                                                                                                                     |
+| **11 — the referral flow**    | `/refer` takes referrals: seven pages driven by the config, the confirmation, and the review queue on `/referrals*`. Split name, date of birth, fuel help, `pending_review`/`rejected`, accept and reject with a one-line comment. Turnstile came later, on the last page, and is present only where a sitekey is configured.                                                                                                                              |
 | **12 — running a session**    | `src/features/pick-lists/`: `/run-sessions`, the per-household workspace at `/run-sessions/:sessionId/clients/:parcelId`, pick-list reconciliation with the maintained preference rules, the printed picking sheets, `POST /sessions/{id}/confirm`, attendance — where stock actually moves — and the stock check panel, which compares what the session's reviewed pick lists ask for against what is on the shelves.                                     |
 | **13 — the other two sheets** | The listener sheet at `/run-sessions/:sessionId/listener`, the only printed page that may carry a reason for referral, and the session referral-details sheet beside it. Both are separate API responses, which is what keeps every other referral field off them.                                                                                                                                                                                         |
 | **14 — text messages**        | The SMS panel on a run-session screen — reminders, per-household conversations, replies — and `/sms/unmatched` for replies from a number no referral matches.                                                                                                                                                                                                                                                                                              |
@@ -55,22 +55,25 @@ in [`docs/engineering/data-fetching.md`](./docs/engineering/data-fetching.md),
 
 **None of these is a gap in the code.**
 
-| Item                             | State                                                                                                                                                                         | What it needs                                                                                                                                                                                                  |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Purged-referral rendering**    | Built and tested: `piiPurgedAt` renders as _purged_, never as a blank screen or the string `undefined`. Server-side the purge job runs nightly and **purges nothing**.        | `PII_RETENTION_DAYS=365` on the server. **Q2 is closed** — the period is settled at twelve months — and setting the variable is now a deployment step rather than a question. Nothing here changes when it is. |
-| **The three deploy-time checks** | Cannot be proved by any test here, and all three fail silently. Rate limiting and `Set-Cookie` pass-through were confirmed **locally**; per-IP _partitioning_ never has been. | A deployed pair. See [`docs/operations/deploy-verification.md`](./docs/operations/deploy-verification.md).                                                                                                     |
-| **The cross-tab refresh lock**   | Written against `navigator.locks` with a fallback and a timeout, but **has never run against a real `LockManager`** — jsdom has none, so tests exercise the fallback path.    | A browser-based test, or a manual two-tab check.                                                                                                                                                               |
-| **The responsive nav**           | Built; untested.                                                                                                                                                              | A test. In `KNOWN-GAPS.md`.                                                                                                                                                                                    |
+| Item                             | State                                                                                                                                                                                   | What it needs                                                                                                                                                                                                  |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Purged-referral rendering**    | Built and tested: `piiPurgedAt` renders as _purged_, never as a blank screen or the string `undefined`. Server-side the purge job runs nightly and **purges nothing**.                  | `PII_RETENTION_DAYS=365` on the server. **Q2 is closed** — the period is settled at twelve months — and setting the variable is now a deployment step rather than a question. Nothing here changes when it is. |
+| **The three deploy-time checks** | Cannot be proved by any test here, and all three fail silently. Rate limiting and `Set-Cookie` pass-through were confirmed **locally**; per-IP _partitioning_ never has been.           | A deployed pair. See [`docs/operations/deploy-verification.md`](./docs/operations/deploy-verification.md).                                                                                                     |
+| **The cross-tab refresh lock**   | Written against `navigator.locks` with a fallback and a timeout, but **has never run against a real `LockManager`** — jsdom has none, so tests exercise the fallback path.              | A browser-based test, or a manual two-tab check.                                                                                                                                                               |
+| **The responsive nav**           | Built; untested.                                                                                                                                                                        | A test. In `KNOWN-GAPS.md`.                                                                                                                                                                                    |
+| **The blue/grey control style**  | One global style in `src/index.css` draws every button in the app; `test/tooling/button-styles.test.ts` stops a screen drawing its own. **No screen has been seen in a browser since.** | A look at a real screen. jsdom evaluates no CSS, so nothing in the suite renders it. In `KNOWN-GAPS.md`.                                                                                                       |
 
 ---
 
 ## Deliberately unresolved — only Pete closes these
 
-Tracked in `../foodbankserver/OPEN-QUESTIONS.md`, which is the single home for both repos. **Do not
-answer one, including one this repo raised.**
+Server/domain questions are tracked in `../foodbankserver/OPEN-QUESTIONS.md`; client screen and
+browser questions are tracked in [`OPEN-QUESTIONS.md`](./OPEN-QUESTIONS.md). **Do not answer one,
+including one this repo raised.**
 
-**This table mirrors `OPEN-QUESTIONS.md` and is not the authority.** If the two disagree, that file
-is right and this one is stale — check it before relying on a row here.
+**This table mirrors the server's `OPEN-QUESTIONS.md` and is not the authority.** Client questions
+are not listed here. If the two disagree, the server file is right and this one is stale — check it
+before relying on a row here.
 
 | #       | Question                                                                     | What this client does meanwhile                                                                                                                                                                                                  |
 | ------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -86,9 +89,9 @@ is right and this one is stale — check it before relying on a row here.
 
 **Q2, Q14, Q15, Q16, Q17, Q18, Q19, Q21, Q22 and Q23 have all been closed** and are no longer in
 `OPEN-QUESTIONS.md`. Two of their answers are load-bearing here and worth keeping: a referral
-awaiting review **holds its place** on the session, and there is **no "accept and authorise this
-referrer" button**, because whether that should write one address or a whole domain is not
-derivable and guessing could authorise an entire council.
+awaiting review **holds its place** on the session, and an administrator can accept a referral and
+authorise that referrer's **exact email address** at the same time. The approval screen requires an
+organisation for this new authorised-referrer entry rather than guessing one.
 
 **Q16 was closed by the field disappearing.** It asked where a parcel's `dietaryNotes` came from
 given no such field on the form; the answer is that the server removed it for exactly that reason,
@@ -101,20 +104,13 @@ client. See [`.claude/rules/printing.md`](./.claude/rules/printing.md).
 
 Tracked so it is not mistaken for finished work.
 
-- **Automated questionnaire import and release workflow.** Before go-live, build W3 in
-  `DEFERRED-WORK.md`: it must validate reviewed Sheet JSON, safely extend the immutable answer-key
-  ledger, run the form checks and make the required client release explicit. Until then, a developer
-  must integrate each questionnaire change manually.
-- **Turnstile on the public referral form.** `/refer` takes referrals and submits them, but no
-  widget exists. The server verifies a token whenever a secret is configured and refuses to boot in
-  production without one, so **the form works in development and would be refused in production**.
-  This is the last thing between the referral flow and going live. There is no edit-key window to
-  build; it left the specification on 2026-08-05.
+- **A production Turnstile widget, and its secret.** The client half is built:
+  `src/features/referrals/turnstile.ts` and `TurnstileCheck` put the check on the last page of
+  `/refer` and send `cf-turnstile-response`, and both halves are inert where no sitekey is
+  configured, which is local development. What is not done is deployment configuration — a widget
+  for **production** (the test one, `foodbank-referral-test`, covers
+  `foodbank-client.losttemple.workers.dev` and `localhost` only) and `TURNSTILE_SECRET_KEY` on each
+  deployed server. The charity has accepted Cloudflare Turnstile running inside the referral form;
+  that acceptance is recorded in `docs/engineering/personal-data.md`.
 - **Google sign-in.** `dev-login` is the only path. The rejection path for an unknown email is
   already built, so the switch does not change the response shape.
-- **The auth refresh contract catch-up.** `runRefresh` still signs the user out on any refresh
-  failure, and the eight-hour sign-in cap has no handling anywhere. Low risk today because
-  single-flight means the client rarely produces the `401` at all. `DEFERRED-WORK.md` W1.
-- **Six small consistency and robustness points** across the SMS panel, the extract and
-  `lib/errors.ts` — none of them a bug a volunteer would report, grouped so they can be done in one
-  pass. `DEFERRED-WORK.md` W5.

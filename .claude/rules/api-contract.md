@@ -9,9 +9,11 @@ paths:
 
 # API contract rules
 
-`openapi.yaml`, `API.md` and `OPEN-QUESTIONS.md` in `../foodbankserver` are the whole channel
-between the two repos. **Read `API.md` in full before writing client code that touches a new area** —
-it carries the sequences and the role-visibility rules that `openapi.yaml` cannot express.
+`openapi.yaml` and `API.md` in `../foodbankserver` are the API channel between the two repos.
+Server/domain questions live in that repo's `OPEN-QUESTIONS.md`; this client's screen and browser
+questions live in [`OPEN-QUESTIONS.md`](../../OPEN-QUESTIONS.md). **Read `API.md` in full before
+writing client code that touches a new area** — it carries the sequences and the role-visibility
+rules that `openapi.yaml` cannot express.
 
 ## Types are generated, never written
 

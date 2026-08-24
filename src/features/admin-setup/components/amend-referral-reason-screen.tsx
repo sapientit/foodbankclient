@@ -175,7 +175,9 @@ function AmendReasonForm({ reason }: { reason: AdminReferralReason }) {
           <button className={styles.submit} type="submit">
             {isSubmitting ? 'Saving…' : 'Save changes'}
           </button>
-          <Link to="/referral-reasons">Cancel</Link>
+          <Link className="button-link button-secondary" to="/referral-reasons">
+            Cancel
+          </Link>
         </div>
       </form>
     </>

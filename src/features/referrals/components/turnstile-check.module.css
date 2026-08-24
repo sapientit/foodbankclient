@@ -1,0 +1,26 @@
+.check {
+  margin-block: 1.5rem;
+}
+
+.label {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+/*
+ * Holds its line whether or not anything is in it. The widget sits directly
+ * above the send button, and a sentence appearing between them would move the
+ * button out from under a thumb already on its way down.
+ */
+.status {
+  min-block-size: 1.5rem;
+  margin: 0.5rem 0 0;
+  max-inline-size: 60ch;
+}
+
+@media print {
+  /* A challenge is not a thing on paper, and the widget is an iframe. */
+  .check {
+    display: none;
+  }
+}

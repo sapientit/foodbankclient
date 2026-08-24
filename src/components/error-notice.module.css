@@ -39,8 +39,6 @@
   user-select: all;
 }
 
-.action,
-.copy {
+.action {
   padding: 0.4rem 0.9rem;
-  font: inherit;
 }

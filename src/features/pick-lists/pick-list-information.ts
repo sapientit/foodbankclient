@@ -48,10 +48,7 @@ export function buildPickListInformation(
   sources: OptionSources,
   definition: ReferralFormDefinition = referralFormDefinition,
 ): PickListInformation[] {
-  const configured = pickListInformationQuestions(definition).map((question) => ({
-    key: question.key,
-    label: question.key,
-  }));
+  const configured = pickListInformationQuestions(definition).map((question) => question.key);
 
   return referrals.flatMap((referral) => {
     const rendered = describeAnswers(
@@ -62,11 +59,11 @@ export function buildPickListInformation(
     if (rendered.kind !== 'answers') return [];
     const values = new Map(rendered.lines.map((line) => [line.key, line.value.trim()]));
     const notes = configured
-      .flatMap(({ key, label }) => {
+      .flatMap((key) => {
         const value = values.get(key);
         return value === undefined || value === '' || value === '(no answer)'
           ? []
-          : [`${label}: ${value}`];
+          : [`${key}: ${value}`];
       })
       .join('\n');
 

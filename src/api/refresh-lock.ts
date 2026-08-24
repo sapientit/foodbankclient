@@ -3,10 +3,9 @@
  *
  * A module-level in-flight promise only covers one JS context. Two tabs of the
  * same app reloading together are two contexts, so both refresh; the second
- * presents a refresh token the first already rotated, the server reads that as
- * theft and revokes the whole token family, and the user is signed out
- * everywhere. It looks like a random logout and it is not reproducible by
- * anyone testing in a single tab.
+ * presents a refresh token the first already rotated. The server refuses that
+ * spent token but keeps the sign-in alive. Serialising it avoids the needless
+ * retry and the extra round trip in the second tab.
  *
  * `navigator.locks` fixes it with no dependency: the second tab waits, then
  * refreshes with the *new* cookie, which is valid. Where it is missing — older

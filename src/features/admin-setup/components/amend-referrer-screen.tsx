@@ -166,7 +166,9 @@ function AmendReferrerForm({ referrer }: { referrer: AuthorisedReferrer }) {
           <button className={styles.submit} type="submit">
             {isSubmitting ? 'Saving…' : 'Save changes'}
           </button>
-          <Link to="/referrers">Cancel</Link>
+          <Link className="button-link button-secondary" to="/referrers">
+            Cancel
+          </Link>
         </div>
       </form>
     </>

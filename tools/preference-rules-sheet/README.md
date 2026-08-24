@@ -18,12 +18,16 @@ separate script files in the same Apps Script project.
    save, then reload the workbook.
 4. Choose **Foodbank rules → Set up Rules tab** once.
 5. Fill Rules rows from row 3, then choose **Foodbank rules → Generate JSON**.
-   Review the expanded result on `Generated Rules JSON` and copy it into
-   `preference-rules.config.json` for the normal development/test release path.
+   Review the expanded result on `Generated Rules JSON`, then choose
+   **Foodbank rules → Copy reviewed JSON**. In the client repository, run
+   `import-foodbank-preference-rules`; it validates the clipboard JSON, replaces
+   `preference-rules.config.json` atomically, formats it and runs its focused
+   configuration test.
 6. For the referral form, choose **Foodbank questionnaire → Validate
    questionnaire**. Once it passes, choose **Foodbank questionnaire → Format as
-   JSON**. Review the result on `Generated Questionnaire JSON` before using it
-   as the client questionnaire source.
+   JSON**. Review the result on `Generated Questionnaire JSON`, then choose
+   **Foodbank questionnaire → Copy reviewed JSON** and run
+   `import-foodbank-questionnaire` in the client repository.
 
 The menu action can be assigned to an inserted Google Sheets drawing if the
 charity wants a visible **Generate JSON** button. Assign it to
@@ -88,8 +92,8 @@ It deliberately flags incomplete data rather than guessing it: a choice list
 without options, a comma-separated option cell, or a condition naming an
 unknown key cannot be formatted.
 
-The generated tab is the plain client JSON to paste into
-`src/features/referrals/referral-form.config.json`; it is not CSV. The delivery
-collection question must use the key `Collection method`, and its conditional
-information and confirmation rows must name that key. `isDelivery` is derived
-by the client and is never a questionnaire key.
+The generated tab is the plain client JSON for the reviewed client import
+workflow; it is not CSV. The delivery collection question must use the key
+`Collection method`, and its conditional information and confirmation rows must
+name that key. `isDelivery` is derived by the client and is never a
+questionnaire key.

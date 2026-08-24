@@ -200,7 +200,9 @@ export function CreateUserScreen() {
           >
             {isSubmitting ? 'Adding…' : 'Add user'}
           </button>
-          <Link to="/users">Cancel</Link>
+          <Link className="button-link button-secondary" to="/users">
+            Cancel
+          </Link>
         </div>
       </form>
     </>

@@ -27,7 +27,7 @@ export const OPEN_STATUSES: readonly SessionStatus[] = ['planned', 'in_progress'
  * `Show completed` would list every session the food bank has ever run.
  *
  * **This is a default, not a limit, and how far back a team lead should be able
- * to reach is an open question** — `../foodbankserver/OPEN-QUESTIONS.md` Q38.
+ * to reach is an open question** — `OPEN-QUESTIONS.md` Q38.
  * The date box is a plain date box: typing 2024 into it lists 2024, and from
  * there the session's listener sheet — the one page that carries a reason for
  * referral — is a link away. Nothing about the permissions changed; what

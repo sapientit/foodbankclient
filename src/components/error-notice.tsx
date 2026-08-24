@@ -129,7 +129,7 @@ export function ErrorNotice({ error, onRetry }: { error: unknown; onRetry?: () =
           <p className={styles.reference}>
             Quote this reference if you report it: <code className={styles.code}>{requestId}</code>{' '}
             <button
-              className={styles.copy}
+              className="button-plain"
               onClick={() => {
                 void copyToClipboard(requestId).then(setCopied);
               }}

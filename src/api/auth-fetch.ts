@@ -41,7 +41,15 @@ export async function authFetch(request: Request): Promise<Response> {
   // a token with the same role, fail identically, and loop.
   if (response.status !== 401) return response;
 
-  const user = await refreshSession();
+  let user: AuthUser | null;
+  try {
+    user = await refreshSession();
+  } catch {
+    // The old access token may have expired, but a network failure says
+    // nothing about the refresh cookie or the eight-hour sign-in. Leave the
+    // session intact and let a later request try its one shared refresh again.
+    return response;
+  }
   if (user === null) return response;
 
   // Exactly one retry. If a freshly minted token is also refused, refreshing
@@ -65,9 +73,14 @@ export function refreshSession(): Promise<AuthUser | null> {
     // Cleared as the attempt settles, and before any queued caller resumes, so
     // that a later 401 starts a genuinely new refresh instead of replaying this
     // one's result.
-    void attempt.finally(() => {
-      if (inFlight === attempt) inFlight = null;
-    });
+    void attempt.then(
+      () => {
+        if (inFlight === attempt) inFlight = null;
+      },
+      () => {
+        if (inFlight === attempt) inFlight = null;
+      },
+    );
   }
 
   return inFlight;
@@ -76,15 +89,20 @@ export function refreshSession(): Promise<AuthUser | null> {
 let inFlight: Promise<AuthUser | null> | null = null;
 
 async function runRefresh(): Promise<AuthUser | null> {
-  try {
-    return await withRefreshLock(requestNewToken);
-  } catch {
-    // A refresh that timed out or failed at the network cannot be told apart
-    // from a revoked family without another round trip, and guessing "still
-    // signed in" leaves the app making requests that will all 401.
-    endSession();
-    return null;
-  }
+  const firstAttempt = await withRefreshLock(requestNewToken);
+  if (firstAttempt !== null) return firstAttempt;
+
+  /*
+   * A refresh cookie is rotated, so another tab can present the just-spent
+   * cookie despite the lock. The server leaves that sign-in intact: retry once
+   * to use the replacement cookie it has now set. A second 401 is the genuine
+   * end of the sign-in, or a cookie that is gone.
+   */
+  const retry = await withRefreshLock(requestNewToken);
+  if (retry !== null) return retry;
+
+  endSession();
+  return null;
 }
 
 async function requestNewToken(signal: AbortSignal): Promise<AuthUser | null> {
@@ -92,16 +110,14 @@ async function requestNewToken(signal: AbortSignal): Promise<AuthUser | null> {
     new Request(REFRESH_PATH, { method: 'POST', credentials: 'same-origin', signal }),
   );
 
-  if (!response.ok) {
-    endSession();
+  if (response.status === 401) {
     return null;
   }
+  if (!response.ok)
+    throw new Error(`Refreshing the session failed with HTTP ${String(response.status)}.`);
 
   const token = readTokenResponse(await response.json().catch(() => null));
-  if (token === null) {
-    endSession();
-    return null;
-  }
+  if (token === null) throw new Error('Refreshing the session returned an invalid response.');
 
   setAccessToken(token.accessToken);
   publishAuthEvent({ type: 'refreshed', user: token.user });
@@ -110,7 +126,7 @@ async function requestNewToken(signal: AbortSignal): Promise<AuthUser | null> {
 
 function endSession(): void {
   setAccessToken(null);
-  publishAuthEvent({ type: 'signed-out' });
+  publishAuthEvent({ type: 'signed-out', reason: 'session-ended' });
 }
 
 /**
@@ -133,9 +149,9 @@ function isUnauthenticated(url: string): boolean {
 
 /**
  * The refresh response is the one body in the app not typed by `openapi-fetch`,
- * because reading it through the typed client would recurse. Validated here
- * instead, so a malformed answer ends the session rather than storing
- * `undefined` as a token.
+ * because reading it through the typed client would recurse. Validated here so
+ * a malformed answer can fail safely without storing `undefined` as a token or
+ * ending a session that may still be valid.
  */
 function readTokenResponse(body: unknown): { accessToken: string; user: AuthUser } | null {
   if (typeof body !== 'object' || body === null) return null;

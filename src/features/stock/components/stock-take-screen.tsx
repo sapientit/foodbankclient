@@ -56,7 +56,11 @@ export function StockTakeScreen() {
         <EmptyState
           headline="No stock to count"
           sentence="Add a stock item before taking a count."
-          action={<Link to="/stock/items/new">Add a stock item</Link>}
+          action={
+            <Link className="button-link" to="/stock/items/new">
+              Add a stock item
+            </Link>
+          }
         />
       </>
     );
@@ -203,6 +207,7 @@ export function StockTakeScreen() {
         </button>
         {currentPage > 0 && (
           <button
+            className="button-secondary"
             onClick={() => {
               setPage(currentPage - 1);
               setSavedMessage(null);
@@ -214,6 +219,7 @@ export function StockTakeScreen() {
         )}
         {currentPage + 1 < pageCount && (
           <button
+            className="button-secondary"
             onClick={() => {
               setPage(currentPage + 1);
               setSavedMessage(null);
@@ -223,7 +229,9 @@ export function StockTakeScreen() {
             Next page
           </button>
         )}
-        <Link to="/stock">Back to stock</Link>
+        <Link className="button-link button-secondary" to="/stock">
+          Back to stock
+        </Link>
       </div>
     </>
   );

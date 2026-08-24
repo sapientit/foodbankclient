@@ -9,6 +9,7 @@ import { PageHeader } from '../../../components/page-header';
 import { SessionListFilters } from '../../../components/session-list-filters';
 import { SessionTable } from '../../../components/session-table';
 import { Spinner } from '../../../components/spinner';
+import { classNames } from '../../../lib/class-names';
 import { ApiError, describeApiError, isNotFound, pendingPickNumbers } from '../../../lib/errors';
 import { formatSessionDate, formatTimeRange, londonToday } from '../../../lib/london-time';
 import { deliveryLabel, standingFromCapacity } from '../../../lib/session-description';
@@ -203,18 +204,13 @@ function SessionActions({
     <>
       <div className={styles.actions}>
         {readyToPrint ? (
-          <Link className={styles.action} to={`/run-sessions/${sessionId}/print`}>
+          <Link className="button-link" to={`/run-sessions/${sessionId}/print`}>
             {readOnly ? 'View all pick lists' : 'Print all pick lists'}
           </Link>
         ) : readOnly ? (
           <span>No pick lists were prepared for this session.</span>
         ) : (
-          <button
-            aria-describedby={printReasonId}
-            aria-disabled
-            className={styles.unavailable}
-            type="button"
-          >
+          <button aria-describedby={printReasonId} aria-disabled type="button">
             Print all pick lists
           </button>
         )}
@@ -228,29 +224,23 @@ function SessionActions({
             anything a team lead could do, so there is no sentence to keep
             reachable and nothing to explain. */}
         {readOnly ? null : stockCheckUnavailable ? (
-          <button
-            aria-describedby={stockCheckReasonId}
-            aria-disabled
-            className={styles.unavailable}
-            type="button"
-          >
+          <button aria-describedby={stockCheckReasonId} aria-disabled type="button">
             Stock check
           </button>
         ) : (
           <button
             aria-controls={stockCheckPanelId}
             aria-expanded={stockCheckOpen}
-            className={styles.action}
             onClick={onToggleStockCheck}
             type="button"
           >
             Stock check
           </button>
         )}
-        <Link className={styles.action} to={`/run-sessions/${sessionId}/listener`}>
+        <Link className="button-link" to={`/run-sessions/${sessionId}/listener`}>
           Listener sheet
         </Link>
-        <Link className={styles.action} to={`/run-sessions/${sessionId}/referral-details`}>
+        <Link className="button-link" to={`/run-sessions/${sessionId}/referral-details`}>
           Referral details
         </Link>
         {/* Absent rather than unavailable once the session is closed: after
@@ -269,7 +259,6 @@ function SessionActions({
            */
           <button
             aria-disabled={completing}
-            className={styles.action}
             onClick={() => {
               if (completing) return;
               onComplete();
@@ -279,12 +268,7 @@ function SessionActions({
             {completing ? 'Completing session…' : 'Complete session'}
           </button>
         ) : (
-          <button
-            aria-describedby={completeReasonId}
-            aria-disabled
-            className={styles.unavailable}
-            type="button"
-          >
+          <button aria-describedby={completeReasonId} aria-disabled type="button">
             Complete session
           </button>
         )}
@@ -367,7 +351,6 @@ export function PickListPrintScreen() {
           title="Pick lists"
           action={
             <button
-              className={styles.action}
               onClick={() => {
                 openPrintDialog(print.data.pickList.id);
               }}
@@ -883,14 +866,14 @@ function ClientRow({
             review, so the link says what it now does. */}
         {readOnly ? (
           <Link
-            className={styles.pickListLink}
+            className={classNames(styles.pickListLink, 'button-link')}
             to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
           >
             View Pick list
           </Link>
         ) : !reviewed && parcel.attendance === 'pending' ? (
           <Link
-            className={styles.pickListLink}
+            className={classNames(styles.pickListLink, 'button-link')}
             to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
           >
             Review Pick list
@@ -945,7 +928,7 @@ function ClientRow({
              */}
             <Link
               aria-label={`${pickListLabel(parcel)} — ${describeParcel(parcel)}`}
-              className={styles.pickListLink}
+              className={classNames(styles.pickListLink, 'button-link')}
               to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
             >
               {pickListLabel(parcel)}

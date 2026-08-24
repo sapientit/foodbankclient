@@ -62,6 +62,32 @@ npm run dev               # http://localhost:5173
 `check` needs no Cloudflare credentials: `wrangler types` reads `wrangler.jsonc` locally and
 `--dry-run` never calls the API. Keep it that way.
 
+## Test-system deployment commands
+
+The personal commands below deploy **only** the test pair. `deploy_foodbank`
+is the ordinary release command: it runs the server and client checks before
+either Worker changes, including the client's generated-types comparison with
+`../foodbankserver/openapi.yaml`; then it migrates and deploys the server,
+deploys the client, and verifies the final pair's health, app shell and proxied
+public API response.
+
+```sh
+deploy_foodbank
+```
+
+The individual helpers retain the same safe default and also accept phase
+options for a deliberate recovery or diagnosis:
+
+```sh
+foodbank-deploy-server --tests-only   # or --deploy-only / --verify-only
+deploy-foodbank-client --tests-only   # or --deploy-only / --verify-only
+```
+
+`--deploy-only` deliberately skips checks and verification; use it only after
+the checks have passed, normally through `deploy_foodbank`. The client command
+never selects production, and the combined command intentionally has no
+production mode.
+
 `preview` serves whatever is already in `dist/`, and `check` leaves a **production** build there —
 one whose `API` binding points at `foodbank-server-production` and will not resolve locally. Run
 `npm run build` before `npm run preview`.
@@ -86,7 +112,7 @@ dist/
 .wrangler/deploy/config.json  redirects wrangler to that generated config
 ```
 
-Three consequences, each found the hard way:
+Four consequences, each found the hard way:
 
 - **`assets.directory` is not set in `wrangler.jsonc`.** A hand-written value is silently ignored —
   the plugin overwrites it with `../client` in the generated config. Setting one would only invite it
@@ -98,6 +124,15 @@ Three consequences, each found the hard way:
   deploy. `wrangler deploy --env production` against a default build is accepted silently and
   deploys the default bindings, which is exactly the wrong failure. Hence
   `CLOUDFLARE_ENV=production` in the `deploy` and `dry-run` scripts.
+- **The Turnstile sitekey differs per environment, and `.env.local` would ship the wrong one.** Vite
+  loads `.env.local` in _every_ mode, production builds included — verified by finding the local test
+  sitekey inside a `CLOUDFLARE_ENV=production` bundle. That widget's hostnames do not include the
+  production host, so every referral would fail its bot check while the build, the deploy and the
+  tests all passed. The local key therefore lives in **`.env.development.local`**, which Vite loads
+  only for `npm run dev`, and a deployed build is given its key beside the environment it is for:
+  `CLOUDFLARE_ENV=production VITE_TURNSTILE_SITE_KEY=<production sitekey> npm run deploy`. With no
+  key the check is absent and the server must have no secret either — see
+  [`docs/operations/deploy-verification.md`](./docs/operations/deploy-verification.md).
 
 ## Local development and the API
 

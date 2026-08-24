@@ -4,9 +4,10 @@ The React frontend for the food bank system: a public referral form, an admin ba
 screens a team lead uses to run a session — pick lists, printing, attendance.
 
 **The API is a separate repository at `../foodbankserver`.** It serves JSON only — no HTML, no SSR,
-no PDF, so every screen, layout and printed sheet is this repo's job. `openapi.yaml`, `API.md` and
-`OPEN-QUESTIONS.md` there are the whole channel between the two repos, by design. **Read the
-server's docs; never read or modify the server's code.**
+no PDF, so every screen, layout and printed sheet is this repo's job. `openapi.yaml` and `API.md`
+are the API channel between the two repos; client questions live here and domain/API questions live
+in the server's `OPEN-QUESTIONS.md`. **Read the server's docs; never read or modify the server's
+code.**
 
 ## Requirements come from the spec, not from the code
 
@@ -18,15 +19,15 @@ server's docs; never read or modify the server's code.**
   the statement it changes; do not append a contradicting one. **A requirement decided in
   conversation and not written down did not happen.** Settled _domain_ requirements go in the
   server's spec — raise them there rather than starting a second copy here.
-- **Unanswered product questions go in `../foodbankserver/OPEN-QUESTIONS.md`**, deliberately the
-  single home for both repos, which already covers client screens. **Never answer an entry yourself,
-  including one this repo raised. Only Pete closes one** — two assistants agreeing about what a food
-  bank wants is the same guess written twice. Answer questions about _what the API does_ freely;
-  refuse to invent _what the charity wants_.
-- **When you cannot avoid guessing, mark the guess**: an `OPEN-QUESTIONS.md` entry, plus a comment
-  naming it at the code it touches. (No `openapi.yaml` here, so no `x-assumed` of its own — the
-  server marks the contract, this repo marks the call site.) The danger is never the guess; it is
-  that a guess reads exactly like a requirement six weeks later.
+- **Unanswered client and screen questions go in [`OPEN-QUESTIONS.md`](./OPEN-QUESTIONS.md);**
+  unanswered domain, retention and API questions go in `../foodbankserver/OPEN-QUESTIONS.md`.
+  **Never answer an entry yourself, including one this repo raised. Only Pete closes one** — two
+  assistants agreeing about what a food bank wants is the same guess written twice. Answer questions
+  about _what the API does_ freely; refuse to invent _what the charity wants_.
+- **When you cannot avoid guessing, mark the guess**: an entry in the questions file that owns it,
+  plus a comment naming it at the code it touches. The server marks its contract assumptions with
+  `x-assumed`; this client marks its own call site. The danger is never the guess; it is that a guess
+  reads exactly like a requirement six weeks later.
 
 ## Commands
 
@@ -50,7 +51,8 @@ dev` (:8787). First sign-in and the build layout's footguns are in [`README.md`]
 Keep it small — every dependency ships to a volunteer's phone on a hall's wifi. **Vite + React +
 TypeScript** (SPA, no SSR) · **React Router** in data-router mode · **TanStack Query** for
 everything from the API · **React Hook Form + Zod** · **openapi-fetch** over the generated types ·
-**Vitest + React Testing Library + MSW** · plain **CSS Modules**.
+**Vitest + React Testing Library + MSW** · plain **CSS Modules**, over the one global control style
+in `src/index.css` — **a screen sets a button's size, never its colour**.
 
 **There is no state management library and there should not be one:** server state is TanStack
 Query's, the rest is the current user and a URL. Before adding a dependency, prefer the platform
@@ -162,8 +164,8 @@ The three reviewers have disjoint scopes and run **in parallel**. A new screen t
 wants all three; a pure CSS change wants only `accessibility-reviewer`.
 
 **Stays here, in the main context:** requirement interpretation, anything touching `screenDetails.md`
-or the server's `OPEN-QUESTIONS.md`, architecture, cross-feature integration, and the final
-`npm run check`.
+or either open-questions file, architecture, cross-feature integration, and the final `npm run
+check`.
 
 - Delegate only what you can state as a bounded objective with completion criteria.
 - Give each agent the context and file scope it needs — it starts cold and cannot see this
@@ -180,7 +182,8 @@ or the server's `OPEN-QUESTIONS.md`, architecture, cross-feature integration, an
 | ----------------------------------------- | ------------------------------------------------------------------------------------ |
 | What the charity wants, on screen         | [`screenDetails.md`](./screenDetails.md)                                             |
 | What the charity wants, in the domain     | `../foodbankserver/INITIAL_SPEC1.txt`                                                |
-| Unanswered product questions              | `../foodbankserver/OPEN-QUESTIONS.md` — **only Pete closes one**                     |
+| Unanswered client/screen questions        | [`OPEN-QUESTIONS.md`](./OPEN-QUESTIONS.md) — **only Pete closes one**                |
+| Unanswered domain/API questions           | `../foodbankserver/OPEN-QUESTIONS.md` — **only Pete closes one**                     |
 | The API contract                          | `../foodbankserver/API.md`, `../foodbankserver/openapi.yaml`                         |
 | What is built, configured, or outstanding | [`STATUS.md`](./STATUS.md)                                                           |
 | Less proven than the tests suggest · owed | [`KNOWN-GAPS.md`](./KNOWN-GAPS.md) · [`DEFERRED-WORK.md`](./DEFERRED-WORK.md)        |

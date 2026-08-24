@@ -67,7 +67,7 @@ export function ReferrersScreen() {
       <PageHeader
         title="Authorised referrers"
         action={
-          <Link className={styles.add} to="/referrers/new">
+          <Link className="button-link" to="/referrers/new">
             Authorise a referrer
           </Link>
         }
@@ -84,7 +84,11 @@ export function ReferrersScreen() {
 
       {referrers.data.length === 0 ? (
         <EmptyState
-          action={<Link to="/referrers/new">Authorise a referrer</Link>}
+          action={
+            <Link className="button-link" to="/referrers/new">
+              Authorise a referrer
+            </Link>
+          }
           headline="No authorised referrers yet"
           sentence="Nobody can submit a referral until at least one address or domain is authorised."
         />
@@ -118,7 +122,9 @@ export function ReferrersScreen() {
                   <td>{row.isActive ? 'Active' : 'Inactive'}</td>
                   <td className={styles.notes}>{row.notes ?? ''}</td>
                   <td className={styles.actions}>
-                    <Link to={`/referrers/${row.id}`}>Amend</Link>
+                    <Link className="button-link" to={`/referrers/${row.id}`}>
+                      Amend
+                    </Link>
                     {row.isActive ? (
                       <button
                         onClick={() => {
