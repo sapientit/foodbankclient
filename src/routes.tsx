@@ -15,7 +15,7 @@ import {
 } from './features/pick-lists/components/run-sessions-screen';
 import { ListenerSheetScreen } from './features/pick-lists/components/listener-sheet-screen';
 import { SessionReferralDetailsScreen } from './features/pick-lists/components/session-referral-details-screen';
-import { UnmatchedSmsScreen } from './features/pick-lists/components/sms-panel';
+import { SmsInboxScreen } from './features/pick-lists/components/sms-panel';
 import { PreferenceRuleHealthScreen } from './features/pick-lists/components/preference-rule-health-screen';
 import { ReferralDetailScreen } from './features/referrals/components/referral-detail-screen';
 import { ReferralsScreen } from './features/referrals/components/referrals-screen';
@@ -141,7 +141,8 @@ export const routes: RouteObject[] = [
         path: 'run-sessions/:sessionId/referral-details',
         element: <SessionReferralDetailsScreen />,
       },
-      { path: 'sms/unmatched', element: <UnmatchedSmsScreen /> },
+      { path: 'sms', element: <SmsInboxScreen /> },
+      { path: 'sms/unmatched', element: <SmsInboxScreen /> },
       { path: 'run-sessions/:sessionId/clients/:parcelId', element: <RunSessionClientScreen /> },
       { path: 'run-sessions/:sessionId', element: <RunSessionDetailScreen /> },
       { path: 'preference-rules', element: <PreferenceRuleHealthScreen /> },

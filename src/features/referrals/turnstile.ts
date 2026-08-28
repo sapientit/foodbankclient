@@ -8,13 +8,13 @@ import { ShowableError } from '../../lib/errors';
  * reaching for `window` itself. The component beside this file decides what a
  * referrer sees; this decides nothing.
  *
- * **Whether the charity has accepted this is not recorded anywhere.**
+ * **The charity has accepted this.** It is recorded in
+ * `docs/engineering/personal-data.md`.
  * `.claude/rules/pii-security.md` says their acceptance of the spreadsheet
  * extract "covers `/extracts` and nothing else; anything new that sends data
  * off-origin needs its own", and this loads a Cloudflare script into the page a
- * referrer is typing a household's details into. Raised as `OPEN-QUESTIONS.md`
- * Q42 in `OPEN-QUESTIONS.md` — **only Pete closes it.** The mitigation available is a CSP `script-src`
- * naming this origin, and nothing else.
+ * referrer is typing a household's details into. The mitigation available is a
+ * CSP `script-src` naming this origin, and nothing else.
  *
  * **Turnstile is required only when a sitekey is configured**, which mirrors the
  * server exactly — it verifies the token whenever it has a secret, skips when it

@@ -221,7 +221,6 @@ describe('a team lead listener sheet', () => {
             status: 'draft',
             generatedAt: '2099-08-06T09:00:00.000Z',
             firstPrintedAt: null,
-            confirmedAt: null,
           },
           parcels: [
             {

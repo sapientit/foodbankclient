@@ -9,6 +9,9 @@
 .unreadButton {
   font-weight: 700;
 }
+.needsAttention {
+  font-weight: 700;
+}
 .warning {
   font-weight: 700;
 }

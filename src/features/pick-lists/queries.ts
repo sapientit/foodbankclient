@@ -20,6 +20,7 @@ export type SmsSummary =
 export type SmsThread =
   paths['/api/v1/referrals/{id}/sms-messages']['get']['responses'][200]['content']['application/json'];
 export type SmsMessage = components['schemas']['SmsMessage'];
+export type SmsInboxMessage = components['schemas']['SmsInboxMessage'];
 export type StockRequirement =
   paths['/api/v1/sessions/{sessionId}/stock-requirement']['get']['responses'][200]['content']['application/json'];
 export type StockRequirementLine = components['schemas']['StockRequirementLine'];
@@ -164,7 +165,7 @@ export function useMarkSmsRead() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (referralId: string) =>
-      unwrap(
+      unwrapVoid(
         api.POST('/api/v1/referrals/{id}/sms-messages/read', {
           params: { path: { id: referralId } },
         }),
@@ -190,19 +191,21 @@ export function useReplyBySms() {
   });
 }
 
-export function useUnmatchedSms() {
+export function useSmsInbox() {
   return useQuery({
-    queryKey: pickListKeys.unmatchedSms(),
-    queryFn: () => unwrap(api.GET('/api/v1/sms-messages/unmatched')),
+    queryKey: pickListKeys.smsInbox(),
+    queryFn: () => unwrap(api.GET('/api/v1/sms-messages')),
   });
 }
 
-export function useMarkUnmatchedSmsRead() {
+export function useMarkSmsInboxMessageRead() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string): Promise<SmsMessage> =>
       unwrap(api.POST('/api/v1/sms-messages/{id}/read', { params: { path: { id } } })),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: pickListKeys.unmatchedSms() }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: pickListKeys.smsInbox() });
+    },
   });
 }
 

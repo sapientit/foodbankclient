@@ -43,7 +43,6 @@ const PICK_LIST: PickList = {
   status: 'draft',
   generatedAt: '2026-08-05T09:00:00.000Z',
   firstPrintedAt: null,
-  confirmedAt: null,
 };
 
 const PARCEL: Parcel = {

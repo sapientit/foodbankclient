@@ -1,17 +1,18 @@
 import { useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
-import { formatLondonDateTime } from '../../../lib/london-time';
-import type { Parcel, SmsMessage } from '../queries';
+import { formatLondonDateTime, formatSessionDate } from '../../../lib/london-time';
+import type { Parcel, SmsInboxMessage } from '../queries';
 import {
   useMarkSmsRead,
-  useMarkUnmatchedSmsRead,
+  useMarkSmsInboxMessageRead,
   useReplyBySms,
   useSendSmsReminders,
   useSmsSummary,
   useSmsThread,
-  useUnmatchedSms,
+  useSmsInbox,
 } from '../queries';
 import styles from './sms-panel.module.css';
 
@@ -197,42 +198,86 @@ function SmsConversation({
   );
 }
 
-export function UnmatchedSmsScreen() {
-  const messages = useUnmatchedSms();
+export function SmsInboxScreen() {
+  const inbox = useSmsInbox();
   return (
     <>
-      <PageHeader title="Unmatched SMS replies" />
-      {messages.isPending && <Spinner label="Loading unmatched messages…" />}
-      {messages.isError && (
-        <ErrorNotice error={messages.error} onRetry={() => void messages.refetch()} />
-      )}
-      {messages.data !== undefined &&
-        (messages.data.messages.length === 0 ? (
-          <p>No unmatched replies.</p>
+      <PageHeader title="SMS Messages" />
+      <p>
+        All text messages from the last thirty days. Unread replies from an unmatched or closed
+        session need administrator attention; active-session replies remain with the team leader.
+      </p>
+      {inbox.isPending && <Spinner label="Loading SMS messages…" />}
+      {inbox.isError && <ErrorNotice error={inbox.error} onRetry={() => void inbox.refetch()} />}
+      {inbox.data !== undefined &&
+        (inbox.data.messages.length === 0 ? (
+          <p>No SMS messages in the last thirty days.</p>
         ) : (
-          <ul className={styles.thread}>
-            {messages.data.messages.map((message) => (
-              <UnmatchedSmsMessage key={message.id} message={message} />
-            ))}
-          </ul>
+          <>
+            <SmsInboxGroup
+              heading="Unmatched messages"
+              messages={inbox.data.messages.filter((message) => message.location === 'unmatched')}
+            />
+            <SmsInboxGroup
+              heading="Messages for active sessions"
+              messages={inbox.data.messages.filter(
+                (message) => message.location === 'active_session',
+              )}
+            />
+            <SmsInboxGroup
+              heading="Messages for closed sessions"
+              messages={inbox.data.messages.filter(
+                (message) => message.location === 'closed_session',
+              )}
+            />
+          </>
         ))}
     </>
   );
 }
 
+function SmsInboxGroup({ heading, messages }: { heading: string; messages: SmsInboxMessage[] }) {
+  if (messages.length === 0) return null;
+  return (
+    <section aria-labelledby={`sms-${heading.replaceAll(' ', '-').toLowerCase()}`}>
+      <h2 id={`sms-${heading.replaceAll(' ', '-').toLowerCase()}`}>{heading}</h2>
+      <ul className={styles.thread}>
+        {messages.map((message) => (
+          <SmsInboxMessageRow key={message.id} message={message} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** A read failure belongs to the one message it left unread, not every row. */
-function UnmatchedSmsMessage({ message }: { message: SmsMessage }) {
-  const markRead = useMarkUnmatchedSmsRead();
+function SmsInboxMessageRow({ message }: { message: SmsInboxMessage }) {
+  const markRead = useMarkSmsInboxMessageRead();
+  const needsAttention =
+    message.kind === 'household_reply' &&
+    message.readAt === null &&
+    message.location !== 'active_session';
 
   return (
     <li>
       <p>
-        <strong>{message.phone ?? 'No phone number'}</strong> — {message.body}
+        <strong>{message.kind.replace('_', ' ')}</strong> — {message.body}
       </p>
       <p>
         <time dateTime={message.occurredAt}>{formatLondonDateTime(message.occurredAt)}</time>
       </p>
-      {message.readAt === null && (
+      {message.location === 'unmatched' && <p>Phone: {message.phone ?? 'No phone number'}</p>}
+      {message.session !== null && (
+        <p>
+          {message.location === 'active_session' ? 'Active session' : 'Closed session'}:{' '}
+          {formatSessionDate(message.session.sessionDate)} at {message.session.startTime}
+        </p>
+      )}
+      {message.referralId !== null && (
+        <Link to={`/referrals/${message.referralId}`}>Open referral</Link>
+      )}
+      {needsAttention && <p className={styles.needsAttention}>Needs administrator attention.</p>}
+      {needsAttention && (
         <button
           className="button-plain"
           disabled={markRead.isPending}

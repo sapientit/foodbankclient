@@ -44,7 +44,6 @@ const PICK_LIST: PickList = {
   status: 'draft',
   generatedAt: '2026-08-05T09:00:00.000Z',
   firstPrintedAt: null,
-  confirmedAt: null,
 };
 
 const PARCEL: Parcel = {
@@ -596,7 +595,7 @@ describe('a team lead running a session', () => {
       http.get('/api/v1/sessions/:id', () => HttpResponse.json(confirmedSession)),
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json({
-          pickList: { ...PICK_LIST, status: 'confirmed' },
+          pickList: { ...PICK_LIST, status: 'printed' },
           parcels: [parcelWithInformation],
         }),
       ),
@@ -1124,7 +1123,7 @@ describe('a team lead running a session', () => {
       ),
       http.post('/api/v1/sessions/:sessionId/confirm', () => {
         confirmCalled = true;
-        return HttpResponse.json({ ...PICK_LIST, status: 'confirmed' });
+        return HttpResponse.json({ ...SESSION, status: 'confirmed' });
       }),
     );
 

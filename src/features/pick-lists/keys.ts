@@ -17,5 +17,5 @@ export const pickListKeys = {
     [...pickListKeys.all, 'stock-requirement', sessionId] as const,
   smsSummary: (sessionId: string) => [...pickListKeys.all, 'sms-summary', sessionId] as const,
   smsThread: (referralId: string) => [...pickListKeys.all, 'sms-thread', referralId] as const,
-  unmatchedSms: () => [...pickListKeys.all, 'unmatched-sms'] as const,
+  smsInbox: () => [...pickListKeys.all, 'sms-inbox'] as const,
 };

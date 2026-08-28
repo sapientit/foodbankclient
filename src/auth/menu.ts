@@ -65,7 +65,7 @@ export const MENU: readonly MenuItem[] = [
   { to: '/referrers', label: 'Approved referrers', roles: ADMIN_ONLY },
   { to: '/referral-reasons', label: 'Reasons for Crisis', roles: ADMIN_ONLY },
   { to: '/users', label: 'Users', roles: ADMIN_ONLY },
-  { to: '/sms/unmatched', label: 'SMS Messages', roles: ADMIN_ONLY },
+  { to: '/sms', label: 'SMS Messages', roles: ADMIN_ONLY },
   { to: '/extracts', label: 'Send to Sheets', roles: ADMIN_ONLY },
   { to: '/preference-rules', label: 'Preference rule check', roles: ADMIN_ONLY },
   // A fuel administrator is not a reduced staff account. This is their whole
@@ -118,6 +118,6 @@ export function menuGroupsFor(role: Role): readonly MenuGroup[] {
         byPath('/preference-rules'),
       ],
     },
-    { label: '', items: [byPath('/sms/unmatched'), byPath('/fuel-help')] },
+    { label: '', items: [byPath('/sms'), byPath('/fuel-help')] },
   ];
 }

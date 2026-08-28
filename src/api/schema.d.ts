@@ -2630,6 +2630,14 @@ export interface paths {
          *
          *     Unlike `POST /public/referrals` there is **no Turnstile token** — this
          *     is authenticated, and nothing on it was typed by a member of the public.
+         *
+         *     **Copying is not idempotent and nothing stops a second copy.** A
+         *     double-clicked button, or a retried request, produces two referrals for
+         *     the same household on the same session — two places held and two parcels
+         *     picked. This is deliberate rather than a gap: the charity does not want
+         *     it guarded, the same as a public submission's own accepted race. **Guard
+         *     the button against a double press on your side** if that matters to you
+         *     — the server will not.
          */
         post: {
             parameters: {
@@ -2945,20 +2953,98 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Marked */
+                /** @description Marked. No body. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sms-messages/attention-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count of unread replies an administrator needs to deal with
+         * @description **Admin only.** No message body, household name, phone number or referral data — a count and nothing else.
+         *     Counts only unread household replies that are unmatched, or that belong to a session which has since been confirmed or cancelled. A reply on a session still planned or under way is excluded — that one is the team leader running it who reads it, not an administrator. Failures are always excluded; they arrive already read.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The count */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SmsAttentionSummary"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sms-messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every retained text message
+         * @description **Admin only.** Every message still within the thirty-day retention period, newest first, whichever household or session it belongs to — the reminders, the replies, the failures and the loose replies alike.
+         *     Each row carries `location` so the client can group and label it without working out the session-status rule itself; see `SmsInboxMessage`. Viewing this list marks nothing read.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The inbox */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": {
-                            markedRead: number;
+                            messages: components["schemas"]["SmsInboxMessage"][];
                         };
                     };
                 };
-                404: components["responses"]["NotFound"];
             };
         };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2977,6 +3063,7 @@ export interface paths {
          * @description **Admin only.** Somebody texted the food bank from a number held against no session still to come — a household whose session was yesterday, a wrong number, or somebody the food bank has never heard of.
          *     These are never thrown away. A reply that cannot be matched is still somebody who texted, and a system that silently swallowed them would be worse than one that took no replies at all.
          *     `phone` is on every message, but it is on these that it matters: acting on a loose reply means ringing the number back, and there is no referral behind it to look the household up by.
+         *     **Superseded by `GET /api/v1/sms-messages`**, which returns this and everything else in one list, with `location: unmatched` on these same rows. Kept unchanged here rather than removed.
          */
         get: {
             parameters: {
@@ -3020,8 +3107,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Mark one loose reply read
-         * @description Admin only. The unmatched screen's equivalent of expanding a household.
+         * Mark one unread household reply read
+         * @description Admin only. Marks one unread household reply read — a loose reply or one from a session that has since closed, not only an unmatched one as before.
+         *     Refuses a reply still on a `planned` or `in_progress` session: that one remains the team leader's to read until the session closes, and this endpoint is not a side door round that. Idempotent, and scoped to exactly the message named — clearing a closed-session or unmatched item never marks another message and never touches a session's own unread count.
          */
         post: {
             parameters: {
@@ -3870,8 +3958,8 @@ export interface paths {
          *     holding a place (`pending_review`, `active` and `reviewed`) which do not
          *     already have one, and reports that number in `parcelsCreated`. Existing
          *     parcels are never changed: their household
-         *     snapshot and any manual line changes stay intact. Once confirmed, the
-         *     list is locked and creates nothing.
+         *     snapshot and any manual line changes stay intact. Once the session is
+         *     confirmed, the list is locked and creates nothing.
          *
          *     A non-zero `parcelsCreated` after the list was printed means the
          *     client must offer to print again so the new households have sheets.
@@ -3986,9 +4074,13 @@ export interface paths {
          *     to pick. Read it before the session starts and the two agree.
          *
          *     **Available once every parcel has been reviewed** — the same point
-         *     `GET /pick-lists/{id}/print` waits for, and not a moment later. The
-         *     list does **not** need to be confirmed; waiting for that would put the
-         *     answer after the work it is meant to inform.
+         *     `GET /pick-lists/{id}/print` waits for, and not a moment later.
+         *
+         *     **Refused once the session itself is confirmed.** Confirming records
+         *     every attended household's parcel against stock, so by then that stock
+         *     has already left the shelf while the parcel still counts towards this
+         *     figure — the comparison would be a finished session measured against a
+         *     shelf nobody can still act on.
          *
          *     Defaults to shelf order, because the person asking is usually about to
          *     go and look.
@@ -4028,7 +4120,7 @@ export interface paths {
                     content?: never;
                 };
                 404: components["responses"]["NotFound"];
-                /** @description A parcel on the list has not been reviewed, so its quantities are not settled yet (a cancelled parcel is not waited for); or a line still says an item needs attention, which is not a quantity and cannot be added up. */
+                /** @description A parcel on the list has not been reviewed, so its quantities are not settled yet (a cancelled parcel is not waited for); or a line still says an item needs attention, which is not a quantity and cannot be added up; or the session itself has been confirmed, so the stock it needed has already moved. */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -4153,7 +4245,7 @@ export interface paths {
         put?: never;
         /**
          * Mark as printed
-         * @description Only the first print is stamped. Refused with `409` until every parcel has been reviewed — on a reprint too, because reconciling a late referral adds its parcel unreviewed. A parcel reading `attendance: "cancelled"` is not waited for. **Lines can still be edited after printing** — the list locks on confirm, not on print.
+         * @description Only the first print is stamped. Refused with `409` until every parcel has been reviewed — on a reprint too, because reconciling a late referral adds its parcel unreviewed. A parcel reading `attendance: "cancelled"` is not waited for. **Lines can still be edited after printing** — the list locks only once the session is confirmed.
          */
         post: {
             parameters: {
@@ -4175,58 +4267,12 @@ export interface paths {
                         "application/json": components["schemas"]["PickList"];
                     };
                 };
-                /** @description The pick list is confirmed or has an unreviewed parcel */
+                /** @description The session is confirmed */
                 409: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/pick-lists/{id}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Lock the pick list
-         * @description Picking is finished and the list can no longer be edited.
-         *
-         *     **This does not move stock.** Stock moves when attendance is recorded,
-         *     because until someone turns up nothing has been given away. Idempotent.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Confirmed */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PickList"];
-                    };
                 };
             };
         };
@@ -4247,7 +4293,7 @@ export interface paths {
         };
         /**
          * What still differs from the pick list
-         * @description Household-size changes and cancelled referrals are reported, never applied automatically. While the list is editable, POSTing its session pick-list reconciles referrals that have no parcel yet — `pending_review`, `active` and `reviewed` alike; a confirmed list remains locked and can still report missing referrals.
+         * @description Household-size changes and cancelled referrals are reported, never applied automatically. While the list is editable, POSTing its session pick-list reconciles referrals that have no parcel yet — `pending_review`, `active` and `reviewed` alike; once the session is confirmed the list stays locked and can still report missing referrals.
          */
         get: {
             parameters: {
@@ -4267,7 +4313,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            /** @description Households holding a place without a parcel. An editable list reconciles these when its session pick-list is POSTed; a confirmed list remains locked. */
+                            /** @description Households holding a place without a parcel. An editable list reconciles these when its session pick-list is POSTed; once the session is confirmed the list stays locked. */
                             missingParcels?: string[];
                             /** @description Parcels whose household has been corrected since the list was generated. `was` is the snapshot the picker is packing to; `now` is the referral as it currently stands. **The parcel is never rewritten** — rewriting it underneath somebody mid-pick is what the snapshot exists to prevent — so this is a warning for a team leader to act on, by editing the parcel or leaving it. */
                             changedHouseholds?: {
@@ -4315,7 +4361,7 @@ export interface paths {
          * Set the pick-list information on a parcel
          * @description Replaces the parcel's note outright; `null` clears it. Editable while
          *     the pick list is draft or printed, on the same terms as its lines, and
-         *     refused with `409` once the pick list or the session is confirmed.
+         *     refused with `409` once the session is confirmed.
          *
          *     The note is the team leader's from the moment the parcel exists.
          *     Whatever was written here survives every later reconciliation of the
@@ -4352,7 +4398,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description The pick list or the session has been confirmed */
+                /** @description The session has been confirmed */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -4407,7 +4453,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description The pick list has been confirmed */
+                /** @description The session has been confirmed */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -4436,7 +4482,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a parcel's pick list reviewed
-         * @description The team leader's decision that this parcel is right. Required **before the list is printed** and before this parcel's attendance outcome; both refuse with a `409` until it is done. Idempotent, and it freezes nothing — lines stay editable until the list is confirmed.
+         * @description The team leader's decision that this parcel is right. Required **before the list is printed** and before this parcel's attendance outcome; both refuse with a `409` until it is done. Idempotent, and it freezes nothing — lines stay editable until the session is confirmed.
          *     Refused with a `409` while any line is still `-1`. That single rule is what keeps an unsettled item off a printed sheet and out of the stock ledger, since both wait on review.
          */
         post: {
@@ -4464,7 +4510,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description The pick list has been confirmed, or a line still needs attention */
+                /** @description The session has been confirmed, or a line still needs attention */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -4512,7 +4558,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description The pick list has been confirmed */
+                /** @description The session has been confirmed */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -5211,6 +5257,57 @@ export interface components {
             /** @description The household's number, in E.164 where it could be normalised. Present on every message: on a loose reply it is the only way to act on one, and on a thread it is the same number the referral already carries, so withholding it there would buy nothing. */
             phone?: string;
         };
+        SmsAttentionSummary: {
+            /** @description Unread household replies that are unmatched or belong to a confirmed or cancelled session. A reply on a session still planned or under way is excluded — that one is the team leader's to read. */
+            unreadTotal: number;
+        };
+        /** @description The session an `SmsInboxMessage` was snapshotted against, when it has one. */
+        SmsInboxSession: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            sessionDate: string;
+            /** @description HH:MM, the wall clock the charity set. */
+            startTime: string;
+            /** @enum {string} */
+            status: "planned" | "in_progress" | "confirmed" | "cancelled";
+        };
+        /**
+         * @description One row in the administrator inbox — every retained message, whichever
+         *     household or session it belongs to.
+         *
+         *     `location` is derived from the session the message was snapshotted
+         *     against when it arrived, not from wherever its referral sits now: a
+         *     household later moved to another session does not retroactively move
+         *     an old message with it.
+         *
+         *     - `unmatched` — a loose reply, no session behind it.
+         *     - `active_session` — its session is still planned or under way; this
+         *       is the team leader's to read.
+         *     - `closed_session` — its session has since been confirmed or
+         *       cancelled; nobody else was coming back to it, which is why this one
+         *       counts towards `SmsAttentionSummary` when unread.
+         *
+         *     `session` is null only when `location` is `unmatched`.
+         */
+        SmsInboxMessage: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            referralId: string | null;
+            /** @enum {string} */
+            kind: "reminder" | "staff_reply" | "household_reply" | "failure";
+            body: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /** Format: date-time */
+            readAt: string | null;
+            /** @enum {string} */
+            location: "unmatched" | "active_session" | "closed_session";
+            session: null | components["schemas"]["SmsInboxSession"];
+            /** @description Present only when `location` is `unmatched`. A linked-session row has a referral to open instead, so there is nothing to act on a phone number for; a loose reply has no referral, and the number is the only way to act on it. */
+            phone?: string;
+        };
         /** @description What the referrer gets back. This is the whole of their relationship with the system now: there is no key and no window, so show it as a confirmation. **Read `status`** — `pending_review` means the referral is waiting to be looked at, not that a place is booked and settled. */
         ReferralReceipt: {
             /** Format: uuid */
@@ -5626,13 +5723,11 @@ export interface components {
             /** Format: uuid */
             sessionId: string;
             /** @enum {string} */
-            status: "draft" | "printed" | "confirmed";
+            status: "draft" | "printed";
             /** Format: date-time */
             generatedAt: string;
             /** Format: date-time */
             firstPrintedAt: string | null;
-            /** Format: date-time */
-            confirmedAt: string | null;
         };
         GeneratePickListRequest: {
             /** @description One entry per household, each naming a referral and the stock items your rules resolved for it. A referral must not appear twice. */
@@ -5651,6 +5746,7 @@ export interface components {
              * @description The pick-list information as it should read on the sheet, composed by you from the answers your form marks as belonging there — labels and all. The server holds no form definition, never inspects an answer and never understands a question key; it stores exactly what you send.
              *     Trimmed before it is measured, and it must not be empty once trimmed. To clear a note, use `PATCH /parcels/{id}` with `null` rather than sending an empty one here.
              *     **Written only onto a parcel this call creates.** Sending the same entry on a later reconciliation never overwrites what is already on a parcel — by then the note belongs to the team leader, who may have corrected it.
+             *     **Deleted along with the referral at the twelve-month purge**, on the same run as the referral's own answers — see `INITIAL_SPEC1.txt`, `#Forgetting a referral`. The purge job itself has not been rebuilt to do this yet (`STATUS.md`, "Agreed but not yet built"); today's job still anonymises the referral in place and leaves the parcel untouched.
              */
             notes: string;
         };
@@ -5707,7 +5803,7 @@ export interface components {
             attendance: "pending" | "attended" | "no_show" | "cancelled";
             /**
              * @description The parcel's pick-list information: snapshotted from your `pickListInformation` when the parcel was created, and the team leader's to edit through `PATCH /parcels/{id}` from then on. Show this rather than recomposing it from `answers`, which would hide any correction made to it.
-             *     Unlike `answers`, it is **not** emptied when the referral's personal data is purged — see `x-assumed` on `PickListInformationEntry.notes`.
+             *     Deleted along with the rest of the parcel at the twelve-month purge, in the same run as `answers` — see `x-assumed` on `PickListInformationEntry.notes` for the current gap between that and what the purge job actually does today.
              */
             notes: string | null;
             /**

@@ -13,7 +13,7 @@ import type { Parcel, PickList } from './queries';
  *
  * **The writes are what these tests are for, not the layout.** The server
  * refuses most of them with a `409`, but the two that matter here do not
- * announce themselves: `POST /sessions/{id}/pick-list` on a confirmed list is a
+ * announce themselves: `POST /sessions/{id}/pick-list` on a confirmed session is a
  * silent `200` that creates nothing, and marking an SMS thread read has no
  * button in front of it at all. Neither would show on screen if it fired, so
  * each is asserted against the request rather than the DOM.
@@ -43,10 +43,9 @@ const SESSION: Session = {
 const PICK_LIST: PickList = {
   id: 'pick-list-1',
   sessionId: SESSION.id,
-  status: 'confirmed',
+  status: 'printed',
   generatedAt: '2026-08-01T09:00:00.000Z',
   firstPrintedAt: '2026-08-01T09:30:00.000Z',
-  confirmedAt: '2026-08-01T12:00:00.000Z',
 };
 
 const PARCEL: Parcel = {

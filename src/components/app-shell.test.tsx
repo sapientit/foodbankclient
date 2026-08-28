@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -80,6 +80,34 @@ describe('AppShell', () => {
     const links = navLabels();
     expect(links).toContain('Stock items');
     expect(links).toContain('Users');
+  });
+
+  it('groups the administrator’s initial actions like the Menu popup and draws them as controls', async () => {
+    await renderShell('admin', '/');
+
+    const referrals = screen.getByRole('region', { name: 'Referrals' });
+    const stock = screen.getByRole('region', { name: 'Stock' });
+    const sessions = screen.getByRole('region', { name: 'Sessions' });
+    const masterData = screen.getByRole('region', { name: 'Master Data' });
+
+    expect(within(referrals).getByRole('link', { name: 'Run a session' })).toHaveClass(
+      'button-link',
+    );
+    expect(within(stock).getByRole('link', { name: 'Stock take' })).toHaveClass('button-link');
+    expect(within(sessions).getByRole('link', { name: 'Manage Sessions' })).toHaveClass(
+      'button-link',
+    );
+    expect(within(masterData).getByRole('link', { name: 'Users' })).toHaveClass('button-link');
+  });
+
+  it('keeps the team lead’s initial actions as one control list like the Menu popup', async () => {
+    await renderShell('team_lead', '/');
+
+    expect(screen.queryByRole('heading', { name: 'Referrals' })).not.toBeInTheDocument();
+    const home = within(screen.getByRole('main'));
+    expect(home.getByRole('link', { name: 'Run a session' })).toHaveClass('button-link');
+    expect(home.getByRole('link', { name: 'Stock' })).toHaveClass('button-link');
+    expect(home.getByRole('link', { name: 'Stock take' })).toHaveClass('button-link');
   });
 
   it('marks the link for the current screen', async () => {
