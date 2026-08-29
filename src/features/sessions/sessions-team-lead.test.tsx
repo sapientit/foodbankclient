@@ -29,6 +29,7 @@ function session(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
     deliveryWindowStart: null,
     deliveryWindowEnd: null,
     deliveryCapacity: 0,
+    deliveryBooked: 0,
     capacity: 25,
     booked: 10,
     status: 'planned',
@@ -103,7 +104,7 @@ describe('a team lead’s shift view', () => {
 
     renderApp('/sessions');
 
-    await screen.findByRole('navigation', { name: 'Main' });
+    await screen.findByRole('navigation', { name: 'Main navigation' });
     expect(screen.queryByRole('link', { name: 'Weekly sessions' })).toBeNull();
   });
 });

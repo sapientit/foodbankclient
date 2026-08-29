@@ -1,5 +1,12 @@
 import type { RecurringSession, Session } from './queries';
 import type { SessionStatus } from './keys';
+import {
+  parseWholeNumber,
+  type WholeNumber,
+  type WholeNumberProblem,
+} from '../../lib/whole-number';
+
+export { parseWholeNumber, type WholeNumber, type WholeNumberProblem };
 
 /**
  * The pure half of sessions: status labels, the defensive sort, occupancy, the
@@ -56,6 +63,30 @@ export function occupancy(session: Pick<Session, 'booked' | 'capacity'>): Occupa
 
 export function describeOccupancy(o: Occupancy): string {
   return `${String(o.booked)} of ${String(o.capacity)} booked`;
+}
+
+export interface DeliveryOccupancy {
+  readonly deliveryBooked: number;
+  readonly deliveryCapacity: number;
+  readonly isFull: boolean;
+  readonly isOverCapacity: boolean;
+}
+
+/**
+ * Delivery places are counted separately from all booked households. Unlike
+ * overall occupancy, `isFull` means exactly at the delivery limit so a table
+ * can distinguish an admin's deliberate overfill from an ordinary full run.
+ */
+export function deliveryOccupancy(
+  session: Pick<Session, 'deliveryBooked' | 'deliveryCapacity'>,
+): DeliveryOccupancy {
+  const { deliveryBooked, deliveryCapacity } = session;
+  return {
+    deliveryBooked,
+    deliveryCapacity,
+    isFull: deliveryBooked === deliveryCapacity,
+    isOverCapacity: deliveryBooked > deliveryCapacity,
+  };
 }
 
 export interface SessionGroup {
@@ -130,36 +161,6 @@ export const LOCAL_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export function isLocalTime(value: string): boolean {
   return LOCAL_TIME_PATTERN.test(value);
-}
-
-export type WholeNumberProblem = 'empty' | 'not-a-whole-number' | 'below-minimum' | 'above-maximum';
-
-export type WholeNumber =
-  | { readonly ok: true; readonly value: number }
-  | { readonly ok: false; readonly problem: WholeNumberProblem };
-
-/**
- * An unsigned whole number within `[minimum, maximum]`, held and parsed as text
- * — the same reasoning as `parseWholeQuantity` in the stock feature: an
- * `<input type="number">` reports an empty box and a lone minus sign
- * identically, and the difference between them is a sentence a person can act
- * on. Shared by `durationMinutes` (1–1440) and `capacity` (0–1000), which is
- * why the bounds are parameters rather than baked in.
- */
-export function parseWholeNumber(
-  text: string,
-  bounds: { readonly minimum: number; readonly maximum: number },
-): WholeNumber {
-  const trimmed = text.trim();
-  if (trimmed === '') return { ok: false, problem: 'empty' };
-  if (!/^\d+$/.test(trimmed)) return { ok: false, problem: 'not-a-whole-number' };
-
-  const value = Number(trimmed);
-  if (!Number.isSafeInteger(value)) return { ok: false, problem: 'not-a-whole-number' };
-  if (value < bounds.minimum) return { ok: false, problem: 'below-minimum' };
-  if (value > bounds.maximum) return { ok: false, problem: 'above-maximum' };
-
-  return { ok: true, value };
 }
 
 /** `durationMinutes`: `minimum: 1, maximum: 1440` on both session endpoints. */

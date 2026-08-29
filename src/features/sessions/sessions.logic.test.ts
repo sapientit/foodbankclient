@@ -9,6 +9,7 @@ import {
   describeLockedSession,
   describeMaterialisation,
   describeOccupancy,
+  deliveryOccupancy,
   groupByDate,
   isLocalTime,
   isWeekday,
@@ -38,6 +39,7 @@ function session(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
     recurringSessionId: null,
     occurrenceDate: null,
     ...overrides,
+    deliveryBooked: overrides.deliveryBooked ?? 0,
   };
 }
 
@@ -111,6 +113,36 @@ describe('occupancy', () => {
 
   it('describes booked and capacity in words', () => {
     expect(describeOccupancy(occupancy({ booked: 12, capacity: 25 }))).toBe('12 of 25 booked');
+  });
+});
+
+describe('deliveryOccupancy', () => {
+  it('is below capacity while delivery places remain', () => {
+    expect(deliveryOccupancy({ deliveryBooked: 3, deliveryCapacity: 8 })).toMatchObject({
+      isFull: false,
+      isOverCapacity: false,
+    });
+  });
+
+  it('is full exactly at delivery capacity', () => {
+    expect(deliveryOccupancy({ deliveryBooked: 8, deliveryCapacity: 8 })).toMatchObject({
+      isFull: true,
+      isOverCapacity: false,
+    });
+  });
+
+  it('reports a deliberate overfill distinctly from being full', () => {
+    expect(deliveryOccupancy({ deliveryBooked: 9, deliveryCapacity: 8 })).toMatchObject({
+      isFull: false,
+      isOverCapacity: true,
+    });
+  });
+
+  it('treats a no-delivery session with no delivery bookings as full', () => {
+    expect(deliveryOccupancy({ deliveryBooked: 0, deliveryCapacity: 0 })).toMatchObject({
+      isFull: true,
+      isOverCapacity: false,
+    });
   });
 });
 

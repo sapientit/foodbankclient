@@ -3,6 +3,7 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { useStockLevels } from '../queries';
+import { isLowStock } from '../stock.logic';
 import styles from './stock-levels-screen.module.css';
 
 /**
@@ -56,21 +57,29 @@ export function StockLevelsScreen() {
               <th className={styles.numeric} scope="col">
                 On hand
               </th>
+              <th className={styles.numeric} scope="col">
+                Low-stock threshold
+              </th>
             </tr>
           </thead>
           <tbody>
             {/* Rendered in the order the server sent. Never re-sorted: a
                 `sort()` on shelfNumber puts A10 before A2. */}
-            {visible.map((level) => (
-              <tr key={level.id}>
-                <th scope="row">
-                  {level.name}
-                  {!level.isActive && <span className={styles.retired}> (retired)</span>}
-                </th>
-                <td>{level.shelfNumber}</td>
-                <td className={styles.numeric}>{level.quantityOnHand}</td>
-              </tr>
-            ))}
+            {visible.map((level) => {
+              const lowStock = isLowStock(level);
+              return (
+                <tr className={lowStock ? styles.lowStockRow : undefined} key={level.id}>
+                  <th scope="row">
+                    {level.name}
+                    {lowStock && <span className={styles.lowStock}>Low stock</span>}
+                    {!level.isActive && <span className={styles.retired}> (retired)</span>}
+                  </th>
+                  <td>{level.shelfNumber}</td>
+                  <td className={styles.numeric}>{level.quantityOnHand}</td>
+                  <td className={styles.numeric}>{level.lowStockThreshold ?? 'Not watched'}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

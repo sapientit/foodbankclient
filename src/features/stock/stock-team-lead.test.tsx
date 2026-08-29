@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { server } from '../../../test/msw/server';
@@ -23,6 +23,7 @@ const BEANS: StockLevel = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A2',
+  lowStockThreshold: null,
   isActive: true,
   quantityOnHand: 12,
 };
@@ -45,7 +46,11 @@ describe('a team lead', () => {
     renderApp('/stock');
 
     expect(await screen.findByRole('row', { name: /Baked beans/ })).toHaveTextContent('12');
-    expect(screen.getByRole('link', { name: 'Stock' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', {
+        name: 'Stock',
+      }),
+    ).toBeInTheDocument();
 
     // Maintaining what items exist is the admin's, and is not offered here.
     expect(screen.queryByRole('link', { name: 'Stock items' })).toBeNull();
@@ -56,7 +61,11 @@ describe('a team lead', () => {
 
     await screen.findByRole('row', { name: /Baked beans/ });
 
-    expect(screen.getByRole('link', { name: 'Stock take' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Section navigation' })).getByRole('link', {
+        name: 'Stock take',
+      }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Record a shop' })).toBeNull();
   });
 });

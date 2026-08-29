@@ -17,8 +17,8 @@ import styles from './sessions-screen.module.css';
  * than a screen per role. `API.md` §2 is explicit that an admin's planning view
  * and a team lead's shift view "are different screens" — what makes that true
  * here is not the rows, which are now the same table `Run a session` shows, but
- * what each role is offered around them: an admin gets "Add a session" and a
- * link to the weekly templates; a team lead gets neither, because creating and
+ * what each role is offered around them: an admin gets "Add a session"; a
+ * team lead gets neither, because creating and
  * amending sessions is not their job.
  *
  * **The status dropdown is gone, replaced by `Show completed`.** Four statuses
@@ -51,7 +51,6 @@ export function SessionsScreen() {
         action={
           isAdmin ? (
             <div className={styles.actions}>
-              <Link to="/sessions/recurring">Weekly sessions</Link>
               <Link className={classNames(styles.add, 'button-link')} to="/sessions/new">
                 Add a session
               </Link>

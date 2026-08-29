@@ -21,6 +21,11 @@
   color: #b3261e;
 }
 
+.hint {
+  margin: 0;
+  color: #595959;
+}
+
 /* A refusal is not a validation error: the person has done nothing wrong, and
    the sentence explains what would have to change. */
 .refusal {

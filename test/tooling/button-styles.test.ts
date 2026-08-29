@@ -78,6 +78,11 @@ describe('the global control style', () => {
     }
   });
 
+  it('takes its available colour from the current work category', () => {
+    expect(globalStyles).toContain('var(--category-action, #0b5cab)');
+    expect(globalStyles).toContain('var(--category-action-hover, #084684)');
+  });
+
   /*
    * The contrast figures in that file's comments were the only place the claim
    * was made, and two of them were wrong — copied forward from an older
@@ -92,6 +97,9 @@ describe('the global control style', () => {
     ['cannot be undone, hovered', '#ffffff', '#8c1e18', 4.5],
     ['quieter half', '#0b5cab', '#ffffff', 4.5],
     ['quieter half, hovered', '#084684', '#eaf1f9', 4.5],
+    ['sessions', '#ffffff', '#176b3a', 4.5],
+    ['referrals', '#ffffff', '#6d3a8c', 4.5],
+    ['stock', '#ffffff', '#a84f0a', 4.5],
     ['unavailable', '#333333', '#dcdcdc', 4.5],
     ['unavailable, plain', '#595959', '#ffffff', 4.5],
     ['the edge of an unavailable control', '#767676', '#dcdcdc', 3],

@@ -18,4 +18,5 @@ export const pickListKeys = {
   smsSummary: (sessionId: string) => [...pickListKeys.all, 'sms-summary', sessionId] as const,
   smsThread: (referralId: string) => [...pickListKeys.all, 'sms-thread', referralId] as const,
   smsInbox: () => [...pickListKeys.all, 'sms-inbox'] as const,
+  smsAttentionSummary: () => [...pickListKeys.all, 'sms-attention-summary'] as const,
 };

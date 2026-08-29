@@ -100,6 +100,7 @@ export function StockItemsScreen() {
               <th scope="col">Category</th>
               <th scope="col">Description</th>
               <th scope="col">Shelf</th>
+              <th scope="col">Low-stock threshold</th>
               <th scope="col">Status</th>
               <th scope="col">Actions</th>
             </tr>
@@ -111,6 +112,7 @@ export function StockItemsScreen() {
                 <td>{item.category}</td>
                 <td>{item.description ?? ''}</td>
                 <td>{item.shelfNumber}</td>
+                <td>{item.lowStockThreshold ?? 'Not watched'}</td>
                 <td>{item.isActive ? 'Active' : 'Retired'}</td>
                 <td className={styles.actions}>
                   <Link className="button-link" to={`/stock/items/${item.id}`}>

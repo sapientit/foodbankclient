@@ -10,6 +10,7 @@
 .title {
   margin: 0;
   font-size: 1.75rem;
+  color: var(--category-action, inherit);
 }
 
 .action {

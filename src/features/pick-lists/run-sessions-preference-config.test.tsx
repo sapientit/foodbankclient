@@ -35,6 +35,7 @@ beforeEach(() => {
         location: 'St Mary’s Hall',
         deliveryTime: null,
         deliveryCapacity: 0,
+        deliveryBooked: 0,
         capacity: 25,
         booked: 0,
         status: 'planned',

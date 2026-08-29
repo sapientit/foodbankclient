@@ -34,11 +34,3 @@ notice an alert away from it. Preserve the existing polling behaviour. When the 
 known, decide the notification channel and its accessible visual equivalent before implementing it;
 do not record notification delivery, acknowledgement, or a team-lead preference merely to support
 the alert.
-
-## W2 — Administrator SMS attention indicator
-
-Do not add an unread-attention count, polling, badge, popup, or other prompt to the Menu, initial
-screen, or another global part of the administrator application yet. The administrator SMS inbox
-correctly labels messages that need attention, but the food bank has a new plan for how and when an
-administrator should be prompted to visit it. Preserve the inbox and its server contract; implement
-the prompt only once that plan is settled.

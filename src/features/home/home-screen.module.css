@@ -1,16 +1,221 @@
-.menuGroup {
-  margin-block: 1.5rem;
+.dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(13rem, 1fr);
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #f7fbf8, #ffffff 48%, #f6f9fc);
+  border-radius: 0.875rem;
 }
 
-.menuGroup h3 {
+.dashboardMain {
+  min-inline-size: 0;
+}
+
+.overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: 0.75rem;
   margin-block-end: 0.75rem;
 }
 
-.menuItems {
-  display: flex;
-  flex-wrap: wrap;
+.todaySessions h2 {
+  margin-block-start: 0;
+}
+
+.tile,
+.alert {
+  padding: 0.75rem;
+  background: #ffffff;
+  border: 1px solid #dce5df;
+  border-radius: 0.625rem;
+  box-shadow: 0 0.2rem 0.7rem rgb(24 64 40 / 7%);
+}
+
+.tile[data-category='sessions'],
+.alert[data-category='sessions'] {
+  background: #f4faf5;
+  border-color: #b7d7c3;
+}
+
+.tile[data-category='referrals'],
+.alert[data-category='referrals'] {
+  background: #fbf7fd;
+  border-color: #d9c2e8;
+}
+
+.alert[data-category='stock'] {
+  background: #fff9f4;
+  border-color: #f2c9a6;
+}
+.tile h2,
+.alert h3 {
+  margin-block-start: 0;
+}
+
+.tile[data-category='sessions'] h2,
+.todaySessions h2,
+.upcomingPanel h2 {
+  color: #176b3a;
+}
+
+.tile[data-category='referrals'] h2 {
+  color: #6d3a8c;
+}
+.tile strong {
+  font-size: 1.75rem;
+  color: #176b3a;
+}
+
+.tile[data-category='referrals'] strong {
+  color: #6d3a8c;
+}
+.todayList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 0.75rem;
-  margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.todayList li {
+  min-inline-size: 0;
+}
+
+.todayList .tile {
+  block-size: 100%;
+}
+
+.todayList .tile h3 {
+  margin-block-start: 0;
+}
+
+.todayList .tile p {
+  margin-block: 0.5rem;
+}
+
+.todayList .tile a,
+.tile > a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 2.4rem;
+  margin-block-start: 0.25rem;
+  padding-inline: 0.85rem;
+  border: 1px solid #b7d7c3;
+  border-radius: 0.5rem;
+  color: #176b3a;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.upcomingPanel,
+.alertsPanel {
+  padding: 0.75rem;
+  background: #ffffff;
+  border: 1px solid #dce5df;
+  border-radius: 0.625rem;
+  box-shadow: 0 0.2rem 0.7rem rgb(24 64 40 / 7%);
+}
+
+.upcomingPanel h2 {
+  margin-block-start: 0;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-block-end: 0.5rem;
+  border-block-end: 1px solid #cfdbd3;
+}
+
+/* These are navigation choices, not actions. The shared plain-control style
+   removes the filled action button; the connected baseline and selected edge
+   make the chosen range visibly a tab. */
+.tabs button {
+  position: relative;
+  margin-block-end: -1px;
+  padding: 0.5rem 0.75rem;
+  border-block-end: 3px solid transparent;
+  border-radius: 0;
+}
+
+.tabs button[aria-selected='true'] {
+  border-block-end-color: #176b3a;
+  color: #176b3a;
+  font-weight: 700;
+}
+
+.rowActions {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+/* A single glyph is not a tap target on its own — this is a control run from
+   a phone, in a hall, and the food bank runs two of these side by side. */
+.rowAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  padding: 0.4rem;
+  border-radius: 0.25rem;
+}
+.alerts {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.alertsPanel {
+  position: sticky;
+  inset-block-start: 8rem;
+  align-self: start;
+}
+
+.alertsPanel h2 {
+  margin-block-start: 0;
+  color: #6d3a8c;
+}
+
+.alerts .alert {
+  padding: 0;
+  box-shadow: none;
+}
+
+.alertLink {
+  display: block;
+  padding: 0.7rem 0.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.alertLink h3 {
+  margin: 0;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+}
+
+.alert[data-category='sessions'] .alertLink {
+  color: #176b3a;
+}
+
+.alert[data-category='referrals'] .alertLink {
+  color: #6d3a8c;
+}
+
+.alert[data-category='stock'] .alertLink {
+  color: #a84f0a;
+}
+
+@media (max-width: 800px) {
+  .dashboard,
+  .overview {
+    grid-template-columns: 1fr;
+  }
+
+  .alertsPanel {
+    position: static;
+  }
 }

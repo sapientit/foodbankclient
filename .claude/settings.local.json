@@ -9,7 +9,15 @@
       "Bash(curl -s -o /dev/null -w \"POST /api/v1/auth/refresh -> %{http_code}\\\\n\" -X POST https://foodbank-client.losttemple.workers.dev/api/v1/auth/refresh)",
       "Bash(curl -s -o /dev/null -w \"GET /api/v1/public/referral-reasons -> %{http_code}\\\\n\" https://foodbank-client.losttemple.workers.dev/api/v1/public/referral-reasons)",
       "Bash(npx prettier *)",
-      "Bash(perl -pi -e 's/Administrator information/Administrator notes/g; s/administrator information/administrator notes/g' src/features/referrals/components/referral-detail-screen.tsx src/features/referrals/components/referral-detail-screen.test.tsx)"
+      "Bash(perl -pi -e 's/Administrator information/Administrator notes/g; s/administrator information/administrator notes/g' src/features/referrals/components/referral-detail-screen.tsx src/features/referrals/components/referral-detail-screen.test.tsx)",
+      "Bash(grep -n \"^a\\\\b\\\\|^a,\\\\|^a{\" -A5 /Users/petebennett/foodbankclient/src/index.css)",
+      "Bash(npm run *)",
+      "Bash(npx vitest *)",
+      "Bash(python3 *)",
+      "Bash(grep -n \"^a \\\\|^a{\\\\|^a,\\\\|color:\" /Users/petebennett/foodbankclient/src/index.css)",
+      "Bash(node -e ' *)",
+      "Bash(grep *)",
+      "Bash(node --input-type=module -e ' *)"
     ]
   }
 }

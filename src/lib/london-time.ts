@@ -180,6 +180,25 @@ export function addCalendarDays(date: string, days: number): string {
 }
 
 /**
+ * The Sunday on or before a calendar date, as `YYYY-MM-DD`.
+ *
+ * The charity's planning week is Sunday to Saturday. `getUTCDay` is deliberate:
+ * this starts from a calendar date's UTC midnight, rather than from a device's
+ * local interpretation of it, so a device west of London cannot move the week
+ * boundary back a day.
+ */
+export function startOfWeek(date: string): string {
+  const parsed = parseCalendarDate(date);
+  if (parsed === null) return date;
+  return addCalendarDays(date, -parsed.getUTCDay());
+}
+
+/** The Saturday ending the Sunday-to-Saturday week containing `date`. */
+export function endOfWeek(date: string): string {
+  return addCalendarDays(startOfWeek(date), 6);
+}
+
+/**
  * Today in London, as `YYYY-MM-DD`.
  *
  * Needed because "is this date of birth in the future?" is a question about the

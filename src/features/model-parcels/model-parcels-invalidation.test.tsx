@@ -33,6 +33,7 @@ const BEANS: StockItem = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A1',
+  lowStockThreshold: null,
   isActive: true,
 };
 

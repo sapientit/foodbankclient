@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
@@ -10,8 +10,8 @@ import type { AuthProvider as AuthProviderComponent } from '../auth/auth-provide
 /**
  * The shell is exercised through the real route table rather than mounted on its
  * own: it renders inside `RequireAuth`, and the thing worth testing is what a
- * signed-in volunteer meets — which menu, which link is marked current, and
- * whether a phone-sized disclosure behaves.
+ * signed-in volunteer meets — their permitted primary tabs, contextual links,
+ * and the selected destination.
  */
 let routes: RouteObject[];
 let AuthProvider: typeof AuthProviderComponent;
@@ -38,7 +38,14 @@ async function renderShell(role: 'admin' | 'team_lead', path = '/sessions') {
     http.post(REFRESH, () => signedInAs(role)),
     // The default path renders the sessions screen, which fetches on mount.
     http.get('/api/v1/sessions', () => HttpResponse.json({ sessions: [] })),
+    http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
+    http.get('/api/v1/stock/items/low-stock-summary', () =>
+      HttpResponse.json({ lowStockCount: 0 }),
+    ),
+    http.get('/api/v1/sms-messages/attention-summary', () => HttpResponse.json({ unreadTotal: 0 })),
   );
+
+  const router = createMemoryRouter(routes, { initialEntries: [path] });
 
   render(
     <QueryClientProvider
@@ -49,12 +56,13 @@ async function renderShell(role: 'admin' | 'team_lead', path = '/sessions') {
       }
     >
       <AuthProvider>
-        <RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} />
+        <RouterProvider router={router} />
       </AuthProvider>
     </QueryClientProvider>,
   );
 
-  await screen.findByRole('navigation', { name: 'Main' });
+  await screen.findByRole('navigation', { name: 'Main navigation' });
+  return router;
 }
 
 function navLabels(): string[] {
@@ -65,58 +73,60 @@ function navLabels(): string[] {
 }
 
 describe('AppShell', () => {
-  it('shows a team lead their menu and not an admin’s', async () => {
-    await renderShell('team_lead');
+  it('shows a team lead their permitted tabs and not Sessions', async () => {
+    await renderShell('team_lead', '/stock');
 
+    const tabs = within(screen.getByRole('navigation', { name: 'Main navigation' }));
     const links = navLabels();
+    expect(tabs.getByRole('link', { name: 'Run a session' })).toBeInTheDocument();
     expect(links).toContain('Stock');
+    expect(tabs.queryByRole('link', { name: 'Sessions' })).toBeNull();
+    expect(screen.getByRole('navigation', { name: 'Section navigation' })).toHaveTextContent(
+      'Stock take',
+    );
     expect(links).not.toContain('Stock items');
-    expect(links).not.toContain('Users');
   });
 
-  it('shows an admin the maintenance items a team lead does not get', async () => {
-    await renderShell('admin');
-
-    const links = navLabels();
-    expect(links).toContain('Stock items');
-    expect(links).toContain('Users');
-  });
-
-  it('groups the administrator’s initial actions like the Menu popup and draws them as controls', async () => {
+  it('offers an administrator the requested primary tabs without a legacy menu', async () => {
     await renderShell('admin', '/');
-
-    const referrals = screen.getByRole('region', { name: 'Referrals' });
-    const stock = screen.getByRole('region', { name: 'Stock' });
-    const sessions = screen.getByRole('region', { name: 'Sessions' });
-    const masterData = screen.getByRole('region', { name: 'Master Data' });
-
-    expect(within(referrals).getByRole('link', { name: 'Run a session' })).toHaveClass(
-      'button-link',
-    );
-    expect(within(stock).getByRole('link', { name: 'Stock take' })).toHaveClass('button-link');
-    expect(within(sessions).getByRole('link', { name: 'Manage Sessions' })).toHaveClass(
-      'button-link',
-    );
-    expect(within(masterData).getByRole('link', { name: 'Users' })).toHaveClass('button-link');
+    const tabs = within(screen.getByRole('navigation', { name: 'Main navigation' }));
+    expect(tabs.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(tabs.getByRole('link', { name: 'Referrals' })).toBeInTheDocument();
+    expect(tabs.getByRole('link', { name: 'Stock' })).toBeInTheDocument();
+    expect(tabs.getByRole('link', { name: 'Sessions' })).toBeInTheDocument();
+    expect(tabs.getByRole('link', { name: 'Master Data' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Menu' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull();
   });
 
-  it('keeps the team lead’s initial actions as one control list like the Menu popup', async () => {
-    await renderShell('team_lead', '/');
+  it('makes every former administrator menu destination available as a contextual subtab', async () => {
+    const cases = [
+      [
+        '/referrals',
+        ['Check referrals', 'Search referrals', 'Send to Sheets', 'SMS Messages', 'Fuel'],
+      ],
+      ['/stock', ['Stock', 'Stock take', 'Stock items', 'Model parcels', 'Parcel Grid']],
+      ['/sessions', ['Manage Sessions', 'Weekly sessions']],
+      ['/referrers', ['Approved referrers', 'Users', 'Reasons for Crisis', 'Rule check']],
+    ] as const;
 
-    expect(screen.queryByRole('heading', { name: 'Referrals' })).not.toBeInTheDocument();
-    const home = within(screen.getByRole('main'));
-    expect(home.getByRole('link', { name: 'Run a session' })).toHaveClass('button-link');
-    expect(home.getByRole('link', { name: 'Stock' })).toHaveClass('button-link');
-    expect(home.getByRole('link', { name: 'Stock take' })).toHaveClass('button-link');
+    for (const [path, labels] of cases) {
+      await renderShell('admin', path);
+      const navigation = within(screen.getByRole('navigation', { name: 'Section navigation' }));
+      for (const label of labels)
+        expect(navigation.getByRole('link', { name: label })).toBeInTheDocument();
+      cleanup();
+    }
   });
 
-  it('marks the link for the current screen', async () => {
+  it('marks the exact contextual destination for the current screen', async () => {
     await renderShell('admin', '/stock/items');
 
     // NavLink sets aria-current, and the stylesheet hangs off that attribute, so
     // what a screen reader announces and what a volunteer sees cannot drift.
-    expect(screen.getByRole('link', { name: 'Stock items', current: 'page' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Stock' })).not.toHaveAttribute('aria-current');
+    const section = within(screen.getByRole('navigation', { name: 'Section navigation' }));
+    expect(section.getByRole('link', { name: 'Stock items', current: 'page' })).toBeInTheDocument();
+    expect(section.getByRole('link', { name: 'Stock' })).not.toHaveAttribute('aria-current');
   });
 
   it('offers a skip link to the main content', async () => {
@@ -128,23 +138,13 @@ describe('AppShell', () => {
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main');
   });
 
-  it('opens and closes the small-screen menu from the keyboard', async () => {
-    await renderShell('admin');
-    const user = userEvent.setup();
+  it('returns a signed-in visitor from an obsolete path to the dashboard', async () => {
+    const router = await renderShell('admin');
+    await router.navigate('/former-menu-screen');
 
-    const disclosure = screen.getByRole('button', { name: 'Menu' });
-    const nav = screen.getByRole('navigation', { name: 'Main' });
-    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-    expect(disclosure).toHaveAttribute('aria-controls', nav.id);
-
-    await user.click(disclosure);
-    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
-
-    // Escape must both close it and put focus back where it came from, or a
-    // keyboard user is left on a control that no longer exists.
-    await user.keyboard('{Escape}');
-    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
-    expect(disclosure).toHaveFocus();
+    expect(
+      await screen.findByRole('link', { name: 'Dashboard', current: 'page' }),
+    ).toBeInTheDocument();
   });
 
   it('names the signed-in volunteer', async () => {

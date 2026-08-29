@@ -4,7 +4,12 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { EmptyState } from '../../../components/empty-state';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
-import { countableLevels, parseWholeQuantity, type QuantityProblem } from '../stock.logic';
+import {
+  countableLevels,
+  isLowStock,
+  parseWholeQuantity,
+  type QuantityProblem,
+} from '../stock.logic';
 import { useSaveStockTake, useStockLevels, type StockTakeCount } from '../queries';
 import styles from './stock-take-screen.module.css';
 
@@ -156,14 +161,17 @@ export function StockTakeScreen() {
         <tbody>
           {pageRows.map((row) => {
             const id = `count-${row.id}`;
+            const currentLevel = baselineFor(row.id, row.quantityOnHand);
+            const lowStock = isLowStock({ ...row, quantityOnHand: currentLevel });
             return (
-              <tr key={row.id}>
+              <tr className={lowStock ? styles.lowStockRow : undefined} key={row.id}>
                 <th scope="row">
                   {row.name}
+                  {lowStock && <span className={styles.lowStock}>Low stock</span>}
                   {!row.isActive && <span className={styles.retired}> (retired)</span>}
                 </th>
                 <td>{row.shelfNumber}</td>
-                <td className={styles.numeric}>{baselineFor(row.id, row.quantityOnHand)}</td>
+                <td className={styles.numeric}>{currentLevel}</td>
                 <td>
                   <label className={styles.visuallyHidden} htmlFor={id}>
                     Counted {row.name}

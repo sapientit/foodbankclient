@@ -28,6 +28,7 @@ const SESSION: Session = {
   deliveryWindowStart: null,
   deliveryWindowEnd: null,
   deliveryCapacity: 0,
+  deliveryBooked: 0,
   capacity: 25,
   booked: 1,
   status: 'planned',

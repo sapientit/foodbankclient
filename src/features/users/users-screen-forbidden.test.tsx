@@ -67,7 +67,7 @@ describe('a team lead typing an admin URL', () => {
     renderApp('/');
 
     // Roles pick menus. That is the whole of what they do.
-    expect(await screen.findByRole('navigation', { name: 'Main' })).toBeInTheDocument();
+    expect(await screen.findByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Users' })).toBeNull();
   });
 });

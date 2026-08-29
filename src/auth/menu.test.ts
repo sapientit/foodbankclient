@@ -1,7 +1,14 @@
 import { matchRoutes } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { routes } from '../routes';
-import { MENU, menuFor, menuGroupsFor } from './menu';
+import {
+  categoryForPath,
+  MENU,
+  menuFor,
+  navigationSectionsFor,
+  subtabsFor,
+  topTabsFor,
+} from './menu';
 
 /**
  * The role split, tested as data rather than through a rendered shell.
@@ -76,37 +83,56 @@ describe('menuFor', () => {
   });
 });
 
-describe('menuGroupsFor', () => {
-  it('organises the administrator popup in the requested order', () => {
-    expect(menuGroupsFor('admin')).toMatchObject([
-      {
-        label: 'Referrals',
-        items: expect.arrayContaining([expect.objectContaining({ label: 'Run a session' })]),
-      },
-      {
-        label: 'Stock',
-        items: expect.arrayContaining([expect.objectContaining({ label: 'Stock take' })]),
-      },
-      {
-        label: 'Sessions',
-        items: expect.arrayContaining([expect.objectContaining({ label: 'Manage Sessions' })]),
-      },
-      {
-        label: 'Master Data',
-        items: expect.arrayContaining([expect.objectContaining({ label: 'Users' })]),
-      },
-      {
-        label: '',
-        items: expect.arrayContaining([
-          expect.objectContaining({ label: 'SMS Messages' }),
-          expect.objectContaining({ label: 'Fuel' }),
-        ]),
-      },
+describe('contextual navigation', () => {
+  it('keeps Sessions out of team lead navigation while retaining their operational routes', () => {
+    expect(topTabsFor('team_lead').map((item) => item.label)).toEqual([
+      'Dashboard',
+      'Run a session',
+      'Stock',
+    ]);
+    expect(subtabsFor('team_lead', '/stock/take').map((item) => item.label)).toEqual([
+      'Stock',
+      'Stock take',
     ]);
   });
 
-  it('keeps the team lead popup as one ungrouped list', () => {
-    expect(menuGroupsFor('team_lead')).toEqual([{ label: '', items: menuFor('team_lead') }]);
+  it('moves every administrator maintenance destination under one primary section', () => {
+    const contextualItems = navigationSectionsFor('admin').flatMap((section) => section.subtabs);
+    const primaryItems = topTabsFor('admin');
+    const destinations = new Set([...primaryItems, ...contextualItems].map((item) => item.to));
+
+    expect(destinations).toEqual(
+      new Set(MENU.filter((item) => item.to !== '/run-sessions').map((item) => item.to)),
+    );
+  });
+
+  it('uses the existing list screens as each requested default destination', () => {
+    expect(topTabsFor('admin').map((item) => item.to)).toEqual([
+      '/',
+      '/referrals',
+      '/stock',
+      '/sessions',
+      '/referrers',
+    ]);
+    expect(subtabsFor('admin', '/referrals').at(0)?.label).toBe('Check referrals');
+    expect(subtabsFor('admin', '/stock').at(0)?.label).toBe('Stock');
+    expect(subtabsFor('admin', '/sessions').at(0)?.label).toBe('Manage Sessions');
+  });
+
+  it('keeps referral work together and puts master-data maintenance in its requested order', () => {
+    expect(subtabsFor('admin', '/referrals').map((item) => item.label)).toEqual([
+      'Check referrals',
+      'Search referrals',
+      'Send to Sheets',
+      'SMS Messages',
+      'Fuel',
+    ]);
+    expect(subtabsFor('admin', '/referrers').map((item) => item.label)).toEqual([
+      'Approved referrers',
+      'Users',
+      'Reasons for Crisis',
+      'Rule check',
+    ]);
   });
 });
 
@@ -134,5 +160,19 @@ describe('MENU', () => {
       expect(item.to.startsWith('/'), `${item.to} is not a path`).toBe(true);
       expect(item.to.startsWith('//'), `${item.to} is protocol-relative`).toBe(false);
     }
+  });
+});
+
+describe('categoryForPath', () => {
+  it.each([
+    ['/sessions', 'sessions'],
+    ['/run-sessions/session-1', 'sessions'],
+    ['/referrals/referral-1', 'referrals'],
+    ['/sms', 'referrals'],
+    ['/fuel-help', 'referrals'],
+    ['/stock/take', 'stock'],
+    ['/model-parcels/grid', 'stock'],
+  ] as const)('gives %s the %s visual category', (path, expected) => {
+    expect(categoryForPath(path)).toBe(expected);
   });
 });

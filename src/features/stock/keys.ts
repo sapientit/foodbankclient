@@ -22,6 +22,7 @@ export const stockKeys = {
   all: ['stock'] as const,
   items: (order: 'category' | 'shelf' = 'category') => [...stockKeys.all, 'items', order] as const,
   levels: () => [...stockKeys.all, 'levels'] as const,
+  lowStockSummary: () => [...stockKeys.all, 'low-stock-summary'] as const,
 
   /**
    * One entry per search term, which is what makes a slow answer for `sug`

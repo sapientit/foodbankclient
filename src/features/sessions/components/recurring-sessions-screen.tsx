@@ -26,7 +26,7 @@ export function RecurringSessionsScreen() {
   if (recurring.isPending) {
     return (
       <>
-        <PageHeader action={<Link to="/sessions">Back to sessions</Link>} title="Weekly sessions" />
+        <PageHeader title="Weekly sessions" />
         <Spinner label="Loading weekly sessions…" />
       </>
     );
@@ -35,7 +35,7 @@ export function RecurringSessionsScreen() {
   if (recurring.isError) {
     return (
       <>
-        <PageHeader action={<Link to="/sessions">Back to sessions</Link>} title="Weekly sessions" />
+        <PageHeader title="Weekly sessions" />
         <ErrorNotice
           error={recurring.error}
           onRetry={() => {
@@ -51,12 +51,7 @@ export function RecurringSessionsScreen() {
       <PageHeader
         title="Weekly sessions"
         action={
-          /* Both the way out and the way on. A weekly session is a template
-             for the scheduled sessions rather than one of them, so somebody
-             who came here to check a template needs a route back to the list
-             it feeds without going via the menu. */
           <div className={styles.headerActions}>
-            <Link to="/sessions">Back to sessions</Link>
             <Link className={classNames(styles.add, 'button-link')} to="/sessions/recurring/new">
               Add a weekly session
             </Link>

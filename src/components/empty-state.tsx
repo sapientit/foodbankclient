@@ -12,14 +12,21 @@ export function EmptyState({
   headline,
   sentence,
   action,
+  level = 'h2',
 }: {
   headline: string;
   sentence: string;
   action?: ReactNode;
+  /** The screen this sits in already has its own heading — `h2` fits a
+   * top-level empty screen, `h3` fits one nested inside a section that
+   * already carries an `h2` of its own. Defaults to `h2` for every existing
+   * caller. */
+  level?: 'h2' | 'h3';
 }) {
+  const Heading = level;
   return (
     <div className={styles.empty}>
-      <h2 className={styles.headline}>{headline}</h2>
+      <Heading className={styles.headline}>{headline}</Heading>
       <p className={styles.sentence}>{sentence}</p>
       {action !== undefined && <div>{action}</div>}
     </div>

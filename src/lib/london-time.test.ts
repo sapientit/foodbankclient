@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   addCalendarDays,
+  endOfWeek,
   formatLondonDate,
   formatLondonDateTime,
   formatSessionDate,
   formatTimeRange,
+  startOfWeek,
 } from './london-time';
 
 describe('addCalendarDays', () => {
@@ -31,6 +33,26 @@ describe('addCalendarDays', () => {
   it('returns what it was given when that will not parse', () => {
     expect(addCalendarDays('not a date', 1)).toBe('not a date');
     expect(addCalendarDays('2026-02-30', 1)).toBe('2026-02-30');
+  });
+});
+
+describe('Sunday-to-Saturday week boundaries', () => {
+  it('finds the Sunday on or before a date and the following Saturday', () => {
+    expect(startOfWeek('2026-08-19')).toBe('2026-08-16');
+    expect(endOfWeek('2026-08-19')).toBe('2026-08-22');
+    expect(startOfWeek('2026-08-16')).toBe('2026-08-16');
+  });
+
+  it('does not let the BST changeover move either calendar boundary', () => {
+    // BST starts on Sunday 29 March 2026. Calendar arithmetic remains pinned
+    // to UTC midnight, so that Sunday is still this week's first day.
+    expect(startOfWeek('2026-03-29')).toBe('2026-03-29');
+    expect(endOfWeek('2026-03-29')).toBe('2026-04-04');
+  });
+
+  it('returns an unparseable input unchanged', () => {
+    expect(startOfWeek('not a date')).toBe('not a date');
+    expect(endOfWeek('not a date')).toBe('not a date');
   });
 });
 

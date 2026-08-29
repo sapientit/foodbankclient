@@ -3,6 +3,7 @@ import type { StockItem, StockLevel } from './queries';
 import {
   countableLevels,
   findStockItemByName,
+  isLowStock,
   normaliseStockItemName,
   parseWholeQuantity,
   splitByStatus,
@@ -14,6 +15,7 @@ const BEANS: StockItem = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A1',
+  lowStockThreshold: null,
   isActive: true,
 };
 const RICE: StockItem = {
@@ -22,6 +24,7 @@ const RICE: StockItem = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A10',
+  lowStockThreshold: null,
   isActive: false,
 };
 const ITEMS: readonly StockItem[] = [BEANS, RICE];
@@ -102,6 +105,7 @@ describe('countableLevels', () => {
     category: 'Test',
     description: null,
     shelfNumber: 'A1',
+    lowStockThreshold: null,
     isActive,
     quantityOnHand,
   });
@@ -122,5 +126,14 @@ describe('countableLevels', () => {
     const rows = countableLevels([level('a', true, 1), level('b', true, 1), level('c', true, 1)]);
 
     expect(rows.map((row) => row.id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('isLowStock', () => {
+  it('uses the server’s strict low-stock threshold and ignores unwatched items', () => {
+    expect(isLowStock({ isActive: true, lowStockThreshold: 3, quantityOnHand: 2 })).toBe(true);
+    expect(isLowStock({ isActive: true, lowStockThreshold: 3, quantityOnHand: 3 })).toBe(false);
+    expect(isLowStock({ isActive: true, lowStockThreshold: null, quantityOnHand: -1 })).toBe(false);
+    expect(isLowStock({ isActive: false, lowStockThreshold: 3, quantityOnHand: 1 })).toBe(false);
   });
 });

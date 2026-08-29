@@ -61,7 +61,7 @@ describe('a team lead typing a model-parcels URL', () => {
 
     renderApp('/');
 
-    expect(await screen.findByRole('navigation', { name: 'Main' })).toBeInTheDocument();
+    expect(await screen.findByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Model parcels' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Household grid' })).toBeNull();
   });

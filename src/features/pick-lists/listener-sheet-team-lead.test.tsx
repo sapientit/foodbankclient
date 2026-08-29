@@ -160,6 +160,7 @@ describe('a team lead listener sheet', () => {
           deliveryWindowStart: null,
           deliveryWindowEnd: null,
           deliveryCapacity: 0,
+          deliveryBooked: 0,
           capacity: 25,
           booked: 1,
           status: 'planned',
@@ -178,6 +179,7 @@ describe('a team lead listener sheet', () => {
               category: 'Drinks',
               description: null,
               shelfNumber: 'A1',
+              lowStockThreshold: null,
               isActive: true,
             },
             {
@@ -186,6 +188,7 @@ describe('a team lead listener sheet', () => {
               category: 'Drinks',
               description: null,
               shelfNumber: 'A2',
+              lowStockThreshold: null,
               isActive: true,
             },
             {
@@ -194,6 +197,7 @@ describe('a team lead listener sheet', () => {
               category: 'Drinks',
               description: null,
               shelfNumber: 'A3',
+              lowStockThreshold: null,
               isActive: true,
             },
             {
@@ -202,6 +206,7 @@ describe('a team lead listener sheet', () => {
               category: 'Drinks',
               description: null,
               shelfNumber: 'A4',
+              lowStockThreshold: null,
               isActive: true,
             },
           ],

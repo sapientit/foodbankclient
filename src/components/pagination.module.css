@@ -1,0 +1,10 @@
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block-start: 1rem;
+}
+
+.pagination span {
+  font-variant-numeric: tabular-nums;
+}

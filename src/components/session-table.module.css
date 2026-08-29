@@ -1,5 +1,6 @@
 .tableWrap {
   overflow-x: auto;
+  border-radius: 0.5rem;
 }
 
 .tableWrap:focus-visible {
@@ -9,25 +10,41 @@
 
 .table {
   inline-size: 100%;
+  background: #ffffff;
   border-collapse: collapse;
 }
 
 .caption {
-  margin-block-end: 0.5rem;
+  margin: 0.35rem 0.6rem;
   text-align: start;
   font-weight: 600;
 }
 
+.visuallyHidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .table th,
 .table td {
-  padding: 0.5rem 0.75rem;
+  padding: 0.55rem 0.6rem;
   text-align: start;
   vertical-align: top;
-  border-block-end: 1px solid #d4d4d4;
+  border-block-end: 1px solid #e0e7e2;
 }
 
 .table thead th {
-  border-block-end: 2px solid #1a1a1a;
+  background: #f4f8f5;
+  border-block-end: 1px solid #bdcfc3;
+  color: #365044;
+  font-size: 0.875rem;
 }
 
 /* The link fills its cell rather than only its glyphs. The padding belongs to
@@ -37,8 +54,8 @@
    changing the row's height. */
 .rowLink {
   display: block;
-  margin: -0.5rem -0.75rem;
-  padding: 0.5rem 0.75rem;
+  margin: -0.55rem -0.6rem;
+  padding: 0.55rem 0.6rem;
 }
 
 .time,
@@ -46,11 +63,17 @@
   font-variant-numeric: tabular-nums;
 }
 
+.action {
+  white-space: nowrap;
+}
+
 .status {
   display: inline-block;
   padding: 0.1rem 0.5rem;
   font-size: 0.85rem;
-  border: 1px solid currentcolor;
+  background: #edf7f0;
+  border: 1px solid #a8cfb4;
+  color: #176b3a;
   border-radius: 1rem;
   white-space: nowrap;
 }
@@ -58,6 +81,8 @@
 /* Colour is never the only signal — the label text already says the status —
    but a quiet visual grouping helps a list scan quickly. */
 .status[data-status='cancelled'] {
+  background: #f5f5f5;
+  border-color: #b7b7b7;
   color: #595959;
 }
 

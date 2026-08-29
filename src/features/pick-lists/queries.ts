@@ -21,6 +21,7 @@ export type SmsThread =
   paths['/api/v1/referrals/{id}/sms-messages']['get']['responses'][200]['content']['application/json'];
 export type SmsMessage = components['schemas']['SmsMessage'];
 export type SmsInboxMessage = components['schemas']['SmsInboxMessage'];
+export type SmsAttentionSummary = components['schemas']['SmsAttentionSummary'];
 export type StockRequirement =
   paths['/api/v1/sessions/{sessionId}/stock-requirement']['get']['responses'][200]['content']['application/json'];
 export type StockRequirementLine = components['schemas']['StockRequirementLine'];
@@ -198,6 +199,19 @@ export function useSmsInbox() {
   });
 }
 
+/**
+ * The dashboard's administrator-only count. Unlike the run-session summary,
+ * this is not the sanctioned polling target, so it uses the normal query policy.
+ */
+export function useSmsAttentionSummary(enabled: boolean) {
+  return useQuery({
+    queryKey: pickListKeys.smsAttentionSummary(),
+    enabled,
+    queryFn: (): Promise<SmsAttentionSummary> =>
+      unwrap(api.GET('/api/v1/sms-messages/attention-summary')),
+  });
+}
+
 export function useMarkSmsInboxMessageRead() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -205,6 +219,10 @@ export function useMarkSmsInboxMessageRead() {
       unwrap(api.POST('/api/v1/sms-messages/{id}/read', { params: { path: { id } } })),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: pickListKeys.smsInbox() });
+      // The dashboard's attention count counts exactly the rows this marks
+      // read (unmatched or closed-session replies) — see `attention-summary`'s
+      // own doc comment — so clearing one here must not leave that count stale.
+      void queryClient.invalidateQueries({ queryKey: pickListKeys.smsAttentionSummary() });
     },
   });
 }

@@ -32,6 +32,7 @@ const BEANS: StockItem = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A2',
+  lowStockThreshold: null,
   isActive: true,
 };
 const PASTA: StockItem = {
@@ -40,6 +41,7 @@ const PASTA: StockItem = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A10',
+  lowStockThreshold: null,
   isActive: true,
 };
 

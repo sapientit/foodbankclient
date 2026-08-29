@@ -29,6 +29,7 @@ const SESSION: Session = {
   deliveryWindowStart: null,
   deliveryWindowEnd: null,
   deliveryCapacity: 0,
+  deliveryBooked: 0,
   capacity: 25,
   booked: 1,
   status: 'planned',
@@ -98,6 +99,7 @@ beforeEach(() => {
             category: 'Tinned goods',
             description: 'In tomato sauce',
             shelfNumber: 'A2',
+            lowStockThreshold: null,
             isActive: true,
           },
         ],
@@ -168,7 +170,11 @@ describe('a team lead running a session', () => {
     renderApp('/run-sessions');
 
     expect(await screen.findByRole('heading', { name: 'Run a session' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Run a session' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', {
+        name: 'Run a session',
+      }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sessions' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Referrals' })).toBeNull();
     expect(await screen.findByRole('link', { name: /6 Aug 2099/ })).toBeInTheDocument();
@@ -353,6 +359,7 @@ describe('a team lead running a session', () => {
               category: 'Tinned goods',
               description: 'In tomato sauce',
               shelfNumber: 'A2',
+              lowStockThreshold: null,
               isActive: true,
             },
           ],
@@ -495,6 +502,7 @@ describe('a team lead running a session', () => {
       category: 'Fresh food',
       description: null,
       shelfNumber: 'C1',
+      lowStockThreshold: null,
       isActive: true,
     };
     const beans = {
@@ -503,6 +511,7 @@ describe('a team lead running a session', () => {
       category: 'Tinned goods',
       description: 'In tomato sauce',
       shelfNumber: 'A2',
+      lowStockThreshold: null,
       isActive: true,
     };
     const oats = {
@@ -511,6 +520,7 @@ describe('a team lead running a session', () => {
       category: 'Breakfast',
       description: null,
       shelfNumber: 'D2',
+      lowStockThreshold: null,
       isActive: false,
     };
     const parcelWithRetiredLine: Parcel = {
@@ -622,6 +632,7 @@ describe('a team lead running a session', () => {
       category: 'Tinned goods',
       description: 'In tomato sauce',
       shelfNumber: 'A2',
+      lowStockThreshold: null,
       isActive: true,
     };
     const apples = {
@@ -630,6 +641,7 @@ describe('a team lead running a session', () => {
       category: 'Fresh food',
       description: null,
       shelfNumber: 'C1',
+      lowStockThreshold: null,
       isActive: true,
     };
     const oats = {
@@ -638,6 +650,7 @@ describe('a team lead running a session', () => {
       category: 'Breakfast',
       description: null,
       shelfNumber: 'D2',
+      lowStockThreshold: null,
       isActive: false,
     };
     const parcelWithRetiredLine: Parcel = {

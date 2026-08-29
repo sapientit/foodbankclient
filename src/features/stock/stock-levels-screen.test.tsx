@@ -19,6 +19,7 @@ const CEREAL: StockLevel = {
   category: 'Breakfast',
   description: null,
   shelfNumber: 'A1',
+  lowStockThreshold: 10,
   isActive: true,
   quantityOnHand: 95,
 };
@@ -28,6 +29,7 @@ const BEANS: StockLevel = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A2',
+  lowStockThreshold: null,
   isActive: true,
   // Negative after a correction. Real, and not an error.
   quantityOnHand: -4,
@@ -38,6 +40,7 @@ const PASTA: StockLevel = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A10',
+  lowStockThreshold: 3,
   isActive: true,
   quantityOnHand: 0,
 };
@@ -47,6 +50,7 @@ const SOUP: StockLevel = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'B1',
+  lowStockThreshold: null,
   isActive: false,
   quantityOnHand: 7,
 };
@@ -95,6 +99,21 @@ describe('stock levels', () => {
     const row = await screen.findByRole('row', { name: /Pasta/ });
 
     expect(within(row).getByText('0')).toBeInTheDocument();
+  });
+
+  it('makes an item below its watched threshold unmistakable', async () => {
+    renderApp('/stock');
+
+    const row = await screen.findByRole('row', { name: /Pasta/ });
+    expect(within(row).getByText('Low stock')).toBeVisible();
+    expect(screen.getByRole('row', { name: /Cereal/ })).not.toHaveTextContent('Low stock');
+  });
+
+  it('shows each level’s threshold or that it is not watched', async () => {
+    renderApp('/stock');
+
+    expect(await screen.findByRole('row', { name: /Cereal/ })).toHaveTextContent('10');
+    expect(screen.getByRole('row', { name: /Baked beans/ })).toHaveTextContent('Not watched');
   });
 
   it('shows active stock only, without a retired-items control', async () => {

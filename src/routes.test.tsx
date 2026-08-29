@@ -72,9 +72,19 @@ describe('routing', () => {
      * index.html with HTTP 200, so a mistyped link would otherwise boot the app,
      * match nothing and render a blank page.
      */
+    server.use(http.post(REFRESH, () => noSession()));
     renderAt('/no-such-page');
 
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+  });
+
+  it('returns a restored signed-in session from an obsolete path to the dashboard', async () => {
+    server.use(http.post(REFRESH, () => signedInAs('admin')));
+    renderAt('/former-menu-screen');
+
+    expect(
+      await screen.findByRole('link', { name: 'Dashboard', current: 'page' }),
+    ).toBeInTheDocument();
   });
 
   it('issues no auth request for the public referral route', async () => {

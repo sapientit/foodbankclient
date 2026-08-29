@@ -24,6 +24,7 @@ function session(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
     deliveryWindowStart: null,
     deliveryWindowEnd: null,
     deliveryCapacity: 0,
+    deliveryBooked: 0,
     capacity: 25,
     booked: 10,
     status: 'planned',
@@ -48,17 +49,15 @@ beforeEach(() => {
 });
 
 describe('an admin’s planning view', () => {
-  it('offers Add a session and Weekly sessions, which a team lead does not get', async () => {
+  it('offers Add a session; the weekly-session tab supplies the other destination', async () => {
     server.use(http.get(SESSIONS, () => HttpResponse.json({ sessions: [] })));
 
     renderApp('/sessions');
 
     expect(await screen.findByRole('heading', { name: 'Sessions' })).toBeInTheDocument();
-    // Scoped to <main>: the nav also carries a "Weekly sessions" link for an
-    // admin, and this is asserting the screen's own action, not the menu.
     const main = screen.getByRole('main');
     expect(within(main).getByRole('link', { name: 'Add a session' })).toBeInTheDocument();
-    expect(within(main).getByRole('link', { name: 'Weekly sessions' })).toBeInTheDocument();
+    expect(within(main).queryByRole('link', { name: 'Weekly sessions' })).toBeNull();
   });
 
   it('sends the window it is showing, and never a status — the far end is still the token’s job', async () => {

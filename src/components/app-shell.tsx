@@ -1,7 +1,6 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../auth/auth-context';
-import { menuGroupsFor } from '../auth/menu';
+import { categoryForPath, subtabsFor, topTabsFor } from '../auth/menu';
 import { classNames } from '../lib/class-names';
 import styles from './app-shell.module.css';
 
@@ -16,49 +15,13 @@ import styles from './app-shell.module.css';
  *
  * Accessibility is load-bearing here rather than a finishing touch: this is the
  * one component every volunteer meets, often on a borrowed phone. Skip link,
- * `aria-current` on the active link, a real disclosure button with
- * `aria-expanded`/`aria-controls` and Escape-to-close, and focus that returns to
- * the button it came from.
+ * `aria-current` on the active link, and a separate labelled subnavigation when
+ * a primary area has more than one destination.
  */
 export function AppShell() {
   const { state, signOut } = useAuth();
   const navigate = useNavigate();
-
-  const navId = useId();
-  const [navOpen, setNavOpen] = useState(false);
-  const disclosureRef = useRef<HTMLButtonElement>(null);
-  const navRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    if (!navOpen) return undefined;
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      setNavOpen(false);
-      // Escape must not strand focus on a control that has just disappeared.
-      disclosureRef.current?.focus();
-    };
-
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [navOpen]);
-
-  useEffect(() => {
-    if (!navOpen) return undefined;
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (!navRef.current?.contains(target) && !disclosureRef.current?.contains(target)) {
-        setNavOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', closeOnOutsidePointer);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutsidePointer);
-    };
-  }, [navOpen]);
+  const { pathname } = useLocation();
 
   /*
    * The shell only ever renders inside `RequireAuth`, which does not render its
@@ -68,6 +31,9 @@ export function AppShell() {
   if (state.status !== 'signed-in') return null;
 
   const { displayName, role } = state.user;
+  const topTabs = topTabsFor(role);
+  const subtabs = subtabsFor(role, pathname);
+  const category = categoryForPath(pathname);
 
   const endSession = async () => {
     // Leave the guarded area first. Signing out while still on a guarded route
@@ -88,52 +54,6 @@ export function AppShell() {
           Food Bank
         </Link>
 
-        <button
-          aria-controls={navId}
-          aria-expanded={navOpen}
-          className={styles.disclosure}
-          onClick={() => {
-            setNavOpen((open) => !open);
-          }}
-          ref={disclosureRef}
-          type="button"
-        >
-          Menu
-        </button>
-
-        <nav aria-label="Main" className={styles.nav} data-open={navOpen} id={navId} ref={navRef}>
-          {menuGroupsFor(role).map((group, groupIndex) => (
-            <section
-              className={styles.menuGroup}
-              key={group.label || `ungrouped-${String(groupIndex)}`}
-            >
-              {group.label !== '' && <p className={styles.groupLabel}>{group.label}</p>}
-              <ul className={styles.navList}>
-                {group.items.map((item) => (
-                  <li key={item.to}>
-                    {/* NavLink sets aria-current="page" on the active link by
-                    default, and the stylesheet selects on that attribute rather
-                    than on a class — so what a screen reader announces and what
-                    a volunteer sees cannot drift apart. `end` matters because
-                    /stock would otherwise stay marked current on /stock/items. */}
-                    <NavLink
-                      end
-                      onClick={() => {
-                        // Following a link on a phone would otherwise leave the
-                        // menu covering the screen it just navigated to.
-                        setNavOpen(false);
-                      }}
-                      to={item.to}
-                    >
-                      {item.label}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </nav>
-
         <div className={styles.account}>
           <span className={styles.userName}>{displayName}</span>
           <button
@@ -146,9 +66,35 @@ export function AppShell() {
             Sign out
           </button>
         </div>
+        {topTabs.length > 0 && (
+          <nav aria-label="Main navigation" className={styles.topTabs}>
+            <ul className={styles.navList}>
+              {topTabs.map((item) => (
+                <li data-category={categoryForPath(item.to)} key={item.to}>
+                  <NavLink end to={item.to}>
+                    {item.label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+        {subtabs.length > 0 && (
+          <nav aria-label="Section navigation" className={styles.subtabs}>
+            <ul className={styles.navList}>
+              {subtabs.map((item) => (
+                <li data-category={categoryForPath(item.to)} key={item.to}>
+                  <NavLink end to={item.to}>
+                    {item.label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
       </header>
 
-      <main className={styles.main} id="main">
+      <main className={styles.main} data-category={category} id="main">
         <Outlet />
       </main>
     </div>

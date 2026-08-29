@@ -38,6 +38,25 @@
   color: #595959;
 }
 
+/* The label identifies the state without relying on the pale row treatment;
+   the row colour then makes watched items quick to find while scanning shelves. */
+.lowStockRow th,
+.lowStockRow td {
+  background: #fff3f1;
+}
+
+.lowStock {
+  display: inline-block;
+  margin-inline-start: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  background: #b3261e;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

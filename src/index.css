@@ -10,6 +10,12 @@
   box-sizing: border-box;
 }
 
+:root {
+  --category-action: #0b5cab;
+  --category-action-hover: #084684;
+  --category-action-tint: #eaf1f9;
+}
+
 body {
   margin: 0;
   font-family:
@@ -107,8 +113,8 @@ button,
 a:where(.button-link) {
   padding: 0.6rem 1rem;
   font: inherit;
-  border: 1px solid #0b5cab;
-  background: #0b5cab;
+  border: 1px solid var(--category-action, #0b5cab);
+  background: var(--category-action, #0b5cab);
   /* #ffffff on #0b5cab is 6.7:1. */
   color: #ffffff;
   cursor: pointer;
@@ -123,8 +129,8 @@ a:where(.button-link) {
 
 button:not(:disabled, [aria-disabled='true']):hover,
 a:where(.button-link):hover {
-  background: #084684;
-  border-color: #084684;
+  background: var(--category-action-hover, #084684);
+  border-color: var(--category-action-hover, #084684);
 }
 
 /* The fill is dark enough that the page's own blue focus ring disappears into
@@ -138,16 +144,16 @@ a:where(.button-link):focus-visible {
 button:where(.button-secondary),
 a:where(.button-link):where(.button-secondary) {
   background: #ffffff;
-  border-color: #0b5cab;
+  border-color: var(--category-action, #0b5cab);
   /* #0b5cab on white is 6.7:1, and the border is 6.7:1 against the page. */
-  color: #0b5cab;
+  color: var(--category-action, #0b5cab);
 }
 
 button:where(.button-secondary):not(:disabled, [aria-disabled='true']):hover,
 a:where(.button-link):where(.button-secondary):hover {
-  background: #eaf1f9;
-  border-color: #084684;
-  color: #084684;
+  background: var(--category-action-tint, #eaf1f9);
+  border-color: var(--category-action-hover, #084684);
+  color: var(--category-action-hover, #084684);
 }
 
 button:where(.button-danger) {
@@ -169,13 +175,13 @@ button:where(.button-plain) {
   border: 0;
   background: none;
   /* #0b5cab on white is 6.7:1. */
-  color: #0b5cab;
+  color: var(--category-action, #0b5cab);
   text-align: inherit;
 }
 
 button:where(.button-plain):not(:disabled, [aria-disabled='true']):hover {
   background: none;
-  color: #084684;
+  color: var(--category-action-hover, #084684);
 }
 
 /* Unavailable, and last so that it wins. `aria-disabled` is drawn the same as

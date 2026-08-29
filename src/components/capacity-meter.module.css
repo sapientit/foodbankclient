@@ -1,0 +1,29 @@
+.meter {
+  display: grid;
+  gap: 0.3rem;
+  min-inline-size: 6.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  display: block;
+  block-size: 0.35rem;
+  overflow: hidden;
+  background: #e6e9ed;
+  border-radius: 999px;
+}
+
+.fill {
+  display: block;
+  block-size: 100%;
+  background: #176b3a;
+  border-radius: inherit;
+}
+
+.meter[data-state='full'] .fill {
+  background: #9a4f00;
+}
+
+.meter[data-state='over'] .fill {
+  background: #b3261e;
+}

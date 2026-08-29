@@ -1,22 +1,24 @@
+import { type ReactNode } from 'react';
 import { Link } from 'react-router';
+import { CapacityMeter } from './capacity-meter';
 import { formatSessionDate, formatTimeRange } from '../lib/london-time';
 import { deliveryLabel, standingFromCapacity } from '../lib/session-description';
 import {
   SESSION_STATUS_LABELS,
-  describeOccupancy,
+  deliveryOccupancy,
   occupancy,
 } from '../features/sessions/sessions.logic';
 import type { SessionStatus } from '../features/sessions/keys';
 import styles from './session-table.module.css';
 
 /**
- * A list of sessions, as five aligned columns: the date, the hours,
- * `Collection Only` or nothing, how many households are booked, and the status.
+ * A list of sessions, as aligned columns: the date, the hours,
+ * `Collection Only` or delivery occupancy, how many households are booked, and
+ * the status. A supplied action adds a final control column.
  *
- * **Never `No deliveries` here, unlike the referrer's dropdown.** `Session`
- * carries the delivery capacity an administrator set but no count of the
- * deliveries booked against it, so this cannot tell a session whose places have
- * gone from one with places left — see `src/lib/session-description.ts`.
+ * **Never `No deliveries` here, unlike the referrer's dropdown.** Staff need
+ * the actual delivery count and capacity; the full or over-capacity state is
+ * stated in words as well as shown by the capacity bar.
  *
  * **One table for both lists.** `Run a session` and `Manage Sessions` show the
  * same five facts about the same rows and differ only in what a row links to
@@ -38,6 +40,7 @@ export interface TabulatedSession {
   readonly startTime: string;
   readonly durationMinutes: number;
   readonly deliveryCapacity: number;
+  readonly deliveryBooked: number;
   readonly booked: number;
   readonly capacity: number;
   readonly status: SessionStatus;
@@ -47,11 +50,20 @@ export function SessionTable({
   caption,
   hrefFor,
   sessions,
+  action,
+  captionHidden = false,
+  capacityNouns = true,
 }: {
   /** Names the table for anyone who cannot see which screen it is on. */
   readonly caption: string;
+  /** Keep the table name for assistive technology when nearby context states it visually. */
+  readonly captionHidden?: boolean;
+  /** The dashboard's column headings already say what each capacity count measures. */
+  readonly capacityNouns?: boolean;
   readonly hrefFor: (session: TabulatedSession) => string;
   readonly sessions: readonly TabulatedSession[];
+  /** An optional per-row control, used by the dashboard without coupling it to this table. */
+  readonly action?: (session: TabulatedSession) => ReactNode;
 }) {
   return (
     /*
@@ -64,19 +76,28 @@ export function SessionTable({
       tabIndex={0}
     >
       <table className={styles.table}>
-        <caption className={styles.caption}>{caption}</caption>
+        <caption className={captionHidden ? styles.visuallyHidden : styles.caption}>
+          {caption}
+        </caption>
         <thead>
           <tr>
             <th scope="col">Date</th>
             <th scope="col">Time</th>
-            <th scope="col">Collection Only</th>
+            <th scope="col">Deliveries</th>
             <th scope="col">Bookings</th>
             <th scope="col">Status</th>
+            {action !== undefined && <th scope="col">Action</th>}
           </tr>
         </thead>
         <tbody>
           {sessions.map((session) => (
-            <SessionTableRow href={hrefFor(session)} key={session.id} session={session} />
+            <SessionTableRow
+              action={action}
+              capacityNouns={capacityNouns}
+              href={hrefFor(session)}
+              key={session.id}
+              session={session}
+            />
           ))}
         </tbody>
       </table>
@@ -87,11 +108,16 @@ export function SessionTable({
 function SessionTableRow({
   href,
   session,
+  action,
+  capacityNouns,
 }: {
   readonly href: string;
   readonly session: TabulatedSession;
+  readonly action: ((session: TabulatedSession) => ReactNode) | undefined;
+  readonly capacityNouns: boolean;
 }) {
   const stats = occupancy(session);
+  const delivery = deliveryOccupancy(session);
   const when = formatSessionDate(session.sessionDate);
   const hours = formatTimeRange(session.startTime, session.durationMinutes);
 
@@ -115,21 +141,30 @@ function SessionTableRow({
         </Link>
       </th>
       <td className={styles.time}>{hours}</td>
-      {/* Where the hall's name used to be. One location, so it read the same on
-          every row; whether a session takes deliveries does not. The cell stays
-          empty for a session that does — see `src/lib/session-description.ts`. */}
-      <td>{deliveryLabel(standingFromCapacity(session.deliveryCapacity))}</td>
+      <td>
+        {session.deliveryCapacity === 0 ? (
+          deliveryLabel(standingFromCapacity(session.deliveryCapacity))
+        ) : (
+          <CapacityMeter
+            capacity={delivery.deliveryCapacity}
+            noun={capacityNouns ? 'deliveries' : ''}
+            value={delivery.deliveryBooked}
+          />
+        )}
+      </td>
       <td className={styles.bookings}>
-        {describeOccupancy(stats)}
-        {/* Over capacity is a deliberate admin action, not a fault — see
-            `sessions.logic.ts`. It is said plainly, not styled as an error. */}
-        {stats.isOverCapacity && ' (over capacity)'}
+        <CapacityMeter
+          capacity={stats.capacity}
+          noun={capacityNouns ? 'booked' : ''}
+          value={stats.booked}
+        />
       </td>
       <td>
         <span className={styles.status} data-status={session.status}>
           {SESSION_STATUS_LABELS[session.status]}
         </span>
       </td>
+      {action !== undefined && <td className={styles.action}>{action(session)}</td>}
     </tr>
   );
 }

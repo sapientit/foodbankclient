@@ -76,6 +76,15 @@ export function useStockLevels() {
   return useQuery({ queryKey: stockKeys.levels(), queryFn: fetchStockLevels });
 }
 
+/** The admin dashboard's server-computed count of active watched items below threshold. */
+export function useLowStockSummary(enabled: boolean) {
+  return useQuery({
+    queryKey: stockKeys.lowStockSummary(),
+    enabled,
+    queryFn: () => unwrap(api.GET('/api/v1/stock/items/low-stock-summary')),
+  });
+}
+
 export function useStockLevel(id: string) {
   return useQuery({
     queryKey: stockKeys.levels(),

@@ -15,6 +15,7 @@ const BEANS: StockItem = {
   category: 'Tinned goods',
   description: 'In tomato sauce',
   shelfNumber: 'A1',
+  lowStockThreshold: 12,
   isActive: true,
 };
 const RICE: StockItem = {
@@ -23,6 +24,7 @@ const RICE: StockItem = {
   category: 'Staples',
   description: null,
   shelfNumber: 'B3',
+  lowStockThreshold: null,
   isActive: false,
 };
 
@@ -49,6 +51,7 @@ describe('stock-item maintenance', () => {
       category: 'Fresh food',
       description: null,
       shelfNumber: 'C1',
+      lowStockThreshold: 5,
       isActive: true,
     };
     server.use(http.get(ITEMS, () => HttpResponse.json({ items: [apples, BEANS, RICE] })));
@@ -82,6 +85,7 @@ describe('stock-item maintenance', () => {
             category: 'Staples',
             description: null,
             shelfNumber: 'B1',
+            lowStockThreshold: 8,
             isActive: true,
           },
           { status: 201 },
@@ -140,6 +144,60 @@ describe('stock-item maintenance', () => {
       category: 'Tins',
       description: 'Reduced salt',
       shelfNumber: 'A2',
+      lowStockThreshold: 12,
+    });
+  });
+
+  it('sends a threshold on create and clears it on amendment when blank', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.post(ITEMS, async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(
+          { ...BEANS, id: 's3', name: 'Pasta', lowStockThreshold: 8 },
+          { status: 201 },
+        );
+      }),
+    );
+    renderApp('/stock/items/new');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText('Name'), 'Pasta');
+    await user.type(screen.getByLabelText('Category'), 'Staples');
+    await user.type(screen.getByLabelText('Shelf'), 'B1');
+    await user.type(screen.getByLabelText('Low-stock threshold'), '8');
+    await user.click(screen.getByRole('button', { name: 'Add item' }));
+
+    expect(posted).toEqual({
+      name: 'Pasta',
+      category: 'Staples',
+      shelfNumber: 'B1',
+      lowStockThreshold: 8,
+    });
+  });
+
+  it('shows thresholds on the list and sends null to stop watching an item', async () => {
+    let patched: unknown = null;
+    server.use(
+      http.patch(`${ITEMS}/:id`, async ({ request }) => {
+        patched = await request.json();
+        return HttpResponse.json({ ...BEANS, lowStockThreshold: null });
+      }),
+    );
+    renderApp(`/stock/items/${BEANS.id}`);
+    const user = userEvent.setup();
+
+    const threshold = await screen.findByLabelText('Low-stock threshold');
+    expect(threshold).toHaveValue('12');
+    await user.clear(threshold);
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(patched).toEqual({
+      name: 'Baked beans',
+      category: 'Tinned goods',
+      description: 'In tomato sauce',
+      shelfNumber: 'A1',
+      lowStockThreshold: null,
     });
   });
 
@@ -203,6 +261,7 @@ describe('stock-item maintenance', () => {
       category: 'Tinned goods',
       description: 'In tomato sauce',
       shelfNumber: 'A4',
+      lowStockThreshold: 12,
     });
   });
 

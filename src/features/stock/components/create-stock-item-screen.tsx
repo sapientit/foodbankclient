@@ -6,6 +6,7 @@ import * as z from 'zod';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
+import { parseWholeNumber } from '../../../lib/whole-number';
 import { useCreateStockItem, useStockItems } from '../queries';
 import { findStockItemByName } from '../stock.logic';
 import styles from './stock-item-form.module.css';
@@ -15,8 +16,25 @@ const stockItemSchema = z.object({
   category: z.string().trim().min(1, 'Enter a category.').max(40, 'Use 40 characters or fewer.'),
   description: z.string().trim().max(200, 'Use 200 characters or fewer.'),
   shelfNumber: z.string().trim().min(1, 'Enter the shelf.').max(20, 'Use 20 characters or fewer.'),
+  lowStockThreshold: z
+    .string()
+    .trim()
+    .superRefine((value, context) => {
+      if (value === '') return;
+      const parsed = parseWholeNumber(value, LOW_STOCK_THRESHOLD_BOUNDS);
+      if (!parsed.ok)
+        context.addIssue({ code: 'custom', message: lowStockThresholdMessage(parsed.problem) });
+    }),
 });
 type StockItemFormValues = z.infer<typeof stockItemSchema>;
+
+const LOW_STOCK_THRESHOLD_BOUNDS = { minimum: 0, maximum: Number.MAX_SAFE_INTEGER };
+
+function lowStockThresholdMessage(problem: string): string {
+  if (problem === 'below-minimum') return 'Enter 0 or more.';
+  if (problem === 'above-maximum') return 'That number is too large.';
+  return 'Use a whole number, for example 10.';
+}
 
 export function CreateStockItemScreen() {
   const navigate = useNavigate();
@@ -30,6 +48,8 @@ export function CreateStockItemScreen() {
   const descriptionErrorId = useId();
   const shelfId = useId();
   const shelfErrorId = useId();
+  const lowStockThresholdId = useId();
+  const lowStockThresholdErrorId = useId();
   const duplicateId = useId();
   const {
     control,
@@ -39,7 +59,13 @@ export function CreateStockItemScreen() {
     setError,
   } = useForm<StockItemFormValues>({
     resolver: zodResolver(stockItemSchema),
-    defaultValues: { name: '', category: '', description: '', shelfNumber: '' },
+    defaultValues: {
+      name: '',
+      category: '',
+      description: '',
+      shelfNumber: '',
+      lowStockThreshold: '',
+    },
   });
 
   /*
@@ -56,8 +82,13 @@ export function CreateStockItemScreen() {
     if (duplicate !== undefined) return;
 
     try {
-      const { description, ...item } = values;
-      await create.mutateAsync(description === '' ? item : { ...item, description });
+      const { description, lowStockThreshold, ...item } = values;
+      const threshold = parseWholeNumber(lowStockThreshold, LOW_STOCK_THRESHOLD_BOUNDS);
+      await create.mutateAsync({
+        ...item,
+        ...(description === '' ? {} : { description }),
+        ...(threshold.ok ? { lowStockThreshold: threshold.value } : {}),
+      });
       await navigate('/stock/items');
     } catch (error) {
       applyFieldErrors(error, setError);
@@ -159,6 +190,29 @@ export function CreateStockItemScreen() {
             </p>
           )}
         </div>
+        <div className={styles.field}>
+          <label htmlFor={lowStockThresholdId}>Low-stock threshold</label>
+          <input
+            {...register('lowStockThreshold')}
+            aria-describedby={
+              errors.lowStockThreshold === undefined ? undefined : lowStockThresholdErrorId
+            }
+            aria-invalid={errors.lowStockThreshold === undefined ? undefined : true}
+            autoComplete="off"
+            className={styles.input}
+            id={lowStockThresholdId}
+            inputMode="numeric"
+            type="text"
+          />
+          <p className={styles.hint}>
+            Leave blank if this item shouldn't be watched for low stock.
+          </p>
+          {errors.lowStockThreshold !== undefined && (
+            <p className={styles.fieldError} id={lowStockThresholdErrorId}>
+              {errors.lowStockThreshold.message}
+            </p>
+          )}
+        </div>
         <div className={styles.formActions}>
           <button
             aria-describedby={refused ? duplicateId : undefined}
@@ -184,7 +238,13 @@ function isFieldFailure(error: unknown): boolean {
 function applyFieldErrors(error: unknown, setError: UseFormSetError<StockItemFormValues>): void {
   if (!isFieldFailure(error) || !(error instanceof ApiError)) return;
   for (const [path, message] of Object.entries(issuesToFieldErrors(error))) {
-    if (path === 'name' || path === 'category' || path === 'description' || path === 'shelfNumber')
+    if (
+      path === 'name' ||
+      path === 'category' ||
+      path === 'description' ||
+      path === 'shelfNumber' ||
+      path === 'lowStockThreshold'
+    )
       setError(path, { message });
   }
 }

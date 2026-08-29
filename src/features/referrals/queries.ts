@@ -337,9 +337,10 @@ export async function fetchReferrals(filters: ReferralListFilters): Promise<Refe
  * `sessionId` and `status` are the only filters the endpoint takes — see
  * `ReferralListFilters`'s own comment for why nothing free-text is offered.
  */
-export function useReferrals(filters: ReferralListFilters = {}) {
+export function useReferrals(filters: ReferralListFilters = {}, enabled = true) {
   return useQuery({
     queryKey: referralKeys.list(filters),
+    enabled,
     queryFn: () => fetchReferrals(filters),
   });
 }

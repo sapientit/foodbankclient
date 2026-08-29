@@ -18,6 +18,7 @@ const STOCK_ITEMS: readonly StockItem[] = [
     category: 'Household',
     description: null,
     shelfNumber: 'A1',
+    lowStockThreshold: null,
     isActive: true,
   },
   {
@@ -26,6 +27,7 @@ const STOCK_ITEMS: readonly StockItem[] = [
     category: 'Toiletries',
     description: null,
     shelfNumber: 'B1',
+    lowStockThreshold: null,
     isActive: true,
   },
   {
@@ -34,6 +36,7 @@ const STOCK_ITEMS: readonly StockItem[] = [
     category: 'Household',
     description: null,
     shelfNumber: 'A2',
+    lowStockThreshold: null,
     isActive: true,
   },
   {
@@ -42,6 +45,7 @@ const STOCK_ITEMS: readonly StockItem[] = [
     category: 'Household',
     description: null,
     shelfNumber: 'A3',
+    lowStockThreshold: null,
     isActive: true,
   },
   {
@@ -50,6 +54,7 @@ const STOCK_ITEMS: readonly StockItem[] = [
     category: 'Baby',
     description: null,
     shelfNumber: 'C1',
+    lowStockThreshold: null,
     isActive: true,
   },
 ];
@@ -62,6 +67,7 @@ const STOCK_ITEMS_WITH_BLEACH: readonly StockItem[] = [
     category: 'Household',
     description: null,
     shelfNumber: 'A4',
+    lowStockThreshold: null,
     isActive: true,
   },
 ];

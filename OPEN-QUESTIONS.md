@@ -12,6 +12,8 @@ reuse a question number: existing call sites and documents name these questions 
 
 ## Q38 — How far back should a team leader be able to open a completed session?
 
+This answer will also set the bounded lookback used by the dashboard's alert for sessions from previous weeks that are not completed.
+
 `Status: open` · `Raised by: client` · `Blocks: nothing — the date box reaches as far back as somebody types, which is the guess`
 
 The Run a session list now offers completed sessions behind a `Show completed` checkbox, so a team

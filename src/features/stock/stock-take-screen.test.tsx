@@ -16,6 +16,7 @@ const BEANS: StockLevel = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A2',
+  lowStockThreshold: null,
   isActive: true,
   quantityOnHand: 12,
 };
@@ -25,6 +26,7 @@ const RICE: StockLevel = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A10',
+  lowStockThreshold: null,
   isActive: true,
   quantityOnHand: 4,
 };
@@ -36,6 +38,7 @@ function levels(count: number): StockLevel[] {
     category: 'Test',
     description: null,
     shelfNumber: `A${String(index + 1)}`,
+    lowStockThreshold: null,
     isActive: true,
     quantityOnHand: index + 1,
   }));

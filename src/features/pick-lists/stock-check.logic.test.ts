@@ -9,6 +9,7 @@ function line(overrides: Partial<StockRequirementLine>): StockRequirementLine {
     category: 'Tinned Goods',
     description: null,
     shelfNumber: 'A2',
+    lowStockThreshold: null,
     isActive: true,
     quantityOnHand: 10,
     requiredQuantity: 4,

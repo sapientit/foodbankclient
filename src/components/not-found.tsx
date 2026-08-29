@@ -1,4 +1,6 @@
-import { Link } from 'react-router';
+import { useEffect } from 'react';
+import { Link, Navigate } from 'react-router';
+import { useAuth } from '../auth/auth-context';
 import { PageHeader } from './page-header';
 import styles from './not-found.module.css';
 
@@ -12,6 +14,18 @@ import styles from './not-found.module.css';
  * app is broken.
  */
 export function NotFound() {
+  const { state, restoreSession } = useAuth();
+
+  useEffect(() => {
+    // A deployed route change reloads an old browser tab before the app knows
+    // whether its refresh cookie is still valid. Restore once so that a
+    // previously signed-in volunteer reaches the dashboard; signed-out visitors
+    // still see this ordinary 404.
+    if (state.status === 'unknown') restoreSession();
+  }, [restoreSession, state.status]);
+
+  if (state.status === 'signed-in') return <Navigate replace to="/" />;
+
   return (
     <main className={styles.screen}>
       <PageHeader title="Page not found" />

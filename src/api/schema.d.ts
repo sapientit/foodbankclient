@@ -3382,6 +3382,8 @@ export interface paths {
                          * @example 12b
                          */
                         shelfNumber: string;
+                        /** @description Optional. Below this figure the item counts towards the low-stock summary. Omitted or absent means the item is not watched. */
+                        lowStockThreshold?: number;
                     };
                 };
             };
@@ -3404,6 +3406,51 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stock/items/low-stock-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count of currently low-stock items
+         * @description Admin only. A single server-computed figure — how many active items
+         *     with a threshold set currently have `quantityOnHand` below it — so an
+         *     administrator can see at a glance whether anything needs reordering
+         *     without reading down every row. An item with no threshold set never
+         *     counts, whatever its level.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The count */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            lowStockCount: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3446,6 +3493,8 @@ export interface paths {
                         /** @description `null` clears it, and so does an empty string — the two are the same thing and both read back as `null`. */
                         description?: string | null;
                         shelfNumber?: string;
+                        /** @description `null` clears it, stopping the item being watched. */
+                        lowStockThreshold?: number | null;
                         isActive?: boolean;
                     };
                 };
@@ -5095,6 +5144,8 @@ export interface components {
              *     **A referral awaiting review counts**, and so does a reviewed one. An unreviewed household may well turn up, so it holds its place, and reading a referral changes nothing about it; only cancelled and rejected referrals give their place back. An admin may deliberately exceed capacity when moving someone, so this can be greater than `capacity`.
              */
             booked: number;
+            /** @description Deliveries among `booked`'s referrals — directly comparable with `deliveryCapacity`. Derived the same way `booked` is, off the same referrals, so it can exceed `deliveryCapacity` for the same reason `booked` can exceed `capacity`. */
+            deliveryBooked: number;
             /** @enum {string} */
             status: "planned" | "in_progress" | "confirmed" | "cancelled";
             cancelledReason: string | null;
@@ -5566,6 +5617,8 @@ export interface components {
              */
             description: string | null;
             shelfNumber: string;
+            /** @description Below this figure the item counts towards the low-stock summary. `null` where nobody has asked for the item to be watched — that is the default, not a warning level of zero. */
+            lowStockThreshold: number | null;
             isActive: boolean;
         };
         StockLevel: components["schemas"]["StockItem"] & {

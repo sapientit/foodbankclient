@@ -26,16 +26,20 @@ export interface MenuItem {
   readonly roles: readonly Role[];
 }
 
-export interface MenuGroup {
-  readonly label: string;
-  readonly items: readonly MenuItem[];
+export interface NavigationSection {
+  readonly tab: MenuItem;
+  readonly subtabs: readonly MenuItem[];
+  readonly paths: readonly string[];
 }
+
+export type NavigationCategory = 'sessions' | 'referrals' | 'stock' | 'master-data';
 
 const SESSION_STAFF: readonly Role[] = ['admin', 'team_lead'];
 const ADMIN_ONLY: readonly Role[] = ['admin'];
 const FUEL_HELP_STAFF: readonly Role[] = ['admin', 'fuel_admin'];
 
 export const MENU: readonly MenuItem[] = [
+  { to: '/', label: 'Dashboard', roles: SESSION_STAFF },
   // The operational view is separate from calendar and referral maintenance:
   // a team lead arrives to run today's session, not to plan one or browse
   // household records. Administrators keep both routes so they can cover.
@@ -67,7 +71,7 @@ export const MENU: readonly MenuItem[] = [
   { to: '/users', label: 'Users', roles: ADMIN_ONLY },
   { to: '/sms', label: 'SMS Messages', roles: ADMIN_ONLY },
   { to: '/extracts', label: 'Send to Sheets', roles: ADMIN_ONLY },
-  { to: '/preference-rules', label: 'Preference rule check', roles: ADMIN_ONLY },
+  { to: '/preference-rules', label: 'Rule check', roles: ADMIN_ONLY },
   // A fuel administrator is not a reduced staff account. This is their whole
   // application; no other navigation item is shared with that role.
   { to: '/fuel-help', label: 'Fuel', roles: FUEL_HELP_STAFF },
@@ -77,47 +81,104 @@ export function menuFor(role: Role): MenuItem[] {
   return MENU.filter((item) => item.roles.includes(role));
 }
 
-/** The administrator's popup follows the operational grouping requested by the charity. */
-export function menuGroupsFor(role: Role): readonly MenuGroup[] {
-  const items = menuFor(role);
-  if (role !== 'admin') return [{ label: '', items }];
+/** The persistent first-level navigation, with only permitted destinations. */
+export function topTabsFor(role: Role): MenuItem[] {
+  if (role === 'fuel_admin') return [itemAt('/fuel-help')];
+  const dashboard = MENU.find((item) => item.to === '/');
+  if (dashboard === undefined) throw new Error('Dashboard menu item is missing.');
+  if (role === 'team_lead') return [dashboard, itemAt('/run-sessions'), itemAt('/stock')];
 
-  const byPath = (path: string): MenuItem => {
-    const item = items.find((candidate) => candidate.to === path);
-    if (item === undefined) throw new Error(`Menu item ${path} is missing.`);
-    return item;
-  };
+  const tabPaths = ['/referrals', '/stock', '/sessions', '/referrers'] as const;
+  return [
+    dashboard,
+    ...tabPaths.map((path) => {
+      const item = MENU.find((candidate) => candidate.to === path);
+      if (item === undefined) throw new Error(`Dashboard tab ${path} is missing.`);
+      if (path === '/referrals') return { ...item, label: 'Referrals' };
+      if (path === '/sessions') return { ...item, label: 'Sessions' };
+      return path === '/referrers' ? { ...item, label: 'Master Data' } : item;
+    }),
+  ];
+}
+
+function itemAt(path: string): MenuItem {
+  const item = MENU.find((candidate) => candidate.to === path);
+  if (item === undefined) throw new Error(`Navigation item ${path} is missing.`);
+  return item;
+}
+
+/**
+ * Each primary tab owns the old menu destinations that belong to it. This is
+ * navigation presentation only: the server continues to authorise every route.
+ */
+export function navigationSectionsFor(role: Role): readonly NavigationSection[] {
+  if (role === 'fuel_admin') return [];
+
+  const section = (tab: MenuItem, paths: readonly string[]): NavigationSection => ({
+    tab,
+    paths,
+    subtabs: paths.map(itemAt).filter((item) => item.roles.includes(role)),
+  });
+
+  if (role === 'team_lead') {
+    return [section(itemAt('/stock'), ['/stock', '/stock/take'])];
+  }
 
   return [
-    {
-      label: 'Referrals',
-      items: [
-        byPath('/run-sessions'),
-        byPath('/referrals'),
-        byPath('/referrals/search'),
-        byPath('/extracts'),
-      ],
-    },
-    {
-      label: 'Stock',
-      items: [
-        byPath('/stock'),
-        byPath('/stock/take'),
-        byPath('/stock/items'),
-        byPath('/model-parcels'),
-        byPath('/model-parcels/grid'),
-      ],
-    },
-    { label: 'Sessions', items: [byPath('/sessions'), byPath('/sessions/recurring')] },
-    {
-      label: 'Master Data',
-      items: [
-        byPath('/referral-reasons'),
-        byPath('/users'),
-        byPath('/referrers'),
-        byPath('/preference-rules'),
-      ],
-    },
-    { label: '', items: [byPath('/sms'), byPath('/fuel-help')] },
+    section(itemAt('/referrals'), [
+      '/referrals',
+      '/referrals/search',
+      '/extracts',
+      '/sms',
+      '/fuel-help',
+    ]),
+    section(itemAt('/stock'), [
+      '/stock',
+      '/stock/take',
+      '/stock/items',
+      '/model-parcels',
+      '/model-parcels/grid',
+    ]),
+    section(itemAt('/sessions'), ['/sessions', '/sessions/recurring']),
+    section(itemAt('/referrers'), [
+      '/referrers',
+      '/users',
+      '/referral-reasons',
+      '/preference-rules',
+    ]),
   ];
+}
+
+/** The contextual links for the primary section that owns this URL. */
+export function subtabsFor(role: Role, pathname: string): readonly MenuItem[] {
+  const section = navigationSectionsFor(role).find((candidate) =>
+    candidate.paths.some((path) => pathname === path || pathname.startsWith(`${path}/`)),
+  );
+  return section?.subtabs ?? [];
+}
+
+/** The visual category follows the work a route belongs to, not a user's role. */
+export function categoryForPath(pathname: string): NavigationCategory {
+  if (
+    ['/referrals', '/extracts', '/sms', '/fuel-help'].some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`),
+    )
+  ) {
+    return 'referrals';
+  }
+  if (
+    ['/stock', '/model-parcels'].some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`),
+    )
+  ) {
+    return 'stock';
+  }
+  if (
+    ['/sessions', '/run-sessions'].some(
+      (path) => pathname === path || pathname.startsWith(`${path}/`),
+    )
+  ) {
+    return 'sessions';
+  }
+  return 'master-data';
 }

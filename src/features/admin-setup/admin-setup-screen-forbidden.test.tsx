@@ -62,7 +62,7 @@ describe('a team lead typing an admin-setup URL', () => {
 
     renderApp('/');
 
-    expect(await screen.findByRole('navigation', { name: 'Main' })).toBeInTheDocument();
+    expect(await screen.findByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Referrers' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Reasons for referral' })).toBeNull();
   });
