@@ -6,6 +6,7 @@ import * as z from 'zod';
 import foodbankLogo from '../../assets/foodbank-logo.webp';
 import { useAuth } from '../../auth/auth-context';
 import { postLoginPath } from '../../auth/next-path';
+import { reloadForNewerClient } from '../../lib/client-version';
 import { ApiError, describeApiError, issuesToFieldErrors } from '../../lib/errors';
 import styles from './login-screen.module.css';
 
@@ -75,7 +76,9 @@ export function LoginScreen() {
 
     try {
       const user = await signIn(email);
-      await navigate(postLoginPath(searchParams.get('next'), user.role), { replace: true });
+      const nextPath = postLoginPath(searchParams.get('next'), user.role);
+      if (await reloadForNewerClient(nextPath)) return;
+      await navigate(nextPath, { replace: true });
     } catch (error) {
       setFormError(explain(error, setError));
     }

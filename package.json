@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/build.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint .",

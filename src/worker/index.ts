@@ -11,8 +11,9 @@
  * See CLAUDE.md, "Deploy as one origin, not two".
  */
 export default {
-  fetch(request: Request, env: Env): Promise<Response> {
-    if (new URL(request.url).pathname.startsWith('/api/')) {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const { pathname } = new URL(request.url);
+    if (pathname.startsWith('/api/')) {
       /*
        * Forwarded unmodified, and returned unmodified.
        *
@@ -27,9 +28,23 @@ export default {
       return env.API.fetch(request);
     }
 
+    if (pathname === '/client-version.json') {
+      const asset = await env.ASSETS.fetch(request);
+      const headers = new Headers(asset.headers);
+      // This one small file names the current deployment. It must not be
+      // served from an older browser or edge cache when a volunteer signs in.
+      headers.set('cache-control', 'no-store');
+      return new Response(asset.body, {
+        headers,
+        status: asset.status,
+        statusText: asset.statusText,
+      });
+    }
+
     /*
-     * Unreachable in production while `run_worker_first: ["/api/*"]` is set,
-     * because static assets are served before this Worker runs at all.
+     * Unreachable in production for ordinary assets while
+     * `run_worker_first: ["/api/*", "/client-version.json"]` is set, because
+     * static assets are otherwise served before this Worker runs at all.
      *
      * Not dead code: it is the whole of the Worker's correctness if that
      * setting is ever removed or narrowed, and it is what serves assets under

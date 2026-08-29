@@ -5,7 +5,12 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { AuthProvider } from '../../auth/auth-provider';
+import { reloadForNewerClient } from '../../lib/client-version';
 import { LoginScreen } from './login-screen';
+
+vi.mock('../../lib/client-version', () => ({
+  reloadForNewerClient: vi.fn().mockResolvedValue(false),
+}));
 
 const DEV_LOGIN = '/api/v1/auth/dev-login';
 
@@ -44,6 +49,8 @@ async function submit(email: string) {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.mocked(reloadForNewerClient).mockReset();
+  vi.mocked(reloadForNewerClient).mockResolvedValue(false);
 });
 
 describe('sign-in screen', () => {
@@ -68,6 +75,17 @@ describe('sign-in screen', () => {
     await submit('pete@x.com');
 
     expect(await screen.findByText('Sessions')).toBeInTheDocument();
+  });
+
+  it('restarts on the current client after a deployment instead of routing in the old one', async () => {
+    vi.mocked(reloadForNewerClient).mockResolvedValue(true);
+    server.use(http.post(DEV_LOGIN, () => signedIn()));
+    renderLogin('/login?next=%2Fsessions');
+
+    await submit('pete@x.com');
+
+    expect(reloadForNewerClient).toHaveBeenCalledWith('/sessions');
+    expect(screen.queryByText('Sessions')).toBeNull();
   });
 
   it('ignores a next that is not a path on this origin', async () => {

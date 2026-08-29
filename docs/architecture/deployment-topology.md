@@ -36,9 +36,10 @@ is not a subtle problem.
 **`Set-Cookie` must pass through untouched**, and the cookie's `Path=/api/v1/auth` already matches
 this layout because the proxy keeps the `/api/v1` prefix. Do not rewrite paths.
 
-**`run_worker_first: ["/api/*"]`** means only the API path costs a Worker invocation, and it makes
-the `ASSETS` branch unreachable in production. Keep that branch: it is what makes the Worker correct
-if the setting is ever removed, and it is what serves assets in dev.
+**`run_worker_first: ["/api/*", "/client-version.json"]`** means API paths and the one
+sign-in-time version probe cost a Worker invocation, and it makes the ordinary `ASSETS` branch
+unreachable in production. Keep that branch: it is what makes the Worker correct if the setting is
+ever removed, and it is what serves assets in dev.
 
 **`not_found_handling: "single-page-application"`** makes deep links like `/sessions/:id` work, and
 has a consequence: an unknown path returns `index.html` with HTTP 200. The router carries its own

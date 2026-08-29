@@ -92,4 +92,13 @@ describe('the proxy Worker', () => {
     expect(forwarded).toHaveLength(0);
     expect(await response.text()).toBe('index.html');
   });
+
+  it('makes the deployment-version asset non-cacheable', async () => {
+    const { env, forwarded, served } = recordingEnv();
+    const response = await worker.fetch(new Request(`${ORIGIN}/client-version.json`), env);
+
+    expect(served).toHaveLength(1);
+    expect(forwarded).toHaveLength(0);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+  });
 });

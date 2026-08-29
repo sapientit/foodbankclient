@@ -16,6 +16,7 @@ coverage/
 
 # Vite
 *.local
+public/client-version.json
 
 # Written and removed by test/eslint-rules.test.ts. Gitignored so a crashed run
 # cannot commit one; a leftover breaks `npm run lint`, which is the right noise.

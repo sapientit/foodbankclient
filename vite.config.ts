@@ -2,7 +2,10 @@ import { cloudflare } from '@cloudflare/vite-plugin';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+const clientBuildVersion = process.env.CLIENT_BUILD_VERSION ?? 'development';
+
 export default defineConfig({
+  define: { __CLIENT_BUILD_VERSION__: JSON.stringify(clientBuildVersion) },
   plugins: [react(), cloudflare()],
   server: {
     /*

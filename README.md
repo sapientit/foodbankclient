@@ -46,7 +46,7 @@ npm run dev               # http://localhost:5173
 | Command                   | Description                                                     |
 | ------------------------- | --------------------------------------------------------------- |
 | `npm run dev`             | Vite dev server on :5173, with the proxy Worker running         |
-| `npm run build`           | `tsc -b && vite build` → `dist/`                                |
+| `npm run build`           | type-check, stamp a client version, then build → `dist/`        |
 | `npm run preview`         | Serves the built output in workerd, via the plugin              |
 | `npm run typecheck`       | `tsc -b` across every tsconfig project                          |
 | `npm run lint`            | `eslint .` (`lint:fix` to autofix)                              |
