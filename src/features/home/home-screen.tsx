@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { CapacityMeter } from '../../components/capacity-meter';
 import { EmptyState } from '../../components/empty-state';
+import { BellIcon, BoxIcon, CalendarIcon, UsersIcon } from '../../components/icons';
 import { Pagination } from '../../components/pagination';
 import { SessionListFilters } from '../../components/session-list-filters';
 import { SessionTable } from '../../components/session-table';
@@ -126,7 +127,10 @@ export function HomeScreen() {
         <section aria-labelledby="todays-sessions" className={styles.overview}>
           {isAdmin && (
             <article className={styles.tile} data-category="referrals">
-              <h2>Referrals</h2>
+              <h2>
+                <UsersIcon className={styles.headingIcon} />
+                Referrals
+              </h2>
               {referralsCountPending ? (
                 <Spinner label="Loading referral count…" />
               ) : (
@@ -139,7 +143,10 @@ export function HomeScreen() {
             </article>
           )}
           <section className={styles.todaySessions}>
-            <h2 id="todays-sessions">Today's sessions</h2>
+            <h2 id="todays-sessions">
+              <CalendarIcon className={styles.headingIcon} />
+              Today's sessions
+            </h2>
             {todaySessions.isPending ? (
               <Spinner label="Loading today's sessions…" />
             ) : (todaySessions.data?.length ?? 0) === 0 ? (
@@ -180,7 +187,10 @@ export function HomeScreen() {
           </section>
         </section>
         <section aria-labelledby="upcoming-sessions" className={styles.upcomingPanel}>
-          <h2 id="upcoming-sessions">Upcoming sessions</h2>
+          <h2 id="upcoming-sessions">
+            <CalendarIcon className={styles.headingIcon} />
+            Upcoming sessions
+          </h2>
           <div aria-labelledby="upcoming-sessions" className={styles.tabs} role="tablist">
             {rangeTabs.map((rangeTab, index) => (
               <button
@@ -297,7 +307,10 @@ export function HomeScreen() {
         </section>
       </div>
       <aside aria-labelledby="alerts-heading" className={styles.alertsPanel}>
-        <h2 id="alerts-heading">Alerts</h2>
+        <h2 id="alerts-heading">
+          <BellIcon className={styles.headingIcon} />
+          Alerts
+        </h2>
         {alertsPending ? (
           <Spinner label="Loading alerts…" />
         ) : (
@@ -347,6 +360,12 @@ export function HomeScreen() {
   );
 }
 
+const ALERT_ICON = {
+  sessions: CalendarIcon,
+  referrals: UsersIcon,
+  stock: BoxIcon,
+} as const;
+
 function Alert({
   category,
   headline,
@@ -356,10 +375,14 @@ function Alert({
   readonly headline: string;
   readonly to: string;
 }) {
+  const Icon = ALERT_ICON[category];
   return (
     <article className={styles.alert} data-category={category}>
       <Link className={styles.alertLink} to={to}>
-        <h3>{headline}</h3>
+        <h3>
+          <Icon className={styles.alertIcon} />
+          {headline}
+        </h3>
       </Link>
     </article>
   );

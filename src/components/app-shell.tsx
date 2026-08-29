@@ -1,8 +1,28 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../auth/auth-context';
-import { categoryForPath, subtabsFor, topTabsFor } from '../auth/menu';
+import { categoryForPath, subtabsFor, topTabsFor, type NavigationCategory } from '../auth/menu';
 import { classNames } from '../lib/class-names';
 import styles from './app-shell.module.css';
+import { BoxIcon, CalendarIcon, FuelIcon, GridIcon, HomeIcon, UsersIcon } from './icons';
+
+const CATEGORY_ICON: Record<NavigationCategory, typeof HomeIcon> = {
+  sessions: CalendarIcon,
+  referrals: UsersIcon,
+  stock: BoxIcon,
+  'master-data': GridIcon,
+};
+
+/**
+ * The dashboard route falls under the `master-data` category for colouring
+ * purposes (see `categoryForPath`), but reads better as a home glyph; fuel
+ * help shares the `referrals` category for the same reason but is a fuel
+ * admin's only tab, so it earns its own icon rather than borrowing theirs.
+ */
+function iconForTab(to: string) {
+  if (to === '/') return HomeIcon;
+  if (to === '/fuel-help') return FuelIcon;
+  return CATEGORY_ICON[categoryForPath(to)];
+}
 
 /**
  * The frame every signed-in screen sits inside: the product name, the
@@ -51,6 +71,7 @@ export function AppShell() {
 
       <header className={styles.header}>
         <Link className={styles.wordmark} to="/">
+          <BoxIcon className={styles.wordmarkIcon} />
           Food Bank
         </Link>
 
@@ -69,13 +90,17 @@ export function AppShell() {
         {topTabs.length > 0 && (
           <nav aria-label="Main navigation" className={styles.topTabs}>
             <ul className={styles.navList}>
-              {topTabs.map((item) => (
-                <li data-category={categoryForPath(item.to)} key={item.to}>
-                  <NavLink end to={item.to}>
-                    {item.label}
-                  </NavLink>
-                </li>
-              ))}
+              {topTabs.map((item) => {
+                const Icon = iconForTab(item.to);
+                return (
+                  <li data-category={categoryForPath(item.to)} key={item.to}>
+                    <NavLink end to={item.to}>
+                      <Icon className={styles.navIcon} />
+                      {item.label}
+                    </NavLink>
+                  </li>
+                );
+              })}
             </ul>
           </nav>
         )}

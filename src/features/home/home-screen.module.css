@@ -22,6 +22,19 @@
   margin-block-start: 0;
 }
 
+.tile h2,
+.todaySessions h2,
+.upcomingPanel h2,
+.alertsPanel h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.headingIcon {
+  flex-shrink: 0;
+}
+
 .tile,
 .alert {
   padding: 1.1rem;
@@ -192,11 +205,19 @@
 }
 
 .alertLink h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   margin: 0;
   font-size: 0.9rem;
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.15em;
+}
+
+.alertIcon {
+  flex-shrink: 0;
+  text-decoration: none;
 }
 
 .alert[data-category='sessions'] .alertLink {

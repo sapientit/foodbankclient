@@ -37,10 +37,17 @@
 }
 
 .wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 1.125rem;
   font-weight: 700;
   color: inherit;
   text-decoration: none;
+}
+
+.wordmarkIcon {
+  color: #176b3a;
 }
 
 .navList {
@@ -50,12 +57,18 @@
 }
 
 .navList a {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.4rem 0.5rem;
   border-radius: 0.25rem;
   /* #444 on white is 9.7:1. */
   color: #444444;
   text-decoration: none;
+}
+
+.navIcon {
+  flex-shrink: 0;
 }
 
 /* Hung off the attribute NavLink already sets, so the thing a screen reader
@@ -87,7 +100,8 @@
 
 .topTabs .navList a,
 .subtabs .navList a {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
 }
 
 .navList li[data-category='sessions'] a {
