@@ -149,6 +149,7 @@ beforeEach(() => {
             body: 'Your parcel is ready',
             occurredAt: '2026-08-01T08:00:00.000Z',
             readAt: null,
+            simulated: false,
             phone: null,
           },
         ],
@@ -186,7 +187,7 @@ beforeEach(() => {
     }),
     http.post('/api/v1/sessions/:sessionId/sms-reminders', () => {
       writes.smsReminders += 1;
-      return HttpResponse.json({ reminded: 0, failed: 0, alreadyReminded: 0 });
+      return HttpResponse.json({ reminded: 0, simulated: 0, failed: 0, alreadyReminded: 0 });
     }),
     http.post('/api/v1/referrals/:id/sms-messages/read', () => {
       writes.smsRead += 1;
@@ -201,6 +202,7 @@ beforeEach(() => {
         body: 'x',
         occurredAt: '2026-08-01T13:00:00.000Z',
         readAt: null,
+        simulated: false,
         phone: null,
       });
     }),

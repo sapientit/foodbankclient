@@ -4,7 +4,8 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatLondonDateTime, formatSessionDate } from '../../../lib/london-time';
-import type { Parcel, SmsInboxMessage } from '../queries';
+import type { Parcel, SmsInboxMessage, SmsReminderResult } from '../queries';
+import { formatSmsReminderOutcome, formatSmsReplyOutcome } from '../sms-outcomes';
 import {
   useMarkSmsRead,
   useMarkSmsInboxMessageRead,
@@ -43,11 +44,7 @@ export function SessionSmsPanel({
   const summary = useSmsSummary(sessionId, !readOnly);
   const send = useSendSmsReminders();
   const sending = useRef(false);
-  const [result, setResult] = useState<{
-    reminded: number;
-    failed: number;
-    alreadyReminded: number;
-  }>();
+  const [result, setResult] = useState<SmsReminderResult>();
   const countFor = (referralId: string) =>
     summary.data?.households.find((household) => household.referralId === referralId);
 
@@ -87,7 +84,7 @@ export function SessionSmsPanel({
           {send.isError && <ErrorNotice error={send.error} />}
           {result !== undefined && (
             <p role="status">
-              {result.reminded} sent; {result.failed} failed; {result.alreadyReminded} already sent.
+              {formatSmsReminderOutcome(result)}
               {result.failed > 0 && <strong> Failed reminders need attention.</strong>}
             </p>
           )}
@@ -130,6 +127,7 @@ function SmsConversation({
   const markRead = useMarkSmsRead();
   const reply = useReplyBySms();
   const [body, setBody] = useState('');
+  const [replyResult, setReplyResult] = useState<'sent' | 'simulated'>();
   return (
     <li>
       <details
@@ -151,7 +149,11 @@ function SmsConversation({
           <ol className={styles.thread}>
             {thread.data.messages.map((message) => (
               <li key={message.id}>
-                <strong>{message.kind.replace('_', ' ')}</strong> — {message.body}{' '}
+                <strong>
+                  {message.kind.replace('_', ' ')}
+                  {message.simulated && ' (simulated)'}
+                </strong>{' '}
+                — {message.body}{' '}
                 <time dateTime={message.occurredAt}>
                   {formatLondonDateTime(message.occurredAt)}
                 </time>
@@ -180,8 +182,9 @@ function SmsConversation({
                 reply.mutate(
                   { referralId, body: body.trim() },
                   {
-                    onSuccess: () => {
+                    onSuccess: (message) => {
                       setBody('');
+                      setReplyResult(message.simulated ? 'simulated' : 'sent');
                     },
                   },
                 );
@@ -191,6 +194,9 @@ function SmsConversation({
               Send reply
             </button>
             {reply.isError && <ErrorNotice error={reply.error} />}
+            {replyResult !== undefined && (
+              <p role="status">{formatSmsReplyOutcome(replyResult === 'simulated')}</p>
+            )}
           </>
         )}
       </details>
@@ -261,7 +267,11 @@ function SmsInboxMessageRow({ message }: { message: SmsInboxMessage }) {
   return (
     <li>
       <p>
-        <strong>{message.kind.replace('_', ' ')}</strong> — {message.body}
+        <strong>
+          {message.kind.replace('_', ' ')}
+          {message.simulated && ' (simulated)'}
+        </strong>{' '}
+        — {message.body}
       </p>
       <p>
         <time dateTime={message.occurredAt}>{formatLondonDateTime(message.occurredAt)}</time>

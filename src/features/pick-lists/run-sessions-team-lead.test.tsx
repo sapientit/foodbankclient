@@ -133,7 +133,7 @@ describe('a team lead running a session', () => {
       ),
       http.post('/api/v1/sessions/:sessionId/sms-reminders', () => {
         sent = true;
-        return HttpResponse.json({ reminded: 1, failed: 0, alreadyReminded: 0 });
+        return HttpResponse.json({ reminded: 1, simulated: 1, failed: 0, alreadyReminded: 0 });
       }),
       http.get('/api/v1/referrals/:id/sms-messages', () =>
         HttpResponse.json({
@@ -146,8 +146,30 @@ describe('a team lead running a session', () => {
               body: 'Running late',
               occurredAt: '2026-08-06T09:00:00.000Z',
               readAt: null,
+              simulated: false,
+            },
+            {
+              id: 'sms-before',
+              referralId: PARCEL.referralId,
+              kind: 'staff_reply',
+              body: 'A recorded test reply',
+              occurredAt: '2026-08-06T08:59:00.000Z',
+              readAt: '2026-08-06T08:59:00.000Z',
+              simulated: true,
             },
           ],
+        }),
+      ),
+      http.post('/api/v1/referrals/:id/sms-messages', () =>
+        HttpResponse.json({
+          id: 'sms-2',
+          referralId: PARCEL.referralId,
+          kind: 'staff_reply',
+          body: 'We will keep your parcel for you.',
+          occurredAt: '2026-08-06T09:01:00.000Z',
+          readAt: '2026-08-06T09:01:00.000Z',
+          simulated: true,
+          phone: null,
         }),
       ),
       http.post('/api/v1/referrals/:id/sms-messages/read', () =>
@@ -157,11 +179,15 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}`);
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Send SMS reminders' }));
-    expect(await screen.findByText(/1 sent; 0 failed/)).toBeInTheDocument();
+    expect(await screen.findByText(/1 message sent — 1 simulated; 0 failed/)).toBeInTheDocument();
     expect(sent).toBe(true);
     await user.click(screen.getByText(/Sam Taylor: 1 message, 1 unread/));
     expect(await screen.findByText(/Running late/)).toBeInTheDocument();
+    expect(screen.getByText('staff reply (simulated)')).toBeInTheDocument();
     expect(screen.queryByText(/\+44|phone/i)).toBeNull();
+    await user.type(screen.getByRole('textbox', { name: 'Reply by SMS' }), 'We will keep it.');
+    await user.click(screen.getByRole('button', { name: 'Send reply' }));
+    expect(await screen.findByText('Message simulated.')).toBeInTheDocument();
   });
 
   it('is offered Run a session and not the administrator maintenance links', async () => {

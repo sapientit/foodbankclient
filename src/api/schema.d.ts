@@ -2758,6 +2758,8 @@ export interface paths {
                             failed: number;
                             /** @description Skipped because they had already been texted for this session. */
                             alreadyReminded: number;
+                            /** @description Of `reminded`, how many never actually reached TheSMSWorks — this environment's dev/test simulator, or a destination outside its one live test number. A subset of `reminded`, not a fourth outcome. Always `0` in production. */
+                            simulated: number;
                         };
                     };
                 };
@@ -5305,6 +5307,8 @@ export interface components {
             occurredAt: string;
             /** Format: date-time */
             readAt: string | null;
+            /** @description True when this message was never actually sent through TheSMSWorks — the environment is running its dev/test simulator, or this destination fell outside its one live test number. Always false in production. Meaningless on a `failure` (nothing was sent either way) or a `household_reply` (always real). */
+            simulated: boolean;
             /** @description The household's number, in E.164 where it could be normalised. Present on every message: on a loose reply it is the only way to act on one, and on a thread it is the same number the referral already carries, so withholding it there would buy nothing. */
             phone?: string;
         };
@@ -5356,6 +5360,8 @@ export interface components {
             /** @enum {string} */
             location: "unmatched" | "active_session" | "closed_session";
             session: null | components["schemas"]["SmsInboxSession"];
+            /** @description See `SmsMessage.simulated`. */
+            simulated: boolean;
             /** @description Present only when `location` is `unmatched`. A linked-session row has a referral to open instead, so there is nothing to act on a phone number for; a loose reply has no referral, and the number is the only way to act on it. */
             phone?: string;
         };

@@ -37,6 +37,7 @@ const MESSAGE = {
   readAt: null,
   location: 'unmatched' as const,
   session: null,
+  simulated: false,
   phone: '+441234567890',
 };
 

@@ -17,6 +17,8 @@ export type ListenerSheet =
   paths['/api/v1/sessions/{sessionId}/listener-sheet']['get']['responses'][200]['content']['application/json'];
 export type SmsSummary =
   paths['/api/v1/sessions/{sessionId}/sms-summary']['get']['responses'][200]['content']['application/json'];
+export type SmsReminderResult =
+  paths['/api/v1/sessions/{sessionId}/sms-reminders']['post']['responses'][200]['content']['application/json'];
 export type SmsThread =
   paths['/api/v1/referrals/{id}/sms-messages']['get']['responses'][200]['content']['application/json'];
 export type SmsMessage = components['schemas']['SmsMessage'];

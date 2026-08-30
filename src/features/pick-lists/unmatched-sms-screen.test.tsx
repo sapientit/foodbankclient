@@ -19,6 +19,7 @@ const MESSAGES = [
     readAt: null,
     location: 'unmatched' as const,
     session: null,
+    simulated: false,
     phone: '+441234567890',
   },
   {
@@ -35,6 +36,7 @@ const MESSAGES = [
       startTime: '10:00',
       status: 'planned' as const,
     },
+    simulated: false,
   },
   {
     id: 'message-3',
@@ -50,12 +52,13 @@ const MESSAGES = [
       startTime: '10:00',
       status: 'confirmed' as const,
     },
+    simulated: false,
   },
   {
     id: 'message-4',
     referralId: 'referral-4',
-    kind: 'failure' as const,
-    body: 'Reminder could not be delivered.',
+    kind: 'staff_reply' as const,
+    body: 'We will keep your parcel for you.',
     occurredAt: '2026-08-20T08:00:00.000Z',
     readAt: null,
     location: 'closed_session' as const,
@@ -65,6 +68,7 @@ const MESSAGES = [
       startTime: '10:00',
       status: 'confirmed' as const,
     },
+    simulated: true,
   },
 ];
 
@@ -98,7 +102,7 @@ describe('SmsInboxScreen', () => {
     expect(screen.getAllByText(/Closed session:/)[0]).toHaveTextContent(
       'Thu, 20 Aug 2026 at 10:00',
     );
-    expect(screen.getByText(/Reminder could not be delivered/)).toBeInTheDocument();
+    expect(screen.getByText('staff reply (simulated)')).toBeInTheDocument();
     expect(screen.getAllByText('Needs administrator attention.')).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Mark read' })).toHaveLength(2);
   });
