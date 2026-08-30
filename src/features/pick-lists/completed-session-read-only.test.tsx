@@ -314,9 +314,16 @@ describe('a completed session', () => {
   });
 
   it('reads the message threads without sending, replying or marking one read', async () => {
-    renderApp(`/run-sessions/${SESSION.id}`);
+    // Text messages moved off the Clients tab onto its own route on
+    // 2026-08-30 — `screenDetails.md`, "Session processing".
+    renderApp(`/run-sessions/${SESSION.id}/messages`);
 
-    expect(await screen.findByRole('heading', { name: 'Clients' })).toBeInTheDocument();
+    // `level: 1` because the page's own `<h1>` and the SMS panel's `<h2>`
+    // both read "Text messages" — the panel kept its own heading when it
+    // moved onto a page whose title says the same thing.
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Text messages' }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send SMS reminders' })).toBeNull();
 
     const user = userEvent.setup();

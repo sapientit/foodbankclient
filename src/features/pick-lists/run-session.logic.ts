@@ -77,3 +77,33 @@ export function parcelStatus(parcel: Parcel): {
   if (parcel.reviewedAt === null) return { state: 'pending', label: 'Pending Review' };
   return { state: 'reviewed', label: 'Pick List reviewed' };
 }
+
+/**
+ * Parcels are immutable operational snapshots, so cancelling a referral does
+ * not delete its rows. The API marks that snapshot as cancelled; it must no
+ * longer become a client, a print gate, or an SMS conversation.
+ */
+export function isCurrentParcel(parcel: Parcel): boolean {
+  return parcel.attendance !== 'cancelled';
+}
+
+/**
+ * Whether the session is ready to print — every current parcel reviewed.
+ * Shared by the Clients tab (to gate Stock check) and the tab strip (to gate
+ * the Print all pick lists tab), so the two can never disagree about it.
+ */
+export function allParcelsReviewed(parcels: readonly Parcel[]): boolean {
+  return parcels.every((parcel) => parcel.reviewedAt !== null);
+}
+
+/**
+ * Why an unavailable session-wide control cannot be used yet, in the team
+ * lead's own words. One copy, so the persistent sentence on the Clients tab
+ * and the toast a control's own tab or button repeats on a press can never
+ * read differently for the same reason.
+ */
+export const PRINT_UNAVAILABLE_REASON = 'Review every pick list before printing.';
+export const STOCK_CHECK_UNAVAILABLE_REASON =
+  'Review every pick list before checking stock — until then the quantities are still moving.';
+export const COMPLETE_SESSION_UNAVAILABLE_REASON =
+  'Record an outcome for every client before completing session.';

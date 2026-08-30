@@ -256,10 +256,27 @@ export function useReconcilePickList(onPickListReady?: (sessionId: string) => vo
       // refresh. Do the read here so a successful POST is always followed by
       // the GET that supplies the client workspace.
       onPickListReady?.(result.sessionId);
-      await queryClient.fetchQuery({
-        queryKey: pickListKeys.session(result.sessionId),
-        queryFn: () => fetchSessionPickList(result.sessionId),
-      });
+      const pickListQueryKey = pickListKeys.session(result.sessionId);
+      /*
+       * **Cancel before reading, and read outside the cache before writing
+       * into it — `fetchQuery` alone is not safe here.** `RunSessionTabs`
+       * (shared layout chrome, mounted before this mutation even starts) reads
+       * this same key unconditionally to know whether Print is ready, so by
+       * the time a session's pick list is first created there is almost
+       * always already a request in flight for a 404 that predates it.
+       * `queryClient.fetchQuery` joins an in-flight fetch for the same key
+       * rather than starting a fresh one (`Query.fetch` in
+       * `@tanstack/query-core`), so it would return that stale 404 — and even
+       * writing fresh data with `setQueryData` first does not fully close the
+       * gap, because that stale fetch, left to resolve on its own later,
+       * still dispatches an `error` action that flips the query back to
+       * `status: 'error'` even though `data` stays populated. Cancelling it
+       * first (`revert: true`, the default) makes it resolve silently instead
+       * of dispatching anything, which is what actually closes the race.
+       */
+      await queryClient.cancelQueries({ queryKey: pickListQueryKey });
+      const pickList = await fetchSessionPickList(result.sessionId);
+      queryClient.setQueryData(pickListQueryKey, pickList);
       void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(result.sessionId) });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
     },

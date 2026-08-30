@@ -1,0 +1,17 @@
+/* Why the session cannot be changed. Same treatment as `.reconciledNotice` in
+   `run-sessions-screen.module.css` — informational rather than a fault, given
+   the same weight as that sibling rather than a different look for the same
+   kind of thing. */
+.readOnlyNotice {
+  margin-block: 0.75rem;
+  padding: 0.75rem 1rem;
+  max-inline-size: 60ch;
+  border-inline-start: 4px solid #005a9c;
+  background: #eef4f9;
+}
+
+@media print {
+  .screenOnly {
+    display: none;
+  }
+}

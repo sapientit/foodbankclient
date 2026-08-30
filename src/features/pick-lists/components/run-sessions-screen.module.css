@@ -426,7 +426,6 @@
    its alarm — and the same treatment as each other, because three unrelated
    looks for three sentences in the same place reads as three different kinds of
    thing. */
-.readOnlyNotice,
 .reconciledNotice {
   margin-block: 0.75rem;
   padding: 0.75rem 1rem;
@@ -436,7 +435,6 @@
 }
 
 @media print {
-  .readOnlyNotice,
   .reconciledNotice,
   .actions,
   .hints {

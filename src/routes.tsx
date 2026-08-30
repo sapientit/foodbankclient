@@ -13,9 +13,15 @@ import {
   RunSessionDetailScreen,
   RunSessionsScreen,
 } from './features/pick-lists/components/run-sessions-screen';
+import { RunSessionLayout } from './features/pick-lists/components/run-session-layout';
 import { ListenerSheetScreen } from './features/pick-lists/components/listener-sheet-screen';
 import { SessionReferralDetailsScreen } from './features/pick-lists/components/session-referral-details-screen';
-import { SmsInboxScreen } from './features/pick-lists/components/sms-panel';
+import {
+  RunSessionMessagesScreen,
+  SmsInboxLayout,
+  SmsLooseMessagesScreen,
+  SmsSessionMessagesScreen,
+} from './features/pick-lists/components/sms-panel';
 import { PreferenceRuleHealthScreen } from './features/pick-lists/components/preference-rule-health-screen';
 import { ReferralDetailScreen } from './features/referrals/components/referral-detail-screen';
 import { ReferralsScreen } from './features/referrals/components/referrals-screen';
@@ -135,16 +141,39 @@ export const routes: RouteObject[] = [
       { path: 'referrals/search', element: <ReferralSearchScreen /> },
       { path: 'referrals/:referralId', element: <ReferralDetailScreen /> },
       { path: 'run-sessions', element: <RunSessionsScreen /> },
-      { path: 'run-sessions/:sessionId/print', element: <PickListPrintScreen /> },
-      { path: 'run-sessions/:sessionId/listener', element: <ListenerSheetScreen /> },
+      /*
+       * The five tabs of one session share `RunSessionLayout` — which session
+       * this is, why it is read-only if it is, and the tab strip — as a
+       * layout route. `clients/:parcelId` stays a sibling, not a child: the
+       * household workspace is deliberately a full page of its own, not a
+       * sixth tab. Settled by Pete on 2026-08-30 — `screenDetails.md`,
+       * "Session processing".
+       */
       {
-        path: 'run-sessions/:sessionId/referral-details',
-        element: <SessionReferralDetailsScreen />,
+        path: 'run-sessions/:sessionId',
+        element: <RunSessionLayout />,
+        children: [
+          { index: true, element: <RunSessionDetailScreen /> },
+          { path: 'print', element: <PickListPrintScreen /> },
+          { path: 'listener', element: <ListenerSheetScreen /> },
+          { path: 'referral-details', element: <SessionReferralDetailsScreen /> },
+          { path: 'messages', element: <RunSessionMessagesScreen /> },
+        ],
       },
-      { path: 'sms', element: <SmsInboxScreen /> },
-      { path: 'sms/unmatched', element: <SmsInboxScreen /> },
+      /*
+       * The administrator inbox's two tabs share `SmsInboxLayout` — the same
+       * shape as `run-sessions/:sessionId` above: a shared tab strip as a
+       * layout route, real routes rather than a same-page filter.
+       */
+      {
+        path: 'sms',
+        element: <SmsInboxLayout />,
+        children: [
+          { index: true, element: <SmsSessionMessagesScreen /> },
+          { path: 'unmatched', element: <SmsLooseMessagesScreen /> },
+        ],
+      },
       { path: 'run-sessions/:sessionId/clients/:parcelId', element: <RunSessionClientScreen /> },
-      { path: 'run-sessions/:sessionId', element: <RunSessionDetailScreen /> },
       { path: 'preference-rules', element: <PreferenceRuleHealthScreen /> },
       { path: 'fuel-help', element: <FuelHelpListScreen /> },
       { path: 'extracts', element: <ExtractScreen /> },

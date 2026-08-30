@@ -123,6 +123,24 @@ describe('the administrator dashboard', () => {
       '/run-sessions/afternoon',
     );
   });
+
+  it('takes an upcoming session date to Run a session while keeping the run and amend controls', async () => {
+    server.use(
+      http.get('/api/v1/sessions', () =>
+        HttpResponse.json({ sessions: [session({ id: 's1', startTime: '09:00' })] }),
+      ),
+    );
+    renderApp('/');
+
+    const date = await screen.findByRole('link', { name: 'Mon, 1 Jun 2026, 09:00–10:30' });
+    expect(date).toHaveAttribute('href', '/run-sessions/s1');
+    expect(
+      screen.getByRole('link', { name: 'Run session, Mon, 1 Jun 2026, 09:00–10:30' }),
+    ).toHaveAttribute('href', '/run-sessions/s1');
+    expect(
+      screen.getByRole('link', { name: 'Amend session, Mon, 1 Jun 2026, 09:00–10:30' }),
+    ).toHaveAttribute('href', '/sessions/s1');
+  });
 });
 
 describe('the upcoming-sessions table, Custom range', () => {

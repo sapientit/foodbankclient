@@ -6,6 +6,7 @@ import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 import type { Session } from '../sessions/queries';
 import type { Parcel, PickList } from './queries';
+import { PRINT_UNAVAILABLE_REASON } from './run-session.logic';
 
 // These route tests exercise the team-lead workflow against a deliberately
 // small stock fixture. The shipped rules are separately unit-tested with their
@@ -176,7 +177,9 @@ describe('a team lead running a session', () => {
         HttpResponse.json({ markedRead: 1 }),
       ),
     );
-    renderApp(`/run-sessions/${SESSION.id}`);
+    // Text messages moved off the Clients tab onto its own route on
+    // 2026-08-30 — `screenDetails.md`, "Session processing".
+    renderApp(`/run-sessions/${SESSION.id}/messages`);
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Send SMS reminders' }));
     expect(await screen.findByText(/1 message sent — 1 simulated; 0 failed/)).toBeInTheDocument();
@@ -188,6 +191,42 @@ describe('a team lead running a session', () => {
     await user.type(screen.getByRole('textbox', { name: 'Reply by SMS' }), 'We will keep it.');
     await user.click(screen.getByRole('button', { name: 'Send reply' }));
     expect(await screen.findByText('Message simulated.')).toBeInTheDocument();
+  });
+
+  /**
+   * Reconciliation only ever runs from the Clients tab, so the one reachable
+   * way to land on Text messages with no pick list at all is a direct link to
+   * it — a bookmark, a shared link, browser back/forward — on a session
+   * nobody has opened yet. The session itself plainly exists (`GET /sessions`
+   * answers fine), so the generic `404` notice, "That no longer exists",
+   * would be actively wrong here; `RunSessionMessagesScreen` has its own
+   * branch for exactly this `404` instead.
+   */
+  it('names the unprepared pick list rather than showing a generic 404 when Text messages is opened directly on a session nobody has opened yet', async () => {
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json(
+          { error: { code: 'NOT_FOUND', message: 'No pick list', requestId: 'r1' } },
+          { status: 404 },
+        ),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/messages`);
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Text messages' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/have not been prepared yet/)).toBeInTheDocument();
+    const backLink = screen.getByRole('link', { name: 'Open the Clients tab' });
+    expect(backLink).toHaveAttribute('href', `/run-sessions/${SESSION.id}`);
+    // The session plainly exists, so neither the generic 404 headline nor any
+    // other error notice may show alongside — or instead of — the sentence
+    // above.
+    expect(screen.queryByText('That no longer exists')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send SMS reminders' })).toBeNull();
   });
 
   it('is offered Run a session and not the administrator maintenance links', async () => {
@@ -414,8 +453,15 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}`);
     const user = userEvent.setup();
 
+    // `RunSessionLayout` now renders the session's own date line as soon as
+    // `GET /sessions/{id}` resolves — before the Clients tab's own effect has
+    // fetched referrals and stock and posted the reconciliation — so the date
+    // appearing is no longer proof that generation has happened. Wait on the
+    // reconciliation itself instead.
     expect(await screen.findByText(/6 Aug 2099/)).toBeInTheDocument();
-    expect(reconciled).toBe(true);
+    await waitFor(() => {
+      expect(reconciled).toBe(true);
+    });
     expect(generationBody).toEqual({
       preferenceLines: [],
       pickListInformation: [
@@ -427,15 +473,18 @@ describe('a team lead running a session', () => {
     });
     /*
      * `aria-disabled`, and still in the tab order. A `disabled` button cannot be
-     * focused, so the sentence next to it never reaches anybody using a keyboard
+     * focused, so the reason next to it never reaches anybody using a keyboard
      * or a screen reader — they meet a control that has silently become nothing.
-     * The reason has to arrive with the control, which is what the description
-     * assertion is checking.
+     * Print all pick lists moved into the tab strip on 2026-08-30 —
+     * `screenDetails.md`, "Session processing" — and there is no persistent
+     * sentence to describe it from another tab, so its own `aria-label` carries
+     * the reason instead of `aria-describedby`.
      */
-    const print = screen.getByRole('button', { name: 'Print all pick lists' });
+    const print = screen.getByRole('button', {
+      name: `Print all pick lists — unavailable. ${PRINT_UNAVAILABLE_REASON}`,
+    });
     expect(print).toHaveAttribute('aria-disabled', 'true');
     expect(print).not.toBeDisabled();
-    expect(print).toHaveAccessibleDescription('Review every pick list before printing.');
     await user.click(screen.getByRole('link', { name: 'Review Pick list' }));
 
     // The pick number and household name are the screen's own heading, and the

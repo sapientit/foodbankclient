@@ -1,21 +1,59 @@
 import { useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, NavLink, Outlet, useParams } from 'react-router';
+import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
+import { isNotFound } from '../../../lib/errors';
 import { formatLondonDateTime, formatSessionDate } from '../../../lib/london-time';
-import type { Parcel, SmsInboxMessage, SmsReminderResult } from '../queries';
+import { useReferral, useReferralSearchMemory } from '../../referrals/queries';
+import { useSession } from '../../sessions/queries';
+import type { Parcel, SmsInboxMessage, SmsMessage, SmsReminderResult } from '../queries';
+import { isCurrentParcel, isSessionReadOnly } from '../run-session.logic';
+import { groupByPhone, type SmsPhoneGroup } from '../sms-inbox.logic';
 import { formatSmsReminderOutcome, formatSmsReplyOutcome } from '../sms-outcomes';
 import {
   useMarkSmsRead,
   useMarkSmsInboxMessageRead,
   useReplyBySms,
   useSendSmsReminders,
+  useSessionPickList,
   useSmsSummary,
   useSmsThread,
   useSmsInbox,
 } from '../queries';
 import styles from './sms-panel.module.css';
+
+/**
+ * The fields `SmsThreadMessages` renders, shared between `SmsMessage` (a
+ * referral's own thread) and `SmsInboxMessage` (the admin inbox) rather than
+ * a union of the two — both already carry these with the same types, so a
+ * structural `Pick` lets one renderer serve both without either screen's
+ * hook feeding it a shape it doesn't produce.
+ */
+type ThreadMessage = Pick<SmsMessage, 'id' | 'kind' | 'simulated' | 'body' | 'occurredAt'>;
+
+/**
+ * The message list both `SmsConversation` (a team lead's own thread) and
+ * `SmsInboxThread` (the admin inbox) show once expanded — extracted so the
+ * two accordions cannot drift in what a message reads as.
+ */
+function SmsThreadMessages({ messages }: { messages: readonly ThreadMessage[] }) {
+  return (
+    <ol className={styles.thread}>
+      {messages.map((message) => (
+        <li key={message.id}>
+          <strong>
+            {message.kind.replace('_', ' ')}
+            {message.simulated && ' (simulated)'}
+          </strong>{' '}
+          — {message.body}{' '}
+          <time dateTime={message.occurredAt}>{formatLondonDateTime(message.occurredAt)}</time>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 /**
  * `readOnly` is the containing session being finished with, and it takes every
@@ -54,12 +92,6 @@ export function SessionSmsPanel({
       {summary.isPending && <Spinner label="Loading message counts…" />}
       {summary.isError && (
         <ErrorNotice error={summary.error} onRetry={() => void summary.refetch()} />
-      )}
-      {summary.data !== undefined && (
-        <p className={styles.unread} role="status">
-          {summary.data.unreadTotal} unread{' '}
-          {summary.data.unreadTotal === 1 ? 'message' : 'messages'}
-        </p>
       )}
       {!readOnly && (
         <>
@@ -109,6 +141,58 @@ export function SessionSmsPanel({
   );
 }
 
+/**
+ * The Text messages tab, one of the five destinations `RunSessionTabs`
+ * offers. `SessionSmsPanel` is unchanged; this just gives it the route,
+ * its own data and its own `<h1>` — the unread total that used to sit at
+ * the top of this panel now lives on the tab itself as a badge, so it is
+ * not shown twice.
+ */
+export function RunSessionMessagesScreen() {
+  const { sessionId = '' } = useParams();
+  const session = useSession(sessionId);
+  const pickList = useSessionPickList(sessionId);
+
+  if (session.isPending || pickList.isPending) return <Spinner label="Loading messages…" />;
+  if (session.isError)
+    return <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />;
+  /*
+   * A session nobody has opened yet has no pick list — reconciliation only
+   * runs from the Clients tab — and reaching this tab first (a bookmark, a
+   * shared link, browser back/forward) is the one way here that isn't. A
+   * plain 404 would otherwise read as "That no longer exists", which is
+   * wrong for a session that plainly exists; `ListenerSheetScreen` has the
+   * same shape of problem for its own endpoint and takes the same approach:
+   * name what is actually true and point back to where it gets fixed.
+   */
+  if (pickList.isError && isNotFound(pickList.error))
+    return (
+      <>
+        <PageHeader title="Text messages" />
+        <p>
+          This session's pick lists have not been prepared yet.{' '}
+          <Link to={`/run-sessions/${sessionId}`}>Open the Clients tab</Link> first, which prepares
+          them.
+        </p>
+      </>
+    );
+  if (pickList.isError)
+    return <ErrorNotice error={pickList.error} onRetry={() => void pickList.refetch()} />;
+
+  const currentParcels = pickList.data.parcels.filter(isCurrentParcel);
+
+  return (
+    <>
+      <PageHeader title="Text messages" />
+      <SessionSmsPanel
+        parcels={currentParcels}
+        readOnly={isSessionReadOnly(session.data.status)}
+        sessionId={sessionId}
+      />
+    </>
+  );
+}
+
 function SmsConversation({
   referralId,
   name,
@@ -145,22 +229,7 @@ function SmsConversation({
         {thread.isError && (
           <ErrorNotice error={thread.error} onRetry={() => void thread.refetch()} />
         )}
-        {thread.data !== undefined && (
-          <ol className={styles.thread}>
-            {thread.data.messages.map((message) => (
-              <li key={message.id}>
-                <strong>
-                  {message.kind.replace('_', ' ')}
-                  {message.simulated && ' (simulated)'}
-                </strong>{' '}
-                — {message.body}{' '}
-                <time dateTime={message.occurredAt}>
-                  {formatLondonDateTime(message.occurredAt)}
-                </time>
-              </li>
-            ))}
-          </ol>
-        )}
+        {thread.data !== undefined && <SmsThreadMessages messages={thread.data.messages} />}
         {!readOnly && (
           <>
             <label>
@@ -204,37 +273,134 @@ function SmsConversation({
   );
 }
 
-export function SmsInboxScreen() {
-  const inbox = useSmsInbox();
+/**
+ * The administrator inbox, as two tabs rather than one long page — settled by
+ * Pete on 2026-08-30 after the combined screen made an unread reply from a
+ * session page down past a long list of loose ones to reach. `Loose
+ * messages` and `Session messages` borrow the API's own words for the split
+ * (`SmsInboxMessage.location`: "a loose reply, no session behind it" versus
+ * everything tied to a referral) rather than inventing new vocabulary.
+ *
+ * Modelled on `RunSessionLayout`/`RunSessionTabs`: real routes, not a
+ * same-page filter, and each tab fetches `useSmsInbox()` again rather than
+ * threading it down — the query cache shares the one request across the tab
+ * strip and whichever tab is open, the same way `useSessionPickList` does
+ * there.
+ */
+export function SmsInboxLayout() {
   return (
     <>
-      <PageHeader title="SMS Messages" />
+      <SmsInboxTabs />
+      <Outlet />
+    </>
+  );
+}
+
+/**
+ * Badged with each tab's own unread count, not the combined
+ * `sms-messages/attention-summary` total — that total mixes loose and
+ * closed-session replies together, and a team lead scanning for which tab to
+ * open needs to know which one has something waiting. Deliberately excludes
+ * an active session's unread replies from the `Session messages` badge, the
+ * same way `attention-summary` does: those remain the team leader's to read,
+ * so counting them here would tell an administrator they have something to
+ * do that is not theirs.
+ */
+function SmsInboxTabs() {
+  const inbox = useSmsInbox();
+  const messages = inbox.data?.messages ?? [];
+  const looseUnread = unreadCount(messages, 'unmatched');
+  const sessionUnread = unreadCount(messages, 'closed_session');
+
+  return (
+    <nav aria-label="SMS Messages navigation" className={styles.tabs}>
+      <ul className={styles.tabList}>
+        <li>
+          <NavLink
+            aria-label={
+              sessionUnread > 0 ? `Session messages (${String(sessionUnread)} unread)` : undefined
+            }
+            end
+            to="/sms"
+          >
+            Session messages
+            {sessionUnread > 0 && (
+              <span aria-hidden="true" className={styles.badge}>
+                {sessionUnread}
+              </span>
+            )}
+          </NavLink>
+        </li>
+        <li>
+          <NavLink
+            aria-label={
+              looseUnread > 0 ? `Loose messages (${String(looseUnread)} unread)` : undefined
+            }
+            to="/sms/unmatched"
+          >
+            Loose messages
+            {looseUnread > 0 && (
+              <span aria-hidden="true" className={styles.badge}>
+                {looseUnread}
+              </span>
+            )}
+          </NavLink>
+        </li>
+      </ul>
+    </nav>
+  );
+}
+
+function unreadCount(
+  messages: readonly SmsInboxMessage[],
+  location: SmsInboxMessage['location'],
+): number {
+  return messages.filter(
+    (message) =>
+      message.location === location &&
+      message.kind === 'household_reply' &&
+      message.readAt === null,
+  ).length;
+}
+
+export function SmsSessionMessagesScreen() {
+  const inbox = useSmsInbox();
+  const active = groupByPhone(
+    (inbox.data?.messages ?? []).filter((message) => message.location === 'active_session'),
+  );
+  const closed = groupByPhone(
+    (inbox.data?.messages ?? []).filter((message) => message.location === 'closed_session'),
+  );
+  return (
+    <>
+      <PageHeader title="Session messages" />
       <p>
-        All text messages from the last thirty days. Unread replies from an unmatched or closed
-        session need administrator attention; active-session replies remain with the team leader.
+        Every message tied to a referral, from a session still to run or one already closed. Closing
+        a session does not detach its messages from the referral — they stay marked with that
+        session and show the household's name for as long as they are retained.
       </p>
       {inbox.isPending && <Spinner label="Loading SMS messages…" />}
       {inbox.isError && <ErrorNotice error={inbox.error} onRetry={() => void inbox.refetch()} />}
       {inbox.data !== undefined &&
-        (inbox.data.messages.length === 0 ? (
-          <p>No SMS messages in the last thirty days.</p>
+        (active.length === 0 && closed.length === 0 ? (
+          <EmptyState
+            headline="No session messages"
+            sentence="Nothing tied to a referral in the last thirty days."
+          />
         ) : (
           <>
-            <SmsInboxGroup
-              heading="Unmatched messages"
-              messages={inbox.data.messages.filter((message) => message.location === 'unmatched')}
-            />
-            <SmsInboxGroup
+            <SmsInboxGroupSection
               heading="Messages for active sessions"
-              messages={inbox.data.messages.filter(
-                (message) => message.location === 'active_session',
-              )}
+              groups={active}
+              // Active-session replies stay the team leader's to read; see
+              // `SmsInboxTabs`'s own doc comment for the same exclusion on the
+              // badge count.
+              markReadMode="none"
             />
-            <SmsInboxGroup
+            <SmsInboxGroupSection
               heading="Messages for closed sessions"
-              messages={inbox.data.messages.filter(
-                (message) => message.location === 'closed_session',
-              )}
+              groups={closed}
+              markReadMode="referral"
             />
           </>
         ))}
@@ -242,64 +408,225 @@ export function SmsInboxScreen() {
   );
 }
 
-function SmsInboxGroup({ heading, messages }: { heading: string; messages: SmsInboxMessage[] }) {
-  if (messages.length === 0) return null;
+export function SmsLooseMessagesScreen() {
+  const inbox = useSmsInbox();
+  const groups = groupByPhone(
+    (inbox.data?.messages ?? []).filter((message) => message.location === 'unmatched'),
+  );
+  return (
+    <>
+      <PageHeader title="Loose messages" />
+      <p>
+        A reply with no referral behind it at all — a wrong number, or somebody the food bank has
+        never heard of. The phone number is the only way to act on one of these.
+      </p>
+      {inbox.isPending && <Spinner label="Loading SMS messages…" />}
+      {inbox.isError && <ErrorNotice error={inbox.error} onRetry={() => void inbox.refetch()} />}
+      {inbox.data !== undefined &&
+        (groups.length === 0 ? (
+          <EmptyState
+            headline="No loose messages"
+            sentence="Nothing without a referral behind it in the last thirty days."
+          />
+        ) : (
+          <ul className={styles.messageList}>
+            {groups.map((group) => (
+              <SmsInboxThread key={group.key} group={group} markReadMode="message" />
+            ))}
+          </ul>
+        ))}
+    </>
+  );
+}
+
+function SmsInboxGroupSection({
+  heading,
+  groups,
+  markReadMode,
+}: {
+  heading: string;
+  groups: SmsPhoneGroup[];
+  markReadMode: 'referral' | 'none';
+}) {
+  if (groups.length === 0) return null;
   return (
     <section aria-labelledby={`sms-${heading.replaceAll(' ', '-').toLowerCase()}`}>
       <h2 id={`sms-${heading.replaceAll(' ', '-').toLowerCase()}`}>{heading}</h2>
-      <ul className={styles.thread}>
-        {messages.map((message) => (
-          <SmsInboxMessageRow key={message.id} message={message} />
+      <ul className={styles.messageList}>
+        {groups.map((group) => (
+          <SmsInboxThread key={group.key} group={group} markReadMode={markReadMode} />
         ))}
       </ul>
     </section>
   );
 }
 
-/** A read failure belongs to the one message it left unread, not every row. */
-function SmsInboxMessageRow({ message }: { message: SmsInboxMessage }) {
-  const markRead = useMarkSmsInboxMessageRead();
-  const needsAttention =
-    message.kind === 'household_reply' &&
-    message.readAt === null &&
-    message.location !== 'active_session';
+function hasSession(
+  message: SmsInboxMessage,
+): message is SmsInboxMessage & { session: NonNullable<SmsInboxMessage['session']> } {
+  return message.session !== null;
+}
+
+/**
+ * One phone number's thread in the administrator inbox — an accordion, the
+ * same shape as `SmsConversation`'s. `markReadMode` is what tells it whether
+ * opening the thread is allowed to mark anything read, and by which call:
+ *
+ * - `'referral'` — a closed-session thread. Marking read is
+ *   `POST /referrals/{id}/sms-messages/read`, the same call a team lead's own
+ *   thread view uses, looped once per `referralIds` entry because a phone
+ *   reused across a repeat referral can carry unread replies against more
+ *   than one.
+ * - `'message'` — a loose thread with no referral behind it at all, so
+ *   there is no household-level read call to make; `POST
+ *   /sms-messages/{id}/read` is looped once per unread reply instead.
+ * - `'none'` — an active session's thread. Expandable and readable, but never
+ *   marks anything read: those replies remain the team leader's, the same
+ *   exclusion `SmsInboxTabs`'s own badge count and `attention-summary` make.
+ *
+ * Collapsed, the summary line is the only thing shown — a household name or,
+ * for a loose thread, the phone number, the message count, and the unread
+ * count in words as well as weight, the same way `SmsConversation`'s own
+ * summary does. The thread and the footer render only once opened, matching
+ * `SmsConversation` rather than the flat card this replaces, which showed
+ * everything at once.
+ */
+function SmsInboxThread({
+  group,
+  markReadMode,
+}: {
+  group: SmsPhoneGroup;
+  markReadMode: 'referral' | 'message' | 'none';
+}) {
+  const [open, setOpen] = useState(false);
+  const markReferralRead = useMarkSmsRead();
+  const markMessageRead = useMarkSmsInboxMessageRead();
+  const searchMemory = useReferralSearchMemory();
+  // A shared mutation hook loses track of any call but the last once a
+  // second `.mutate()` re-points its observer — so a thread whose unread
+  // replies span more than one referralId/message id tracks its own
+  // read-marking outcome here instead of trusting `markReferralRead.error`/
+  // `markMessageRead.error`, which would silently drop an earlier failure
+  // the moment a later call in the same loop succeeds.
+  const [readError, setReadError] = useState<unknown>();
+  const unreadCount = group.unreadReplyIds.length;
+  const primaryReferralId = group.referralIds[0];
+  const mostRecentSessionMessage = group.messages.findLast(hasSession);
 
   return (
-    <li>
-      <p>
-        <strong>
-          {message.kind.replace('_', ' ')}
-          {message.simulated && ' (simulated)'}
-        </strong>{' '}
-        — {message.body}
-      </p>
-      <p>
-        <time dateTime={message.occurredAt}>{formatLondonDateTime(message.occurredAt)}</time>
-      </p>
-      {message.location === 'unmatched' && <p>Phone: {message.phone ?? 'No phone number'}</p>}
-      {message.session !== null && (
-        <p>
-          {message.location === 'active_session' ? 'Active session' : 'Closed session'}:{' '}
-          {formatSessionDate(message.session.sessionDate)} at {message.session.startTime}
-        </p>
-      )}
-      {message.referralId !== null && (
-        <Link to={`/referrals/${message.referralId}`}>Open referral</Link>
-      )}
-      {needsAttention && <p className={styles.needsAttention}>Needs administrator attention.</p>}
-      {needsAttention && (
-        <button
-          className="button-plain"
-          disabled={markRead.isPending}
-          onClick={() => {
-            markRead.mutate(message.id);
-          }}
-          type="button"
-        >
-          Mark read
-        </button>
-      )}
-      {markRead.isError && <ErrorNotice error={markRead.error} />}
+    <li className={styles.messageCard}>
+      <details
+        onToggle={(event) => {
+          const expanded = event.currentTarget.open;
+          setOpen(expanded);
+          if (!expanded || unreadCount === 0) return;
+          setReadError(undefined);
+          if (markReadMode === 'referral') {
+            void Promise.allSettled(
+              group.referralIds.map((referralId) => markReferralRead.mutateAsync(referralId)),
+            ).then((results) => {
+              const failure = results.find((result) => result.status === 'rejected');
+              if (failure?.status === 'rejected') setReadError(failure.reason);
+            });
+          } else if (markReadMode === 'message') {
+            void Promise.allSettled(
+              group.unreadReplyIds.map((id) => markMessageRead.mutateAsync(id)),
+            ).then((results) => {
+              const failure = results.find((result) => result.status === 'rejected');
+              if (failure?.status === 'rejected') setReadError(failure.reason);
+            });
+          }
+        }}
+      >
+        <summary className={unreadCount > 0 ? styles.unreadButton : undefined}>
+          {primaryReferralId !== undefined ? (
+            <SmsMessageHousehold referralId={primaryReferralId} />
+          ) : (
+            <span>Phone: {group.phone ?? 'No phone number'}</span>
+          )}
+          : {group.messages.length} {group.messages.length === 1 ? 'message' : 'messages'}
+          {unreadCount > 0 && `, ${String(unreadCount)} unread`}
+          {group.hasFailure && unreadCount === 0 && (
+            <span className={styles.needsAttention}> A reminder failed to send.</span>
+          )}
+        </summary>
+        {open && (
+          <>
+            <SmsThreadMessages messages={group.messages} />
+            <div className={styles.messageFooter}>
+              {primaryReferralId === undefined ? (
+                <span>
+                  Phone: {group.phone ?? 'No phone number'}{' '}
+                  {group.phone !== null && (
+                    <Link
+                      onClick={() => {
+                        // A phone number is personal data: the search screen
+                        // reads this from its in-memory cache, never the URL
+                        // or history.
+                        if (group.phone === null) return;
+                        searchMemory.remember({ phone: group.phone });
+                      }}
+                      to="/referrals/search"
+                    >
+                      Search referrals for this number
+                    </Link>
+                  )}
+                </span>
+              ) : (
+                <>
+                  {mostRecentSessionMessage !== undefined && (
+                    <span>
+                      {mostRecentSessionMessage.location === 'active_session'
+                        ? 'Active session'
+                        : 'Closed session'}
+                      : {formatSessionDate(mostRecentSessionMessage.session.sessionDate)} at{' '}
+                      {mostRecentSessionMessage.session.startTime}
+                    </span>
+                  )}
+                  {group.referralIds.map((referralId) => (
+                    <Link key={referralId} to={`/referrals/${referralId}`}>
+                      Open referral
+                    </Link>
+                  ))}
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </details>
+      {readError !== undefined && <ErrorNotice error={readError} />}
     </li>
   );
+}
+
+/**
+ * The household's name for a message tied to a referral. `SmsInboxMessage`
+ * deliberately carries no name of its own (`API.md`, "The administrator
+ * inbox") — `referralId` is the only thing pointing at whose household this
+ * is. Settled by Pete on 2026-08-30: a session message was assigned to a
+ * referral, so it should read as that household's, not as a block of text
+ * with only an "Open referral" link to say whose it was.
+ *
+ * A second request per referral rather than a name on the message itself,
+ * which is fine here: `useReferral` shares one cache entry per id, so a
+ * household with several messages in the window costs one request, not one
+ * per row, and this screen is administrator-only already — nothing here
+ * reaches a role that could not open the referral directly.
+ */
+function SmsMessageHousehold({ referralId }: { referralId: string }) {
+  const referral = useReferral(referralId);
+  // Loading/error text, not an empty span or `ErrorNotice`: this sits inside
+  // a `<summary>`, a native disclosure control. `<summary>` only takes
+  // phrasing content, and a nested `<button>` (which `ErrorNotice`'s retry
+  // renders) is both invalid there and a real functional bug — a click on it
+  // also toggles the accordion, so "Try again" can close the very thread it
+  // was meant to fix. An empty accessible name while pending is its own
+  // problem: a screen reader announces the row as "` : 3 messages`" with
+  // nothing to say whose it is until the fetch resolves.
+  if (referral.isPending) return <span className={styles.householdName}>Loading…</span>;
+  if (referral.isError) return <span className={styles.householdName}>Name unavailable</span>;
+  const name = [referral.data.refereeFirstName ?? 'Unknown', referral.data.refereeSurname ?? '']
+    .join(' ')
+    .trim();
+  return <span className={styles.householdName}>{name}</span>;
 }

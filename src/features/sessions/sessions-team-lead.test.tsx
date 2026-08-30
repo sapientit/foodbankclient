@@ -68,6 +68,13 @@ describe('a team lead’s shift view', () => {
     expect(within(main).queryByRole('link', { name: 'Add a session' })).toBeNull();
     expect(within(main).queryByRole('link', { name: 'Weekly sessions' })).toBeNull();
     expect(await within(main).findByText('10 of 25 booked')).toBeInTheDocument();
+    expect(
+      within(main).getByRole('link', { name: 'Tue, 4 Aug 2026, 10:00–11:30' }),
+    ).toHaveAttribute('href', '/run-sessions/s1');
+    expect(
+      within(main).getByRole('link', { name: 'Run session, Tue, 4 Aug 2026, 10:00–11:30' }),
+    ).toHaveAttribute('href', '/run-sessions/s1');
+    expect(within(main).queryByRole('link', { name: /Amend session/ })).toBeNull();
   });
 
   it('sends the same request an admin does, and never computes a narrower horizon of its own', async () => {

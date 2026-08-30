@@ -7,7 +7,7 @@ import { SessionListFilters } from '../../../components/session-list-filters';
 import { SessionTable } from '../../../components/session-table';
 import { Spinner } from '../../../components/spinner';
 import { classNames } from '../../../lib/class-names';
-import { londonToday } from '../../../lib/london-time';
+import { formatSessionDate, formatTimeRange, londonToday } from '../../../lib/london-time';
 import { useSessions } from '../queries';
 import { filterSessionsByStatus, readSessionListSelection } from '../session-list-filters.logic';
 import styles from './sessions-screen.module.css';
@@ -90,12 +90,36 @@ export function SessionsScreen() {
           />
         ) : (
           <SessionTable
+            action={(session) => {
+              const when = formatSessionDate(session.sessionDate);
+              const hours = formatTimeRange(session.startTime, session.durationMinutes);
+              return (
+                <span className={styles.rowActions}>
+                  <Link
+                    aria-label={`Run session, ${when}, ${hours}`}
+                    className={styles.rowAction}
+                    to={`/run-sessions/${session.id}`}
+                  >
+                    ▶
+                  </Link>
+                  {isAdmin && (
+                    <Link
+                      aria-label={`Amend session, ${when}, ${hours}`}
+                      className={styles.rowAction}
+                      to={`/sessions/${session.id}`}
+                    >
+                      ✎
+                    </Link>
+                  )}
+                </span>
+              );
+            }}
             caption={
               selection.showCompleted
                 ? 'Sessions in this date range, completed ones included'
                 : 'Open sessions in this date range'
             }
-            hrefFor={(session) => `/sessions/${session.id}`}
+            hrefFor={(session) => `/run-sessions/${session.id}`}
             sessions={shown}
           />
         ))}

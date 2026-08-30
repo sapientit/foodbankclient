@@ -9,6 +9,8 @@ import { PageHeader } from '../../../components/page-header';
 import { SessionListFilters } from '../../../components/session-list-filters';
 import { SessionTable } from '../../../components/session-table';
 import { Spinner } from '../../../components/spinner';
+import { Toast } from '../../../components/toast';
+import { useToast } from '../../../components/use-toast';
 import { classNames } from '../../../lib/class-names';
 import { ApiError, describeApiError, isNotFound, pendingPickNumbers } from '../../../lib/errors';
 import { formatSessionDate, formatTimeRange, londonToday } from '../../../lib/london-time';
@@ -39,14 +41,17 @@ import {
   type Parcel,
 } from '../queries';
 import {
+  COMPLETE_SESSION_UNAVAILABLE_REASON,
+  PRINT_UNAVAILABLE_REASON,
+  STOCK_CHECK_UNAVAILABLE_REASON,
+  allParcelsReviewed,
   attendedLabel,
-  describeReadOnlySession,
+  isCurrentParcel,
   isSessionReadOnly,
   missedLabel,
   parcelStatus,
 } from '../run-session.logic';
 import styles from './run-sessions-screen.module.css';
-import { SessionSmsPanel } from './sms-panel';
 import { StockCheckPanel } from './stock-check-panel';
 import { resolvePreferenceLines, validatePreferenceRules } from '../preference-rules';
 import {
@@ -137,7 +142,7 @@ export function RunSessionsScreen() {
  * The location is gone — one hall, so it was the same words every time. See
  * `src/lib/session-description.ts`.
  */
-function SessionLine({ session }: { session: Session }) {
+export function SessionLine({ session }: { session: Session }) {
   return (
     <p className={styles.sessionLine}>
       <span>{formatSessionDate(session.sessionDate)}</span>
@@ -151,26 +156,40 @@ function SessionLine({ session }: { session: Session }) {
 }
 
 /**
- * Everything a team lead does to the session as a whole, on one row above the
- * client list: the three sheets, and the one tap that closes the session.
- *
- * **Together, and above the `Clients` heading.** These act on the session, not
- * on a household, so they sat oddly under a heading naming the list they are
- * not part of — and split across a paragraph of middots and a loose button they
- * read as three unrelated things rather than the set of things there is to do.
- * Settled by Pete on 2026-08-17.
+ * The two things a team lead does to the session as a whole that still live
+ * on the Clients tab: the stock check, and the one tap that closes the
+ * session. Print all pick lists, Listener sheet and Referral details moved
+ * out to the tab strip on 2026-08-30 — `screenDetails.md`, "Session
+ * processing" — because they are places to look, not actions taken on the
+ * session; these two stay here because both depend on state this tab shows
+ * (a pick list's review, a client's outcome) and mean nothing on another tab.
  *
  * **`aria-disabled`, not `disabled`, for both unavailable controls.** A
  * disabled button leaves the tab order, so a keyboard or screen-reader user
- * meets a control that has silently become nothing at all and never reaches the
- * sentence explaining why. These stay focusable and carry the reason as their
- * description. Neither has a handler, so activating one does nothing — which is
- * the behaviour `disabled` was there for. `complete.isPending` is the one real
- * `disabled` left, because that is a control that genuinely works and is busy.
+ * meets a control that has silently become nothing at all and never reaches
+ * the sentence explaining why. These stay focusable and carry the reason as
+ * their description, and — settled alongside the tab strip — now also repeat
+ * that reason as a toast if pressed anyway, for a team lead who tried the
+ * control before reading the sentence under it. `complete.isPending` is the
+ * one real `disabled` left, because that is a control that genuinely works
+ * and is busy.
  *
- * The reasons sit under the row rather than beside the control they belong to:
- * in the row they broke the alignment that is the point of grouping these, and
- * `aria-describedby` ties each to its own without relying on proximity.
+ * The reasons sit under the row rather than beside the control they belong
+ * to: in the row they broke the alignment that is the point of grouping
+ * these, and `aria-describedby` ties each to its own without relying on
+ * proximity.
+ *
+ * **Also carries the reason the Print tab is unavailable, though the Print
+ * control itself is not in this component any more.** `screenDetails.md` is
+ * explicit that a sentence on *this* tab says why, for all three controls,
+ * including Print — a sighted team lead scanning the Clients tab needs to see
+ * why the Print tab is greyed without first navigating to it and pressing a
+ * dead control. The tab strip's own Print button carries the same reason in
+ * a self-contained `aria-label` rather than `aria-describedby`, because it is
+ * shared chrome rendered on all five tabs and this paragraph exists only on
+ * this one — a screen-reader user must get the reason from wherever they are,
+ * not only from Clients. The two are deliberately not unified onto one
+ * mechanism.
  */
 function SessionActions({
   allOutcomesRecorded,
@@ -179,7 +198,6 @@ function SessionActions({
   onToggleStockCheck,
   readOnly,
   readyToPrint,
-  sessionId,
   stockCheckOpen,
   stockCheckPanelId,
 }: {
@@ -189,42 +207,37 @@ function SessionActions({
   readonly onToggleStockCheck: () => void;
   readonly readOnly: boolean;
   readonly readyToPrint: boolean;
-  readonly sessionId: string;
   readonly stockCheckOpen: boolean;
   readonly stockCheckPanelId: string;
 }) {
-  const printReasonId = useId();
   const completeReasonId = useId();
   const stockCheckReasonId = useId();
-  const printUnavailable = !readOnly && !readyToPrint;
   const completeUnavailable = !readOnly && !allOutcomesRecorded;
   const stockCheckUnavailable = !readOnly && !readyToPrint;
+  const printUnavailable = !readOnly && !readyToPrint;
+  const { message: toastMessage, show: showToast } = useToast();
 
   return (
     <>
       <div className={styles.actions}>
-        {readyToPrint ? (
-          <Link className="button-link" to={`/run-sessions/${sessionId}/print`}>
-            {readOnly ? 'View all pick lists' : 'Print all pick lists'}
-          </Link>
-        ) : readOnly ? (
-          <span>No pick lists were prepared for this session.</span>
-        ) : (
-          <button aria-describedby={printReasonId} aria-disabled type="button">
-            Print all pick lists
-          </button>
-        )}
         {/* **Gone on a finished session, not greyed.** Settled by Pete on
             2026-08-17. The comparison answers "what does this session ask for,
             and is it on the shelves" — a question with a use before the doors
             open and none afterwards, because an attended household's stock has
             already left `quantityOnHand` while its parcel still counts towards
             what was needed, so every line would read as a shortage that never
-            happened. Unlike the two controls above, this one is not waiting for
+            happened. Unlike Complete Session, this one is not waiting for
             anything a team lead could do, so there is no sentence to keep
             reachable and nothing to explain. */}
         {readOnly ? null : stockCheckUnavailable ? (
-          <button aria-describedby={stockCheckReasonId} aria-disabled type="button">
+          <button
+            aria-describedby={stockCheckReasonId}
+            aria-disabled
+            onClick={() => {
+              showToast(STOCK_CHECK_UNAVAILABLE_REASON);
+            }}
+            type="button"
+          >
             Stock check
           </button>
         ) : (
@@ -237,12 +250,6 @@ function SessionActions({
             Stock check
           </button>
         )}
-        <Link className="button-link" to={`/run-sessions/${sessionId}/listener`}>
-          Listener sheet
-        </Link>
-        <Link className="button-link" to={`/run-sessions/${sessionId}/referral-details`}>
-          Referral details
-        </Link>
         {/* Absent rather than unavailable once the session is closed: after
             `POST /sessions/{id}/confirm` there is no override to offer, and a
             dead button on a session from three weeks ago only invites somebody
@@ -268,27 +275,32 @@ function SessionActions({
             {completing ? 'Completing session…' : 'Complete session'}
           </button>
         ) : (
-          <button aria-describedby={completeReasonId} aria-disabled type="button">
+          <button
+            aria-describedby={completeReasonId}
+            aria-disabled
+            onClick={() => {
+              showToast(COMPLETE_SESSION_UNAVAILABLE_REASON);
+            }}
+            type="button"
+          >
             Complete session
           </button>
         )}
       </div>
       {(printUnavailable || stockCheckUnavailable || completeUnavailable) && (
         <div className={styles.hints}>
-          {printUnavailable && <p id={printReasonId}>Review every pick list before printing.</p>}
-          {stockCheckUnavailable && (
-            <p id={stockCheckReasonId}>
-              Review every pick list before checking stock — until then the quantities are still
-              moving.
-            </p>
-          )}
+          {/* No id/aria-describedby here: the control this explains, the Print
+              tab, is not on this page's DOM subtree — it is a sibling in
+              `RunSessionTabs`. This paragraph is for the sighted team lead
+              reading the Clients tab, same as the two below it. */}
+          {printUnavailable && <p>{PRINT_UNAVAILABLE_REASON}</p>}
+          {stockCheckUnavailable && <p id={stockCheckReasonId}>{STOCK_CHECK_UNAVAILABLE_REASON}</p>}
           {completeUnavailable && (
-            <p id={completeReasonId}>
-              Record an outcome for every client before completing session.
-            </p>
+            <p id={completeReasonId}>{COMPLETE_SESSION_UNAVAILABLE_REASON}</p>
           )}
         </div>
       )}
+      <Toast message={toastMessage} />
     </>
   );
 }
@@ -627,7 +639,6 @@ export function RunSessionDetailScreen() {
         <ErrorNotice error={reconcile.error} />
       </>
     );
-  const readOnlyReason = describeReadOnlySession(session.data.status);
   /*
    * A session that never had a pick list — cancelled before anybody opened it —
    * is a `404` on the read, and reads as an empty session rather than as a
@@ -639,15 +650,8 @@ export function RunSessionDetailScreen() {
     return (
       <>
         <PageHeader title="Run a session" />
-        <SessionLine session={session.data} />
-        {/* Announced here too. The `ErrorNotice` beside it says the pick list
-            would not load; this says why the session cannot be changed, and
-            that sentence is the only thing explaining the missing controls. */}
-        {readOnlyReason !== null && (
-          <p className={styles.readOnlyNotice} role="status">
-            {readOnlyReason}
-          </p>
-        )}
+        {/* Why the session cannot be changed is said once, on the tab strip's
+            shared chrome (`RunSessionLayout`) — not repeated here. */}
         <ErrorNotice error={pickList.error} onRetry={() => void pickList.refetch()} />
       </>
     );
@@ -682,12 +686,6 @@ export function RunSessionDetailScreen() {
   return (
     <>
       <PageHeader title="Run a session" />
-      <SessionLine session={session.data} />
-      {readOnlyReason !== null && (
-        <p className={styles.readOnlyNotice} role="status">
-          {readOnlyReason}
-        </p>
-      )}
       {reconcile.data !== undefined &&
         pickList.data !== undefined &&
         (reconcile.data.parcelsCreated ?? 0) > 0 && (
@@ -710,7 +708,6 @@ export function RunSessionDetailScreen() {
         }}
         readOnly={readOnly === true}
         readyToPrint={readyToPrint}
-        sessionId={sessionId}
         stockCheckOpen={stockCheckOnScreen}
         stockCheckPanelId={stockCheckPanelId}
       />
@@ -759,11 +756,6 @@ export function RunSessionDetailScreen() {
           </table>
         </div>
       )}
-      <SessionSmsPanel
-        parcels={currentParcels}
-        readOnly={readOnly === true}
-        sessionId={sessionId}
-      />
     </>
   );
 }
@@ -1328,19 +1320,6 @@ function LineEditor({
       />
     </label>
   );
-}
-
-function allParcelsReviewed(parcels: readonly Parcel[]): boolean {
-  return parcels.every((parcel) => parcel.reviewedAt !== null);
-}
-
-/**
- * Parcels are immutable operational snapshots, so cancelling a referral does
- * not delete its rows. The API marks that snapshot as cancelled; it must no
- * longer become a client, a print gate, or an SMS conversation.
- */
-function isCurrentParcel(parcel: Parcel): boolean {
-  return parcel.attendance !== 'cancelled';
 }
 
 type DraftLine = Pick<Parcel['lines'][number], 'stockItemId' | 'name' | 'shelfNumber' | 'quantity'>;

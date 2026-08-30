@@ -16,6 +16,30 @@ beforeEach(() => {
         user: { id: 'u3', email: 'lead@example.org', displayName: 'Lead', role: 'team_lead' },
       }),
     ),
+    // `RunSessionLayout` now wraps every route under `/run-sessions/:sessionId/*`
+    // and fetches the session itself, for the shared date/time line and the tab
+    // strip — so every test under this route needs this handler too.
+    http.get('/api/v1/sessions/:sessionId', () =>
+      HttpResponse.json({
+        id: SESSION_ID,
+        sessionDate: '2026-08-15',
+        startTime: '10:00',
+        startsAtUtc: '2026-08-15T09:00:00.000Z',
+        durationMinutes: 90,
+        location: 'St Mary’s Hall',
+        deliveryWindowStart: null,
+        deliveryWindowEnd: null,
+        deliveryCapacity: 0,
+        deliveryBooked: 0,
+        capacity: 25,
+        booked: 1,
+        status: 'planned',
+        cancelledReason: null,
+        isCustomised: false,
+        recurringSessionId: null,
+        occurrenceDate: null,
+      }),
+    ),
   );
 });
 

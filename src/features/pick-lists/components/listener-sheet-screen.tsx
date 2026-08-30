@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
@@ -171,9 +171,6 @@ export function ListenerSheetScreen() {
           </tbody>
         </table>
       )}
-      <p className={styles.screenOnly}>
-        <Link to={`/run-sessions/${sessionId}`}>Back to session</Link>
-      </p>
     </>
   );
 }

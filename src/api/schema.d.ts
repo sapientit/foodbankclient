@@ -3019,9 +3019,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Every retained text message
-         * @description **Admin only.** Every message still within the thirty-day retention period, newest first, whichever household or session it belongs to — the reminders, the replies, the failures and the loose replies alike.
-         *     Each row carries `location` so the client can group and label it without working out the session-status rule itself; see `SmsInboxMessage`. Viewing this list marks nothing read.
+         * Phone numbers with something on them besides a sent reminder
+         * @description **Admin only.** Newest first, within the thirty-day retention period — but only for a phone number with at least one message that is not a `reminder`. A number that was only ever reminded, and never heard from, is not returned at all. A number that does qualify comes back whole: every message within retention for that number, reminders included, so grouping the response by `phone` gives a complete conversation with no second call. See `SmsInboxMessage`.
+         *     Each row also carries `location` so the client can group and label it without working out the session-status rule itself. Viewing this list marks nothing read.
          */
         get: {
             parameters: {
@@ -5328,8 +5328,14 @@ export interface components {
             status: "planned" | "in_progress" | "confirmed" | "cancelled";
         };
         /**
-         * @description One row in the administrator inbox — every retained message, whichever
-         *     household or session it belongs to.
+         * @description One row in the administrator inbox. **Not every retained message** —
+         *     only phone numbers with at least one message that is not a `reminder`
+         *     (a `staff_reply`, a `household_reply` or a `failure`) appear at all; a
+         *     number that was only ever reminded, and never heard from, has nothing
+         *     here for anybody to do. A number that does qualify is returned whole —
+         *     every message within retention for that number, its reminders
+         *     included — so grouping by `phone` gives the client a complete
+         *     conversation without a second call.
          *
          *     `location` is derived from the session the message was snapshotted
          *     against when it arrived, not from wherever its referral sits now: a
@@ -5360,10 +5366,10 @@ export interface components {
             /** @enum {string} */
             location: "unmatched" | "active_session" | "closed_session";
             session: null | components["schemas"]["SmsInboxSession"];
+            /** @description On every row, not only `unmatched` ones — group a number's rows into a thread by this. `null` means the household had no number on file; a `null`-phone row is never the same thread as another `null`-phone row, so group those by `referralId` instead. */
+            phone: string | null;
             /** @description See `SmsMessage.simulated`. */
             simulated: boolean;
-            /** @description Present only when `location` is `unmatched`. A linked-session row has a referral to open instead, so there is nothing to act on a phone number for; a loose reply has no referral, and the number is the only way to act on it. */
-            phone?: string;
         };
         /** @description What the referrer gets back. This is the whole of their relationship with the system now: there is no key and no window, so show it as a confirmation. **Read `status`** — `pending_review` means the referral is waiting to be looked at, not that a place is booked and settled. */
         ReferralReceipt: {

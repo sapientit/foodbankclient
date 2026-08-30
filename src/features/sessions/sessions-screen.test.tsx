@@ -121,8 +121,19 @@ describe('an admin’s planning view', () => {
 
     // The link is named by date and hours together, so two sessions on one day
     // are told apart by a screen reader moving between links.
-    expect(await screen.findAllByRole('link', { name: /Tue, 4 Aug 2026/ })).toHaveLength(2);
-    expect(screen.getByRole('link', { name: /Tue, 11 Aug 2026/ })).toBeInTheDocument();
+    expect(await screen.findAllByRole('link', { name: /^Tue, 4 Aug 2026,/ })).toHaveLength(2);
+    expect(screen.getByRole('link', { name: /^Tue, 11 Aug 2026,/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Tue, 4 Aug 2026, 09:00–10:30' })).toHaveAttribute(
+      'href',
+      '/run-sessions/s1',
+    );
+    expect(
+      screen.getByRole('link', { name: 'Run session, Tue, 4 Aug 2026, 09:00–10:30' }),
+    ).toHaveAttribute('href', '/run-sessions/s1');
+    expect(
+      screen.getByRole('link', { name: 'Amend session, Tue, 4 Aug 2026, 09:00–10:30' }),
+    ).toHaveAttribute('href', '/sessions/s1');
+    expect(screen.getByRole('columnheader', { name: 'Action' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /4 Aug 2026/ })).toBeNull();
     // One header row plus one per session.
     expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(4);
@@ -185,9 +196,9 @@ describe('an admin’s planning view', () => {
 
     renderApp('/sessions');
 
-    expect(await screen.findByRole('link', { name: /Tue, 4 Aug 2026/ })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Wed, 5 Aug 2026/ })).toBeNull();
-    expect(screen.queryByRole('link', { name: /Thu, 6 Aug 2026/ })).toBeNull();
+    expect(await screen.findByRole('link', { name: /^Tue, 4 Aug 2026,/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^Wed, 5 Aug 2026,/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Thu, 6 Aug 2026,/ })).toBeNull();
 
     const user = userEvent.setup();
     await user.click(screen.getByLabelText('Show completed'));
@@ -195,8 +206,8 @@ describe('an admin’s planning view', () => {
     // Both, and cancelled deliberately: dropping the status filter left this as
     // the only route to a cancelled session, and the status column tells them
     // apart.
-    expect(await screen.findByRole('link', { name: /Wed, 5 Aug 2026/ })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Thu, 6 Aug 2026/ })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /^Wed, 5 Aug 2026,/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Thu, 6 Aug 2026,/ })).toBeInTheDocument();
     expect(screen.getByText('Confirmed')).toBeInTheDocument();
     expect(screen.getByText('Cancelled')).toBeInTheDocument();
   });

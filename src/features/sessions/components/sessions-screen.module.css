@@ -9,6 +9,23 @@
   font-weight: 600;
 }
 
+.rowActions {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+/* The icons run from a phone in a hall, so each has a full tap target rather
+   than leaving the tiny glyph as the only interactive area. */
+.rowAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  padding: 0.4rem;
+  border-radius: 0.25rem;
+}
+
 .intro {
   max-inline-size: 70ch;
 }

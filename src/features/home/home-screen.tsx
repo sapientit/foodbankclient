@@ -290,7 +290,7 @@ export function HomeScreen() {
                         caption={`Sessions ${tab === 'this-week' ? 'this week' : tab === 'next-week' ? 'next week' : 'in the selected range'}`}
                         captionHidden
                         capacityNouns={false}
-                        hrefFor={(session) => `/sessions/${session.id}`}
+                        hrefFor={(session) => `/run-sessions/${session.id}`}
                         sessions={displayed}
                       />
                       <Pagination

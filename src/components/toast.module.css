@@ -1,0 +1,13 @@
+/* Echoes a reason that is already written down persistently elsewhere — see
+   `toast.tsx`. Styled like this app's other inline outcome messages
+   (`readOnlyNotice`, `refusal` in `run-sessions-screen.module.css`): a
+   tinted block with a coloured edge, not a floating popup, because nothing
+   in this app floats. */
+.toast {
+  display: inline-block;
+  margin-block-start: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  max-inline-size: 40ch;
+  border-inline-start: 4px solid #005a9c;
+  background: #eef4f9;
+}

@@ -84,9 +84,10 @@ describe('marking an inbox message read', () => {
 
     expect(await screen.findByText('1 unread SMS messages')).toBeInTheDocument();
 
-    await router.navigate('/sms');
-    await user.click(await screen.findByRole('button', { name: 'Mark read' }));
-    await screen.findByRole('heading', { name: 'SMS Messages' });
+    await router.navigate('/sms/unmatched');
+    // Opening the thread is what marks it read now — there is no separate
+    // button — the same way a team lead's own thread view already works.
+    await user.click(await screen.findByText('Phone: +441234567890'));
 
     await router.navigate('/');
     expect(await screen.findByRole('heading', { name: "Today's sessions" })).toBeInTheDocument();

@@ -1,0 +1,67 @@
+/* Navigation, not a row of buttons — the same borderless, underlined-on-
+   selection language `home-screen.module.css`'s `.tabs` uses for This
+   week/Next week, and the same `box-shadow` technique `app-shell.module.css`
+   uses for its own subtabs. This screen is always the sessions category, so
+   the colour is written directly rather than through `--category-action`,
+   matching `app-shell.module.css`'s own subtabs rather than introducing a
+   second convention. */
+.tabs {
+  margin-block-end: 1rem;
+  border-block-end: 1px solid #cfdbd3;
+}
+
+.tabList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tabList a {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.6rem 0.85rem;
+  color: #176b3a;
+  text-decoration: none;
+}
+
+.tabList a[aria-current='page'] {
+  box-shadow: inset 0 -3px 0 #176b3a;
+  font-weight: 700;
+}
+
+/* The one tab that can also be a disabled button — sized to sit level with
+   its NavLink neighbours rather than the taller default control padding. Its
+   colour is left to `index.css`: an unavailable control here is grey like
+   every other one in the app, never a colour of this screen's choosing. */
+.tabList button {
+  padding: 0.6rem 0.85rem;
+}
+
+/* Small filled circle holding the unread count — `screenDetails.md`,
+   "SMS reminders and replies". `aria-hidden`, because the same count is
+   already in the link's own accessible name; colour is never the only
+   signal, so the digit itself, not just the red, carries the count. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 1.25rem;
+  block-size: 1.25rem;
+  margin-inline-start: 0.4rem;
+  padding-inline: 0.3rem;
+  border-radius: 999px;
+  background: #b3261e;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .tabs {
+    display: none;
+  }
+}
