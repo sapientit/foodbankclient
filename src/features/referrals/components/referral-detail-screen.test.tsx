@@ -386,6 +386,35 @@ describe('the admin referral detail screen', () => {
     expect(receivedBody).not.toHaveProperty('referrerEmail');
   });
 
+  it('does not amend a referral with a malformed stored UK mobile number', async () => {
+    let amendments = 0;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', refereePhone: '077009001234' })),
+      ),
+      http.patch(REFERRAL, () => {
+        amendments += 1;
+        return HttpResponse.json(referral({ id: 'r1' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+    await screen.findByRole('button', { name: 'Edit' });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Referrer and client details' }));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Client's contact number: enter a valid UK mobile number.",
+    );
+    expect(screen.getByLabelText("Client's contact number")).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(amendments).toBe(0);
+  });
+
   it('cancels a page edit without saving it', async () => {
     let amendments = 0;
     server.use(

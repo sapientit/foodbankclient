@@ -34,6 +34,59 @@ describe('ErrorNotice', () => {
     );
   });
 
+  it('never shows a refused session’s raw message', () => {
+    /*
+     * `authFetch` normally takes a refused session to sign-in before a query
+     * can render its failure. The guard and query lifecycles can overlap,
+     * though, so this is the last safe boundary: server wording such as
+     * "invalid access token" must never be the alarming thing a volunteer
+     * sees while their eight-hour sign-in is ending.
+     */
+    render(
+      <ErrorNotice
+        error={ApiError.from(
+          new Response(null, {
+            status: 401,
+            headers: { 'x-foodbank-session-ended': 'true' },
+          }),
+          {
+            error: { code: 'UNAUTHORIZED', message: 'invalid access token', requestId: 'req-9f2c' },
+          },
+        )}
+      />,
+    );
+
+    const notice = screen.getByRole('alert');
+    expect(screen.getByRole('heading', { name: 'Your sign-in has ended' })).toBeInTheDocument();
+    expect(notice).toHaveTextContent('Sign in again to continue.');
+    expect(notice).not.toHaveTextContent('invalid access token');
+  });
+
+  it('offers a reconnect retry when session refresh was only temporarily unavailable', () => {
+    /*
+     * The original request’s 401 tells us only that its bearer is stale. If
+     * the refresh itself did not complete, it says nothing about the cookie or
+     * eight-hour session, so calling the session ended would be a false sign
+     * out. Its token diagnostic is no more useful than it was in the expiry
+     * case.
+     */
+    render(
+      <ErrorNotice
+        error={apiError(401, 'UNAUTHORIZED', 'invalid access token')}
+        onRetry={() => undefined}
+      />,
+    );
+
+    const notice = screen.getByRole('alert');
+    expect(
+      screen.getByRole('heading', { name: 'We could not reconnect to the food bank' }),
+    ).toBeInTheDocument();
+    expect(notice).toHaveTextContent('Check your connection and try again.');
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(notice).not.toHaveTextContent('Your sign-in has ended');
+    expect(notice).not.toHaveTextContent('invalid access token');
+  });
+
   /**
    * The extract's own failures are the reason this exists. A spreadsheet whose
    * hidden key row is in the wrong order used to be reported as "We could not

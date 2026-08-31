@@ -148,11 +148,23 @@ describe('routing', () => {
   });
 
   it('sends a signed-out visitor to the login screen with a next path', async () => {
-    server.use(http.post(REFRESH, () => noSession()));
+    let refreshes = 0;
+    server.use(
+      http.post(REFRESH, () => {
+        refreshes += 1;
+        return noSession();
+      }),
+    );
 
     const router = renderAt('/sessions');
 
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Your sign-in has ended. Sign in again to continue.',
+    );
+    // The first refusal may be a rotated cookie from another tab; only a
+    // second refused refresh is a genuine ended session.
+    expect(refreshes).toBe(2);
     expect(router.state.location.pathname).toBe('/login');
     expect(router.state.location.search).toBe('?next=%2Fsessions&session=ended');
   });

@@ -17,9 +17,58 @@ describe('keyFieldSchema', () => {
     expect(accepts('referrerEmail', 'jane at guildford')).toBe(false);
   });
 
-  it('checks a phone number by length, matching the server bounds', () => {
+  it('accepts general contact numbers by length, matching the server bounds', () => {
     expect(accepts('referrerPhone', '01483 123456')).toBe(true);
     expect(accepts('referrerPhone', '123')).toBe(false);
+  });
+
+  it('accepts a UK mobile in national, +44 and 0044 forms', () => {
+    expect(accepts('refereePhone', '07700900123')).toBe(true);
+    expect(accepts('refereePhone', '+447700900123')).toBe(true);
+    expect(accepts('refereePhone', '00447700900123')).toBe(true);
+  });
+
+  it('accepts a formatted UK mobile number', () => {
+    expect(accepts('refereePhone', '07700 900 123')).toBe(true);
+    expect(accepts('refereePhone', '+44 (7700) 900-123')).toBe(true);
+  });
+
+  it('keeps non-mobile 070 and 076 numbers as general contact numbers', () => {
+    expect(accepts('refereePhone', '07000900123')).toBe(true);
+    expect(accepts('refereePhone', '07600900123')).toBe(true);
+  });
+
+  it('does not label a valid-length non-mobile prefix as a mobile error', () => {
+    // These stay within the server's general phone bounds.  `070` and `076`
+    // are not UK mobile prefixes, so only a genuine mobile-looking input gets
+    // the fixed-length mobile rule.
+    expect(accepts('refereePhone', '070009001234')).toBe(true);
+    expect(accepts('refereePhone', '076009001234')).toBe(true);
+  });
+
+  it('rejects a UK mobile form with too many digits', () => {
+    expect(accepts('refereePhone', '077009001234')).toBe(false);
+    expect(accepts('refereePhone', '+4477009001234')).toBe(false);
+    expect(accepts('refereePhone', '004477009001234')).toBe(false);
+  });
+
+  it('rejects a UK mobile form with too few digits', () => {
+    expect(accepts('refereePhone', '0770090012')).toBe(false);
+    expect(accepts('refereePhone', '+44770090012')).toBe(false);
+    expect(accepts('refereePhone', '0044770090012')).toBe(false);
+  });
+
+  it('explains a malformed UK mobile number precisely', () => {
+    const validation = keyFieldSchema('refereePhone', {
+      label: 'Client’s contact number',
+      required: false,
+    }).safeParse('077009001234');
+
+    expect(validation.success).toBe(false);
+    if (validation.success) throw new Error('Expected the malformed mobile number to be rejected.');
+    expect(validation.error.issues[0]?.message).toBe(
+      'Client’s contact number: enter a valid UK mobile number.',
+    );
   });
 
   it('accepts a postcode however it was spaced or cased', () => {

@@ -159,6 +159,11 @@ describe('authFetch', () => {
     expect(refreshes).toBe(2);
     expect(signOutCount()).toBe(1);
     expect(responses.map((response) => response.status)).toEqual([401, 401, 401]);
+    expect(responses.map((response) => response.headers.get('x-foodbank-session-ended'))).toEqual([
+      'true',
+      'true',
+      'true',
+    ]);
   });
 
   it('keeps the session when a rejected refresh succeeds on its one retry', async () => {
@@ -201,6 +206,7 @@ describe('authFetch', () => {
     expect(response.status).toBe(401);
     expect(refreshes).toBe(1);
     expect(signOutCount()).toBe(0);
+    expect(response.headers.get('x-foodbank-session-ended')).toBeNull();
   });
 
   it('does not sign out when refresh receives a server failure', async () => {
@@ -215,6 +221,7 @@ describe('authFetch', () => {
 
     expect(response.status).toBe(401);
     expect(signOutCount()).toBe(0);
+    expect(response.headers.get('x-foodbank-session-ended')).toBeNull();
   });
 
   it('does not sign out when refresh returns a malformed success response', async () => {
@@ -227,6 +234,7 @@ describe('authFetch', () => {
 
     expect(response.status).toBe(401);
     expect(signOutCount()).toBe(0);
+    expect(response.headers.get('x-foodbank-session-ended')).toBeNull();
   });
 
   it('a 401 after a completed refresh triggers a second refresh', async () => {

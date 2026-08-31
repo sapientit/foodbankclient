@@ -52,12 +52,35 @@ const API_ERROR_CODES: Record<ApiErrorCode, true> = {
 
 const GENERIC_MESSAGE = 'Something went wrong. Please try again.';
 
+/*
+ * A response-local marker, set by authFetch only after both refresh attempts
+ * were refused. It is deliberately not inferred from HTTP status: a 401 that
+ * followed a transient refresh failure has not ended the session.
+ */
+const SESSION_ENDED_HEADER = 'x-foodbank-session-ended';
+
 interface ApiErrorInit {
   readonly status: number;
   readonly code: ApiErrorCode;
   readonly message: string;
   readonly requestId: string | null;
   readonly details: Readonly<Record<string, unknown>> | null;
+  readonly sessionEnded?: boolean;
+}
+
+/**
+ * Preserves a refused domain response while carrying the one fact only the
+ * auth interceptor knows: both refresh attempts were refused and it ended the
+ * session. The marker stays inside this client; it is read by `ApiError.from`.
+ */
+export function markSessionEnded(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set(SESSION_ENDED_HEADER, 'true');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 /**
@@ -89,6 +112,7 @@ export class ApiError extends Error {
   readonly requestId: string | null;
   readonly details: Readonly<Record<string, unknown>> | null;
   readonly issues: readonly FieldIssue[];
+  readonly sessionEnded: boolean;
 
   constructor(init: ApiErrorInit) {
     super(init.message);
@@ -97,6 +121,7 @@ export class ApiError extends Error {
     this.requestId = init.requestId;
     this.details = init.details;
     this.issues = readIssues(init.details);
+    this.sessionEnded = init.sessionEnded ?? false;
   }
 
   /**
@@ -117,6 +142,7 @@ export class ApiError extends Error {
       // for the responses that carry no body, and for the edge's own errors.
       requestId: envelope?.requestId ?? response.headers.get('x-request-id'),
       details: envelope?.details ?? null,
+      sessionEnded: response.headers.get(SESSION_ENDED_HEADER) === 'true',
     });
   }
 }

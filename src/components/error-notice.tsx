@@ -108,6 +108,29 @@ export function ErrorNotice({ error, onRetry }: { error: unknown; onRetry?: () =
     );
   }
 
+  // The auth interceptor has already ended the session and RequireAuth is
+  // redirecting to the sign-in screen. A mutation can render for one frame
+  // first, so never expose the server's token diagnostic in that gap.
+  if (error.status === 401 && error.sessionEnded) {
+    return (
+      <Notice headline="Your sign-in has ended">
+        <p>Sign in again to continue.</p>
+      </Notice>
+    );
+  }
+
+  // A failed refresh can be transient, and deliberately leaves the session
+  // intact. The original 401 is not an explanation a volunteer can act on,
+  // especially when it contains a bearer-token diagnostic.
+  if (error.status === 401) {
+    return (
+      <Notice headline="We could not reconnect to the food bank">
+        <p>Check your connection and try again.</p>
+        {retry}
+      </Notice>
+    );
+  }
+
   if (error.status === 429) {
     // Deliberately no retry button. The public endpoints allow roughly sixty
     // calls a minute per IP, and a button someone taps six times is exactly how
@@ -145,8 +168,7 @@ export function ErrorNotice({ error, onRetry }: { error: unknown; onRetry?: () =
   }
 
   // 409 and 422 land here, and so does anything else with a message: the
-  // server's sentence, unaltered. A 401 reaches this only if the single-flight
-  // refresh has already given up, in which case the sign-in screen is next.
+  // server's sentence, unaltered.
   return (
     <Notice headline="We could not do that">
       <p>{describeApiError(error)}</p>

@@ -180,9 +180,10 @@ function describeProblem(control: KeyFieldControl, value: string, label: string)
         : `${label}: enter a valid email address.`;
 
     case 'phone':
-      return value.length < PHONE_BOUNDS.minLength || value.length > PHONE_BOUNDS.maxLength
-        ? `${label}: enter a phone number between ${String(PHONE_BOUNDS.minLength)} and ${String(PHONE_BOUNDS.maxLength)} characters.`
-        : null;
+      if (value.length < PHONE_BOUNDS.minLength || value.length > PHONE_BOUNDS.maxLength) {
+        return `${label}: enter a phone number between ${String(PHONE_BOUNDS.minLength)} and ${String(PHONE_BOUNDS.maxLength)} characters.`;
+      }
+      return hasInvalidUkMobileShape(value) ? `${label}: enter a valid UK mobile number.` : null;
 
     case 'date':
       return describeDateProblem(value, label);
@@ -209,6 +210,28 @@ function describeProblem(control: KeyFieldControl, value: string, label: string)
       // the server's `422`, whose message is written to be shown.
       return null;
   }
+}
+
+/**
+ * A phone field remains general contact information: landlines and overseas
+ * numbers are valid entries even though an SMS provider may later be unable to
+ * deliver to them. UK mobile prefixes are different: their national shape is
+ * fixed, so catching a missing or extra digit here gives the referrer a chance
+ * to correct a number that a reminder would otherwise reject.
+ */
+export function hasInvalidUkMobileShape(value: string): boolean {
+  const compact = value.replace(/[\s().-]/g, '');
+  const national = compact.startsWith('+44')
+    ? `0${compact.slice(3)}`
+    : compact.startsWith('0044')
+      ? `0${compact.slice(4)}`
+      : compact;
+
+  // 070 is personal numbering and 076 is paging, not a mobile. They remain
+  // general contact numbers; only actual UK mobile ranges get this extra
+  // fixed-length validation.
+  const isUkMobilePrefix = /^07(?:[1-5]|[7-9])/.test(national);
+  return isUkMobilePrefix && !/^07(?:[1-5]|[7-9])\d{8}$/.test(national);
 }
 
 function describeDateProblem(value: string, label: string): string | null {

@@ -1,5 +1,6 @@
 import { withRefreshLock } from './refresh-lock';
 import { getAccessToken, publishAuthEvent, setAccessToken, type AuthUser } from './token-store';
+import { markSessionEnded } from '../lib/errors';
 
 /**
  * The bearer header and the single-flight 401 refresh. Nothing else in the app
@@ -50,7 +51,10 @@ export async function authFetch(request: Request): Promise<Response> {
     // session intact and let a later request try its one shared refresh again.
     return response;
   }
-  if (user === null) return response;
+  // `refreshSession()` publishes the signed-out event only after both refresh
+  // attempts were refused. Carry that fact with this response so the UI does
+  // not mistake an unrelated or transient 401 for an ended sign-in.
+  if (user === null) return markSessionEnded(response);
 
   // Exactly one retry. If a freshly minted token is also refused, refreshing
   // again cannot help and the caller sees the 401 — which the query layer will
