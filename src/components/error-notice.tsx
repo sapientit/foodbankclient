@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { copyToClipboard } from '../lib/clipboard';
 import { ApiError, ShowableError, describeApiError, issuesToFieldErrors } from '../lib/errors';
 import styles from './error-notice.module.css';
 
@@ -183,19 +184,4 @@ function Notice({ headline, children }: { headline: string; children: ReactNode 
       {children}
     </div>
   );
-}
-
-/**
- * Resolves false where the clipboard is unavailable or refused — an insecure
- * origin, an older browser, a denied permission. The reference is on screen and
- * selectable regardless, so the button is a convenience and never the only way
- * to get the value.
- */
-async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
 }

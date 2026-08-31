@@ -54,6 +54,11 @@ describe('menuFor', () => {
     expect(teamLead).not.toContain('Record a shop');
     expect(teamLead).toContain('Stock take');
     expect(teamLead).not.toContain('Stock items');
+
+    // The shopping list is worked out from a target list a team lead only
+    // reads; maintaining the target lists is admin work.
+    expect(teamLead).toContain('Shopping');
+    expect(teamLead).not.toContain('Target lists');
   });
 
   it('gives a team lead the operational session work, not maintenance referrals or sessions', () => {
@@ -93,6 +98,22 @@ describe('contextual navigation', () => {
     expect(subtabsFor('team_lead', '/stock/take').map((item) => item.label)).toEqual([
       'Stock',
       'Stock take',
+      'Shopping',
+    ]);
+  });
+
+  it('offers a team lead the Shopping screen but not target-list maintenance', () => {
+    const stock = subtabsFor('team_lead', '/stock/shopping').map((item) => item.label);
+    expect(stock).toContain('Shopping');
+    expect(stock).not.toContain('Target lists');
+    expect(subtabsFor('admin', '/stock/target-lists').map((item) => item.label)).toEqual([
+      'Stock',
+      'Stock take',
+      'Stock items',
+      'Target lists',
+      'Shopping',
+      'Model parcels',
+      'Parcel Grid',
     ]);
   });
 

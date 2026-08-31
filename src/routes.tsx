@@ -47,6 +47,10 @@ import { CreateStockItemScreen } from './features/stock/components/create-stock-
 import { StockItemsScreen } from './features/stock/components/stock-items-screen';
 import { StockLevelsScreen } from './features/stock/components/stock-levels-screen';
 import { StockTakeScreen } from './features/stock/components/stock-take-screen';
+import { AmendTargetStockListScreen } from './features/target-stock-lists/components/amend-target-stock-list-screen';
+import { CreateTargetStockListScreen } from './features/target-stock-lists/components/create-target-stock-list-screen';
+import { ShoppingScreen } from './features/target-stock-lists/components/shopping-screen';
+import { TargetStockListsScreen } from './features/target-stock-lists/components/target-stock-lists-screen';
 import { AmendUserScreen } from './features/users/components/amend-user-screen';
 import { CreateUserScreen } from './features/users/components/create-user-screen';
 import { UsersScreen } from './features/users/components/users-screen';
@@ -190,6 +194,19 @@ export const routes: RouteObject[] = [
       { path: 'stock/items', element: <StockItemsScreen /> },
       { path: 'stock/items/new', element: <CreateStockItemScreen /> },
       { path: 'stock/items/:stockItemId', element: <AmendStockItemScreen /> },
+      /*
+       * Target stock lists — the named sets of desired stock levels. Maintenance
+       * (`stock/target-lists*`) is admin only for **writes**; a team lead may
+       * *read* the lists (`API.md` §2 — that is how `stock/shopping`, which is
+       * both roles, works). So a team lead who types the maintenance URL sees
+       * the list and only meets a real 403 when they Delete or Save. No route
+       * is role-guarded either way. `target-lists/new` is a static sibling of
+       * `target-lists/:targetStockListId`, never shadowed by it.
+       */
+      { path: 'stock/target-lists', element: <TargetStockListsScreen /> },
+      { path: 'stock/target-lists/new', element: <CreateTargetStockListScreen /> },
+      { path: 'stock/target-lists/:targetStockListId', element: <AmendTargetStockListScreen /> },
+      { path: 'stock/shopping', element: <ShoppingScreen /> },
       /*
        * Model parcels and the household grid. Admin only per `API.md` §2, and
        * — as with users and stock items — no route is role-guarded: a team

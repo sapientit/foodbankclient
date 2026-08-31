@@ -55,6 +55,14 @@ export const MENU: readonly MenuItem[] = [
   // Maintaining the stock item list is not the same thing as moving stock.
   { to: '/stock/items', label: 'Stock items', roles: ADMIN_ONLY },
 
+  // Target stock lists — the named sets of desired stock levels. Maintaining
+  // them is admin work, alongside the stock item list. Generating a shopping
+  // list from one is a team lead's job — they do the food shopping — so
+  // `/stock/shopping` is `SESSION_STAFF`, the one part of stock maintenance a
+  // team lead reaches (`API.md` §2: "Target stock lists: read" is both roles).
+  { to: '/stock/target-lists', label: 'Target lists', roles: ADMIN_ONLY },
+  { to: '/stock/shopping', label: 'Shopping', roles: SESSION_STAFF },
+
   // Model parcels and the household grid decide what a household receives —
   // `API.md` §2 puts this admin-only, alongside the stock item list and the
   // rest of the maintenance screens. A team lead runs sessions against
@@ -121,7 +129,7 @@ export function navigationSectionsFor(role: Role): readonly NavigationSection[] 
   });
 
   if (role === 'team_lead') {
-    return [section(itemAt('/stock'), ['/stock', '/stock/take'])];
+    return [section(itemAt('/stock'), ['/stock', '/stock/take', '/stock/shopping'])];
   }
 
   return [
@@ -136,6 +144,8 @@ export function navigationSectionsFor(role: Role): readonly NavigationSection[] 
       '/stock',
       '/stock/take',
       '/stock/items',
+      '/stock/target-lists',
+      '/stock/shopping',
       '/model-parcels',
       '/model-parcels/grid',
     ]),

@@ -290,6 +290,18 @@ both happily in a test; whether a volunteer can do the same with a keyboard,
 a mouse, or a thumb has not been watched. Worth doing by hand on Chrome,
 Safari and Firefox, and on a phone.
 
+**The shopping list has never been printed on paper or pasted into a
+spreadsheet.** `shopping-screen.module.css` sets `@page { size: A4 landscape }`,
+a three-column grid and `break-inside: avoid` on each category group, but jsdom
+evaluates no CSS: the tests prove the column split keeps a heading with its
+items and that the markup is there, not that three columns actually fill down
+the first before the second on A4, that a category heavier than a column
+overflows to the next rather than being clipped, or that no heading is stranded
+at a page break. The `Copy to clipboard` button is tested against
+`userEvent`'s clipboard stub, not a real `navigator.clipboard`, and nothing
+proves the tab-separated text lands as two columns in Google Sheets or Excel.
+Worth doing by hand on Chrome, Firefox and Safari before go-live.
+
 **Neither the model parcel screens nor the household grid has been opened in a
 real browser.** The grid is the hard case: thirty native `<select>` elements
 in one table, each with an `aria-label` combining both dimensions rather than

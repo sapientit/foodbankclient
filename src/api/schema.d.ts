@@ -3963,6 +3963,178 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/target-stock-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List target stock lists
+         * @description Admin and team lead, settled (2026-08-31, was Q48). A team lead sees the list whole, target quantities and all, not only the shopping list worked out from one — unlike a model parcel, there is nothing on a target stock list a team lead does not already see for themselves in the stock room.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Target stock lists */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            targetStockLists: components["schemas"]["TargetStockList"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a target stock list
+         * @description Admin only. `lines` is stored **exactly as sent** — the server does
+         *     not check `stockItemId` against the stock item catalogue and does not
+         *     overwrite `name`, settled 2026-08-31 (was Q46).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        /** @description The same `stockItemId` may not appear twice. */
+                        lines: components["schemas"]["TargetStockLine"][];
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TargetStockList"];
+                    };
+                };
+                /** @description A target stock list with that name already exists */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/target-stock-lists/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a target stock list
+         * @description Admin only. Idempotent — deleting an id that is already gone still returns `204`.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Amend a target stock list
+         * @description Admin only. `name` is amendable, settled 2026-08-31 (was Q44) —
+         *     unlike a model parcel's, nothing else refers to a target stock list by
+         *     name. `lines`, if sent, **replaces the array wholesale**, like
+         *     `PUT /parcel-grid` — there is no line-by-line merge.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        /** @description The same `stockItemId` may not appear twice. */
+                        lines?: components["schemas"]["TargetStockLine"][];
+                    };
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TargetStockList"];
+                    };
+                };
+                /** @description No target stock list with that id */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description A target stock list with that name already exists */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/sessions/{sessionId}/pick-list": {
         parameters: {
             query?: never;
@@ -5781,6 +5953,20 @@ export interface components {
             description: string | null;
             displayOrder: number;
             contents: components["schemas"]["ParcelContentLine"][];
+        };
+        TargetStockLine: {
+            /** @description A stock item id, as a snapshot rather than a live reference — see `TargetStockList`. Not validated against the stock item catalogue on write: settled 2026-08-31 (was Q46), because that is what the server has to tolerate in order to store the discrepancies it catches for the administrator. */
+            stockItemId: string;
+            /** @description The stock item's name as it stood when this line was saved. */
+            name: string;
+            /** @description `0` is never valid, settled 2026-08-31 (was Q45) — the same as not entered. Absence from the list is how "not on this list" is said. */
+            targetQuantity: number;
+        };
+        TargetStockList: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            lines: components["schemas"]["TargetStockLine"][];
         };
         PickList: {
             /** Format: uuid */

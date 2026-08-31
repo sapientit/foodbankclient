@@ -10,7 +10,7 @@ and unresolved server/domain questions in `../foodbankserver/OPEN-QUESTIONS.md`.
 suggests** are in [`KNOWN-GAPS.md`](./KNOWN-GAPS.md); things with a known answer and no work done are
 in [`DEFERRED-WORK.md`](./DEFERRED-WORK.md).
 
-`npm run check` is green at 96 test files and 979 tests.
+`npm run check` is green at 117 test files and 1131 tests.
 
 ---
 
@@ -38,8 +38,9 @@ in [`DEFERRED-WORK.md`](./DEFERRED-WORK.md).
 | **14 — text messages**        | The SMS panel on a run-session screen — reminders, per-household conversations, replies — and the administrator SMS inbox as two tabs: Session messages at `/sms` (active and closed sessions, with the household's name) and Loose messages at `/sms/unmatched` (no referral behind them, phone number and a prefilled referral search).                                                                                                                  |
 | **15 — fuel help**            | `/fuel-help` and the `fuel_admin` role, whose whole application this is. Columns are chosen by the referral form's `forFuelTeam` marker rather than a second list of keys.                                                                                                                                                                                                                                                                                 |
 | **16 — extract and search**   | `/extracts` sends confirmed sessions to the charity's Google spreadsheet, a claim at a time, with the hidden key row that lets new answers become new columns. `/referrals/search` finds a household by date of birth, postcode or phone, and each row carries the causes and the administrator notes; `/preference-rules` validates the rule configuration against the catalogue.                                                                         |
+| **17 — target stock lists**   | `src/features/target-stock-lists/`: the named standing target lists an admin maintains at `/stock/target-lists*`, and `/stock/shopping` where a team lead picks one and gets the buy list — target minus current stock, positive only, grouped by category, printed landscape or copied. Renamed / retired / missing reconciliation is client-side; the buy list joins the list to `GET /stock/levels`. Contract settled (server Q44–Q48).                 |
 
-**All seventeen menu destinations route to a real screen.** The role split is enforced as data in
+**All nineteen menu destinations route to a real screen.** The role split is enforced as data in
 `src/auth/menu.ts` and tested in `src/auth/menu.test.ts`.
 
 The stock take is available to a team lead or administrator at `POST /stock/take`; levels and item
