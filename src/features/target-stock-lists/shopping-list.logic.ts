@@ -18,7 +18,12 @@ export interface ShoppingStockLevel {
   readonly name: string;
   readonly category: string;
   readonly isActive: boolean;
-  /** May be negative after an attendance correction — do not clamp it. */
+  /**
+   * May be negative after an attendance correction. The shortfall arithmetic
+   * clamps it at zero — a negative level is a tracking error, not stock this
+   * week's shop can recover, so the buy quantity only ever reaches the target
+   * from an empty shelf.
+   */
   readonly quantityOnHand: number;
 }
 
@@ -28,7 +33,10 @@ export interface ShoppingItem {
   readonly category: string;
   readonly targetQuantity: number;
   readonly quantityOnHand: number;
-  /** `targetQuantity - quantityOnHand`, always `> 0` for an item that reaches the list. */
+  /**
+   * `targetQuantity - max(0, quantityOnHand)`, always `> 0` for an item that
+   * reaches the list.
+   */
   readonly need: number;
   /** The stored snapshot name no longer matches the catalogue — flagged on the sheet. */
   readonly renamedFrom: string | null;
@@ -90,7 +98,10 @@ export function computeShoppingList(
     const level = byId.get(line.stockItemId);
     if (level === undefined) continue;
 
-    const need = line.targetQuantity - level.quantityOnHand;
+    // Clamp a negative on-hand figure at zero: those units went out unrecorded
+    // and next week's shop cannot put that right — buy only enough to reach the
+    // target from an empty shelf.
+    const need = line.targetQuantity - Math.max(0, level.quantityOnHand);
     if (need <= 0) continue;
 
     const renamedFrom = line.discrepancy === 'renamed' ? line.storedName : null;

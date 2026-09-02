@@ -44,12 +44,12 @@ describe('computeShoppingList', () => {
     ]);
   });
 
-  it('treats negative stock on hand as a bigger shortfall', () => {
+  it('treats negative stock on hand as an empty shelf, not a bigger shortfall', () => {
     const { groups } = computeShoppingList(
       [{ stockItemId: 's1', name: 'Baked beans', targetQuantity: 5 }],
       [level('s1', 'Baked beans', 'Tinned', -2)],
     );
-    expect(groups[0]?.items[0]?.need).toBe(7);
+    expect(groups[0]?.items[0]?.need).toBe(5);
   });
 
   it('pulls a retired item out — attention only, never bought', () => {

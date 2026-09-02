@@ -141,7 +141,7 @@ function writeAtomically(path, content) {
   renameSync(temporaryPath, path);
 }
 
-function importQuestionnaire({ input, projectRoot = defaultProjectRoot }) {
+export function importQuestionnaire({ input, projectRoot = defaultProjectRoot, runCommand = run }) {
   const configPath = configPathFrom(projectRoot);
   const ledgerPath = ledgerPathFrom(projectRoot);
   let config;
@@ -162,8 +162,8 @@ function importQuestionnaire({ input, projectRoot = defaultProjectRoot }) {
   try {
     writeAtomically(configPath, nextConfig);
     writeAtomically(ledgerPath, nextLedger);
-    run('npx', ['prettier', '--write', configPath, ledgerPath], projectRoot);
-    run(
+    runCommand('npx', ['prettier', '--write', configPath, ledgerPath], projectRoot);
+    runCommand(
       'npx',
       ['vitest', 'run', 'src/features/referrals/referral-form-config.test.ts'],
       projectRoot,
