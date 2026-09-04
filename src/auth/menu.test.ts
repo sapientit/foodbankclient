@@ -153,6 +153,7 @@ describe('contextual navigation', () => {
       'Users',
       'Reasons for Crisis',
       'Rule check',
+      'Christmas vouchers',
     ]);
   });
 });

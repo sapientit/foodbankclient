@@ -20,10 +20,12 @@ import {
   RunSessionMessagesScreen,
   SmsInboxLayout,
   SmsLooseMessagesScreen,
+  SmsReferrerMessagesScreen,
   SmsSessionMessagesScreen,
 } from './features/pick-lists/components/sms-panel';
 import { PreferenceRuleHealthScreen } from './features/pick-lists/components/preference-rule-health-screen';
 import { ReferralDetailScreen } from './features/referrals/components/referral-detail-screen';
+import { FirstTimeReviewScreen } from './features/referrals/components/first-time-review-screen';
 import { ReferralsScreen } from './features/referrals/components/referrals-screen';
 import { ReferralSearchScreen } from './features/referrals/components/referral-search-screen';
 import { AmendRecurringSessionScreen } from './features/sessions/components/amend-recurring-session-screen';
@@ -42,6 +44,7 @@ import { AmendModelParcelScreen } from './features/model-parcels/components/amen
 import { CreateModelParcelScreen } from './features/model-parcels/components/create-model-parcel-screen';
 import { HouseholdGridScreen } from './features/model-parcels/components/household-grid-screen';
 import { ModelParcelsScreen } from './features/model-parcels/components/model-parcels-screen';
+import { VoucherConfigScreen } from './features/vouchers/components/voucher-config-screen';
 import { AmendStockItemScreen } from './features/stock/components/amend-stock-item-screen';
 import { CreateStockItemScreen } from './features/stock/components/create-stock-item-screen';
 import { StockItemsScreen } from './features/stock/components/stock-items-screen';
@@ -143,6 +146,7 @@ export const routes: RouteObject[] = [
        */
       { path: 'referrals', element: <ReferralsScreen /> },
       { path: 'referrals/search', element: <ReferralSearchScreen /> },
+      { path: 'referrals/:referralId/first-time-review', element: <FirstTimeReviewScreen /> },
       { path: 'referrals/:referralId', element: <ReferralDetailScreen /> },
       { path: 'run-sessions', element: <RunSessionsScreen /> },
       /*
@@ -175,10 +179,12 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <SmsSessionMessagesScreen /> },
           { path: 'unmatched', element: <SmsLooseMessagesScreen /> },
+          { path: 'referrers', element: <SmsReferrerMessagesScreen /> },
         ],
       },
       { path: 'run-sessions/:sessionId/clients/:parcelId', element: <RunSessionClientScreen /> },
       { path: 'preference-rules', element: <PreferenceRuleHealthScreen /> },
+      { path: 'voucher-config', element: <VoucherConfigScreen /> },
       { path: 'fuel-help', element: <FuelHelpListScreen /> },
       { path: 'extracts', element: <ExtractScreen /> },
       /*

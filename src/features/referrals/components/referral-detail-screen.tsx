@@ -46,6 +46,7 @@ import {
   useReferral,
   useReviewReferral,
   useRepeatReferrals,
+  useSaveFirstTimeReview,
   type AmendReferralInput,
   type Referral,
   type RepeatReferralMatch,
@@ -122,10 +123,15 @@ export function ReferralDetailScreen() {
 
 function ReferralDetail({ referral }: { referral: Referral }) {
   const isAdminView = hasAdminFields(referral);
+  const navigate = useNavigate();
   const purged = isPurged(referral);
   const outcome = displayedOutcome(referral);
   const locked = describeLockedReferral(referral);
   const lockedId = useId();
+  const firstTimeReviewNeeded = isAdminView && referral.firstTimeReview?.status === 'unreviewed';
+  const firstTimeMatches = useRepeatReferrals(referral.id, false, firstTimeReviewNeeded);
+  const saveFirstTimeReview = useSaveFirstTimeReview();
+  const automaticallyRecordedNoPrevious = useRef<string | null>(null);
 
   const sessions = useSessions();
   // Never fetched for a team lead — see the module comment and
@@ -179,6 +185,25 @@ function ReferralDetail({ referral }: { referral: Referral }) {
   useEffect(() => {
     if (fromCopy) copiedNotice.current?.focus();
   }, [fromCopy]);
+
+  useEffect(() => {
+    if (!firstTimeReviewNeeded || firstTimeMatches.isPending || firstTimeMatches.isError) return;
+    if (firstTimeMatches.data.count > 0) {
+      void navigate(`/referrals/${referral.id}/first-time-review`, { replace: true });
+      return;
+    }
+    if (automaticallyRecordedNoPrevious.current === referral.id) return;
+    automaticallyRecordedNoPrevious.current = referral.id;
+    saveFirstTimeReview.mutate({ id: referral.id, body: { noPreviousReferral: true } });
+  }, [
+    firstTimeMatches.data,
+    firstTimeMatches.isError,
+    firstTimeMatches.isPending,
+    firstTimeReviewNeeded,
+    navigate,
+    referral.id,
+    saveFirstTimeReview,
+  ]);
 
   return (
     <>
@@ -282,6 +307,9 @@ function ReferralDetail({ referral }: { referral: Referral }) {
       )}
 
       {hasRepeatReferralSummary(referral) && <PreviousReferralsPanel referral={referral} />}
+
+      {firstTimeMatches.isError && <ErrorNotice error={firstTimeMatches.error} />}
+      {saveFirstTimeReview.error !== null && <ErrorNotice error={saveFirstTimeReview.error} />}
 
       {/* A decision about whether the household is coming belongs near the
           matching-referral context, before the editable household details. */}
@@ -487,6 +515,14 @@ function PreviousReferralsPanel({ referral }: { referral: Referral }) {
             >
               Show previous referrals
             </button>
+          )}
+          {referral.firstTimeReview?.status !== 'unreviewed' && (
+            <Link
+              className="button-link button-secondary"
+              to={`/referrals/${referral.id}/first-time-review`}
+            >
+              Review previous attendance
+            </Link>
           )}
         </>
       )}
@@ -817,12 +853,21 @@ function keyFieldAnswer(referral: Referral, field: KeyFieldName): string {
       return String(referral.adults);
     case 'children':
       return String(referral.children);
-    case 'isDelivery':
-      return referral.isDelivery ? 'Yes' : '';
     case 'needsFuelHelp':
       return referral.needsFuelHelp ? 'Yes' : '';
     case 'reasonId':
       return referral.reasonId ?? '';
+  }
+}
+
+function describeCollectionMethod(method: Referral['collectionMethod']): string {
+  switch (method) {
+    case 'collection':
+      return 'Collection';
+    case 'delivery':
+      return 'Delivery';
+    case 'referrer_collect':
+      return 'Referrer will collect';
   }
 }
 
@@ -866,9 +911,6 @@ function addKeyFieldPatch(
       break;
     case 'children':
       if (typeof parsed === 'number') patch.children = parsed;
-      break;
-    case 'isDelivery':
-      if (typeof parsed === 'boolean') patch.isDelivery = parsed;
       break;
     case 'needsFuelHelp':
       if (typeof parsed === 'boolean') patch.needsFuelHelp = parsed;
@@ -967,8 +1009,14 @@ function AnswerPageEditor({
       if (typeof submitted.keyFields.children === 'number')
         patch.children = submitted.keyFields.children;
     }
-    if (touched.has(COLLECTION_METHOD_KEY) && typeof submitted.keyFields.isDelivery === 'boolean') {
-      patch.isDelivery = submitted.keyFields.isDelivery;
+    const collectionMethod = submitted.keyFields.collectionMethod;
+    if (
+      touched.has(COLLECTION_METHOD_KEY) &&
+      (collectionMethod === 'collection' ||
+        collectionMethod === 'delivery' ||
+        collectionMethod === 'referrer_collect')
+    ) {
+      patch.collectionMethod = collectionMethod;
     }
     for (const question of shown) {
       if (question.type === 'keyField' && editableKeyField(question.field)) {
@@ -1106,8 +1154,8 @@ function DetailsForm({
             <dd>{referral.children}</dd>
           </>
         )}
-        <dt>Delivery</dt>
-        <dd>{referral.isDelivery ? 'Yes' : 'No'}</dd>
+        <dt>Collection method</dt>
+        <dd>{describeCollectionMethod(referral.collectionMethod)}</dd>
         <dt>Fuel help</dt>
         <dd>{referral.needsFuelHelp ? 'Yes' : 'No'}</dd>
         {isAdminView && (

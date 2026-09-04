@@ -15,6 +15,7 @@ const BASE_PARCEL: Parcel = {
   reviewedAt: null,
   attendance: 'pending',
   notes: null,
+  firstTimeMarker: null,
   answers: {},
   lines: [],
 };

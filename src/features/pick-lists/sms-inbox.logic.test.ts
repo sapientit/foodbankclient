@@ -11,6 +11,7 @@ function message(
     body: 'Test message',
     occurredAt: '2026-08-20T09:00:00.000Z',
     readAt: null,
+    recipientRole: null,
     location: 'unmatched',
     session: null,
     simulated: false,
@@ -62,16 +63,17 @@ describe('groupByPhone', () => {
     expect(groups.map((g) => g.phone)).toEqual(['+442222222222', '+441111111111']);
   });
 
-  it('counts only unread household replies as unreadReplyIds', () => {
+  it('counts unread household and referrer replies as unreadReplyIds', () => {
     const groups = groupByPhone([
       message({ id: 'unread-reply', kind: 'household_reply', readAt: null }),
       message({ id: 'read-reply', kind: 'household_reply', readAt: '2026-08-20T10:00:00.000Z' }),
+      message({ id: 'referrer-reply', kind: 'referrer_reply', readAt: null }),
       message({ id: 'reminder', kind: 'reminder', readAt: null }),
       message({ id: 'staff-reply', kind: 'staff_reply', readAt: null }),
       message({ id: 'failure', kind: 'failure', readAt: null }),
     ]);
 
-    expect(groups[0]?.unreadReplyIds).toEqual(['unread-reply']);
+    expect(groups[0]?.unreadReplyIds).toEqual(['unread-reply', 'referrer-reply']);
   });
 
   it('lists distinct referralIds most-recent-message-first, for a phone reused across referrals', () => {

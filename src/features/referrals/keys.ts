@@ -44,6 +44,7 @@ export const referralKeys = {
   lists: () => [...referralKeys.all, 'list'] as const,
   list: (filters: ReferralListFilters) => [...referralKeys.lists(), filters] as const,
   detail: (id: string) => [...referralKeys.all, 'detail', id] as const,
+  firstTimeReview: (id: string) => [...referralKeys.detail(id), 'first-time-review'] as const,
   /**
    * Both `excludePostcode` variants for one referral, as one prefix. A mutation
    * that changes who matches a household cannot know which of the two an

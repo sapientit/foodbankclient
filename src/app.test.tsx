@@ -66,6 +66,7 @@ const JAMIE: Referral = {
   children: 1,
   householdSize: 3,
   isDelivery: false,
+  collectionMethod: 'collection',
   needsFuelHelp: false,
   referrerOrganisation: 'Riverside Church',
   referrerName: 'Sam Referrer',

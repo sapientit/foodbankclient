@@ -62,6 +62,7 @@ const PARCEL: Parcel = {
   reviewedAt: '2026-08-01T09:15:00.000Z',
   attendance: 'attended',
   notes: 'Allergies: no dairy',
+  firstTimeMarker: null,
   answers: { Allergies: 'No dairy' },
   lines: [
     {
@@ -288,6 +289,7 @@ describe('a completed session', () => {
               deliveryAddress: null,
               deliveryPostcode: null,
               deliveryPhone: null,
+              voucherInstruction: null,
               notes: 'Allergies: no dairy',
               reason: 'Never print this',
               lines: [],

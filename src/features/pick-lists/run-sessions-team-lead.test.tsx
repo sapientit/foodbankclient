@@ -61,6 +61,7 @@ const PARCEL: Parcel = {
   reviewedAt: null,
   attendance: 'pending',
   notes: null,
+  firstTimeMarker: null,
   answers: {
     Allergies: 'Gluten-free food for one person',
     Pulses: 'Vegetarian',
@@ -1168,7 +1169,10 @@ describe('a team lead running a session', () => {
       http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
       http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
-        HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL] }),
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [{ ...PARCEL, firstTimeMarker: 'admin' }],
+        }),
       ),
       http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
         HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
@@ -1184,6 +1188,7 @@ describe('a team lead running a session', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Pick #' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Client' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'First-time status' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Action' })).toBeInTheDocument();
 
@@ -1192,6 +1197,7 @@ describe('a team lead running a session', () => {
     // outcome so far, and the one thing there is to do about it.
     expect(screen.getByRole('rowheader', { name: '#1' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'Sam Taylor' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Admin' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'Pending Review' })).toBeInTheDocument();
     expect(
       screen.getByRole('cell', { name: 'Review Pick list' }).querySelector('a'),
@@ -1267,6 +1273,8 @@ describe('a team lead running a session', () => {
 
   it('prints only after every parcel has been reviewed', async () => {
     let markedPrinted = false;
+    let printReads = 0;
+    let voucherInstruction = 'provide_voucher';
     const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     const reviewedParcel: Parcel = {
       ...PARCEL,
@@ -1277,8 +1285,9 @@ describe('a team lead running a session', () => {
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json({ pickList: PICK_LIST, parcels: [reviewedParcel] }),
       ),
-      http.get('/api/v1/pick-lists/:id/print', () =>
-        HttpResponse.json({
+      http.get('/api/v1/pick-lists/:id/print', () => {
+        printReads += 1;
+        return HttpResponse.json({
           pickList: PICK_LIST,
           parcels: [
             {
@@ -1289,6 +1298,7 @@ describe('a team lead running a session', () => {
               deliveryAddress: null,
               deliveryPostcode: null,
               deliveryPhone: null,
+              voucherInstruction,
               notes: 'Allergies: Gluten-free food for one person',
               reason: 'Never print this',
               lines: [
@@ -1344,7 +1354,10 @@ describe('a team lead running a session', () => {
               ],
             },
           ],
-        }),
+        });
+      }),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
       ),
       http.post('/api/v1/pick-lists/:id/print', () => {
         markedPrinted = true;
@@ -1360,8 +1373,14 @@ describe('a team lead running a session', () => {
       expect(markedPrinted).toBe(true);
       expect(printSpy).toHaveBeenCalledOnce();
     });
+    const readsBeforeManualPrint = printReads;
+    voucherInstruction = 'already_received';
     await userEvent.setup().click(openPrint);
-    expect(printSpy).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(printReads).toBeGreaterThan(readsBeforeManualPrint);
+      expect(printSpy).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.getByText('Client has already received voucher')).toBeInTheDocument();
     expect(screen.getByRole('table', { name: 'Household composition' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Information for pickers' })).toHaveTextContent(
       'Allergies: Gluten-free food for one person',

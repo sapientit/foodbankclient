@@ -8,7 +8,13 @@ import { isNotFound } from '../../../lib/errors';
 import { formatLondonDateTime, formatSessionDate } from '../../../lib/london-time';
 import { useReferral, useReferralSearchMemory } from '../../referrals/queries';
 import { useSession } from '../../sessions/queries';
-import type { Parcel, SmsInboxMessage, SmsMessage, SmsReminderResult } from '../queries';
+import type {
+  Parcel,
+  SmsCandidateParcel,
+  SmsInboxMessage,
+  SmsMessage,
+  SmsReminderResult,
+} from '../queries';
 import { isCurrentParcel, isSessionReadOnly } from '../run-session.logic';
 import { groupByPhone, type SmsPhoneGroup } from '../sms-inbox.logic';
 import { formatSmsReminderOutcome, formatSmsReplyOutcome } from '../sms-outcomes';
@@ -31,7 +37,10 @@ import styles from './sms-panel.module.css';
  * structural `Pick` lets one renderer serve both without either screen's
  * hook feeding it a shape it doesn't produce.
  */
-type ThreadMessage = Pick<SmsMessage, 'id' | 'kind' | 'simulated' | 'body' | 'occurredAt'>;
+type ThreadMessage = Pick<
+  SmsMessage,
+  'id' | 'kind' | 'recipientRole' | 'simulated' | 'body' | 'occurredAt'
+>;
 
 /**
  * The message list both `SmsConversation` (a team lead's own thread) and
@@ -44,9 +53,15 @@ function SmsThreadMessages({ messages }: { messages: readonly ThreadMessage[] })
       {messages.map((message) => (
         <li key={message.id}>
           <strong>
-            {message.kind.replace('_', ' ')}
+            {message.kind === 'referrer_reply'
+              ? 'reply from referrer'
+              : message.kind.replace('_', ' ')}
             {message.simulated && ' (simulated)'}
           </strong>{' '}
+          {message.recipientRole !== null &&
+            message.kind !== 'household_reply' &&
+            message.kind !== 'referrer_reply' &&
+            ` to ${message.recipientRole}`}{' '}
           — {message.body}{' '}
           <time dateTime={message.occurredAt}>{formatLondonDateTime(message.occurredAt)}</time>
         </li>
@@ -274,12 +289,14 @@ function SmsConversation({
 }
 
 /**
- * The administrator inbox, as two tabs rather than one long page — settled by
+ * The administrator inbox, as separate tabs rather than one long page — settled by
  * Pete on 2026-08-30 after the combined screen made an unread reply from a
  * session page down past a long list of loose ones to reach. `Loose
  * messages` and `Session messages` borrow the API's own words for the split
  * (`SmsInboxMessage.location`: "a loose reply, no session behind it" versus
- * everything tied to a referral) rather than inventing new vocabulary.
+ * everything tied to a referral) rather than inventing new vocabulary. The
+ * third tab is deliberately different: referrer replies can concern several
+ * households and must remain administrator-only.
  *
  * Modelled on `RunSessionLayout`/`RunSessionTabs`: real routes, not a
  * same-page filter, and each tab fetches `useSmsInbox()` again rather than
@@ -311,6 +328,9 @@ function SmsInboxTabs() {
   const messages = inbox.data?.messages ?? [];
   const looseUnread = unreadCount(messages, 'unmatched');
   const sessionUnread = unreadCount(messages, 'closed_session');
+  const referrerUnread = messages.filter(
+    (message) => message.kind === 'referrer_reply' && message.readAt === null,
+  ).length;
 
   return (
     <nav aria-label="SMS Messages navigation" className={styles.tabs}>
@@ -342,6 +362,23 @@ function SmsInboxTabs() {
             {looseUnread > 0 && (
               <span aria-hidden="true" className={styles.badge}>
                 {looseUnread}
+              </span>
+            )}
+          </NavLink>
+        </li>
+        <li>
+          <NavLink
+            aria-label={
+              referrerUnread > 0
+                ? `Referrer messages (${String(referrerUnread)} unread)`
+                : undefined
+            }
+            to="/sms/referrers"
+          >
+            Referrer messages
+            {referrerUnread > 0 && (
+              <span aria-hidden="true" className={styles.badge}>
+                {referrerUnread}
               </span>
             )}
           </NavLink>
@@ -411,7 +448,9 @@ export function SmsSessionMessagesScreen() {
 export function SmsLooseMessagesScreen() {
   const inbox = useSmsInbox();
   const groups = groupByPhone(
-    (inbox.data?.messages ?? []).filter((message) => message.location === 'unmatched'),
+    (inbox.data?.messages ?? []).filter(
+      (message) => message.location === 'unmatched' && message.kind !== 'referrer_reply',
+    ),
   );
   return (
     <>
@@ -427,6 +466,44 @@ export function SmsLooseMessagesScreen() {
           <EmptyState
             headline="No loose messages"
             sentence="Nothing without a referral behind it in the last thirty days."
+          />
+        ) : (
+          <ul className={styles.messageList}>
+            {groups.map((group) => (
+              <SmsInboxThread key={group.key} group={group} markReadMode="message" />
+            ))}
+          </ul>
+        ))}
+    </>
+  );
+}
+
+/**
+ * Referrer replies cannot belong to one household's SMS thread: a referrer may
+ * be collecting for several households, and the server deliberately returns
+ * all currently-open possibilities rather than guessing. This is therefore an
+ * administrator-only inbox route, separate from loose messages even though
+ * the underlying messages have no one session attached.
+ */
+export function SmsReferrerMessagesScreen() {
+  const inbox = useSmsInbox();
+  const groups = groupByPhone(
+    (inbox.data?.messages ?? []).filter((message) => message.kind === 'referrer_reply'),
+  );
+  return (
+    <>
+      <PageHeader title="Referrer messages" />
+      <p>
+        Replies from referrers collecting parcels for someone else. Each reply shows every open
+        parcel it could concern; choose the relevant referral yourself.
+      </p>
+      {inbox.isPending && <Spinner label="Loading referrer messages…" />}
+      {inbox.isError && <ErrorNotice error={inbox.error} onRetry={() => void inbox.refetch()} />}
+      {inbox.data !== undefined &&
+        (groups.length === 0 ? (
+          <EmptyState
+            headline="No referrer messages"
+            sentence="No referrer collection replies in the last thirty days."
           />
         ) : (
           <ul className={styles.messageList}>
@@ -477,9 +554,8 @@ function hasSession(
  *   thread view uses, looped once per `referralIds` entry because a phone
  *   reused across a repeat referral can carry unread replies against more
  *   than one.
- * - `'message'` — a loose thread with no referral behind it at all, so
- *   there is no household-level read call to make; `POST
- *   /sms-messages/{id}/read` is looped once per unread reply instead.
+ * - `'message'` — a loose or referrer thread with no single referral to mark
+ *   read, so `POST /sms-messages/{id}/read` is looped once per unread reply.
  * - `'none'` — an active session's thread. Expandable and readable, but never
  *   marks anything read: those replies remain the team leader's, the same
  *   exclusion `SmsInboxTabs`'s own badge count and `attention-summary` make.
@@ -512,6 +588,7 @@ function SmsInboxThread({
   const unreadCount = group.unreadReplyIds.length;
   const primaryReferralId = group.referralIds[0];
   const mostRecentSessionMessage = group.messages.findLast(hasSession);
+  const isReferrerThread = group.messages.every((message) => message.kind === 'referrer_reply');
 
   return (
     <li className={styles.messageCard}>
@@ -539,7 +616,9 @@ function SmsInboxThread({
         }}
       >
         <summary className={unreadCount > 0 ? styles.unreadButton : undefined}>
-          {primaryReferralId !== undefined ? (
+          {isReferrerThread ? (
+            <span>Referrer: {group.phone ?? 'No phone number'}</span>
+          ) : primaryReferralId !== undefined ? (
             <SmsMessageHousehold referralId={primaryReferralId} />
           ) : (
             <span>Phone: {group.phone ?? 'No phone number'}</span>
@@ -554,7 +633,11 @@ function SmsInboxThread({
           <>
             <SmsThreadMessages messages={group.messages} />
             <div className={styles.messageFooter}>
-              {primaryReferralId === undefined ? (
+              {isReferrerThread ? (
+                group.messages.map((message) => (
+                  <ReferrerCandidateParcels key={message.id} message={message} />
+                ))
+              ) : primaryReferralId === undefined ? (
                 <span>
                   Phone: {group.phone ?? 'No phone number'}{' '}
                   {group.phone !== null && (
@@ -596,6 +679,43 @@ function SmsInboxThread({
       </details>
       {readError !== undefined && <ErrorNotice error={readError} />}
     </li>
+  );
+}
+
+function ReferrerCandidateParcels({ message }: { message: SmsInboxMessage }) {
+  if (message.kind !== 'referrer_reply') return null;
+  const candidates = message.candidateParcels ?? [];
+  if (candidates.length === 0) {
+    return <span>No open parcels for this referrer now.</span>;
+  }
+  return (
+    <span>
+      Possible open parcels:{' '}
+      {candidates.map((parcel, index) => (
+        <ReferrerCandidateParcelLink
+          key={parcel.referralId}
+          parcel={parcel}
+          separator={index === 0 ? '' : ', '}
+        />
+      ))}
+    </span>
+  );
+}
+
+function ReferrerCandidateParcelLink({
+  parcel,
+  separator,
+}: {
+  parcel: SmsCandidateParcel;
+  separator: string;
+}) {
+  return (
+    <>
+      {separator}
+      <Link to={`/referrals/${parcel.referralId}`}>
+        {formatSessionDate(parcel.sessionDate)} at {parcel.startTime}
+      </Link>
+    </>
   );
 }
 

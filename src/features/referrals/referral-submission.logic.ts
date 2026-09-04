@@ -15,9 +15,19 @@ import {
   type HouseholdComposition,
 } from './household-composition';
 
-/** Stored in answers; the fixed flag remains available to every server workflow. */
+/** The form's label for the fixed, structured collection-method column. */
 export const COLLECTION_METHOD_KEY = 'Collection method';
 export const DELIVERY_REQUESTED = 'Delivery Requested';
+export const REFERRER_WILL_COLLECT = 'Referrer will collect';
+
+export type CollectionMethod = 'collection' | 'delivery' | 'referrer_collect';
+
+/** The server's operational collection-method column, derived from the form's fuller answer. */
+export function collectionMethodForAnswer(answer: unknown): CollectionMethod | null {
+  if (answer === DELIVERY_REQUESTED) return 'delivery';
+  if (answer === REFERRER_WILL_COLLECT) return 'referrer_collect';
+  return typeof answer === 'string' && answer !== '' ? 'collection' : null;
+}
 
 /**
  * Takes a filled-in form apart into what `POST /public/referrals` wants: the
@@ -84,6 +94,12 @@ export function splitSubmission(
         continue;
       }
 
+      if (question.key === COLLECTION_METHOD_KEY) {
+        const collectionMethod = collectionMethodForAnswer(toAnswerValue(question, held));
+        if (collectionMethod !== null) keyFields.collectionMethod = collectionMethod;
+        continue;
+      }
+
       const value = toAnswerValue(question, held);
       if (value === null) continue;
       dynamic[question.key] = value;
@@ -92,12 +108,6 @@ export function splitSubmission(
         Object.assign(keyFields, operationalHouseholdCounts(value));
       }
     }
-  }
-
-  // Older definitions used an `isDelivery` key field.  Only the current
-  // questionnaire has a collection-method answer from which to derive it.
-  if (Object.hasOwn(dynamic, COLLECTION_METHOD_KEY)) {
-    keyFields.isDelivery = dynamic[COLLECTION_METHOD_KEY] === DELIVERY_REQUESTED;
   }
 
   return { keyFields, answers: dynamic };

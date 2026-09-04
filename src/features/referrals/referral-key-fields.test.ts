@@ -110,9 +110,7 @@ describe('keyFieldSchema', () => {
 });
 
 describe('keyFieldValue', () => {
-  it('turns a ticked yes/no field into true and an unticked one into false', () => {
-    expect(keyFieldValue('isDelivery', 'Yes')).toBe(true);
-    expect(keyFieldValue('isDelivery', '')).toBe(false);
+  it('turns an unticked yes/no field into false', () => {
     expect(keyFieldValue('needsFuelHelp', '')).toBe(false);
   });
 

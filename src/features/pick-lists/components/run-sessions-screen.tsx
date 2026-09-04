@@ -314,6 +314,12 @@ export function PickListPrintScreen() {
   const print = usePrintPickList(readyToPrint ? list.data.pickList.id : '');
   const markPrinted = useMarkPickListPrinted();
   const printed = useRef<string | null>(null);
+  const [manualPrintRequest, setManualPrintRequest] = useState<{
+    id: string;
+    sequence: number;
+  } | null>(null);
+  const manualPrintSequence = useRef(0);
+  const handledManualPrintSequence = useRef<number | null>(null);
   const readOnly = session.data === undefined ? null : isSessionReadOnly(session.data.status);
   const openPrintDialog = useCallback(
     (pickListId: string) => {
@@ -341,6 +347,29 @@ export function PickListPrintScreen() {
     }
   }, [openPrintDialog, print.data, readOnly]);
 
+  const requestCurrentPrint = useCallback(() => {
+    void print.refetch().then((result) => {
+      if (result.data !== undefined) {
+        manualPrintSequence.current += 1;
+        setManualPrintRequest({
+          id: result.data.pickList.id,
+          sequence: manualPrintSequence.current,
+        });
+      }
+    });
+  }, [print]);
+
+  useEffect(() => {
+    if (
+      manualPrintRequest === null ||
+      print.data?.pickList.id !== manualPrintRequest.id ||
+      handledManualPrintSequence.current === manualPrintRequest.sequence
+    )
+      return;
+    handledManualPrintSequence.current = manualPrintRequest.sequence;
+    openPrintDialog(manualPrintRequest.id);
+  }, [manualPrintRequest, openPrintDialog, print.data]);
+
   if (session.isPending || list.isPending || (readyToPrint && print.isPending))
     return <Spinner label="Preparing print sheets…" />;
   if (session.isError)
@@ -364,7 +393,7 @@ export function PickListPrintScreen() {
           action={
             <button
               onClick={() => {
-                openPrintDialog(print.data.pickList.id);
+                requestCurrentPrint();
               }}
               type="button"
             >
@@ -407,6 +436,9 @@ export function PickListPrintScreen() {
                     <HouseholdCompositionGrid composition={householdComposition} />
                   )}
                 </header>
+                {parcel.voucherInstruction !== null && (
+                  <p>{voucherInstruction(parcel.voucherInstruction)}</p>
+                )}
                 {parcel.notes !== null && parcel.notes.trim() !== '' && (
                   /* The same words the team lead typed it under, because the
                      picker holding this sheet is the "picker" that label
@@ -738,6 +770,7 @@ export function RunSessionDetailScreen() {
               <tr>
                 <th scope="col">Pick #</th>
                 <th scope="col">Client</th>
+                <th scope="col">First-time status</th>
                 <th scope="col">Status</th>
                 <th scope="col">Action</th>
               </tr>
@@ -813,6 +846,19 @@ function pickListLabel(parcel: Parcel): string {
   return parcel.attendance === 'pending' ? 'Amend Pick list' : 'View Pick list';
 }
 
+const FIRST_TIME_MARKER: Record<Exclude<Parcel['firstTimeMarker'], null>, string> = {
+  first_time: 'First time',
+  admin: 'Admin',
+};
+
+function voucherInstruction(
+  instruction: 'provide_voucher' | 'already_received' | 'refer_to_admin',
+): string {
+  if (instruction === 'provide_voucher') return 'Provide voucher for this client';
+  if (instruction === 'already_received') return 'Client has already received voucher';
+  return 'Refer to administrators for voucher';
+}
+
 function ClientRow({
   canOpenReferral,
   parcel,
@@ -845,6 +891,11 @@ function ClientRow({
           <Link to={`/referrals/${parcel.referralId}`}>{parcelName(parcel)}</Link>
         ) : (
           parcelName(parcel)
+        )}
+      </td>
+      <td>
+        {parcel.firstTimeMarker !== null && (
+          <span className={styles.status}>{FIRST_TIME_MARKER[parcel.firstTimeMarker]}</span>
         )}
       </td>
       <td>

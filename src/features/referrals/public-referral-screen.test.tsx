@@ -105,6 +105,7 @@ function receipt(status: 'active' | 'pending_review') {
     teenagers12To17: 0,
     adults18Plus: 2,
     isDelivery: false,
+    collectionMethod: 'collection',
     needsFuelHelp: false,
     refereeFirstName: 'Ada',
     refereeSurname: 'Rowe',
@@ -857,7 +858,7 @@ describe('submitting', () => {
       reasonId: 'q1',
       adults: 2,
       children: 0,
-      isDelivery: false,
+      collectionMethod: 'collection',
       needsFuelHelp: false,
     });
     expect(typeof body.adults).toBe('number');
@@ -884,6 +885,30 @@ describe('submitting', () => {
     expect(body.answers).not.toHaveProperty('refereePostcode');
   });
 
+  it('sends referrer collection as the structured referrer_collect method', async () => {
+    let body: Record<string, unknown> = {};
+    server.use(
+      http.post(SUBMIT, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(receipt('active'), { status: 201 });
+      }),
+    );
+    renderRefer();
+
+    const user = userEvent.setup();
+    await fillPageOne(user);
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
+      'Referrer will collect',
+    );
+    await sendFromPageOne(user);
+
+    await waitFor(() => {
+      expect(body.collectionMethod).toBe('referrer_collect');
+    });
+    expect(body).not.toHaveProperty('isDelivery');
+  });
+
   it('shows what was sent back, and says it cannot be changed', async () => {
     server.use(http.post(SUBMIT, () => HttpResponse.json(receipt('active'), { status: 201 })));
     renderRefer();
@@ -891,6 +916,7 @@ describe('submitting', () => {
     await submitTheForm(userEvent.setup());
 
     expect(await screen.findByRole('heading', { name: 'Referral sent' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'The household is booked in' })).toHaveFocus();
     expect(screen.getByText(/You cannot change a referral once it is sent/)).toBeInTheDocument();
     expect(screen.getByText(/phone the food bank/i)).toBeInTheDocument();
 
@@ -901,6 +927,41 @@ describe('submitting', () => {
 
     // No amend, no withdraw, no countdown. There is no edit window any more.
     expect(screen.queryByRole('button', { name: /amend|withdraw|change/i })).toBeNull();
+  });
+
+  it('starts another referral with only the referrer details retained', async () => {
+    server.use(http.post(SUBMIT, () => HttpResponse.json(receipt('active'), { status: 201 })));
+    renderRefer();
+    const user = userEvent.setup();
+
+    await submitTheForm(user);
+    await screen.findByRole('heading', { name: 'Referral sent' });
+
+    await user.click(screen.getByRole('button', { name: 'Refer someone else' }));
+
+    expect(await screen.findByText('Page 1 of 7')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Referrer's name/)).toHaveValue('Sam Referrer');
+    expect(screen.getByLabelText(/Referrer's email address/)).toHaveValue('sam@riverside.org');
+    expect(screen.getByRole('combobox', { name: /Referrer's organisation/ })).toHaveValue(
+      'Riverside Church',
+    );
+    expect(screen.getByLabelText(/Referrer's contact number/)).toHaveValue('01483 123456');
+
+    // This is a new referral, not a copy: none of the previous household's
+    // details or answers may survive in the next form.
+    expect(screen.getByLabelText(/Client's first name/)).toHaveValue('');
+    expect(screen.getByLabelText(/Client's surname/)).toHaveValue('');
+    expect(screen.getByLabelText(/Client's date of birth/)).toHaveValue('');
+    expect(screen.getByLabelText(/Client's address/)).toHaveValue('');
+    expect(screen.getByLabelText(/Client's postcode/)).toHaveValue('');
+    expect(screen.getByRole('combobox', { name: /Client's gender/ })).toHaveValue('');
+    expect(screen.getByLabelText('18 to State Pension age, Female')).toHaveValue('');
+    expect(screen.getByLabelText(/Spoken Languages/)).toHaveValue('');
+    expect(screen.getByRole('combobox', { name: /Session date/ })).toHaveValue('');
+
+    await user.click(next());
+    expect(await screen.findByText(/Client's first name is required/)).toBeInTheDocument();
+    expect(screen.queryByText(/Referrer's name is required/)).toBeNull();
   });
 
   /**

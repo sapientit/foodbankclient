@@ -33,6 +33,7 @@ function referral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral
     children: 1,
     householdSize: 3,
     isDelivery: false,
+    collectionMethod: 'collection',
     needsFuelHelp: false,
     referrerOrganisation: 'Riverside Church',
     referrerName: 'Sam Referrer',
@@ -105,6 +106,252 @@ beforeEach(() => {
 });
 
 describe('the admin referral detail screen', () => {
+  it('opens previous attendance automatically when an outstanding review has possible matches', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({
+            id: 'r1',
+            firstTimeReview: { status: 'unreviewed', previousSessionDate: null },
+          }),
+        ),
+      ),
+      http.get(REPEAT_REFERRALS, () =>
+        HttpResponse.json({
+          count: 1,
+          mostRecentSessionDate: '2026-06-14',
+          matches: [
+            {
+              referralId: 'old-attended',
+              sessionId: 'old-session-1',
+              sessionDate: '2026-06-14',
+              outcome: 'attended',
+              matchedOn: ['postcode'],
+              refereeFirstName: 'Jamie',
+              refereeSurname: 'Rowe',
+              refereeDateOfBirth: '1985-03-12',
+              refereeAddress: '1 Elm Street',
+              refereePostcode: 'AB1 2CD',
+              refereePhone: null,
+            },
+          ],
+        }),
+      ),
+    );
+    renderApp('/referrals/r1');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Potential matches' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Review first-time status' })).toBeNull();
+  });
+
+  it('returns to the referral list when Back leaves a mandatory previous-attendance decision', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({
+            id: 'r1',
+            firstTimeReview: { status: 'unreviewed', previousSessionDate: null },
+          }),
+        ),
+      ),
+      http.get(REPEAT_REFERRALS, () =>
+        HttpResponse.json({
+          count: 1,
+          mostRecentSessionDate: '2026-06-14',
+          matches: [],
+        }),
+      ),
+      http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
+    );
+
+    renderApp('/referrals/r1/first-time-review');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('link', { name: 'Back' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Referrals' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Potential matches' })).toBeNull();
+  });
+
+  it('records no previous attendance automatically when there are no possible matches', async () => {
+    let saved: unknown;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({
+            id: 'r1',
+            firstTimeReview: { status: 'unreviewed', previousSessionDate: null },
+          }),
+        ),
+      ),
+      http.get(REPEAT_REFERRALS, () =>
+        HttpResponse.json({ count: 0, mostRecentSessionDate: null, matches: [] }),
+      ),
+      http.post('/api/v1/referrals/r1/first-time-review', async ({ request }) => {
+        saved = await request.json();
+        return HttpResponse.json(
+          referral({
+            id: 'r1',
+            firstTimeReview: { status: 'no_previous_referral', previousSessionDate: null },
+          }),
+        );
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    await waitFor(() => {
+      expect(saved).toEqual({ noPreviousReferral: true });
+    });
+    expect(screen.getByRole('heading', { name: 'Jamie Rowe' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Potential matches' })).toBeNull();
+  });
+
+  it('records a selectable earlier session and leaves a no-show visible but unavailable', async () => {
+    let saved: unknown;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({
+            id: 'r1',
+            firstTimeReview: { status: 'unreviewed', previousSessionDate: null },
+          }),
+        ),
+      ),
+      http.get(REPEAT_REFERRALS, () =>
+        HttpResponse.json({
+          count: 2,
+          mostRecentSessionDate: '2026-06-14',
+          matches: [
+            {
+              referralId: 'old-attended',
+              sessionId: 'old-session-1',
+              sessionDate: '2026-06-14',
+              outcome: 'attended',
+              matchedOn: ['postcode'],
+              refereeFirstName: 'Jamie',
+              refereeSurname: 'Rowe',
+              refereeDateOfBirth: '1985-03-12',
+              refereeAddress: '1 Elm Street',
+              refereePostcode: 'AB1 2CD',
+              refereePhone: null,
+            },
+            {
+              referralId: 'old-no-show',
+              sessionId: 'old-session-2',
+              sessionDate: '2026-06-07',
+              outcome: 'no_show',
+              matchedOn: ['postcode'],
+              refereeFirstName: 'Jamie',
+              refereeSurname: 'Rowe',
+              refereeDateOfBirth: '1985-03-12',
+              refereeAddress: '1 Elm Street',
+              refereePostcode: 'AB1 2CD',
+              refereePhone: null,
+            },
+          ],
+        }),
+      ),
+      http.post('/api/v1/referrals/r1/first-time-review', async ({ request }) => {
+        saved = await request.json();
+        return HttpResponse.json(
+          referral({
+            id: 'r1',
+            firstTimeReview: { status: 'previous_session', previousSessionDate: '2026-06-14' },
+          }),
+        );
+      }),
+    );
+
+    renderApp('/referrals/r1/first-time-review');
+    const user = userEvent.setup();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Potential matches' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Referral being submitted' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Surname starts with' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Exclude postcode matches' })).toBeInTheDocument();
+    expect(screen.getByRole('table')).toHaveTextContent('Last attended');
+    expect(screen.getByRole('heading', { name: 'Referral check' })).toBeInTheDocument();
+    const [available, unavailable] = await screen.findAllByRole('radio', {
+      name: 'Select Jamie Rowe',
+    });
+    if (available === undefined || unavailable === undefined)
+      throw new Error('Expected both matches.');
+    expect(unavailable).toBeDisabled();
+    await user.click(available);
+    await user.click(screen.getByRole('button', { name: 'Confirm and continue' }));
+
+    await waitFor(() => {
+      expect(saved).toEqual({ previousSessionDate: '2026-06-14' });
+    });
+  });
+
+  it('returns to the referral with a previous-referrals summary and revisit link after saving', async () => {
+    let saved: unknown;
+    let storedReferral = referral({
+      id: 'r1',
+      firstTimeReview: { status: 'unreviewed', previousSessionDate: null },
+      repeatReferrals: { count: 3, mostRecentSessionDate: '2026-06-14' },
+    });
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(storedReferral)),
+      http.get(REPEAT_REFERRALS, () =>
+        HttpResponse.json({
+          count: 3,
+          mostRecentSessionDate: '2026-06-14',
+          matches: [
+            {
+              referralId: 'old-attended',
+              sessionId: 'old-session-1',
+              sessionDate: '2026-06-14',
+              outcome: 'attended',
+              matchedOn: ['postcode'],
+              refereeFirstName: 'Jamie',
+              refereeSurname: 'Rowe',
+              refereeDateOfBirth: '1985-03-12',
+              refereeAddress: '1 Elm Street',
+              refereePostcode: 'AB1 2CD',
+              refereePhone: null,
+            },
+          ],
+        }),
+      ),
+      http.post('/api/v1/referrals/r1/first-time-review', async ({ request }) => {
+        saved = await request.json();
+        storedReferral = referral({
+          id: 'r1',
+          firstTimeReview: { status: 'previous_session', previousSessionDate: '2026-06-14' },
+          repeatReferrals: { count: 3, mostRecentSessionDate: '2026-06-14' },
+        });
+        return HttpResponse.json(storedReferral);
+      }),
+    );
+
+    renderApp('/referrals/r1/first-time-review');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('radio', { name: 'Select Jamie Rowe' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm and continue' }));
+
+    await waitFor(() => {
+      expect(saved).toEqual({ previousSessionDate: '2026-06-14' });
+    });
+    expect(await screen.findByRole('heading', { name: 'Jamie Rowe' })).toBeInTheDocument();
+    expect(screen.getByText(/3 previous possible referrals/)).toBeInTheDocument();
+    const revisit = screen.getByRole('link', { name: 'Review previous attendance' });
+    expect(revisit).toHaveAttribute('href', '/referrals/r1/first-time-review');
+
+    await user.click(revisit);
+    expect(
+      await screen.findByText(
+        'This referral’s previous-attendance decision has already been recorded.',
+      ),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Back to referral' }));
+    expect(await screen.findByRole('heading', { name: 'Jamie Rowe' })).toBeInTheDocument();
+  });
+
   it('marks an active referral reviewed from one button, beside the other actions', async () => {
     let reviews = 0;
     server.use(
@@ -237,13 +484,12 @@ describe('the admin referral detail screen', () => {
         // grid is indexed by, so the under-fives count towards neither number.
         adults: 1,
         children: 0,
-        isDelivery: true,
+        collectionMethod: 'delivery',
         answers: {
           gender: 'Female',
           ethnicity: 'White -British',
           languages: 'English',
           'Household Components': { '0-4': { male: 2 }, 'working-age': { female: 1 } },
-          'Collection method': 'Delivery Requested',
           // An array, not a bare value: the question now takes two answers, and
           // a multi-answer choice stores a list even when it is fully ticked.
           deliveryConfirm: [

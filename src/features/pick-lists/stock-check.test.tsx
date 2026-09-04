@@ -64,6 +64,7 @@ const PARCEL: Parcel = {
   reviewedAt: '2099-08-05T10:00:00.000Z',
   attendance: 'pending',
   notes: null,
+  firstTimeMarker: null,
   answers: {},
   lines: [],
 };

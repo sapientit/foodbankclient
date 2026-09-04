@@ -126,7 +126,6 @@ const KEY_FIELDS: Readonly<Record<KeyFieldName, KeyFieldSpec>> = {
   refereePostcode: { control: { kind: 'postcode' }, valueKind: 'string' },
   refereePhone: { control: { kind: 'phone' }, valueKind: 'nullableString' },
   sessionId: { control: { kind: 'lookup', source: 'sessions' }, valueKind: 'string' },
-  isDelivery: { control: { kind: 'yesNo' }, valueKind: 'boolean' },
   adults: { control: { kind: 'count', ...ADULTS_BOUNDS }, valueKind: 'integer' },
   children: { control: { kind: 'count', ...CHILDREN_BOUNDS }, valueKind: 'integer' },
   reasonId: { control: { kind: 'lookup', source: 'referralReasons' }, valueKind: 'string' },

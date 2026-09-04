@@ -51,6 +51,7 @@ const PARCEL: Parcel = {
   reviewedAt: null,
   attendance: 'pending',
   notes: null,
+  firstTimeMarker: null,
   answers: {},
   lines: [],
 };
@@ -89,6 +90,7 @@ function referralRow(overrides: Partial<Referral> & Pick<Referral, 'id'>): Refer
     children: 0,
     householdSize: 1,
     isDelivery: false,
+    collectionMethod: 'collection',
     needsFuelHelp: false,
     referrerOrganisation: 'Riverside Church',
     referrerName: 'Sam Referrer',

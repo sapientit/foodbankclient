@@ -81,6 +81,12 @@ import styles from './public-referral-screen.module.css';
  */
 const REFERRER_EMAIL_KEY = keyFieldKey(referralFormDefinition, 'referrerEmail');
 const REFERRER_ORGANISATION_KEY = keyFieldKey(referralFormDefinition, 'referrerOrganisation');
+const REFERRER_DETAIL_KEYS = [
+  keyFieldKey(referralFormDefinition, 'referrerName'),
+  REFERRER_EMAIL_KEY,
+  REFERRER_ORGANISATION_KEY,
+  keyFieldKey(referralFormDefinition, 'referrerPhone'),
+].filter((key): key is string => key !== undefined);
 const SESSION_KEY = keyFieldKey(referralFormDefinition, 'sessionId');
 const REASON_KEY = keyFieldKey(referralFormDefinition, 'reasonId');
 
@@ -101,6 +107,7 @@ export function PublicReferralScreen() {
   const [pageIndex, setPageIndex] = useState(0);
   const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
   const [receipt, setReceipt] = useState<ReferralReceipt | null>(null);
+  const [newReferralFocusRequest, setNewReferralFocusRequest] = useState(0);
   const [misconfigured, setMisconfigured] = useState<readonly string[]>([]);
   // Whether the referrer has finished with the address. See `referrerVerdict`:
   // it is what separates "we do not recognise you" from a verdict on half a
@@ -160,6 +167,11 @@ export function PublicReferralScreen() {
   useEffect(() => {
     pageRef.current = pageIndex;
   }, [pageIndex]);
+
+  useEffect(() => {
+    if (newReferralFocusRequest === 0) return;
+    document.getElementById(summaryId)?.focus();
+  }, [newReferralFocusRequest, summaryId]);
 
   const page = referralFormDefinition.pages[pageIndex];
   const isLastPage = pageIndex === referralFormDefinition.pages.length - 1;
@@ -247,8 +259,36 @@ export function PublicReferralScreen() {
     }
   }
 
+  const startAnotherReferral = () => {
+    setAnswers((current) => {
+      const next = defaultAnswers(referralFormDefinition);
+      for (const key of REFERRER_DETAIL_KEYS) {
+        const value = current[key];
+        if (typeof value === 'string') next[key] = value;
+      }
+      return next;
+    });
+    setReceipt(null);
+    setPageIndex(0);
+    setErrors({});
+    setMisconfigured([]);
+    setAddressLeft(false);
+    setSendUncertain(false);
+    setTurnstileToken(null);
+    submit.reset();
+    sending.current = false;
+    setNewReferralFocusRequest((request) => request + 1);
+  };
+
   if (receipt !== null) {
-    return <Confirmation answers={answers} lookups={lookups} receipt={receipt} />;
+    return (
+      <Confirmation
+        answers={answers}
+        lookups={lookups}
+        onStartAnotherReferral={startAnotherReferral}
+        receipt={receipt}
+      />
+    );
   }
 
   if (sessions.isPending || reasons.isPending || organisations.isPending) {
@@ -699,14 +739,21 @@ function FoodbankBanner() {
 function Confirmation({
   answers,
   lookups,
+  onStartAnotherReferral,
   receipt,
 }: {
   answers: FormAnswers;
   lookups: ReferralLookups;
+  onStartAnotherReferral: () => void;
   receipt: ReferralReceipt;
 }) {
   const lines = describeSubmission(referralFormDefinition, answers, lookups);
   const pending = receipt.status === 'pending_review';
+  const noticeHeading = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    noticeHeading.current?.focus();
+  }, []);
 
   return (
     <main className={styles.screen}>
@@ -724,7 +771,9 @@ function Confirmation({
              at the door is the worst outcome there is — so the referrer is told
              to check rather than to rely on it. Settled by Pete on 2026-08-16. */
           <>
-            <h2 className={styles.noticeHeadline}>This household is not booked in yet</h2>
+            <h2 className={styles.noticeHeadline} ref={noticeHeading} tabIndex={-1}>
+              This household is not booked in yet
+            </h2>
             <p>
               We do not recognise the email address you gave, so an administrator has to approve
               this referral first. Nobody should turn up to a session until the food bank confirms
@@ -733,7 +782,9 @@ function Confirmation({
           </>
         ) : (
           <>
-            <h2 className={styles.noticeHeadline}>The household is booked in</h2>
+            <h2 className={styles.noticeHeadline} ref={noticeHeading} tabIndex={-1}>
+              The household is booked in
+            </h2>
             <p>There is nothing more you need to do.</p>
           </>
         )}
@@ -753,6 +804,12 @@ function Confirmation({
           </div>
         ))}
       </dl>
+
+      <div className={styles.actions}>
+        <button className="button-secondary" onClick={onStartAnotherReferral} type="button">
+          Refer someone else
+        </button>
+      </div>
     </main>
   );
 }

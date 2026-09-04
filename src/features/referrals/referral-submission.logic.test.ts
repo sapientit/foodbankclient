@@ -63,24 +63,21 @@ describe('splitSubmission', () => {
   });
 
   it('sends a count as a real number and a yes/no field as a boolean', () => {
-    const result = splitSubmission(form(keyField('adults'), keyField('isDelivery', false)), {
+    const result = splitSubmission(form(keyField('adults'), keyField('needsFuelHelp', false)), {
       adults: '3',
-      isDelivery: 'Yes',
+      needsFuelHelp: 'Yes',
     });
 
-    expect(result.keyFields).toEqual({ adults: 3, isDelivery: true });
+    expect(result.keyFields).toEqual({ adults: 3, needsFuelHelp: true });
     expect(typeof result.keyFields.adults).toBe('number');
   });
 
   it('sends an unticked yes/no field as false, not as an omission', () => {
-    // `isDelivery` has a default of `false` on the server, but sending it
-    // explicitly is what makes the referral say the client is collecting
-    // rather than say nothing at all.
-    const result = splitSubmission(form(keyField('isDelivery', false)), { isDelivery: '' });
-    expect(result.keyFields).toEqual({ isDelivery: false });
+    const result = splitSubmission(form(keyField('needsFuelHelp', false)), { needsFuelHelp: '' });
+    expect(result.keyFields).toEqual({ needsFuelHelp: false });
   });
 
-  it('derives the delivery flag from the collection-method answer', () => {
+  it('derives the server collection method from the collection-method answer', () => {
     const collectionMethod: FormQuestion = {
       key: COLLECTION_METHOD_KEY,
       type: 'choice',
@@ -98,12 +95,19 @@ describe('splitSubmission', () => {
     expect(
       splitSubmission(form(collectionMethod), { [COLLECTION_METHOD_KEY]: [DELIVERY_REQUESTED] }),
     ).toEqual({
-      keyFields: { isDelivery: true },
-      answers: { [COLLECTION_METHOD_KEY]: DELIVERY_REQUESTED },
+      keyFields: { collectionMethod: 'delivery' },
+      answers: {},
     });
     expect(
       splitSubmission(form(collectionMethod), { [COLLECTION_METHOD_KEY]: ['Car'] }).keyFields,
-    ).toEqual({ isDelivery: false });
+    ).toEqual({
+      collectionMethod: 'collection',
+    });
+    expect(
+      splitSubmission(form(collectionMethod), {
+        [COLLECTION_METHOD_KEY]: ['Referrer will collect'],
+      }).keyFields,
+    ).toEqual({ collectionMethod: 'referrer_collect' });
   });
 
   it('omits an optional phone left blank rather than storing an empty string', () => {

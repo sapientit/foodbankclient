@@ -73,7 +73,11 @@ export function groupByPhone(messages: readonly SmsInboxMessage[]): SmsPhoneGrou
     }
 
     const unreadReplyIds = phoneMessages
-      .filter((message) => message.kind === 'household_reply' && message.readAt === null)
+      .filter(
+        (message) =>
+          (message.kind === 'household_reply' || message.kind === 'referrer_reply') &&
+          message.readAt === null,
+      )
       .map((message) => message.id);
 
     return {

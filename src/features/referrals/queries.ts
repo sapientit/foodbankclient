@@ -210,9 +210,18 @@ export function buildSubmissionBody(
 
   const flag = (name: string): boolean => keyFields[name] === true;
 
+  const collectionMethod = (): ReferralSubmission['collectionMethod'] => {
+    const value = keyFields.collectionMethod;
+    if (value === 'collection' || value === 'delivery' || value === 'referrer_collect')
+      return value;
+    missing.push('collectionMethod');
+    return 'collection';
+  };
+
   // Returns a whole property or nothing at all, rather than a value that might
-  // be `undefined` — `exactOptionalPropertyTypes` draws that distinction, and
-  // it is the right one here: the contract has no "referrerPhone: undefined".
+  // be `undefined` — `exactOptionalPropertyTypes` draws that distinction. The
+  // referee's number remains optional; the referrer's is required by the
+  // collection-method contract.
   const optional = (name: string): Readonly<Record<string, string>> => {
     const value = keyFields[name];
     return typeof value === 'string' && value !== '' ? { [name]: value } : {};
@@ -224,6 +233,7 @@ export function buildSubmissionBody(
     referrerName: text('referrerName'),
     referrerEmail: text('referrerEmail'),
     referrerOrganisation: text('referrerOrganisation'),
+    referrerPhone: text('referrerPhone'),
     refereeFirstName: text('refereeFirstName'),
     refereeSurname: text('refereeSurname'),
     refereeDateOfBirth: text('refereeDateOfBirth'),
@@ -231,12 +241,11 @@ export function buildSubmissionBody(
     refereePostcode: text('refereePostcode'),
     adults: count('adults'),
     children: count('children'),
-    isDelivery: flag('isDelivery'),
+    collectionMethod: collectionMethod(),
     needsFuelHelp: flag('needsFuelHelp'),
     answers,
     // Optional on the contract, and omitted rather than sent empty — a blank
     // phone number stored forever is a different thing from one nobody gave.
-    ...optional('referrerPhone'),
     ...optional('refereePhone'),
   };
 
@@ -313,6 +322,8 @@ export interface ReferralSubmissionAttempt {
 export type Referral = components['schemas']['Referral'];
 export type RepeatReferralList = components['schemas']['RepeatReferralList'];
 export type RepeatReferralMatch = components['schemas']['RepeatReferralMatch'];
+type FirstTimeReviewBody =
+  paths['/api/v1/referrals/{id}/first-time-review']['post']['requestBody']['content']['application/json'];
 
 /**
  * One PATCH shape covers both an ordinary amend and a move: `sessionId` and
@@ -369,6 +380,24 @@ export function useRepeatReferrals(id: string, excludePostcode: boolean, enabled
         }),
       ),
     enabled,
+  });
+}
+
+export function useSaveFirstTimeReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: FirstTimeReviewBody }): Promise<Referral> =>
+      unwrap(
+        api.POST('/api/v1/referrals/{id}/first-time-review', {
+          params: { path: { id } },
+          body,
+        }),
+      ),
+    onSuccess: (referral) => {
+      queryClient.setQueryData(referralKeys.detail(referral.id), referral);
+      void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: pickListKeys.all });
+    },
   });
 }
 

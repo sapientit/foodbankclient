@@ -2489,6 +2489,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/referrals/{id}/first-time-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the first-time review screen's decision
+         * @description Admin only. `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. Moves `firstTimeReview.status` from `unreviewed` to `no_previous_referral` or `previous_session`, and never back.
+         *     Exactly one of `noPreviousReferral` or `previousSessionDate` must be sent. **The candidate previous-session dates come from the unchanged `GET /referrals/{id}/repeat-referrals`** — this route does not build or validate a candidate list of its own; which of the returned matches are selectable (a No Show or Not In stays visible but is not offered) is yours to decide.
+         *     Refused only when this referral's details have been forgotten. **Not conditional on this referral's own `status` or its session's** — a rejected or cancelled referral, or one on a confirmed session, can still have its value set. Settled by Pete on 2026-09-03 (closed Q49): this will not come up in practice, since the screen is not offered against a referral in that state, so the route does not need to guard for it.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description Send `true` to record that this household has no previous referral.
+                         * @enum {boolean}
+                         */
+                        noPreviousReferral?: true;
+                        /**
+                         * Format: date
+                         * @description The client's last-session date, as chosen from the repeat-referrals candidates.
+                         */
+                        previousSessionDate?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Referral"];
+                    };
+                };
+                /** @description Neither or both of `noPreviousReferral` and `previousSessionDate` were sent */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["NotFound"];
+                /** @description That referral's details have been forgotten */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/referrals/{id}/cancel": {
         parameters: {
             query?: never;
@@ -2588,9 +2663,10 @@ export interface paths {
          *     nothing left to copy.
          *
          *     **What the copy carries**: the referee's name, date of birth, address,
-         *     postcode and phone; `adults`, `children`, `householdSize`, `isDelivery`,
-         *     `needsFuelHelp`; `reasonId`; `answers` whole; and the referrer's name,
-         *     organisation, email and phone.
+         *     postcode and phone; `adults`, `children`, `householdSize`,
+         *     `collectionMethod` (and the `isDelivery` it derives), `needsFuelHelp`;
+         *     `reasonId`; `answers` whole; and the referrer's name, organisation,
+         *     email and phone.
          *
          *     **What it does not**: `status`, `sessionId`, `reviewComment`,
          *     `adminInfo`, and any parcel.
@@ -2728,11 +2804,15 @@ export interface paths {
          *     the next press tries again. A permanently wrong number therefore fails
          *     on every press; that is the food bank being told the number is no good.
          *
-         *     Two wordings, and the client chooses neither: a collection reminder
-         *     carries the date, the time and the place, a delivery reminder carries
-         *     the date and the session's **delivery window** and **no address**. A
-         *     session that sets no window of its own states its own hours, so every
-         *     delivery reminder names a window.
+         *     Three wordings, and the client chooses none of them: a collection
+         *     reminder carries the date, the time and the place, a delivery
+         *     reminder carries the date and the session's **delivery window** and
+         *     **no address**. A session that sets no window of its own states its
+         *     own hours, so every delivery reminder names a window.
+         *
+         *     A `referrer_collect` referral is reminded on `referrerPhone` instead
+         *     of `refereePhone`, with a **placeholder** third wording —
+         *     `x-assumed`, see below — until the charity gives the real one.
          */
         post: {
             parameters: {
@@ -3963,6 +4043,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/voucher-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Christmas-voucher date range
+         * @description Admin only, reading included — nobody else needs the raw range, only the derived `Parcel.firstTimeMarker` and `PrintParcel.voucherInstruction` it already carries. `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`.
+         *     Both dates are `null` until an administrator sets a range. Voucher activity applies to a session whose date falls **inside the range, including both boundary dates**.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The configured range, or nulls if none has been set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VoucherConfig"];
+                    };
+                };
+            };
+        };
+        /**
+         * Replace the voucher date range
+         * @description Admin only. Sent **whole**, both dates together — there is no way to change one end without restating the other.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: date */
+                        startDate: string;
+                        /** Format: date */
+                        endDate: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VoucherConfig"];
+                    };
+                };
+                /** @description `endDate` is before `startDate` */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/target-stock-lists": {
         parameters: {
             query?: never;
@@ -4345,6 +4504,85 @@ export interface paths {
                 404: components["responses"]["NotFound"];
                 /** @description A parcel on the list has not been reviewed, so its quantities are not settled yet (a cancelled parcel is not waited for); or a line still says an item needs attention, which is not a quantity and cannot be added up; or the session itself has been confirmed, so the stock it needed has already moved. */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pick-lists/stock-requirement-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What every session still to come is going to need, admin only
+         * @description Admin only, and a different figure from
+         *     `GET /api/v1/sessions/{sessionId}/stock-requirement` above: it sums
+         *     `requiredQuantity` for every stock item across **every** pick list
+         *     whose session is not confirmed and whose `sessionDate` falls on or
+         *     before `upTo`, not just one session's.
+         *
+         *     A `-1` line is skipped rather than causing a `409` — it is left out of
+         *     the total the same as the fresh-food shopping list leaves it out,
+         *     never subtracted from it. A cancelled parcel is left out too.
+         *
+         *     **Unlike the per-session endpoint, this does not wait for every
+         *     parcel to be reviewed.** It looks across many sessions at once, most
+         *     of them not yet picked, and a total that only appeared once picking
+         *     was finished would arrive too late for the planning it is for.
+         *
+         *     Gives the total required only — it does not compare against
+         *     `quantityOnHand` and there is no `shortfall`. A referral with no pick
+         *     list generated yet for its session has nothing here to add to the
+         *     total.
+         *
+         *     **The window also has a floor: the start of the current week,
+         *     Europe/London.** Not a parameter — `upTo` is the only date you
+         *     choose — it is a scope decision: this report is about sessions still
+         *     being planned for, so a session dated before the current week does
+         *     not add to the total however long it has sat unconfirmed.
+         *
+         *     Defaults to shelf order.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Inclusive cut-off on `sessionDate`. The floor is not a parameter — see above. */
+                    upTo: string;
+                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` follows the shelf numbers so a volunteer walks the warehouse once — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
+                    order?: components["parameters"]["StockOrder"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The running total, one line per item any qualifying session needs */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["StockRequirementSummaryLine"][];
+                        };
+                    };
+                };
+                /** @description Missing or unrecognised `upTo` */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -5365,7 +5603,8 @@ export interface components {
              *     When the address *is* authorised, pre-fill it from `POST /public/referrers/check` so the value matches what the server would have derived. The server still records its own match separately, so this string never decides which organisation a referral is credited to.
              */
             referrerOrganisation: string;
-            referrerPhone?: string;
+            /** @description Required on every referral, not only a `referrer_collect` one — the food bank may need to ring the person who sent a household regardless of how the parcel itself is collected. */
+            referrerPhone: string;
             refereeFirstName: string;
             /** @description Held apart from the first name because it is what a list sorts by and what a volunteer matches a bag to. */
             refereeSurname: string;
@@ -5386,10 +5625,10 @@ export interface components {
             adults: number;
             children?: number;
             /**
-             * @description Delivered rather than collected. A delivery goes to `refereeAddress`; there is no separate delivery address to send.
-             * @default false
+             * @description How the parcel is collected, and the sole source of truth for whether it is a delivery — there is no separate delivery flag to send. `delivery` goes to `refereeAddress`; there is no separate delivery address. `referrer_collect` is the referrer collecting on the referee's behalf, and counts as a collection everywhere that matters — a session's delivery capacity does not see it.
+             * @enum {string}
              */
-            isDelivery: boolean;
+            collectionMethod: "collection" | "delivery" | "referrer_collect";
             /**
              * @description The dynamic answers, keyed by the question keys in **your** form configuration. The server holds no form definition and does not validate these against anything — it stores what you send and returns it unchanged, so the keys and their meaning are yours to keep stable.
              *     Bounded only for storage safety, because this is an unauthenticated write: at most 100 keys, keys at most 60 characters, and at most 16KB once serialised. Exceeding any of those is a `400`.
@@ -5416,7 +5655,11 @@ export interface components {
             refereePhone?: string | null;
             adults?: number;
             children?: number;
-            isDelivery?: boolean;
+            /**
+             * @description See `ReferralSubmission.collectionMethod`.
+             * @enum {string}
+             */
+            collectionMethod?: "collection" | "delivery" | "referrer_collect";
             needsFuelHelp?: boolean;
             /**
              * Format: uuid
@@ -5462,30 +5705,36 @@ export interface components {
             id: string;
             /**
              * Format: uuid
-             * @description Null on a loose reply — a text with no upcoming referral behind it.
+             * @description Null on a loose reply — a text with no upcoming referral behind it. A `referrer_reply` never reaches this response at all — see `kind`.
              */
             referralId: string | null;
             /**
              * @description `reminder` — what the food bank sent about the session.
-             *     `household_reply` — what the household texted back. **The only kind that is ever unread.**
+             *     `household_reply` — what the household texted back. **The only kind that is ever unread**, along with `referrer_reply`.
              *     `staff_reply` — a person answering from the session screen.
+             *     `referrer_reply` — a text from a referrer currently collecting one or more open `referrer_collect` parcels. **Cannot appear here** — this response is scoped to one referral's thread, and a `referrer_reply` is never attached to one; it only ever appears on `SmsInboxMessage`, the administrator-only inbox.
              *     `failure` — the reminder did not go: no number, a number that is not a mobile, or the provider refused it. Not a message anybody sent, but it belongs where somebody will see it, and it arrives already read because it is not somebody waiting for an answer.
              * @enum {string}
              */
-            kind: "reminder" | "staff_reply" | "household_reply" | "failure";
+            kind: "reminder" | "staff_reply" | "household_reply" | "referrer_reply" | "failure";
             /** @description For a `failure`, the reason rather than a message. */
             body: string;
             /** Format: date-time */
             occurredAt: string;
             /** Format: date-time */
             readAt: string | null;
+            /**
+             * @description Whose number `phone` is. `referrer` when this referral's collection method is `referrer_collect`; `referee` otherwise. Null only on a loose reply with nothing to derive it from.
+             * @enum {string|null}
+             */
+            recipientRole: "referee" | "referrer" | null;
             /** @description True when this message was never actually sent through TheSMSWorks — the environment is running its dev/test simulator, or this destination fell outside its one live test number. Always false in production. Meaningless on a `failure` (nothing was sent either way) or a `household_reply` (always real). */
             simulated: boolean;
-            /** @description The household's number, in E.164 where it could be normalised. Present on every message: on a loose reply it is the only way to act on one, and on a thread it is the same number the referral already carries, so withholding it there would buy nothing. */
+            /** @description The recipient's number, in E.164 where it could be normalised — see `recipientRole` for whose it is. Present on every message: on a loose reply it is the only way to act on one, and on a thread it is the same number the referral already carries, so withholding it there would buy nothing. */
             phone?: string;
         };
         SmsAttentionSummary: {
-            /** @description Unread household replies that are unmatched or belong to a confirmed or cancelled session. A reply on a session still planned or under way is excluded — that one is the team leader's to read. */
+            /** @description Unread household replies that are unmatched or belong to a confirmed or cancelled session, plus unread referrer replies (`referrer_reply`), which have no session to be excluded by. A household reply on a session still planned or under way is excluded — that one is the team leader's to read. */
             unreadTotal: number;
         };
         /** @description The session an `SmsInboxMessage` was snapshotted against, when it has one. */
@@ -5521,27 +5770,53 @@ export interface components {
          *       cancelled; nobody else was coming back to it, which is why this one
          *       counts towards `SmsAttentionSummary` when unread.
          *
-         *     `session` is null only when `location` is `unmatched`.
+         *     `session` is null when `location` is `unmatched`, which is also true
+         *     of every `kind: 'referrer_reply'` row — it is never snapshotted
+         *     against one session, since a referrer may be collecting for several.
          */
         SmsInboxMessage: {
             /** Format: uuid */
             id: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Always null on a `kind: 'referrer_reply'` row — see `kind`.
+             */
             referralId: string | null;
-            /** @enum {string} */
-            kind: "reminder" | "staff_reply" | "household_reply" | "failure";
+            /**
+             * @description See `SmsMessage.kind` — this response is the one place `referrer_reply` appears.
+             * @enum {string}
+             */
+            kind: "reminder" | "staff_reply" | "household_reply" | "referrer_reply" | "failure";
             body: string;
             /** Format: date-time */
             occurredAt: string;
             /** Format: date-time */
             readAt: string | null;
+            /**
+             * @description See `SmsMessage.recipientRole`. Always `referrer` on a `referrer_reply`.
+             * @enum {string|null}
+             */
+            recipientRole: "referee" | "referrer" | null;
             /** @enum {string} */
             location: "unmatched" | "active_session" | "closed_session";
             session: null | components["schemas"]["SmsInboxSession"];
             /** @description On every row, not only `unmatched` ones — group a number's rows into a thread by this. `null` means the household had no number on file; a `null`-phone row is never the same thread as another `null`-phone row, so group those by `referralId` instead. */
             phone: string | null;
+            /** @description Present only on a `kind: 'referrer_reply'` row: every currently open `referrer_collect` referral for the referrer this message came from, computed fresh on every read rather than fixed at the time the message arrived, so it never goes stale as a candidate closes. **Never collapsed to one** — an administrator assigns it by hand; nothing here guesses which household it was about. Absent, not an empty array, on every other `kind`. */
+            candidateParcels?: components["schemas"]["SmsCandidateParcel"][];
             /** @description See `SmsMessage.simulated`. */
             simulated: boolean;
+        };
+        /** @description One of a referrer's currently open `referrer_collect` parcels — just enough for an administrator to tell a `referrer_reply` apart by. No household name, address or reason for referral: `INITIAL_SPEC1.txt`, "SMS reminders and replies" is explicit that a referrer message carries nothing about the household beyond what identifies which one it might be. */
+        SmsCandidateParcel: {
+            /** Format: uuid */
+            referralId: string;
+            /** Format: uuid */
+            sessionId: string;
+            /** Format: date */
+            sessionDate: string;
+            /** @description HH:MM, the wall clock the charity set. */
+            startTime: string;
         };
         /** @description What the referrer gets back. This is the whole of their relationship with the system now: there is no key and no window, so show it as a confirmation. **Read `status`** — `pending_review` means the referral is waiting to be looked at, not that a place is booked and settled. */
         ReferralReceipt: {
@@ -5553,6 +5828,12 @@ export interface components {
             status: "pending_review" | "active";
             adults: number;
             children: number;
+            /**
+             * @description See `ReferralSubmission.collectionMethod`.
+             * @enum {string}
+             */
+            collectionMethod: "collection" | "delivery" | "referrer_collect";
+            /** @description Derived from `collectionMethod` (`delivery` means `true`, every other method `false`) — kept for callers that only care whether this is a delivery. */
             isDelivery: boolean;
             needsFuelHelp: boolean;
             refereeFirstName: string | null;
@@ -5729,6 +6010,12 @@ export interface components {
             adults: number;
             children: number;
             householdSize: number;
+            /**
+             * @description See `ReferralSubmission.collectionMethod`.
+             * @enum {string}
+             */
+            collectionMethod: "collection" | "delivery" | "referrer_collect";
+            /** @description Derived from `collectionMethod` (`delivery` means `true`, every other method `false`) — kept for callers that only care whether this is a delivery. */
             isDelivery: boolean;
             needsFuelHelp: boolean;
             /** @description As the referrer gave it. For an unrecognised referrer there was no authorised-referrer row to derive it from. */
@@ -5785,6 +6072,20 @@ export interface components {
              *     Present for an administrator fetching one referral, absent for a team lead, whose read costs nothing extra. `GET /referrals/{id}/repeat-referrals` is the button behind it; **do not call that route just to render this count.** It returns other households' names, addresses, phone numbers and dates of birth, and those should not cross the wire until an administrator asks for them.
              */
             repeatReferrals?: components["schemas"]["RepeatReferralSummary"];
+            /** @description **Admin only.** The dedicated first-time review screen's own state — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. A team lead never sees this or the historic date it can carry; they see only the dateless marker on a pick list's parcel — `Parcel.firstTimeMarker`. */
+            firstTimeReview?: components["schemas"]["FirstTimeReview"];
+        };
+        FirstTimeReview: {
+            /**
+             * @description Every referral starts `unreviewed`, except one that existed before this feature shipped — those were backfilled to `no_previous_referral` in one pass rather than left as a backlog. `POST /referrals/{id}/first-time-review` is the only route that moves a referral off `unreviewed`, and it never moves one back.
+             * @enum {string}
+             */
+            status: "unreviewed" | "no_previous_referral" | "previous_session";
+            /**
+             * Format: date
+             * @description Set only when `status` is `previous_session`.
+             */
+            previousSessionDate: string | null;
         };
         StockItem: {
             /** Format: uuid */
@@ -5814,6 +6115,10 @@ export interface components {
             requiredQuantity: number;
             /** @description `requiredQuantity - quantityOnHand`, floored at zero. Non-zero means the warehouse cannot cover the session as it stands. */
             shortfall: number;
+        };
+        StockRequirementSummaryLine: components["schemas"]["StockItem"] & {
+            /** @description How many of this item every qualifying session's parcels ask for in total, across all of them. Always positive — an item nothing needs has no line. No comparison against stock on hand — see `GET /api/v1/pick-lists/stock-requirement-summary`. */
+            requiredQuantity: number;
         };
         /** @description One household on the listener sheet. The narrowest response in the API, and the only one carrying the reason for referral to a team leader. */
         ListenerSheetHousehold: {
@@ -5954,6 +6259,13 @@ export interface components {
             displayOrder: number;
             contents: components["schemas"]["ParcelContentLine"][];
         };
+        /** @description Both `null` until an administrator has set a range. Once set, neither is ever null on its own — `PUT` always writes both together. */
+        VoucherConfig: {
+            /** Format: date */
+            startDate: string | null;
+            /** Format: date */
+            endDate: string | null;
+        };
         TargetStockLine: {
             /** @description A stock item id, as a snapshot rather than a live reference — see `TargetStockList`. Not validated against the stock item catalogue on write: settled 2026-08-31 (was Q46), because that is what the server has to tolerate in order to store the discrepancies it catches for the administrator. */
             stockItemId: string;
@@ -6065,6 +6377,11 @@ export interface components {
             answers: {
                 [key: string]: unknown;
             };
+            /**
+             * @description What the Run a session screen shows for whether this household is new — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. `first_time` when the referral's first-time review recorded no previous referral, `admin` while that review is still `unreviewed`, and no marker at all (`null`) once a previous-session date has been recorded. **Never the date itself or anything else about the referral** — this is safe for a team lead precisely because it stops there.
+             * @enum {string|null}
+             */
+            firstTimeMarker: "first_time" | "admin" | null;
             lines: components["schemas"]["ParcelLine"][];
         };
         /**
@@ -6087,6 +6404,16 @@ export interface components {
             deliveryPhone: string | null;
             /** @description The pick-list information as saved on the parcel — what the team leader meant the sheet to say, not the answers as they read today. */
             notes: string | null;
+            /**
+             * @description The one voucher instruction for the top of this sheet — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. **Calculated fresh on every print, never stored on the parcel or generated with the pick list** — an administrator may make the first-time-review decision after this pick list already exists, so printing must always reflect the current one.
+             *     `null` — no instruction at all, printed as nothing. Either the session's date is outside the configured voucher range, or no range has been configured.
+             *     `refer_to_admin` — the session is in range and this household's first-time review is still `unreviewed`.
+             *     `provide_voucher` — the session is in range and either there is no previous referral, or a previous-session date is recorded but it falls outside the range.
+             *     `already_received` — the session is in range and the recorded previous-session date falls inside it too.
+             *     **Never the historic date itself, and nothing else about the referral** — only ever one of these three words or `null`.
+             * @enum {string|null}
+             */
+            voucherInstruction: "provide_voucher" | "already_received" | "refer_to_admin" | null;
             lines: components["schemas"]["ParcelLine"][];
         };
         /** @description Who may refer. `matchValue` for a domain is stored bare (`guildford.gov.uk`) — the `*@` a UI shows is stripped on the way in and must be re-added on the way out if you want to display it. */

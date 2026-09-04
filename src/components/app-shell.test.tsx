@@ -107,7 +107,10 @@ describe('AppShell', () => {
       ],
       ['/stock', ['Stock', 'Stock take', 'Stock items', 'Model parcels', 'Parcel Grid']],
       ['/sessions', ['Manage Sessions', 'Weekly sessions']],
-      ['/referrers', ['Approved referrers', 'Users', 'Reasons for Crisis', 'Rule check']],
+      [
+        '/referrers',
+        ['Approved referrers', 'Users', 'Reasons for Crisis', 'Rule check', 'Christmas vouchers'],
+      ],
     ] as const;
 
     for (const [path, labels] of cases) {

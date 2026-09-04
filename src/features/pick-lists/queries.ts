@@ -23,6 +23,7 @@ export type SmsThread =
   paths['/api/v1/referrals/{id}/sms-messages']['get']['responses'][200]['content']['application/json'];
 export type SmsMessage = components['schemas']['SmsMessage'];
 export type SmsInboxMessage = components['schemas']['SmsInboxMessage'];
+export type SmsCandidateParcel = components['schemas']['SmsCandidateParcel'];
 export type SmsAttentionSummary = components['schemas']['SmsAttentionSummary'];
 export type StockRequirement =
   paths['/api/v1/sessions/{sessionId}/stock-requirement']['get']['responses'][200]['content']['application/json'];
@@ -383,6 +384,8 @@ export function usePrintPickList(pickListId: string) {
   return useQuery({
     queryKey: pickListKeys.print(pickListId),
     enabled: pickListId !== '',
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: (): Promise<PrintPickList> =>
       unwrap(api.GET('/api/v1/pick-lists/{id}/print', { params: { path: { id: pickListId } } })),
   });

@@ -17,7 +17,7 @@ textarea {
   min-block-size: 5rem;
 }
 
-/* The administrator inbox's two tabs. Purple, the referral category's colour
+/* The administrator inbox's three tabs. Purple, the referral category's colour
    — `screenDetails.md`, "referral equivalents are purple" — and otherwise
    the same borderless, underlined-on-selection shape
    `run-session-tabs.module.css` uses for the five session tabs. */

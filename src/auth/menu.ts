@@ -80,6 +80,7 @@ export const MENU: readonly MenuItem[] = [
   { to: '/sms', label: 'SMS Messages', roles: ADMIN_ONLY },
   { to: '/extracts', label: 'Send to Sheets', roles: ADMIN_ONLY },
   { to: '/preference-rules', label: 'Rule check', roles: ADMIN_ONLY },
+  { to: '/voucher-config', label: 'Christmas vouchers', roles: ADMIN_ONLY },
   // A fuel administrator is not a reduced staff account. This is their whole
   // application; no other navigation item is shared with that role.
   { to: '/fuel-help', label: 'Fuel', roles: FUEL_HELP_STAFF },
@@ -155,6 +156,7 @@ export function navigationSectionsFor(role: Role): readonly NavigationSection[] 
       '/users',
       '/referral-reasons',
       '/preference-rules',
+      '/voucher-config',
     ]),
   ];
 }

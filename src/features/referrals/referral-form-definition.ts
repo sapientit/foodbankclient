@@ -41,7 +41,7 @@ export interface FormOption {
  * `ReferralSubmission`. **Not `answers` keys** — these are the fixed fields
  * `.claude/rules/referral-form.md` requires stay separate and typed.
  *
- * All sixteen are on `ReferralSubmission` now. The last five to land —
+ * Every configured key field is on `ReferralSubmission` now. The last five to land —
  * `referrerName`, `refereeFirstName`, `refereeSurname`, `refereeDateOfBirth`
  * and `needsFuelHelp` — were requested while this list already named them, which
  * is why the list is the client's own rather than generated: it is what the form
@@ -59,7 +59,6 @@ export const KEY_FIELD_NAMES = [
   'refereePostcode',
   'refereePhone',
   'sessionId',
-  'isDelivery',
   'adults',
   'children',
   'reasonId',

@@ -26,6 +26,8 @@ const REFERRAL_6 = '/api/v1/referrals/referral-6';
  *    never unread.
  *  - +445555555555 (closed session): message-6 — a `failure` only, referral-6,
  *    arrives already read.
+ *  - +446666666666 (referrer): message-7 — one reply with two possible open
+ *    parcels, neither named here.
  */
 const MESSAGES = [
   {
@@ -35,6 +37,7 @@ const MESSAGES = [
     body: 'Can I come later?',
     occurredAt: '2026-08-22T09:00:00.000Z',
     readAt: null,
+    recipientRole: null,
     location: 'unmatched' as const,
     session: null,
     simulated: false,
@@ -47,6 +50,7 @@ const MESSAGES = [
     body: 'Hello, anybody there?',
     occurredAt: '2026-08-22T09:05:00.000Z',
     readAt: null,
+    recipientRole: null,
     location: 'unmatched' as const,
     session: null,
     simulated: false,
@@ -59,6 +63,7 @@ const MESSAGES = [
     body: 'I am running late.',
     occurredAt: '2026-08-22T08:00:00.000Z',
     readAt: null,
+    recipientRole: null,
     location: 'active_session' as const,
     session: {
       id: 'session-2',
@@ -76,6 +81,7 @@ const MESSAGES = [
     body: 'Thank you.',
     occurredAt: '2026-08-21T08:00:00.000Z',
     readAt: null,
+    recipientRole: null,
     location: 'closed_session' as const,
     session: {
       id: 'session-3',
@@ -93,6 +99,7 @@ const MESSAGES = [
     body: 'Are you still open today?',
     occurredAt: '2026-08-23T08:00:00.000Z',
     readAt: null,
+    recipientRole: null,
     location: 'closed_session' as const,
     session: {
       id: 'session-6',
@@ -110,6 +117,7 @@ const MESSAGES = [
     body: 'We will keep your parcel for you.',
     occurredAt: '2026-08-20T08:00:00.000Z',
     readAt: null,
+    recipientRole: 'referee' as const,
     location: 'closed_session' as const,
     session: {
       id: 'session-3',
@@ -127,6 +135,7 @@ const MESSAGES = [
     body: 'No mobile number on file.',
     occurredAt: '2026-08-19T08:00:00.000Z',
     readAt: '2026-08-19T08:00:00.000Z',
+    recipientRole: null,
     location: 'closed_session' as const,
     session: {
       id: 'session-9',
@@ -136,6 +145,33 @@ const MESSAGES = [
     },
     simulated: false,
     phone: '+445555555555',
+  },
+  {
+    id: 'message-7',
+    referralId: null,
+    kind: 'referrer_reply' as const,
+    body: 'I can collect both parcels.',
+    occurredAt: '2026-08-23T09:00:00.000Z',
+    readAt: null,
+    recipientRole: 'referrer' as const,
+    location: 'unmatched' as const,
+    session: null,
+    simulated: false,
+    phone: '+446666666666',
+    candidateParcels: [
+      {
+        referralId: 'referral-7',
+        sessionId: 'session-7',
+        sessionDate: '2026-08-25',
+        startTime: '10:00',
+      },
+      {
+        referralId: 'referral-8',
+        sessionId: 'session-8',
+        sessionDate: '2026-08-26',
+        startTime: '11:30',
+      },
+    ],
   },
 ];
 
@@ -148,6 +184,7 @@ function referralRow(overrides: Partial<Referral> & Pick<Referral, 'id'>): Refer
     children: 0,
     householdSize: 1,
     isDelivery: false,
+    collectionMethod: 'collection',
     needsFuelHelp: false,
     referrerOrganisation: 'Riverside Church',
     referrerName: 'Sam Referrer',
@@ -357,6 +394,7 @@ describe('SmsInboxLayout — Loose messages tab', () => {
     expect(await screen.findByText('Phone: +441111111111')).toBeInTheDocument();
     expect(screen.queryByText('I am running late.')).not.toBeInTheDocument();
     expect(screen.queryByText('Thank you.')).not.toBeInTheDocument();
+    expect(screen.queryByText('I can collect both parcels.')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Loose messages (2 unread)' })).toBeInTheDocument();
   });
 
@@ -401,5 +439,50 @@ describe('SmsInboxLayout — Loose messages tab', () => {
     expect(router.state.location.pathname).toBe('/referrals/search');
     expect(router.state.location.search).toBe('');
     expect(router.state.location.state).toBeNull();
+  });
+});
+
+describe('SmsInboxLayout — Referrer messages tab', () => {
+  it('keeps a referrer reply out of the other inbox tabs and shows all possible parcels without household details', async () => {
+    server.use(
+      http.post(MESSAGE_READ, () =>
+        HttpResponse.json({ ...MESSAGES[7], readAt: '2026-08-23T09:10:00.000Z' }),
+      ),
+    );
+    renderApp('/sms/referrers');
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole('heading', { name: 'Referrer messages' })).toBeInTheDocument();
+    expect(await screen.findByText('Referrer: +446666666666')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Referrer messages (1 unread)' })).toBeInTheDocument();
+    await user.click(screen.getByText('Referrer: +446666666666'));
+
+    expect(screen.getByRole('link', { name: 'Tue, 25 Aug 2026 at 10:00' })).toHaveAttribute(
+      'href',
+      '/referrals/referral-7',
+    );
+    expect(screen.getByRole('link', { name: 'Wed, 26 Aug 2026 at 11:30' })).toHaveAttribute(
+      'href',
+      '/referrals/referral-8',
+    );
+    expect(screen.queryByRole('link', { name: 'Search referrals for this number' })).toBeNull();
+    expect(screen.queryByText(/Jamie|Rowe|Elm Street/)).toBeNull();
+  });
+
+  it('marks referrer replies read individually when their thread is opened', async () => {
+    const readMessageIds: string[] = [];
+    server.use(
+      http.post(MESSAGE_READ, ({ params }) => {
+        readMessageIds.push(String(params.id));
+        return HttpResponse.json({ ...MESSAGES[7], readAt: '2026-08-23T09:10:00.000Z' });
+      }),
+    );
+    renderApp('/sms/referrers');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByText('Referrer: +446666666666'));
+    await waitFor(() => {
+      expect(readMessageIds).toEqual(['message-7']);
+    });
   });
 });

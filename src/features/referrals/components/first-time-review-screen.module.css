@@ -1,0 +1,132 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 22rem);
+  margin-inline: -2rem;
+  border-block-start: 1px solid #d4d4d4;
+}
+
+.content {
+  min-inline-size: 0;
+  padding: 1.5rem 2rem 0;
+}
+
+.referralSummary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid #c4cad3;
+}
+
+.referralSummary dt {
+  color: #595959;
+  font-size: 0.9rem;
+}
+
+.referralSummary dd {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.matches {
+  margin-block-start: 1.75rem;
+}
+
+.filters,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  margin-block: 1rem 1.5rem;
+}
+
+.filters label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.filters input:not([type='checkbox']) {
+  min-inline-size: 16rem;
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  border: 1px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
+.filters .checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-inline-size: 15rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.tableWrap table {
+  inline-size: 100%;
+  min-inline-size: 66rem;
+  border-collapse: collapse;
+}
+
+.tableWrap th,
+.tableWrap td {
+  padding: 0.75rem;
+  text-align: start;
+  vertical-align: top;
+  border: 1px solid #d4d4d4;
+}
+
+.tableWrap th {
+  background: #f4f6f8;
+}
+
+.noPrevious {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-block: 1.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d4d4d4;
+}
+
+.actions {
+  justify-content: space-between;
+  margin-block-end: 1.5rem;
+}
+
+.check {
+  padding: 2.5rem 2rem;
+  border-inline-start: 1px solid #d4d4d4;
+}
+
+.check h2 {
+  margin-block-start: 0;
+  padding-block-end: 0.5rem;
+  border-block-end: 1px solid #d4d4d4;
+}
+
+@media (max-width: 52rem) {
+  .layout {
+    grid-template-columns: 1fr;
+    margin-inline: 0;
+  }
+
+  .content,
+  .check {
+    padding-inline: 0;
+  }
+
+  .referralSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .check {
+    padding-block: 1.5rem;
+    border-block-start: 1px solid #d4d4d4;
+    border-inline-start: 0;
+  }
+}
