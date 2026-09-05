@@ -1,0 +1,21 @@
+.intro {
+  max-inline-size: 70ch;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-inline-start: 0;
+  list-style: none;
+  max-inline-size: 60ch;
+}
+
+.item {
+  padding-block-end: 1rem;
+  border-block-end: 1px solid #d4d4d4;
+}
+
+.description {
+  margin-block: 0.4rem 0;
+}

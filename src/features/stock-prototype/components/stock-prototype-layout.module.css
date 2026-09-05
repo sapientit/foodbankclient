@@ -1,0 +1,32 @@
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-block-end: 1.5rem;
+  padding-block-end: 0.5rem;
+  border-block-end: 1px solid #d4d4d4;
+}
+
+.tab,
+.activeTab {
+  padding: 0.375rem 0.75rem;
+  border-radius: 4px;
+  color: #1a1a1a;
+  text-decoration: none;
+}
+
+.tab:hover {
+  background: #f0f0f0;
+}
+
+.activeTab {
+  background: #005a9c;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+@media print {
+  .tabs {
+    display: none;
+  }
+}

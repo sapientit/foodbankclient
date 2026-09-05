@@ -58,6 +58,13 @@ import { AmendUserScreen } from './features/users/components/amend-user-screen';
 import { CreateUserScreen } from './features/users/components/create-user-screen';
 import { UsersScreen } from './features/users/components/users-screen';
 import { ExtractScreen } from './features/extracts/components/extract-screen';
+import { StockPrototypeLayout } from './features/stock-prototype/components/stock-prototype-layout';
+import { PrototypeHomeScreen } from './features/stock-prototype/components/prototype-home-screen';
+import { GroupingsScreen } from './features/stock-prototype/components/groupings-screen';
+import { CratesScreen } from './features/stock-prototype/components/crates-screen';
+import { PrototypeStockTakeScreen } from './features/stock-prototype/components/prototype-stock-take-screen';
+import { ValidationScreen } from './features/stock-prototype/components/validation-screen';
+import { PrototypeShoppingScreen } from './features/stock-prototype/components/prototype-shopping-screen';
 
 /**
  * The route table, and the shape of it is the point.
@@ -213,6 +220,24 @@ export const routes: RouteObject[] = [
       { path: 'stock/target-lists/new', element: <CreateTargetStockListScreen /> },
       { path: 'stock/target-lists/:targetStockListId', element: <AmendTargetStockListScreen /> },
       { path: 'stock/shopping', element: <ShoppingScreen /> },
+      /*
+       * Stock handling prototype — a disposable, client-only demo of a proposed change
+       * (`docs/planning/stock-handling-changes.md`), not a real feature. Not in `menu.ts`, so it is
+       * reachable only by direct URL, same as any other admin screen that isn't route-guarded.
+       * `StockPrototypeLayout` holds the one in-memory store instance shared across its screens.
+       */
+      {
+        path: 'stock-prototype',
+        element: <StockPrototypeLayout />,
+        children: [
+          { index: true, element: <PrototypeHomeScreen /> },
+          { path: 'groupings', element: <GroupingsScreen /> },
+          { path: 'crates', element: <CratesScreen /> },
+          { path: 'take', element: <PrototypeStockTakeScreen /> },
+          { path: 'validation', element: <ValidationScreen /> },
+          { path: 'shopping', element: <PrototypeShoppingScreen /> },
+        ],
+      },
       /*
        * Model parcels and the household grid. Admin only per `API.md` §2, and
        * — as with users and stock items — no route is role-guarded: a team
