@@ -32,6 +32,33 @@
   font-variant-numeric: tabular-nums;
 }
 
+.adjust {
+  margin-inline-start: 0.5rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 1rem;
+}
+
+.adjustmentRow td {
+  background: #fff8e8;
+}
+
+.adjustmentForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.adjustmentForm input,
+.adjustmentForm select {
+  max-inline-size: 11rem;
+}
+
+.adjustmentForm p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 .retired {
   /* #595959 on white is 7:1. The word carries the meaning; the colour is not
      doing the work on its own. */

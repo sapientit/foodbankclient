@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildEditorModel,
+  buildCrateTargetLines,
   buildListPayload,
   findTargetStockListByName,
   hasUnresolvedLines,
@@ -28,6 +29,21 @@ describe('sortTargetStockLists', () => {
   });
 });
 
+describe('crate target payloads', () => {
+  it('keeps the crate id and name snapshot with a one-decimal target', () => {
+    expect(buildCrateTargetLines([{ crateId: 'c1', crateName: 'Spread', target: '2.5' }])).toEqual({
+      ok: true,
+      lines: [{ kind: 'crate', crateId: 'c1', crateName: 'Spread', targetQuantity: 2.5 }],
+    });
+  });
+
+  it('rejects more than one decimal place', () => {
+    expect(
+      buildCrateTargetLines([{ crateId: 'c1', crateName: 'Spread', target: '2.55' }]),
+    ).toMatchObject({ ok: false });
+  });
+});
+
 describe('findTargetStockListByName', () => {
   const lists = [
     { id: 'a', name: 'Christmas' },
@@ -50,10 +66,10 @@ describe('findTargetStockListByName', () => {
 
 describe('reconcileLines', () => {
   const lines: StoredTargetLine[] = [
-    { stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
-    { stockItemId: 's2', name: 'Value rice 500g', targetQuantity: 20 },
-    { stockItemId: 's3', name: 'UHT milk 1L', targetQuantity: 60 },
-    { stockItemId: 's4', name: 'Teabags 80s', targetQuantity: 12 },
+    { kind: 'item', stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
+    { kind: 'item', stockItemId: 's2', name: 'Value rice 500g', targetQuantity: 20 },
+    { kind: 'item', stockItemId: 's3', name: 'UHT milk 1L', targetQuantity: 60 },
+    { kind: 'item', stockItemId: 's4', name: 'Teabags 80s', targetQuantity: 12 },
   ];
   const catalogue = [
     active('s1', 'Baked beans 400g'),
@@ -80,7 +96,7 @@ describe('buildEditorModel', () => {
 
   it('gives one row per active item, targets pre-filled, blank where not on the list', () => {
     const { rows } = buildEditorModel(catalogue, [
-      { stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
+      { kind: 'item', stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
     ]);
     expect(rows.map((r) => [r.stockItemId, r.target])).toEqual([
       ['s1', '48'],
@@ -96,7 +112,7 @@ describe('buildEditorModel', () => {
 
   it('shows a renamed line on its active item row with renamedFrom set, not as attention', () => {
     const { rows, attention } = buildEditorModel(catalogue, [
-      { stockItemId: 's3', name: 'UHT milk 1L', targetQuantity: 60 },
+      { kind: 'item', stockItemId: 's3', name: 'UHT milk 1L', targetQuantity: 60 },
     ]);
     const milk = rows.find((r) => r.stockItemId === 's3');
     expect(milk).toMatchObject({
@@ -109,8 +125,8 @@ describe('buildEditorModel', () => {
 
   it('pulls retired and missing stored lines into the attention list', () => {
     const { attention } = buildEditorModel(catalogue, [
-      { stockItemId: 's9', name: 'Value rice 500g', targetQuantity: 20 },
-      { stockItemId: 'gone', name: 'Instant coffee 200g', targetQuantity: 6 },
+      { kind: 'item', stockItemId: 's9', name: 'Value rice 500g', targetQuantity: 20 },
+      { kind: 'item', stockItemId: 'gone', name: 'Instant coffee 200g', targetQuantity: 6 },
     ]);
     expect(attention).toEqual([
       { stockItemId: 's9', storedName: 'Value rice 500g', targetQuantity: 20, kind: 'retired' },
@@ -145,8 +161,8 @@ describe('buildListPayload', () => {
     expect(result).toEqual({
       ok: true,
       lines: [
-        { stockItemId: 's1', name: 'Baked beans', targetQuantity: 48 },
-        { stockItemId: 's3', name: 'Milk', targetQuantity: 60 },
+        { kind: 'item', stockItemId: 's1', name: 'Baked beans', targetQuantity: 48 },
+        { kind: 'item', stockItemId: 's3', name: 'Milk', targetQuantity: 60 },
       ],
     });
   });
@@ -157,7 +173,7 @@ describe('buildListPayload', () => {
     ]);
     expect(result).toEqual({
       ok: true,
-      lines: [{ stockItemId: 's3', name: 'Long-life milk 1L', targetQuantity: 60 }],
+      lines: [{ kind: 'item', stockItemId: 's3', name: 'Long-life milk 1L', targetQuantity: 60 }],
     });
   });
 

@@ -6,12 +6,14 @@ import { Spinner } from '../../../components/spinner';
 import { Toast } from '../../../components/toast';
 import { useToast } from '../../../components/use-toast';
 import { copyToClipboard } from '../../../lib/clipboard';
-import { useStockLevels } from '../../stock/queries';
+import { parseWholeQuantity } from '../../stock/stock.logic';
+import { useCrates, useStockLevels } from '../../stock/queries';
 import {
-  computeShoppingList,
+  computeShoppingListWithCrates,
   shoppingListToPlainText,
   splitGroupedColumns,
 } from '../shopping-list.logic';
+import { isCrateTargetLine, isItemTargetLine } from '../target-stock-lists.logic';
 import { useTargetStockLists } from '../queries';
 import styles from './shopping-screen.module.css';
 
@@ -28,9 +30,11 @@ import styles from './shopping-screen.module.css';
 export function ShoppingScreen() {
   const lists = useTargetStockLists();
   const levels = useStockLevels();
+  const crates = useCrates();
   const [searchParams, setSearchParams] = useSearchParams();
   const { message: toastMessage, show: showToast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
 
   const pickerId = useId();
   const summaryId = useId();
@@ -44,17 +48,39 @@ export function ShoppingScreen() {
   // stable between refetches.
   const shopping = useMemo(() => {
     const list = lists.data?.find((candidate) => candidate.id === selectedId);
-    return list === undefined || levels.data === undefined
+    return list === undefined || levels.data === undefined || crates.data === undefined
       ? null
-      : computeShoppingList(list.lines, levels.data);
-  }, [lists.data, selectedId, levels.data]);
+      : computeShoppingListWithCrates(
+          list.lines.filter(isItemTargetLine),
+          list.lines.filter(isCrateTargetLine),
+          crates.data,
+          levels.data,
+        );
+  }, [crates.data, lists.data, selectedId, levels.data]);
 
-  const columns = useMemo(
-    () => (shopping === null ? null : splitGroupedColumns(shopping.groups, 3)),
-    [shopping],
+  const columns = useMemo(() => {
+    if (shopping === null) return null;
+    const groups = shopping.groups.map((group) => ({
+      ...group,
+      items: group.items.map((item) => {
+        const value = overrides[`${group.category}\u0000${item.name}`];
+        const parsed = value === undefined ? null : parseWholeQuantity(value, 0);
+        return parsed?.ok ? { ...item, need: parsed.value } : item;
+      }),
+    }));
+    return splitGroupedColumns(groups, 3);
+  }, [overrides, shopping]);
+  const invalidOverrideKeys = useMemo(
+    () =>
+      new Set(
+        Object.entries(overrides)
+          .filter(([, value]) => !parseWholeQuantity(value, 0).ok)
+          .map(([key]) => key),
+      ),
+    [overrides],
   );
 
-  if (lists.isPending || levels.isPending) {
+  if (lists.isPending || levels.isPending || crates.isPending) {
     return (
       <>
         <PageHeader title="Shopping" />
@@ -80,6 +106,14 @@ export function ShoppingScreen() {
       </>
     );
   }
+  if (crates.isError) {
+    return (
+      <>
+        <PageHeader title="Shopping" />
+        <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
+      </>
+    );
+  }
 
   const flaggedCount = shopping === null ? 0 : shopping.attention.length + shopping.renamed.length;
 
@@ -90,15 +124,14 @@ export function ShoppingScreen() {
     shopping !== null && shopping.groups.length === 0 && shopping.attention.length === 0;
 
   const onCopy = () => {
-    if (shopping === null) return;
-    void copyToClipboard(shoppingListToPlainText(shopping.groups, shopping.attention)).then(
-      (ok) => {
-        setCopied(ok);
-        showToast(
-          ok ? 'Shopping list copied.' : 'Could not copy — the list is on screen to read or print.',
-        );
-      },
-    );
+    if (shopping === null || invalidOverrideKeys.size > 0) return;
+    const groups = columns?.flat() ?? shopping.groups;
+    void copyToClipboard(shoppingListToPlainText(groups, shopping.attention)).then((ok) => {
+      setCopied(ok);
+      showToast(
+        ok ? 'Shopping list copied.' : 'Could not copy — the list is on screen to read or print.',
+      );
+    });
   };
 
   return (
@@ -162,9 +195,7 @@ export function ShoppingScreen() {
                   {shopping.attention.map((line) => (
                     <li key={`${line.kind}-${line.storedName}`}>
                       <strong>{line.storedName}</strong> (target {line.targetQuantity}) —{' '}
-                      {line.kind === 'retired'
-                        ? 'retired; not bought'
-                        : 'no longer in the catalogue; not bought'}
+                      {attentionMessage(line.kind)}
                     </li>
                   ))}
                 </ul>
@@ -175,6 +206,7 @@ export function ShoppingScreen() {
               <button
                 aria-describedby={flaggedCount > 0 ? summaryId : undefined}
                 className={styles.action}
+                disabled={invalidOverrideKeys.size > 0}
                 onClick={() => {
                   window.print();
                 }}
@@ -182,7 +214,12 @@ export function ShoppingScreen() {
               >
                 Open print dialog
               </button>
-              <button className={styles.action} onClick={onCopy} type="button">
+              <button
+                className={styles.action}
+                disabled={invalidOverrideKeys.size > 0}
+                onClick={onCopy}
+                type="button"
+              >
                 {copied ? 'Copied' : 'Copy to clipboard'}
               </button>
             </div>
@@ -210,18 +247,26 @@ export function ShoppingScreen() {
                       <table className={styles.items}>
                         <tbody>
                           {group.items.map((item) => (
-                            <tr key={item.name}>
-                              <th scope="row">
-                                {item.name}
-                                {item.renamedFrom !== null && (
-                                  <span className={styles.flag}>
-                                    {' '}
-                                    <span aria-hidden="true">⚠ </span>was “{item.renamedFrom}”
-                                  </span>
-                                )}
-                              </th>
-                              <td className={styles.numeric}>{item.need}</td>
-                            </tr>
+                            <ShoppingItemRow
+                              invalid={invalidOverrideKeys.has(
+                                `${group.category}\u0000${item.name}`,
+                              )}
+                              item={item}
+                              key={item.name}
+                              onChange={(value) => {
+                                const key = `${group.category}\u0000${item.name}`;
+                                setOverrides((current) => ({ ...current, [key]: value }));
+                              }}
+                              onReset={() => {
+                                const key = `${group.category}\u0000${item.name}`;
+                                setOverrides((current) => {
+                                  const { [key]: _ignored, ...rest } = current;
+                                  return rest;
+                                });
+                              }}
+                              override={overrides[`${group.category}\u0000${item.name}`]}
+                              rowId={`${group.category}-${item.name}`}
+                            />
                           ))}
                         </tbody>
                       </table>
@@ -244,7 +289,7 @@ export function ShoppingScreen() {
                         <span className={styles.flag}>
                           {' '}
                           <span aria-hidden="true">⚠ </span>
-                          {line.kind === 'retired' ? 'retired' : 'no longer in the catalogue'}
+                          {attentionMessage(line.kind)}
                         </span>
                       </th>
                       <td className={styles.numeric}>{line.targetQuantity}</td>
@@ -260,4 +305,78 @@ export function ShoppingScreen() {
       <Toast message={toastMessage} />
     </>
   );
+}
+
+function ShoppingItemRow({
+  invalid,
+  item,
+  onChange,
+  onReset,
+  override,
+  rowId,
+}: {
+  readonly invalid: boolean;
+  readonly item: {
+    readonly name: string;
+    readonly need: number;
+    readonly renamedFrom: string | null;
+  };
+  readonly onChange: (value: string) => void;
+  readonly onReset: () => void;
+  readonly override: string | undefined;
+  readonly rowId: string;
+}) {
+  const value = override ?? String(item.need);
+  return (
+    <tr>
+      <th scope="row">
+        {item.name}
+        {item.renamedFrom !== null && (
+          <span className={styles.flag}>
+            {' '}
+            <span aria-hidden="true">⚠ </span>was “{item.renamedFrom}”
+          </span>
+        )}
+      </th>
+      <td className={styles.numeric}>
+        <label className={styles.visuallyHidden} htmlFor={rowId}>
+          Quantity for {item.name}
+        </label>
+        <input
+          aria-describedby={invalid ? `${rowId}-error` : undefined}
+          aria-invalid={invalid ? true : undefined}
+          className={styles.quantityInput}
+          id={rowId}
+          inputMode="numeric"
+          onChange={(event) => {
+            onChange(event.target.value);
+          }}
+          type="text"
+          value={value}
+        />
+        <span className={styles.printQuantity}>{value}</span>
+        {invalid && (
+          <span className={styles.quantityError} id={`${rowId}-error`}>
+            Use a whole number of 0 or more before printing or copying.
+          </span>
+        )}
+        {override !== undefined && (
+          <button
+            className={`button-secondary ${styles.reset ?? ''}`}
+            onClick={onReset}
+            type="button"
+          >
+            Reset
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function attentionMessage(kind: 'retired' | 'missing' | 'crate-member' | 'missing-crate'): string {
+  if (kind === 'retired') return 'retired; not bought';
+  if (kind === 'crate-member') return 'now counted by a crate; not bought separately';
+  if (kind === 'missing-crate') return 'crate no longer exists; not bought';
+  return 'no longer in the catalogue; not bought';
 }

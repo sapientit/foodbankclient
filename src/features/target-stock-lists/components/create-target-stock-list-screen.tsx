@@ -7,16 +7,17 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
-import { useStockItems } from '../../stock/queries';
+import { useCrates, useStockItems } from '../../stock/queries';
 import {
   MAX_TARGET_STOCK_LIST_NAME_LENGTH,
   buildEditorModel,
-  buildListPayload,
+  buildTargetPayload,
   findTargetStockListByName,
+  type CrateTargetDraft,
   type EditorRow,
 } from '../target-stock-lists.logic';
 import { useCreateTargetStockList, useTargetStockLists } from '../queries';
-import { TargetStockListEditor } from './target-stock-list-editor';
+import { CrateTargetEditor, TargetStockListEditor } from './target-stock-list-editor';
 import styles from './target-stock-list-form.module.css';
 
 /**
@@ -41,10 +42,14 @@ export function CreateTargetStockListScreen() {
   const navigate = useNavigate();
   const lists = useTargetStockLists();
   const stockItems = useStockItems('category');
+  const crates = useCrates();
   const create = useCreateTargetStockList();
   const [rows, setRows] = useState<readonly EditorRow[] | null>(null);
+  const [crateRows, setCrateRows] = useState<readonly CrateTargetDraft[] | null>(null);
   const [linesError, setLinesError] = useState<string | null>(null);
   const [focusRow, setFocusRow] = useState<{ stockItemId: string; nonce: number } | null>(null);
+  const [focusCrate, setFocusCrate] = useState<{ crateId: string; nonce: number } | null>(null);
+  const [errorCrateId, setErrorCrateId] = useState<string | null>(null);
   const [focusLinesError, setFocusLinesError] = useState(0);
 
   const nameId = useId();
@@ -68,31 +73,54 @@ export function CreateTargetStockListScreen() {
   const duplicate =
     lists.data === undefined ? undefined : findTargetStockListByName(lists.data, name);
 
-  const initialRows = useMemo(
-    () => (stockItems.data === undefined ? null : buildEditorModel(stockItems.data, []).rows),
-    [stockItems.data],
-  );
+  const initialRows = useMemo(() => {
+    if (stockItems.data === undefined || crates.data === undefined) return null;
+    const memberIds = new Set(
+      crates.data.flatMap((crate) => crate.members.map((member) => member.stockItemId)),
+    );
+    return buildEditorModel(
+      stockItems.data.filter((item) => !memberIds.has(item.id)),
+      [],
+    ).rows;
+  }, [crates.data, stockItems.data]);
   const currentRows = rows ?? initialRows;
+  const initialCrateRows = useMemo(
+    () =>
+      crates.data?.map((crate) => ({ crateId: crate.id, crateName: crate.name, target: '' })) ??
+      null,
+    [crates.data],
+  );
+  const currentCrateRows = crateRows ?? initialCrateRows;
 
   useEffect(() => {
     if (focusLinesError > 0) linesErrorRef.current?.focus();
   }, [focusLinesError]);
 
   const submit = handleSubmit(async (values) => {
-    if (duplicate !== undefined || currentRows === null) return;
+    if (duplicate !== undefined || currentRows === null || currentCrateRows === null) return;
 
-    const built = buildListPayload(currentRows);
+    const built = buildTargetPayload(currentRows, currentCrateRows);
     if (!built.ok) {
       setLinesError(built.message);
+      setErrorCrateId(built.focusCrateId);
+      const crateId = built.focusCrateId;
+      if (crateId !== null) {
+        setFocusCrate((previous) => ({
+          crateId,
+          nonce: (previous?.nonce ?? 0) + 1,
+        }));
+        return;
+      }
       const focusId = built.focusStockItemId;
       if (focusId === null) setFocusLinesError((n) => n + 1);
       else setFocusRow((prev) => ({ stockItemId: focusId, nonce: (prev?.nonce ?? 0) + 1 }));
       return;
     }
     setLinesError(null);
+    setErrorCrateId(null);
 
     try {
-      await create.mutateAsync({ name: values.name, lines: built.lines });
+      await create.mutateAsync({ name: values.name, lines: [...built.lines] });
       await navigate('/stock/target-lists');
     } catch (error) {
       applyFieldErrors(error, setError);
@@ -147,9 +175,12 @@ export function CreateTargetStockListScreen() {
         </div>
 
         <h2>Targets</h2>
-        {stockItems.isPending && <Spinner label="Loading stock items…" />}
+        {(stockItems.isPending || crates.isPending) && <Spinner label="Loading stock items…" />}
         {stockItems.isError && (
           <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
+        )}
+        {crates.isError && (
+          <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
         )}
         {currentRows !== null && (
           <TargetStockListEditor
@@ -159,6 +190,17 @@ export function CreateTargetStockListScreen() {
             onRowsChange={setRows}
             rows={currentRows}
           />
+        )}
+        {currentCrateRows !== null && (
+          <>
+            <h3>Crate targets</h3>
+            <CrateTargetEditor
+              errorCrateId={errorCrateId}
+              focusCrate={focusCrate}
+              onRowsChange={setCrateRows}
+              rows={currentCrateRows}
+            />
+          </>
         )}
         {linesError !== null && (
           <p

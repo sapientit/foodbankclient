@@ -9,6 +9,8 @@ import type { StockLevel } from './queries';
 const REFRESH = '/api/v1/auth/refresh';
 const LEVELS = '/api/v1/stock/levels';
 const TAKE = '/api/v1/stock/take';
+const GROUPING = { id: 'g1', name: 'Non-perishable' };
+const FRESH_GROUPING = { id: 'g2', name: 'Fresh food' };
 
 const BEANS: StockLevel = {
   id: 's1',
@@ -16,7 +18,11 @@ const BEANS: StockLevel = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A2',
+  shelfSortKey: 'shelf/002',
   lowStockThreshold: null,
+  groupingId: GROUPING.id,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
   quantityOnHand: 12,
 };
@@ -26,23 +32,14 @@ const RICE: StockLevel = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A10',
+  shelfSortKey: 'shelf/010',
   lowStockThreshold: null,
+  groupingId: GROUPING.id,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
   quantityOnHand: 4,
 };
-
-function levels(count: number): StockLevel[] {
-  return Array.from({ length: count }, (_, index) => ({
-    id: `s${String(index + 1)}`,
-    name: `Item ${String(index + 1)}`,
-    category: 'Test',
-    description: null,
-    shelfNumber: `A${String(index + 1)}`,
-    lowStockThreshold: null,
-    isActive: true,
-    quantityOnHand: index + 1,
-  }));
-}
 
 beforeEach(() => {
   server.use(
@@ -54,10 +51,256 @@ beforeEach(() => {
       }),
     ),
     http.get(LEVELS, () => HttpResponse.json({ items: [BEANS, RICE] })),
+    http.get('/api/v1/stock/groupings', () => HttpResponse.json({ items: [GROUPING] })),
   );
 });
 
+async function chooseGrouping(user: ReturnType<typeof userEvent.setup>, groupingId = GROUPING.id) {
+  await user.selectOptions(await screen.findByLabelText('Grouping'), groupingId);
+}
+
+function directLevels(count: number): StockLevel[] {
+  return Array.from({ length: count }, (_, index) => {
+    const number = index + 1;
+    return {
+      ...BEANS,
+      id: `item-${String(number)}`,
+      name: `Item ${String(number)}`,
+      shelfNumber: `Shelf ${String(number)}`,
+      shelfSortKey: `shelf/${String(number).padStart(3, '0')}`,
+      quantityOnHand: number,
+    };
+  });
+}
+
 describe('saving a stock take page', () => {
+  it('keeps a crate at combined row forty on page one and excludes an unsaved page-two count', async () => {
+    const firstThirtyNine = directLevels(39);
+    const jam: StockLevel = {
+      ...BEANS,
+      id: 'jam',
+      name: 'Jam',
+      groupingId: null,
+      shelfSortKey: 'member/jam',
+    };
+    const marmite: StockLevel = {
+      ...BEANS,
+      id: 'marmite',
+      name: 'Marmite',
+      groupingId: null,
+      shelfSortKey: 'member/marmite',
+    };
+    const itemFortyOne: StockLevel = {
+      ...BEANS,
+      id: 'item-41',
+      name: 'Item 41',
+      shelfNumber: 'Shelf 41',
+      shelfSortKey: 'shelf/041',
+      quantityOnHand: 41,
+    };
+    const bodies: unknown[] = [];
+    server.use(
+      http.get(LEVELS, () =>
+        HttpResponse.json({ items: [...firstThirtyNine, itemFortyOne, jam, marmite] }),
+      ),
+      http.get('/api/v1/stock/crates', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'c1',
+              name: 'Tinned mix',
+              shelfKey: 'Shelf 40',
+              shelfSortKey: 'shelf/040',
+              groupingId: GROUPING.id,
+              sizePerCrate: 12,
+              members: [
+                {
+                  stockItemId: jam.id,
+                  stockCompositionPercent: 50,
+                  shoppingCompositionPercent: 50,
+                },
+                {
+                  stockItemId: marmite.id,
+                  stockCompositionPercent: 50,
+                  shoppingCompositionPercent: 50,
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+      http.post(TAKE, async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({
+          applied: 1,
+          levels: [{ stockItemId: 'item-1', quantityOnHand: 99 }],
+        });
+      }),
+    );
+    renderApp('/stock/take');
+    const user = userEvent.setup();
+    await chooseGrouping(user);
+
+    expect(await screen.findByText('Page 1 of 2 — items 1–40 of 41.')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(41);
+    expect(screen.getAllByRole('rowheader').at(-1)).toHaveTextContent('Tinned mix');
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await screen.findByText('Page 2 of 2 — items 41–41 of 41.')).toBeInTheDocument();
+    expect(screen.getAllByRole('rowheader')).toHaveLength(1);
+    await user.type(screen.getByLabelText('Counted Item 41 individually'), '99');
+
+    await user.click(screen.getByRole('button', { name: 'Previous page' }));
+    await user.type(screen.getByLabelText('Counted Item 1 individually'), '99');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
+
+    expect(await screen.findByText('One changed count saved.')).toBeInTheDocument();
+    expect(bodies).toEqual([
+      { counts: [{ stockItemId: 'item-1', countedQuantity: 99 }], crateCounts: [] },
+    ]);
+  });
+
+  it('returns to page one with no draft when the counter changes grouping', async () => {
+    const levels = directLevels(41);
+    const freshItem: StockLevel = {
+      ...BEANS,
+      id: 'fresh-1',
+      name: 'Fresh item',
+      groupingId: FRESH_GROUPING.id,
+      shelfSortKey: 'fresh/001',
+    };
+    server.use(
+      http.get(LEVELS, () => HttpResponse.json({ items: [...levels, freshItem] })),
+      http.get('/api/v1/stock/groupings', () =>
+        HttpResponse.json({ items: [GROUPING, FRESH_GROUPING] }),
+      ),
+    );
+    renderApp('/stock/take');
+    const user = userEvent.setup();
+    await chooseGrouping(user);
+    await user.click(await screen.findByRole('button', { name: 'Next page' }));
+    await user.type(await screen.findByLabelText('Counted Item 41 individually'), '99');
+
+    await chooseGrouping(user, FRESH_GROUPING.id);
+    await chooseGrouping(user, GROUPING.id);
+
+    expect(await screen.findByText('Page 1 of 2 — items 1–40 of 41.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Counted Item 41 individually')).toBeNull();
+    expect(screen.getByLabelText('Counted Item 1 individually')).toHaveValue('');
+  });
+
+  it('saves one forty-row stock-take page without carrying an unsaved count to the next page', async () => {
+    const levels = directLevels(41);
+    const bodies: unknown[] = [];
+    server.use(
+      http.get(LEVELS, () => HttpResponse.json({ items: levels })),
+      http.post(TAKE, async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({
+          applied: 1,
+          levels: [{ stockItemId: 'item-41', quantityOnHand: 99 }],
+        });
+      }),
+    );
+    renderApp('/stock/take');
+    const user = userEvent.setup();
+    await chooseGrouping(user);
+
+    expect(await screen.findByText('Page 1 of 2 — items 1–40 of 41.')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(41);
+    await user.type(screen.getByLabelText('Counted Item 1 individually'), '99');
+    expect(screen.queryByLabelText('Counted Item 41 individually')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+
+    expect(await screen.findByText('Page 2 of 2 — items 41–41 of 41.')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(2);
+    await user.type(screen.getByLabelText('Counted Item 41 individually'), '99');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
+
+    expect(await screen.findByText('One changed count saved.')).toBeInTheDocument();
+    expect(bodies).toEqual([
+      { counts: [{ stockItemId: 'item-41', countedQuantity: 99 }], crateCounts: [] },
+    ]);
+  });
+
+  it('interleaves crates with direct items in shelf order and shows their composition immediately', async () => {
+    const cereal: StockLevel = {
+      ...BEANS,
+      id: 's3',
+      name: 'Cereal',
+      shelfNumber: 'Z-17',
+      shelfSortKey: 'warehouse/0010',
+    };
+    const jam: StockLevel = {
+      ...BEANS,
+      id: 's4',
+      name: 'Jam',
+      groupingId: null,
+      shelfNumber: 'Rack 99',
+      shelfSortKey: 'warehouse/0020',
+    };
+    const marmite: StockLevel = {
+      ...BEANS,
+      id: 's5',
+      name: 'Marmite',
+      groupingId: null,
+      shelfNumber: 'Rack 99',
+      shelfSortKey: 'warehouse/0020',
+    };
+    const pasta: StockLevel = {
+      ...BEANS,
+      id: 's6',
+      name: 'Pasta',
+      shelfNumber: 'A-1',
+      shelfSortKey: 'warehouse/0030',
+    };
+    server.use(
+      // Neither the server's array position nor the display shelf text is the
+      // shelf walk order. The opaque keys are deliberately authoritative.
+      http.get(LEVELS, () => HttpResponse.json({ items: [pasta, marmite, cereal, jam] })),
+      http.get('/api/v1/stock/crates', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'c1',
+              name: 'Tinned mix',
+              shelfKey: 'Middle rack',
+              shelfSortKey: 'warehouse/0025',
+              groupingId: GROUPING.id,
+              sizePerCrate: 12,
+              members: [
+                {
+                  stockItemId: jam.id,
+                  stockCompositionPercent: 50,
+                  shoppingCompositionPercent: 50,
+                },
+                {
+                  stockItemId: marmite.id,
+                  stockCompositionPercent: 50,
+                  shoppingCompositionPercent: 50,
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+    renderApp('/stock/take');
+    const user = userEvent.setup();
+    await chooseGrouping(user);
+
+    expect((await screen.findAllByRole('rowheader')).map((header) => header.textContent)).toEqual([
+      expect.stringContaining('Cereal'),
+      expect.stringContaining('Tinned mix'),
+      expect.stringContaining('Pasta'),
+    ]);
+    const composition = screen.getByRole('list', { name: 'Crate composition' });
+    expect(within(composition).getByText('Jam: 50%')).toBeInTheDocument();
+    expect(within(composition).getByText('Marmite: 50%')).toBeInTheDocument();
+    expect(screen.queryByText(/Composition preview/)).toBeNull();
+  });
+
   it('sends only changed counts, including zero, to the one stock-take endpoint', async () => {
     let body: unknown = null;
     server.use(
@@ -74,9 +317,10 @@ describe('saving a stock take page', () => {
     );
     renderApp('/stock/take');
     const user = userEvent.setup();
+    await chooseGrouping(user);
 
-    await user.type(await screen.findByLabelText('Counted Baked beans'), '9');
-    await user.type(screen.getByLabelText('Counted Rice'), '0');
+    await user.type(await screen.findByLabelText('Counted Baked beans individually'), '9');
+    await user.type(screen.getByLabelText('Counted Rice individually'), '0');
     await user.click(screen.getByRole('button', { name: 'Save this page' }));
 
     expect(await screen.findByText('2 changed counts saved.')).toBeInTheDocument();
@@ -85,6 +329,7 @@ describe('saving a stock take page', () => {
         { stockItemId: 's1', countedQuantity: 9 },
         { stockItemId: 's2', countedQuantity: 0 },
       ],
+      crateCounts: [],
     });
   });
 
@@ -98,12 +343,13 @@ describe('saving a stock take page', () => {
     );
     renderApp('/stock/take');
     const user = userEvent.setup();
+    await chooseGrouping(user);
 
-    await user.type(await screen.findByLabelText('Counted Baked beans'), '12');
+    await user.type(await screen.findByLabelText('Counted Baked beans individually'), '12');
     await user.click(screen.getByRole('button', { name: 'Save this page' }));
 
     expect(
-      await screen.findByText('Nothing changed on this page. Nothing was saved.'),
+      await screen.findByText('Nothing changed in this grouping. Nothing was saved.'),
     ).toBeInTheDocument();
     expect(saves).toBe(0);
   });
@@ -111,7 +357,8 @@ describe('saving a stock take page', () => {
   it('identifies an invalid count and links it to its explanation', async () => {
     renderApp('/stock/take');
     const user = userEvent.setup();
-    const input = await screen.findByLabelText('Counted Baked beans');
+    await chooseGrouping(user);
+    const input = await screen.findByLabelText('Counted Baked beans individually');
 
     await user.type(input, '-1');
     await user.click(screen.getByRole('button', { name: 'Save this page' }));
@@ -133,7 +380,8 @@ describe('saving a stock take page', () => {
     );
     renderApp('/stock/take');
     const user = userEvent.setup();
-    const input = await screen.findByLabelText('Counted Baked beans');
+    await chooseGrouping(user);
+    const input = await screen.findByLabelText('Counted Baked beans individually');
 
     await user.type(input, '9');
     await user.click(screen.getByRole('button', { name: 'Save this page' }));
@@ -143,29 +391,114 @@ describe('saving a stock take page', () => {
     await user.click(screen.getByRole('button', { name: 'Save this page' }));
 
     expect(
-      await screen.findByText('Nothing changed on this page. Nothing was saved.'),
+      await screen.findByText('Nothing changed in this grouping. Nothing was saved.'),
     ).toBeInTheDocument();
-    expect(bodies).toEqual([{ counts: [{ stockItemId: 's1', countedQuantity: 9 }] }]);
+    expect(bodies).toEqual([
+      { counts: [{ stockItemId: 's1', countedQuantity: 9 }], crateCounts: [] },
+    ]);
   });
-});
 
-describe('stock take pagination', () => {
-  it('shows forty shelf-ordered items per page and carries no counts between pages', async () => {
-    server.use(http.get(LEVELS, () => HttpResponse.json({ items: levels(41) })));
+  it('can count a directly grouped packed item as individual units', async () => {
+    let body: unknown = null;
+    const boxedFormula: StockLevel = {
+      ...BEANS,
+      name: 'Baby formula - Stage 1',
+      unitsPerPack: 24,
+      packUnitLabel: 'boxes',
+      quantityOnHand: 48,
+    };
+    server.use(
+      http.get(LEVELS, () => HttpResponse.json({ items: [boxedFormula, RICE] })),
+      http.post(TAKE, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({
+          applied: 1,
+          levels: [{ stockItemId: boxedFormula.id, quantityOnHand: 37 }],
+        });
+      }),
+    );
     renderApp('/stock/take');
     const user = userEvent.setup();
+    await chooseGrouping(user);
 
-    expect(await screen.findByText('Page 1 of 2 — items 1–40 of 41.')).toBeInTheDocument();
-    expect(screen.getAllByRole('row')).toHaveLength(41);
-    expect(
-      within(screen.getAllByRole('row')[1] ?? document.body).getByRole('rowheader'),
-    ).toHaveTextContent('Item 1');
-    expect(screen.queryByLabelText('Counted Item 41')).toBeNull();
+    const formulaRow = await screen.findByRole('row', { name: /Baby formula - Stage 1/ });
+    const currentLevel = within(formulaRow).getAllByRole('cell')[1];
+    expect(currentLevel).toHaveTextContent('48');
+    expect(currentLevel).not.toHaveTextContent('individual units');
+    expect(screen.getByText('or boxes of 24')).toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    await user.type(screen.getByLabelText('Counted Baby formula - Stage 1 individually'), '37');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
 
-    expect(await screen.findByText('Page 2 of 2 — items 41–41 of 41.')).toBeInTheDocument();
-    expect(screen.getAllByRole('row')).toHaveLength(2);
-    expect(screen.getByLabelText('Counted Item 41')).toBeInTheDocument();
+    expect(await screen.findByText('One changed count saved.')).toBeInTheDocument();
+    expect(body).toEqual({
+      counts: [{ stockItemId: boxedFormula.id, countedQuantity: 37 }],
+      crateCounts: [],
+    });
+  });
+
+  it('converts decimal boxes for a directly grouped packed item into its individual count', async () => {
+    let body: unknown = null;
+    const boxedFormula: StockLevel = {
+      ...BEANS,
+      name: 'Baby formula - Stage 1',
+      unitsPerPack: 24,
+      packUnitLabel: 'boxes',
+      quantityOnHand: 48,
+    };
+    server.use(
+      http.get(LEVELS, () => HttpResponse.json({ items: [boxedFormula, RICE] })),
+      http.post(TAKE, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({
+          applied: 1,
+          levels: [{ stockItemId: boxedFormula.id, quantityOnHand: 84 }],
+        });
+      }),
+    );
+    renderApp('/stock/take');
+    const user = userEvent.setup();
+    await chooseGrouping(user);
+
+    const individualInput = await screen.findByLabelText(
+      'Counted Baby formula - Stage 1 individually',
+    );
+    await user.type(screen.getByLabelText('Counted Baby formula - Stage 1 in boxes of 24'), '3.5');
+    expect(individualInput).toHaveValue('84');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
+
+    expect(await screen.findByText('One changed count saved.')).toBeInTheDocument();
+    expect(body).toEqual({
+      counts: [{ stockItemId: boxedFormula.id, countedQuantity: 84 }],
+      crateCounts: [],
+    });
+  });
+
+  it('requires a whole number in the individual count of a directly grouped packed item', async () => {
+    let saves = 0;
+    const boxedFormula: StockLevel = {
+      ...BEANS,
+      name: 'Baby formula - Stage 1',
+      unitsPerPack: 24,
+      packUnitLabel: 'boxes',
+      quantityOnHand: 48,
+    };
+    server.use(
+      http.get(LEVELS, () => HttpResponse.json({ items: [boxedFormula, RICE] })),
+      http.post(TAKE, () => {
+        saves += 1;
+        return HttpResponse.json({ applied: 0, levels: [] });
+      }),
+    );
+    renderApp('/stock/take');
+    const user = userEvent.setup();
+    await chooseGrouping(user);
+    const individualInput = screen.getByLabelText('Counted Baby formula - Stage 1 individually');
+    await user.type(individualInput, '3.5');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
+
+    expect(individualInput).toHaveAttribute('aria-invalid', 'true');
+    expect(individualInput).toHaveAccessibleDescription('Use a whole number of individual units.');
+    expect(saves).toBe(0);
   });
 });

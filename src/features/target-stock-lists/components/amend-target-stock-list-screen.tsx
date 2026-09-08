@@ -8,19 +8,22 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
-import { useStockItems, type StockItem } from '../../stock/queries';
+import { useCrates, useStockItems, type Crate, type StockItem } from '../../stock/queries';
 import {
   MAX_TARGET_STOCK_LIST_NAME_LENGTH,
   buildEditorModel,
-  buildListPayload,
+  buildTargetPayload,
+  isCrateTargetLine,
+  isItemTargetLine,
   findTargetStockListByName,
   hasUnresolvedLines,
   type AttentionRow,
+  type CrateTargetDraft,
   type EditorRow,
 } from '../target-stock-lists.logic';
 import { useAmendTargetStockList, useTargetStockList, useTargetStockLists } from '../queries';
 import type { TargetStockList } from '../queries';
-import { TargetStockListEditor } from './target-stock-list-editor';
+import { CrateTargetEditor, TargetStockListEditor } from './target-stock-list-editor';
 import styles from './target-stock-list-form.module.css';
 
 /**
@@ -37,8 +40,9 @@ export function AmendTargetStockListScreen() {
   const { targetStockListId = '' } = useParams();
   const target = useTargetStockList(targetStockListId);
   const stockItems = useStockItems('category');
+  const crates = useCrates();
 
-  if (target.isPending || stockItems.isPending) {
+  if (target.isPending || stockItems.isPending || crates.isPending) {
     return (
       <>
         <PageHeader title="Amend a target stock list" />
@@ -64,6 +68,14 @@ export function AmendTargetStockListScreen() {
       </>
     );
   }
+  if (crates.isError) {
+    return (
+      <>
+        <PageHeader title="Amend a target stock list" />
+        <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
+      </>
+    );
+  }
 
   if (target.data === null) {
     return (
@@ -78,7 +90,7 @@ export function AmendTargetStockListScreen() {
     );
   }
 
-  return <AmendForm list={target.data} stockItems={stockItems.data} />;
+  return <AmendForm crates={crates.data} list={target.data} stockItems={stockItems.data} />;
 }
 
 const amendSchema = z.object({
@@ -97,19 +109,46 @@ type AmendValues = z.infer<typeof amendSchema>;
 function AmendForm({
   list,
   stockItems,
+  crates,
 }: {
   list: TargetStockList;
   stockItems: readonly StockItem[];
+  crates: readonly Crate[];
 }) {
   const navigate = useNavigate();
   const lists = useTargetStockLists();
   const amend = useAmendTargetStockList();
 
-  const [model] = useState(() => buildEditorModel(stockItems, list.lines));
+  const [model] = useState(() => {
+    const memberIds = new Set(
+      crates.flatMap((crate) => crate.members.map((member) => member.stockItemId)),
+    );
+    return buildEditorModel(
+      stockItems.filter((item) => !memberIds.has(item.id)),
+      list.lines.filter(isItemTargetLine),
+    );
+  });
   const [rows, setRows] = useState<readonly EditorRow[]>(model.rows);
+  const [crateRows, setCrateRows] = useState<readonly CrateTargetDraft[]>(() => {
+    const targets = new Map(
+      list.lines.filter(isCrateTargetLine).map((line) => [line.crateId, line]),
+    );
+    return crates.map((crate) => ({
+      crateId: crate.id,
+      crateName: crate.name,
+      target: String(targets.get(crate.id)?.targetQuantity ?? ''),
+    }));
+  });
+  const [missingCrateLines, setMissingCrateLines] = useState(() =>
+    list.lines
+      .filter(isCrateTargetLine)
+      .filter((line) => !crates.some((crate) => crate.id === line.crateId)),
+  );
   const [attention, setAttention] = useState<readonly AttentionRow[]>(model.attention);
   const [linesError, setLinesError] = useState<string | null>(null);
   const [focusRow, setFocusRow] = useState<{ stockItemId: string; nonce: number } | null>(null);
+  const [focusCrate, setFocusCrate] = useState<{ crateId: string; nonce: number } | null>(null);
+  const [errorCrateId, setErrorCrateId] = useState<string | null>(null);
   const [focusLinesError, setFocusLinesError] = useState(0);
 
   const nameId = useId();
@@ -135,24 +174,37 @@ function AmendForm({
   const duplicate =
     lists.data === undefined ? undefined : findTargetStockListByName(lists.data, name, list.id);
 
-  const blocked = hasUnresolvedLines(attention);
+  const blocked = hasUnresolvedLines(attention) || missingCrateLines.length > 0;
   const refused = duplicate !== undefined || blocked;
 
   const submit = handleSubmit(async (values) => {
     if (refused) return;
 
-    const built = buildListPayload(rows);
+    const built = buildTargetPayload(rows, crateRows);
     if (!built.ok) {
       setLinesError(built.message);
+      setErrorCrateId(built.focusCrateId);
+      const crateId = built.focusCrateId;
+      if (crateId !== null) {
+        setFocusCrate((previous) => ({
+          crateId,
+          nonce: (previous?.nonce ?? 0) + 1,
+        }));
+        return;
+      }
       const focusId = built.focusStockItemId;
       if (focusId === null) setFocusLinesError((n) => n + 1);
       else setFocusRow((prev) => ({ stockItemId: focusId, nonce: (prev?.nonce ?? 0) + 1 }));
       return;
     }
     setLinesError(null);
+    setErrorCrateId(null);
 
     try {
-      await amend.mutateAsync({ id: list.id, patch: { name: values.name, lines: built.lines } });
+      await amend.mutateAsync({
+        id: list.id,
+        patch: { name: values.name, lines: [...built.lines] },
+      });
       await navigate('/stock/target-lists');
     } catch (error) {
       applyFieldErrors(error, setError);
@@ -218,6 +270,37 @@ function AmendForm({
           onRowsChange={setRows}
           rows={rows}
         />
+        <h3>Crate targets</h3>
+        <CrateTargetEditor
+          errorCrateId={errorCrateId}
+          focusCrate={focusCrate}
+          onRowsChange={setCrateRows}
+          rows={crateRows}
+        />
+        {missingCrateLines.length > 0 && (
+          <section className={styles.attention}>
+            <h3>Crates that need attention</h3>
+            <p>These crates no longer exist. Remove or replace their targets before saving.</p>
+            <ul>
+              {missingCrateLines.map((line) => (
+                <li key={line.crateId}>
+                  {line.crateName} (target {line.targetQuantity}){' '}
+                  <button
+                    className="button-secondary"
+                    onClick={() => {
+                      setMissingCrateLines((current) =>
+                        current.filter((candidate) => candidate.crateId !== line.crateId),
+                      );
+                    }}
+                    type="button"
+                  >
+                    Remove {line.crateName}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {linesError !== null && (
           <p
             className={styles.fieldError}

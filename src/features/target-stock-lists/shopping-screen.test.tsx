@@ -17,7 +17,11 @@ const level = (
 ): StockLevel => ({
   description: null,
   shelfNumber: 'A1',
+  shelfSortKey: 'A1',
   lowStockThreshold: null,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
   ...over,
 });
@@ -39,11 +43,11 @@ const LIST: TargetStockList = {
   id: 't1',
   name: 'Standard week',
   lines: [
-    { stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
-    { stockItemId: 's2', name: 'UHT milk 1L', targetQuantity: 60 },
-    { stockItemId: 's3', name: 'Value rice 500g', targetQuantity: 20 },
-    { stockItemId: 'gone', name: 'Instant coffee 200g', targetQuantity: 6 },
-    { stockItemId: 's4', name: 'Sugar 1kg', targetQuantity: 10 },
+    { kind: 'item', stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
+    { kind: 'item', stockItemId: 's2', name: 'UHT milk 1L', targetQuantity: 60 },
+    { kind: 'item', stockItemId: 's3', name: 'Value rice 500g', targetQuantity: 20 },
+    { kind: 'item', stockItemId: 'gone', name: 'Instant coffee 200g', targetQuantity: 6 },
+    { kind: 'item', stockItemId: 's4', name: 'Sugar 1kg', targetQuantity: 10 },
   ],
 };
 
@@ -62,7 +66,7 @@ beforeEach(() => {
 });
 
 describe('the shopping screen', () => {
-  it('shows only shortfalls, grouped by category, categories and items alphabetical', async () => {
+  it('shows only shortfalls in three columns, with editable quantities labelled for assistive technology only', async () => {
     renderApp('/stock/shopping');
     const user = userEvent.setup();
 
@@ -77,8 +81,18 @@ describe('the shopping screen', () => {
       .filter((t) => t === 'Dairy' || t === 'Tinned');
     expect(categoryHeadings).toEqual(['Dairy', 'Tinned']);
 
-    expect(screen.getByRole('row', { name: /Long-life milk 1L/ })).toHaveTextContent('50');
-    expect(screen.getByRole('row', { name: /Baked beans 400g/ })).toHaveTextContent('8');
+    const milkQuantity = screen.getByLabelText('Quantity for Long-life milk 1L');
+    expect(milkQuantity).toHaveValue('50');
+    expect(screen.getByLabelText('Quantity for Baked beans 400g')).toHaveValue('8');
+    expect(screen.getByText('Quantity for Long-life milk 1L').className).toMatch(/visuallyHidden/);
+
+    const printedMilkQuantity = screen.getByText('50');
+    expect(printedMilkQuantity.className).toMatch(/printQuantity/);
+    expect(printedMilkQuantity.tagName).toBe('SPAN');
+
+    const columns = screen.getByRole('heading', { name: 'Dairy', level: 3 }).parentElement
+      ?.parentElement?.parentElement;
+    expect(columns?.children).toHaveLength(3);
     // Sugar is already above its target — not on the list.
     expect(screen.queryByRole('row', { name: /Sugar 1kg/ })).toBeNull();
   });
@@ -111,6 +125,11 @@ describe('the shopping screen', () => {
     expect(text).toContain('Tinned\nBaked beans 400g\t8');
     expect(text).toContain("Needs an administrator's attention — not bought\nValue rice 500g\t20");
 
+    await user.clear(screen.getByLabelText('Quantity for Long-life milk 1L'));
+    await user.type(screen.getByLabelText('Quantity for Long-life milk 1L'), '47');
+    await user.click(screen.getByRole('button', { name: 'Copied' }));
+    expect(await navigator.clipboard.readText()).toContain('Dairy\nLong-life milk 1L\t47');
+
     await user.click(screen.getByRole('button', { name: 'Open print dialog' }));
     expect(print).toHaveBeenCalled();
     print.mockRestore();
@@ -124,7 +143,7 @@ describe('the shopping screen', () => {
             {
               id: 't2',
               name: 'Renamed only',
-              lines: [{ stockItemId: 's2', name: 'UHT milk 1L', targetQuantity: 60 }],
+              lines: [{ kind: 'item', stockItemId: 's2', name: 'UHT milk 1L', targetQuantity: 60 }],
             },
           ],
         }),
@@ -134,7 +153,7 @@ describe('the shopping screen', () => {
     renderApp('/stock/shopping?list=t2');
 
     // Bought — in its category group with the quantity.
-    expect(await screen.findByRole('row', { name: /Long-life milk 1L/ })).toHaveTextContent('50');
+    expect(await screen.findByLabelText('Quantity for Long-life milk 1L')).toHaveValue('50');
     // And still counted for the administrator.
     expect(screen.getByText(/1 item needs an administrator.s attention/)).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /Needs an administrator.s attention/ })).toBeNull();
@@ -149,8 +168,13 @@ describe('the shopping screen', () => {
               id: 't3',
               name: 'All gone',
               lines: [
-                { stockItemId: 's3', name: 'Value rice 500g', targetQuantity: 20 },
-                { stockItemId: 'gone', name: 'Instant coffee 200g', targetQuantity: 6 },
+                { kind: 'item', stockItemId: 's3', name: 'Value rice 500g', targetQuantity: 20 },
+                {
+                  kind: 'item',
+                  stockItemId: 'gone',
+                  name: 'Instant coffee 200g',
+                  targetQuantity: 6,
+                },
               ],
             },
           ],

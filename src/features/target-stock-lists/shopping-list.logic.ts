@@ -1,4 +1,8 @@
-import { reconcileLines, type StoredTargetLine } from './target-stock-lists.logic';
+import {
+  reconcileLines,
+  type StoredCrateTargetLine,
+  type StoredTargetLine,
+} from './target-stock-lists.logic';
 
 /**
  * The pure half of the Shopping screen: turning a chosen target stock list plus
@@ -51,7 +55,7 @@ export interface AttentionLine {
   readonly storedName: string;
   readonly targetQuantity: number;
   /** `retired` — the item is inactive; `missing` — the id is not in the catalogue. */
-  readonly kind: 'retired' | 'missing';
+  readonly kind: 'retired' | 'missing' | 'crate-member' | 'missing-crate';
 }
 
 export interface ShoppingList {
@@ -61,6 +65,65 @@ export interface ShoppingList {
   readonly attention: readonly AttentionLine[];
   /** Live names of renamed items — shown inline on the sheet and counted in the summary. */
   readonly renamed: readonly string[];
+}
+
+/** The part of a crate definition needed to turn its shopping target into item lines. */
+export interface ShoppingCrate {
+  readonly sizePerCrate: number;
+  readonly members: readonly ShoppingCrateMember[];
+}
+
+export interface ShoppingCrateMember {
+  readonly stockItemId: string;
+  /** The server only saves a crate where these values total exactly 100. */
+  readonly shoppingCompositionPercent: number;
+}
+
+export interface CrateShoppingShortfall {
+  readonly stockItemId: string;
+  readonly quantity: number;
+}
+
+/**
+ * Turns one fractional crate target into named raw-item quantities for the
+ * ordinary shopping list. The shopper receives no separate "crate" section:
+ * the caller merges these rows with its normal category-sorted rows.
+ *
+ * A negative level is treated as an empty shelf, exactly as an ordinary target
+ * line is above. A parcel issue can make a ledger level negative between stock
+ * takes, but that tracking error is not stock the shop can recover.
+ */
+export function decomposeCrateShoppingShortfall(
+  crate: ShoppingCrate,
+  targetCrates: number,
+  levels: readonly Pick<ShoppingStockLevel, 'id' | 'quantityOnHand'>[],
+): CrateShoppingShortfall[] {
+  const quantityByItemId = new Map(levels.map((level) => [level.id, level.quantityOnHand]));
+  const currentUnits = crate.members.reduce(
+    (sum, member) => sum + Math.max(0, quantityByItemId.get(member.stockItemId) ?? 0),
+    0,
+  );
+  const shortfallUnits = Math.max(targetCrates * crate.sizePerCrate - currentUnits, 0);
+
+  const allocations = crate.members.map((member, index) => {
+    const exact = (shortfallUnits * member.shoppingCompositionPercent) / 100;
+    return {
+      stockItemId: member.stockItemId,
+      quantity: Math.floor(exact),
+      remainder: exact % 1,
+      index,
+    };
+  });
+  let remaining =
+    shortfallUnits - allocations.reduce((sum, allocation) => sum + allocation.quantity, 0);
+  for (const allocation of [...allocations].sort(
+    (a, b) => b.remainder - a.remainder || a.index - b.index,
+  )) {
+    if (remaining === 0) break;
+    allocation.quantity += 1;
+    remaining -= 1;
+  }
+  return allocations.map(({ stockItemId, quantity }) => ({ stockItemId, quantity }));
 }
 
 /**
@@ -118,6 +181,69 @@ export function computeShoppingList(
   }
 
   return { groups: groupByCategory(items), attention, renamed };
+}
+
+/** Merge raw item targets with client-derived crate shortfalls, without asking the Worker to scan the catalogue. */
+export function computeShoppingListWithCrates(
+  itemLines: readonly StoredTargetLine[],
+  crateLines: readonly StoredCrateTargetLine[],
+  crates: readonly (ShoppingCrate & { readonly id: string; readonly name: string })[],
+  stockLevels: readonly ShoppingStockLevel[],
+): ShoppingList {
+  const memberIds = new Set(
+    crates.flatMap((crate) => crate.members.map((member) => member.stockItemId)),
+  );
+  const base = computeShoppingList(
+    itemLines.filter((line) => !memberIds.has(line.stockItemId)),
+    stockLevels,
+  );
+  const attention = [
+    ...base.attention,
+    ...itemLines
+      .filter((line) => memberIds.has(line.stockItemId))
+      .map((line) => ({
+        storedName: line.name,
+        targetQuantity: line.targetQuantity,
+        kind: 'crate-member' as const,
+      })),
+  ];
+  const additions: ShoppingItem[] = base.groups.flatMap((group) => group.items);
+  const levelsById = new Map(stockLevels.map((level) => [level.id, level]));
+  const cratesById = new Map(crates.map((crate) => [crate.id, crate]));
+  for (const line of crateLines) {
+    const crate = cratesById.get(line.crateId);
+    if (crate === undefined) {
+      attention.push({
+        storedName: line.crateName,
+        targetQuantity: line.targetQuantity,
+        kind: 'missing-crate',
+      });
+      continue;
+    }
+    for (const shortfall of decomposeCrateShoppingShortfall(
+      crate,
+      line.targetQuantity,
+      stockLevels,
+    )) {
+      const level = levelsById.get(shortfall.stockItemId);
+      if (level === undefined || !level.isActive || shortfall.quantity === 0) continue;
+      additions.push({
+        name: level.name,
+        category: level.category,
+        targetQuantity: 0,
+        quantityOnHand: level.quantityOnHand,
+        need: shortfall.quantity,
+        renamedFrom: null,
+      });
+    }
+  }
+  const merged = new Map<string, ShoppingItem>();
+  for (const item of additions) {
+    const key = `${item.category}\u0000${item.name}`;
+    const current = merged.get(key);
+    merged.set(key, current === undefined ? item : { ...current, need: current.need + item.need });
+  }
+  return { groups: groupByCategory([...merged.values()]), attention, renamed: base.renamed };
 }
 
 /**

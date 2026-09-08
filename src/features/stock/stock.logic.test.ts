@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { StockItem, StockLevel } from './queries';
 import {
+  applyPackingUnit,
   countableLevels,
+  computeCrateReferenceCount,
   findStockItemByName,
   isLowStock,
   normaliseStockItemName,
+  packUnitLabelFor,
+  parseOneDecimalQuantity,
   parseWholeQuantity,
   splitByStatus,
 } from './stock.logic';
@@ -15,7 +19,11 @@ const BEANS: StockItem = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A1',
+  shelfSortKey: 'A1',
   lowStockThreshold: null,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
 };
 const RICE: StockItem = {
@@ -24,7 +32,11 @@ const RICE: StockItem = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A10',
+  shelfSortKey: 'A10',
   lowStockThreshold: null,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: false,
 };
 const ITEMS: readonly StockItem[] = [BEANS, RICE];
@@ -98,6 +110,16 @@ describe('parseWholeQuantity', () => {
   });
 });
 
+describe('parseOneDecimalQuantity', () => {
+  it('accepts the one decimal place used for crates and packs, but not more', () => {
+    expect(parseOneDecimalQuantity('3.5', 0)).toEqual({ ok: true, value: 3.5 });
+    expect(parseOneDecimalQuantity('3.55', 0)).toEqual({
+      ok: false,
+      problem: 'not-a-whole-number',
+    });
+  });
+});
+
 describe('countableLevels', () => {
   const level = (id: string, isActive: boolean, quantityOnHand: number): StockLevel => ({
     id,
@@ -105,7 +127,11 @@ describe('countableLevels', () => {
     category: 'Test',
     description: null,
     shelfNumber: 'A1',
+    shelfSortKey: 'A1',
     lowStockThreshold: null,
+    groupingId: null,
+    unitsPerPack: null,
+    packUnitLabel: null,
     isActive,
     quantityOnHand,
   });
@@ -135,5 +161,41 @@ describe('isLowStock', () => {
     expect(isLowStock({ isActive: true, lowStockThreshold: 3, quantityOnHand: 3 })).toBe(false);
     expect(isLowStock({ isActive: true, lowStockThreshold: null, quantityOnHand: -1 })).toBe(false);
     expect(isLowStock({ isActive: false, lowStockThreshold: 3, quantityOnHand: 1 })).toBe(false);
+  });
+});
+
+describe('computeCrateReferenceCount', () => {
+  it('derives the reference from member levels without storing another stock figure', () => {
+    expect(
+      computeCrateReferenceCount(
+        { sizePerCrate: 12, members: [{ stockItemId: 'jam' }, { stockItemId: 'marmite' }] },
+        [
+          { id: 'jam', quantityOnHand: 14 },
+          { id: 'marmite', quantityOnHand: 10 },
+        ],
+      ),
+    ).toBe(2);
+  });
+
+  it('treats a member absent from levels as zero rather than inventing stock', () => {
+    expect(
+      computeCrateReferenceCount(
+        { sizePerCrate: 10, members: [{ stockItemId: 'jam' }, { stockItemId: 'marmite' }] },
+        [{ id: 'jam', quantityOnHand: 5 }],
+      ),
+    ).toBe(0.5);
+  });
+});
+
+describe('packing units', () => {
+  it('uses the item label when present and a generic plural when it is blank', () => {
+    expect(packUnitLabelFor({ unitsPerPack: 12, packUnitLabel: 'cases' })).toBe('cases');
+    expect(packUnitLabelFor({ unitsPerPack: 12, packUnitLabel: '  ' })).toBe('packs');
+    expect(packUnitLabelFor({ unitsPerPack: 12, packUnitLabel: null })).toBe('packs');
+  });
+
+  it('rounds a one-decimal pack count to the nearest integer level the stock ledger stores', () => {
+    expect(applyPackingUnit(2.5, 12)).toBe(30);
+    expect(applyPackingUnit(0.1, 24)).toBe(2);
   });
 });

@@ -50,6 +50,9 @@ import { CreateStockItemScreen } from './features/stock/components/create-stock-
 import { StockItemsScreen } from './features/stock/components/stock-items-screen';
 import { StockLevelsScreen } from './features/stock/components/stock-levels-screen';
 import { StockTakeScreen } from './features/stock/components/stock-take-screen';
+import { StockGroupingsScreen } from './features/stock/components/stock-groupings-screen';
+import { CratesScreen } from './features/stock/components/crates-screen';
+import { StockValidationScreen } from './features/stock/components/stock-validation-screen';
 import { AmendTargetStockListScreen } from './features/target-stock-lists/components/amend-target-stock-list-screen';
 import { CreateTargetStockListScreen } from './features/target-stock-lists/components/create-target-stock-list-screen';
 import { ShoppingScreen } from './features/target-stock-lists/components/shopping-screen';
@@ -58,13 +61,6 @@ import { AmendUserScreen } from './features/users/components/amend-user-screen';
 import { CreateUserScreen } from './features/users/components/create-user-screen';
 import { UsersScreen } from './features/users/components/users-screen';
 import { ExtractScreen } from './features/extracts/components/extract-screen';
-import { StockPrototypeLayout } from './features/stock-prototype/components/stock-prototype-layout';
-import { PrototypeHomeScreen } from './features/stock-prototype/components/prototype-home-screen';
-import { GroupingsScreen } from './features/stock-prototype/components/groupings-screen';
-import { CratesScreen } from './features/stock-prototype/components/crates-screen';
-import { PrototypeStockTakeScreen } from './features/stock-prototype/components/prototype-stock-take-screen';
-import { ValidationScreen } from './features/stock-prototype/components/validation-screen';
-import { PrototypeShoppingScreen } from './features/stock-prototype/components/prototype-shopping-screen';
 
 /**
  * The route table, and the shape of it is the point.
@@ -207,6 +203,9 @@ export const routes: RouteObject[] = [
       { path: 'stock/items', element: <StockItemsScreen /> },
       { path: 'stock/items/new', element: <CreateStockItemScreen /> },
       { path: 'stock/items/:stockItemId', element: <AmendStockItemScreen /> },
+      { path: 'stock/groupings', element: <StockGroupingsScreen /> },
+      { path: 'stock/crates', element: <CratesScreen /> },
+      { path: 'stock/validation', element: <StockValidationScreen /> },
       /*
        * Target stock lists — the named sets of desired stock levels. Maintenance
        * (`stock/target-lists*`) is admin only for **writes**; a team lead may
@@ -220,24 +219,6 @@ export const routes: RouteObject[] = [
       { path: 'stock/target-lists/new', element: <CreateTargetStockListScreen /> },
       { path: 'stock/target-lists/:targetStockListId', element: <AmendTargetStockListScreen /> },
       { path: 'stock/shopping', element: <ShoppingScreen /> },
-      /*
-       * Stock handling prototype — a disposable, client-only demo of a proposed change
-       * (`docs/planning/stock-handling-changes.md`), not a real feature. Not in `menu.ts`, so it is
-       * reachable only by direct URL, same as any other admin screen that isn't route-guarded.
-       * `StockPrototypeLayout` holds the one in-memory store instance shared across its screens.
-       */
-      {
-        path: 'stock-prototype',
-        element: <StockPrototypeLayout />,
-        children: [
-          { index: true, element: <PrototypeHomeScreen /> },
-          { path: 'groupings', element: <GroupingsScreen /> },
-          { path: 'crates', element: <CratesScreen /> },
-          { path: 'take', element: <PrototypeStockTakeScreen /> },
-          { path: 'validation', element: <ValidationScreen /> },
-          { path: 'shopping', element: <PrototypeShoppingScreen /> },
-        ],
-      },
       /*
        * Model parcels and the household grid. Admin only per `API.md` §2, and
        * — as with users and stock items — no route is role-guarded: a team

@@ -24,9 +24,37 @@ export const TARGET_QUANTITY_BOUNDS = { minimum: 1, maximum: 99_999 };
 
 /** A stored line, structurally — `TargetStockLine` from the contract. */
 export interface StoredTargetLine {
+  readonly kind: 'item';
   readonly stockItemId: string;
   readonly name: string;
   readonly targetQuantity: number;
+}
+
+/** A crate line stores a snapshot just like an item line, but permits one decimal place. */
+export interface StoredCrateTargetLine {
+  readonly kind: 'crate';
+  readonly crateId: string;
+  readonly crateName: string;
+  readonly targetQuantity: number;
+}
+
+export interface CrateTargetDraft {
+  readonly crateId: string;
+  readonly crateName: string;
+  readonly target: string;
+}
+
+/** Narrows the generated target-line union without importing the API contract into a component. */
+export function isItemTargetLine<T extends { readonly kind: string }>(
+  line: T,
+): line is T & StoredTargetLine {
+  return line.kind === 'item';
+}
+
+export function isCrateTargetLine<T extends { readonly kind: string }>(
+  line: T,
+): line is T & StoredCrateTargetLine {
+  return line.kind === 'crate';
 }
 
 /**
@@ -266,7 +294,12 @@ export function buildListPayload(rows: readonly DraftRow[]): ListPayloadResult {
       return { ok: false, message, focusStockItemId: row.stockItemId };
     }
 
-    lines.push({ stockItemId: row.stockItemId, name: row.name, targetQuantity: parsed.value });
+    lines.push({
+      kind: 'item',
+      stockItemId: row.stockItemId,
+      name: row.name,
+      targetQuantity: parsed.value,
+    });
   }
 
   if (lines.length === 0) {
@@ -277,5 +310,70 @@ export function buildListPayload(rows: readonly DraftRow[]): ListPayloadResult {
     };
   }
 
+  return { ok: true, lines };
+}
+
+/** Build crate snapshot lines, accepting positive values with no more than one decimal place. */
+export function buildCrateTargetLines(
+  rows: readonly CrateTargetDraft[],
+):
+  | { readonly ok: true; readonly lines: readonly StoredCrateTargetLine[] }
+  | { readonly ok: false; readonly message: string; readonly focusCrateId: string } {
+  const lines: StoredCrateTargetLine[] = [];
+  for (const row of rows) {
+    const value = row.target.trim();
+    if (value === '') continue;
+    if (!/^\d+(?:\.\d)?$/.test(value))
+      return {
+        ok: false,
+        message: `Enter a positive number with at most one decimal place for ${row.crateName}.`,
+        focusCrateId: row.crateId,
+      };
+    const targetQuantity = Number(value);
+    if (!Number.isFinite(targetQuantity) || targetQuantity < 0.1 || targetQuantity > 99_999.9)
+      return {
+        ok: false,
+        message: `Enter a positive number with at most one decimal place for ${row.crateName}.`,
+        focusCrateId: row.crateId,
+      };
+    lines.push({ kind: 'crate', crateId: row.crateId, crateName: row.crateName, targetQuantity });
+  }
+  return { ok: true, lines };
+}
+
+/** Combined item and crate payload for the real target-list endpoints. */
+export function buildTargetPayload(
+  itemRows: readonly DraftRow[],
+  crateRows: readonly CrateTargetDraft[],
+):
+  | { readonly ok: true; readonly lines: readonly (StoredTargetLine | StoredCrateTargetLine)[] }
+  | {
+      readonly ok: false;
+      readonly message: string;
+      readonly focusStockItemId: string | null;
+      readonly focusCrateId: string | null;
+    } {
+  const itemRowsWithTargets = itemRows.filter((row) => row.target.trim() !== '');
+  const items =
+    itemRowsWithTargets.length === 0
+      ? { ok: true as const, lines: [] as readonly StoredTargetLine[] }
+      : buildListPayload(itemRows);
+  if (!items.ok) return { ...items, focusCrateId: null };
+  const crates = buildCrateTargetLines(crateRows);
+  if (!crates.ok)
+    return {
+      ok: false,
+      message: crates.message,
+      focusStockItemId: null,
+      focusCrateId: crates.focusCrateId,
+    };
+  const lines = [...items.lines, ...crates.lines];
+  if (lines.length === 0)
+    return {
+      ok: false,
+      message: 'Set a target quantity for at least one item or crate.',
+      focusStockItemId: null,
+      focusCrateId: null,
+    };
   return { ok: true, lines };
 }

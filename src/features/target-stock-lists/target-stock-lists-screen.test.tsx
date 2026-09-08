@@ -14,14 +14,14 @@ const STANDARD: TargetStockList = {
   id: 't1',
   name: 'Standard week',
   lines: [
-    { stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
-    { stockItemId: 's2', name: 'UHT milk 1L', targetQuantity: 60 },
+    { kind: 'item', stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
+    { kind: 'item', stockItemId: 's2', name: 'UHT milk 1L', targetQuantity: 60 },
   ],
 };
 const CHRISTMAS: TargetStockList = {
   id: 't2',
   name: 'Christmas',
-  lines: [{ stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 96 }],
+  lines: [{ kind: 'item', stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 96 }],
 };
 
 beforeEach(() => {

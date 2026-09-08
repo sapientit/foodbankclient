@@ -8,6 +8,7 @@ import type { StockItem } from './queries';
 
 const REFRESH = '/api/v1/auth/refresh';
 const ITEMS = '/api/v1/stock/items';
+const GROUPING = { id: 'g1', name: 'Non-perishable' };
 
 const BEANS: StockItem = {
   id: 's1',
@@ -15,7 +16,11 @@ const BEANS: StockItem = {
   category: 'Tinned goods',
   description: 'In tomato sauce',
   shelfNumber: 'A1',
+  shelfSortKey: 'A1',
   lowStockThreshold: 12,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
 };
 const RICE: StockItem = {
@@ -24,7 +29,11 @@ const RICE: StockItem = {
   category: 'Staples',
   description: null,
   shelfNumber: 'B3',
+  shelfSortKey: 'B3',
   lowStockThreshold: null,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: false,
 };
 
@@ -40,37 +49,110 @@ beforeEach(() => {
   server.use(
     http.post(REFRESH, () => session()),
     http.get(ITEMS, () => HttpResponse.json({ items: [BEANS, RICE] })),
+    http.get('/api/v1/stock/groupings', () => HttpResponse.json({ items: [GROUPING] })),
   );
 });
 
 describe('stock-item maintenance', () => {
-  it('lists active items by category then name, with their optional description', async () => {
+  it('lists active items by category then name, keeping a packed directly grouped item in its grouping', async () => {
+    const boxedFormula: StockItem = {
+      ...BEANS,
+      name: 'Baby formula - Stage 1',
+      groupingId: GROUPING.id,
+      unitsPerPack: 24,
+      packUnitLabel: 'boxes',
+    };
     const apples: StockItem = {
       id: 's3',
       name: 'Apples',
       category: 'Fresh food',
       description: null,
       shelfNumber: 'C1',
+      shelfSortKey: 'C1',
       lowStockThreshold: 5,
+      groupingId: GROUPING.id,
+      unitsPerPack: null,
+      packUnitLabel: null,
       isActive: true,
     };
-    server.use(http.get(ITEMS, () => HttpResponse.json({ items: [apples, BEANS, RICE] })));
+    server.use(http.get(ITEMS, () => HttpResponse.json({ items: [apples, boxedFormula, RICE] })));
     renderApp('/stock/items');
 
     const rows = await screen.findAllByRole('row');
     expect(rows.slice(1).map((row) => row.textContent)).toEqual([
       expect.stringContaining('Apples'),
-      expect.stringContaining('Baked beans'),
+      expect.stringContaining('Baby formula - Stage 1'),
     ]);
-    expect(screen.getByRole('row', { name: /Baked beans/ })).toHaveTextContent(
-      'Tinned goodsIn tomato sauceA1',
+    const formulaRow = screen.getByRole('row', { name: /Baby formula - Stage 1/ });
+    expect(formulaRow).toHaveTextContent(
+      'Tinned goodsIn tomato sauceA1Non-perishable24-unit boxes',
     );
+    expect(within(formulaRow).getByText('Non-perishable')).toBeInTheDocument();
     expect(screen.queryByText('Rice')).toBeNull();
 
     await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show retired items (1)' }));
 
     expect(await screen.findByRole('row', { name: /Rice/ })).toHaveTextContent('Retired');
     expect(screen.getByRole('button', { name: 'Reactivate' })).toBeInTheDocument();
+  });
+
+  it('says an item is counted by a crate only when a loaded crate actually names it', async () => {
+    const crateMember: StockItem = {
+      ...BEANS,
+      id: 's3',
+      name: 'Chickpeas',
+      groupingId: null,
+    };
+    const crateCompanion: StockItem = {
+      ...BEANS,
+      id: 's4',
+      name: 'Kidney beans',
+      groupingId: null,
+    };
+    const unassigned: StockItem = {
+      ...BEANS,
+      id: 's5',
+      name: 'Lentils',
+      groupingId: null,
+    };
+    server.use(
+      http.get(ITEMS, () =>
+        HttpResponse.json({ items: [crateMember, crateCompanion, unassigned] }),
+      ),
+      http.get('/api/v1/stock/crates', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'c1',
+              name: 'Tinned staple crate',
+              shelfKey: 'A1',
+              groupingId: GROUPING.id,
+              sizePerCrate: 12,
+              members: [
+                {
+                  stockItemId: crateMember.id,
+                  stockCompositionPercent: 50,
+                  shoppingCompositionPercent: 50,
+                },
+                {
+                  stockItemId: crateCompanion.id,
+                  stockCompositionPercent: 50,
+                  shoppingCompositionPercent: 50,
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+    renderApp('/stock/items');
+
+    expect(await screen.findByRole('row', { name: /Chickpeas/ })).toHaveTextContent(
+      'Counted by a crate',
+    );
+    expect(screen.getByRole('row', { name: /Lentils/ })).toHaveTextContent(
+      'No stock-take grouping assigned',
+    );
   });
 
   it('requires a category but leaves a blank description out of a new item', async () => {
@@ -85,7 +167,11 @@ describe('stock-item maintenance', () => {
             category: 'Staples',
             description: null,
             shelfNumber: 'B1',
+            shelfSortKey: 'B1',
             lowStockThreshold: 8,
+            groupingId: null,
+            unitsPerPack: null,
+            packUnitLabel: null,
             isActive: true,
           },
           { status: 201 },
@@ -119,6 +205,7 @@ describe('stock-item maintenance', () => {
           category: 'Tins',
           description: 'Reduced salt',
           shelfNumber: 'A2',
+          shelfSortKey: 'A2',
         });
       }),
     );
@@ -145,6 +232,9 @@ describe('stock-item maintenance', () => {
       description: 'Reduced salt',
       shelfNumber: 'A2',
       lowStockThreshold: 12,
+      groupingId: null,
+      unitsPerPack: null,
+      packUnitLabel: null,
     });
   });
 
@@ -198,6 +288,9 @@ describe('stock-item maintenance', () => {
       description: 'In tomato sauce',
       shelfNumber: 'A1',
       lowStockThreshold: null,
+      groupingId: null,
+      unitsPerPack: null,
+      packUnitLabel: null,
     });
   });
 
@@ -262,6 +355,9 @@ describe('stock-item maintenance', () => {
       description: 'In tomato sauce',
       shelfNumber: 'A4',
       lowStockThreshold: 12,
+      groupingId: null,
+      unitsPerPack: null,
+      packUnitLabel: null,
     });
   });
 

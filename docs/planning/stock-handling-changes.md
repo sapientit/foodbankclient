@@ -41,8 +41,9 @@ A crate is its own maintained entity, not a stock item:
   appears to a person: the stock-take page, the target-stock list, the shopping list. The shelf key
   is what the mechanism keys membership to, not something a counter or shopper should have to read
   as the crate's name.
-- **Keyed to a shelf number.** At most one crate per shelf. Membership is total and automatic: every
-  stock item carrying that shelf number is a member, with no separate membership list to maintain.
+- **Keyed to a shelf number.** At most one crate per shelf. Membership is explicitly maintained with
+  the two percentage tables; it is not silently changed when a stock item's shelf number changes.
+  The shelf key is therefore checked by validation, rather than being an automatic membership rule.
   Two items that are physically near each other but not actually commingled are kept out of this by
   giving them distinguishing-but-adjacent shelf codes (`F9a`, `F9b`) rather than an identical shelf
   number — the shelf identifier is alphanumeric, so this is easy to keep unique while still sorting
@@ -50,7 +51,7 @@ A crate is its own maintained entity, not a stock item:
 - **Must have more than one member item.** A "crate" with only one item is a misuse of the mechanism
   — that case is Packing units instead.
 - Carries a **crate size** (units per crate) and two independently-maintained percentage tables, one
-  per member item:
+  per explicitly maintained member item. Each table totals exactly 100%:
   - **Stock-composition** — used to decompose a freshly-counted crate figure into each member item's
     stock quantity at a stock take.
   - **Shopping-composition** — used to decompose an aggregate shopping shortfall into named items to
@@ -128,9 +129,14 @@ pure overhead.
   (plural — "boxes", "trays", "cases") alongside it. "Pack" is not assumed: the physical thing being
   counted at a glance differs by item, and the stock-take page should say what the counter is
   actually looking at, not a generic word for it. Left blank, it falls back to the generic "packs".
-- At a stock take, a counter with this set can enter a (possibly fractional) count in that unit
-  instead of a raw unit count; it is multiplied out and treated exactly like an ordinary
-  directly-counted figure.
+- A packing unit never changes how the item is assigned for a stock take. The item stays directly
+  assigned to its stock-take grouping, separate from crates; a box of beans (24 beans per box) is
+  one item, not a one-member crate.
+- At a stock take, a counter chooses whether to enter that directly grouped item as whole individual
+  units or in its named packing unit. A packing-unit count may have one decimal place (for example,
+  3.5 boxes); it is multiplied out and treated exactly like an ordinary directly-counted figure.
+  Since the stock ledger holds whole items, a non-whole result is rounded to the nearest individual
+  unit and the screen says what will be recorded. An individual-unit count remains a whole number.
 - The entered count itself is never persisted — pure entry convenience, same as the crate count
   above.
 - This is orthogonal to the "how is this item counted" validation: an item with a packing unit is

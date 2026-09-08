@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { components, paths } from '../../api/schema';
-import { unwrap } from '../../api/unwrap';
+import { unwrap, unwrapVoid } from '../../api/unwrap';
 import { stockKeys } from './keys';
 
 /**
@@ -24,9 +24,19 @@ export type StockLevel = components['schemas']['StockLevel'];
 type StockTakeBody =
   paths['/api/v1/stock/take']['post']['requestBody']['content']['application/json'];
 
-export type StockTakeCount = StockTakeBody['counts'][number];
+export type StockTakeCount = NonNullable<StockTakeBody['counts']>[number];
+export type StockTakeCrateCount = NonNullable<StockTakeBody['crateCounts']>[number];
 export type StockTakeResult =
   paths['/api/v1/stock/take']['post']['responses']['200']['content']['application/json'];
+
+type StockCorrectionBody =
+  paths['/api/v1/stock/items/{id}/corrections']['post']['requestBody']['content']['application/json'];
+
+export type StockTakeGrouping = components['schemas']['StockTakeGrouping'];
+export type Crate = components['schemas']['Crate'];
+export type StockValidationIssue = components['schemas']['StockValidationIssue'];
+export type CrateInput = components['schemas']['CrateInput'];
+export type CratePatchInput = components['schemas']['CratePatchInput'];
 
 export type StockItemCreateInput =
   paths['/api/v1/stock/items']['post']['requestBody']['content']['application/json'];
@@ -76,6 +86,151 @@ export function useStockLevels() {
   return useQuery({ queryKey: stockKeys.levels(), queryFn: fetchStockLevels });
 }
 
+export function useStockTakeGroupings() {
+  return useQuery({
+    queryKey: [...stockKeys.all, 'groupings'] as const,
+    queryFn: async (): Promise<StockTakeGrouping[]> => {
+      const { items } = await unwrap(api.GET('/api/v1/stock/groupings'));
+      return [...items];
+    },
+  });
+}
+
+export function useCrates() {
+  return useQuery({
+    queryKey: [...stockKeys.all, 'crates'] as const,
+    queryFn: async (): Promise<Crate[]> => {
+      const { items } = await unwrap(api.GET('/api/v1/stock/crates'));
+      return [...items];
+    },
+  });
+}
+
+export function useStockValidation() {
+  return useQuery({
+    queryKey: [...stockKeys.all, 'validation'] as const,
+    queryFn: fetchStockValidation,
+  });
+}
+
+async function fetchStockValidation(): Promise<StockValidationIssue[]> {
+  const { issues } = await unwrap(api.GET('/api/v1/stock/validation'));
+  return [...issues];
+}
+
+/** Validation reports a saved transitional state; it never turns a successful edit into a failure. */
+function refreshValidation(queryClient: ReturnType<typeof useQueryClient>): void {
+  void queryClient
+    .fetchQuery({
+      queryKey: [...stockKeys.all, 'validation'] as const,
+      queryFn: fetchStockValidation,
+    })
+    .catch(() => undefined);
+}
+
+export function useCreateStockTakeGrouping() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => unwrap(api.POST('/api/v1/stock/groupings', { body: { name } })),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: stockKeys.all });
+      refreshValidation(queryClient);
+    },
+  });
+}
+
+export function useAmendStockTakeGrouping() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { readonly id: string; readonly name: string }) =>
+      unwrap(
+        api.PATCH('/api/v1/stock/groupings/{id}', { params: { path: { id } }, body: { name } }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: stockKeys.all });
+      refreshValidation(queryClient);
+    },
+  });
+}
+
+export function useCreateCrate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CrateInput) => {
+      const crate = await unwrap(api.POST('/api/v1/stock/crates', { body: input }));
+      await setDirectGrouping(
+        input.members.map((member) => member.stockItemId),
+        null,
+      );
+      return crate;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: stockKeys.all });
+      refreshValidation(queryClient);
+    },
+  });
+}
+
+export function useAmendCrate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      patch,
+      previous,
+    }: {
+      readonly id: string;
+      readonly patch: CratePatchInput;
+      readonly previous: Crate;
+    }) => {
+      const crate = await unwrap(
+        api.PATCH('/api/v1/stock/crates/{id}', { params: { path: { id } }, body: patch }),
+      );
+      if (patch.members === undefined) return crate;
+
+      const previousIds = new Set(previous.members.map((member) => member.stockItemId));
+      const memberIds = new Set(patch.members.map((member) => member.stockItemId));
+      await setDirectGrouping(
+        patch.members
+          .map((member) => member.stockItemId)
+          .filter((stockItemId) => !previousIds.has(stockItemId)),
+        null,
+      );
+      await setDirectGrouping(
+        previous.members
+          .map((member) => member.stockItemId)
+          .filter((stockItemId) => !memberIds.has(stockItemId)),
+        crate.groupingId,
+      );
+      return crate;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: stockKeys.all });
+      refreshValidation(queryClient);
+    },
+  });
+}
+
+export function useDeleteCrate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (crate: Crate) => {
+      // DELETE is deliberately idempotent and returns 204, so it has no body to unwrap.
+      await unwrapVoid(
+        api.DELETE('/api/v1/stock/crates/{id}', { params: { path: { id: crate.id } } }),
+      );
+      await setDirectGrouping(
+        crate.members.map((member) => member.stockItemId),
+        crate.groupingId,
+      );
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: stockKeys.all });
+      refreshValidation(queryClient);
+    },
+  });
+}
+
 /** The admin dashboard's server-computed count of active watched items below threshold. */
 export function useLowStockSummary(enabled: boolean) {
   return useQuery({
@@ -101,6 +256,7 @@ export function useCreateStockItem() {
       unwrap(api.POST('/api/v1/stock/items', { body: input })),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: stockKeys.all });
+      refreshValidation(queryClient);
     },
   });
 }
@@ -113,8 +269,64 @@ export function useAmendStockItem() {
       unwrap(api.PATCH('/api/v1/stock/items/{id}', { params: { path: { id } }, body: patch })),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: stockKeys.all });
+      refreshValidation(queryClient);
     },
   });
+}
+
+/** Correct one level between stock takes. A Set operation gets a fresh level before deriving its delta. */
+export function useCorrectStockLevel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      stockItemId,
+      operation,
+      quantity,
+    }: {
+      readonly stockItemId: string;
+      readonly operation: 'set' | 'add' | 'reduce';
+      readonly quantity: number;
+    }) => {
+      const quantityDelta =
+        operation === 'set'
+          ? await freshSetDelta(stockItemId, quantity)
+          : operation === 'add'
+            ? quantity
+            : -quantity;
+      return unwrap(
+        api.POST('/api/v1/stock/items/{id}/corrections', {
+          params: { path: { id: stockItemId } },
+          body: { quantityDelta } satisfies StockCorrectionBody,
+        }),
+      );
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: stockKeys.all });
+    },
+  });
+}
+
+async function freshSetDelta(stockItemId: string, quantity: number): Promise<number> {
+  const current = (await fetchStockLevels()).find((level) => level.id === stockItemId);
+  if (current === undefined) throw new Error('That stock item no longer exists.');
+  return quantity - current.quantityOnHand;
+}
+
+/** A crate member is counted by its crate; a former member resumes direct counting in this grouping. */
+async function setDirectGrouping(
+  stockItemIds: readonly string[],
+  groupingId: string | null,
+): Promise<void> {
+  await Promise.all(
+    stockItemIds.map(async (stockItemId) => {
+      await unwrap(
+        api.PATCH('/api/v1/stock/items/{id}', {
+          params: { path: { id: stockItemId } },
+          body: { groupingId },
+        }),
+      );
+    }),
+  );
 }
 
 /**
@@ -158,8 +370,18 @@ export function useSaveStockTake() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (counts: readonly StockTakeCount[]): Promise<StockTakeResult> =>
-      unwrap(api.POST('/api/v1/stock/take', { body: { counts: [...counts] } })),
+    mutationFn: ({
+      counts,
+      crateCounts,
+    }: {
+      readonly counts: readonly StockTakeCount[];
+      readonly crateCounts: readonly StockTakeCrateCount[];
+    }): Promise<StockTakeResult> =>
+      unwrap(
+        api.POST('/api/v1/stock/take', {
+          body: { counts: [...counts], crateCounts: [...crateCounts] },
+        }),
+      ),
     onSuccess: () => {
       // A saved count replaces each named item's history, so the levels list is
       // stale even though the response supplies the saved rows for this page.

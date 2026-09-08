@@ -4,6 +4,7 @@ import { parseWholeNumber } from '../../../lib/whole-number';
 import {
   TARGET_QUANTITY_BOUNDS,
   type AttentionRow,
+  type CrateTargetDraft,
   type EditorRow,
 } from '../target-stock-lists.logic';
 import styles from './target-stock-list-form.module.css';
@@ -184,5 +185,77 @@ export function TargetStockListEditor({
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** The crate half of a target list; separate because its target may be fractional. */
+export function CrateTargetEditor({
+  rows,
+  onRowsChange,
+  focusCrate,
+  errorCrateId,
+}: {
+  readonly rows: readonly CrateTargetDraft[];
+  readonly onRowsChange: (rows: readonly CrateTargetDraft[]) => void;
+  readonly focusCrate?: { readonly crateId: string; readonly nonce: number } | null;
+  readonly errorCrateId?: string | null;
+}) {
+  const inputRefs = useRef(new Map<string, HTMLInputElement | null>());
+  useEffect(() => {
+    if (focusCrate !== undefined && focusCrate !== null)
+      inputRefs.current.get(focusCrate.crateId)?.focus();
+  }, [focusCrate]);
+  return (
+    <table className={styles.table}>
+      <thead>
+        <tr>
+          <th scope="col">Crate</th>
+          <th className={styles.numeric} scope="col">
+            Target crates
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => {
+          const inputId = `crate-target-${row.crateId}`;
+          const invalid = errorCrateId === row.crateId;
+          return (
+            <tr key={row.crateId}>
+              <th scope="row">{row.crateName}</th>
+              <td className={styles.numeric}>
+                <input
+                  aria-label={`Target crates for ${row.crateName}`}
+                  aria-describedby={invalid ? `${inputId}-error` : undefined}
+                  aria-invalid={invalid || undefined}
+                  autoComplete="off"
+                  className={styles.quantity}
+                  id={inputId}
+                  inputMode="decimal"
+                  onChange={(event) => {
+                    onRowsChange(
+                      rows.map((candidate) =>
+                        candidate.crateId === row.crateId
+                          ? { ...candidate, target: event.target.value }
+                          : candidate,
+                      ),
+                    );
+                  }}
+                  ref={(element) => {
+                    inputRefs.current.set(row.crateId, element);
+                  }}
+                  type="text"
+                  value={row.target}
+                />
+                {invalid && (
+                  <span className={styles.fieldError} id={`${inputId}-error`}>
+                    Use a positive number with at most one decimal place.
+                  </span>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
