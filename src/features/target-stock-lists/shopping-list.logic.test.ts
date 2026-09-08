@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeShoppingList,
+  computeShoppingListWithCrates,
+  decomposeCrateShoppingShortfall,
   groupByCategory,
   shoppingListToPlainText,
   splitGroupedColumns,
@@ -30,8 +32,8 @@ const item = (name: string, category: string, need: number): ShoppingItem => ({
 describe('computeShoppingList', () => {
   it('buys only where target exceeds what is on hand', () => {
     const lines: StoredTargetLine[] = [
-      { stockItemId: 's1', name: 'Baked beans', targetQuantity: 48 },
-      { stockItemId: 's2', name: 'Chopped tomatoes', targetQuantity: 24 },
+      { kind: 'item', stockItemId: 's1', name: 'Baked beans', targetQuantity: 48 },
+      { kind: 'item', stockItemId: 's2', name: 'Chopped tomatoes', targetQuantity: 24 },
     ];
     const levels = [
       level('s1', 'Baked beans', 'Tinned', 40),
@@ -46,7 +48,7 @@ describe('computeShoppingList', () => {
 
   it('treats negative stock on hand as an empty shelf, not a bigger shortfall', () => {
     const { groups } = computeShoppingList(
-      [{ stockItemId: 's1', name: 'Baked beans', targetQuantity: 5 }],
+      [{ kind: 'item', stockItemId: 's1', name: 'Baked beans', targetQuantity: 5 }],
       [level('s1', 'Baked beans', 'Tinned', -2)],
     );
     expect(groups[0]?.items[0]?.need).toBe(5);
@@ -54,7 +56,7 @@ describe('computeShoppingList', () => {
 
   it('pulls a retired item out — attention only, never bought', () => {
     const { groups, attention } = computeShoppingList(
-      [{ stockItemId: 's1', name: 'Value rice 500g', targetQuantity: 20 }],
+      [{ kind: 'item', stockItemId: 's1', name: 'Value rice 500g', targetQuantity: 20 }],
       [level('s1', 'Value rice 500g', 'Dry goods', 0, false)],
     );
     expect(groups).toEqual([]);
@@ -65,7 +67,7 @@ describe('computeShoppingList', () => {
 
   it('pulls a missing item out — attention only, with the stored target', () => {
     const { groups, attention } = computeShoppingList(
-      [{ stockItemId: 'gone', name: 'Instant coffee 200g', targetQuantity: 6 }],
+      [{ kind: 'item', stockItemId: 'gone', name: 'Instant coffee 200g', targetQuantity: 6 }],
       [],
     );
     expect(groups).toEqual([]);
@@ -76,7 +78,7 @@ describe('computeShoppingList', () => {
 
   it('keeps a renamed item in its group and flags it', () => {
     const { groups, renamed } = computeShoppingList(
-      [{ stockItemId: 's1', name: 'UHT milk 1L', targetQuantity: 60 }],
+      [{ kind: 'item', stockItemId: 's1', name: 'UHT milk 1L', targetQuantity: 60 }],
       [level('s1', 'Long-life milk 1L', 'Dairy', 10)],
     );
     expect(groups[0]?.items[0]).toMatchObject({
@@ -85,6 +87,77 @@ describe('computeShoppingList', () => {
       renamedFrom: 'UHT milk 1L',
     });
     expect(renamed).toEqual(['Long-life milk 1L']);
+  });
+});
+
+describe('computeShoppingListWithCrates', () => {
+  it('decomposes a fractional crate target and combines it with ordinary shopping rows', () => {
+    const result = computeShoppingListWithCrates(
+      [],
+      [{ kind: 'crate', crateId: 'c1', crateName: 'Spread', targetQuantity: 2.5 }],
+      [
+        {
+          id: 'c1',
+          name: 'Spread',
+          sizePerCrate: 10,
+          members: [
+            { stockItemId: 'jam', shoppingCompositionPercent: 60 },
+            { stockItemId: 'marmite', shoppingCompositionPercent: 40 },
+          ],
+        },
+      ],
+      [level('jam', 'Jam', 'Spreads', 5), level('marmite', 'Marmite', 'Spreads', 0)],
+    );
+    expect(result.groups[0]?.items).toEqual([
+      expect.objectContaining({ name: 'Jam', need: 12 }),
+      expect.objectContaining({ name: 'Marmite', need: 8 }),
+    ]);
+  });
+});
+
+describe('decomposeCrateShoppingShortfall', () => {
+  const spread = {
+    sizePerCrate: 10,
+    members: [
+      { kind: 'item', stockItemId: 'jam', shoppingCompositionPercent: 60 },
+      { kind: 'item', stockItemId: 'marmite', shoppingCompositionPercent: 40 },
+    ],
+  } as const;
+
+  it('splits a fractional crate target into named raw-item quantities', () => {
+    expect(
+      decomposeCrateShoppingShortfall(spread, 2.5, [
+        { id: 'jam', quantityOnHand: 4 },
+        { id: 'marmite', quantityOnHand: 1 },
+      ]),
+    ).toEqual([
+      { stockItemId: 'jam', quantity: 12 },
+      { stockItemId: 'marmite', quantity: 8 },
+    ]);
+  });
+
+  it('treats a negative member level as an empty shelf', () => {
+    expect(
+      decomposeCrateShoppingShortfall(spread, 1, [
+        { id: 'jam', quantityOnHand: -3 },
+        { id: 'marmite', quantityOnHand: 2 },
+      ]),
+    ).toEqual([
+      { stockItemId: 'jam', quantity: 5 },
+      { stockItemId: 'marmite', quantity: 3 },
+    ]);
+  });
+
+  it('returns zero quantities when the crate is already at or above target', () => {
+    expect(
+      decomposeCrateShoppingShortfall(spread, 1, [
+        { id: 'jam', quantityOnHand: 8 },
+        { id: 'marmite', quantityOnHand: 4 },
+      ]),
+    ).toEqual([
+      { stockItemId: 'jam', quantity: 0 },
+      { stockItemId: 'marmite', quantity: 0 },
+    ]);
   });
 });
 

@@ -54,6 +54,9 @@ export const MENU: readonly MenuItem[] = [
 
   // Maintaining the stock item list is not the same thing as moving stock.
   { to: '/stock/items', label: 'Stock items', roles: ADMIN_ONLY },
+  { to: '/stock/groupings', label: 'Stock groupings', roles: ADMIN_ONLY },
+  { to: '/stock/crates', label: 'Crates', roles: ADMIN_ONLY },
+  { to: '/stock/validation', label: 'Stock validation', roles: ADMIN_ONLY },
 
   // Target stock lists — the named sets of desired stock levels. Maintaining
   // them is admin work, alongside the stock item list. Generating a shopping
@@ -145,6 +148,9 @@ export function navigationSectionsFor(role: Role): readonly NavigationSection[] 
       '/stock',
       '/stock/take',
       '/stock/items',
+      '/stock/groupings',
+      '/stock/crates',
+      '/stock/validation',
       '/stock/target-lists',
       '/stock/shopping',
       '/model-parcels',

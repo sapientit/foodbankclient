@@ -18,7 +18,11 @@ const LEVELS: StockLevel[] = [
     category: 'Tinned',
     description: null,
     shelfNumber: 'A1',
+    shelfSortKey: 'A1',
     lowStockThreshold: null,
+    groupingId: null,
+    unitsPerPack: null,
+    packUnitLabel: null,
     isActive: true,
     quantityOnHand: 10,
   },
@@ -28,8 +32,8 @@ const LIST: TargetStockList = {
   id: 't1',
   name: 'Standard week',
   lines: [
-    { stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
-    { stockItemId: 'gone', name: 'Instant coffee 200g', targetQuantity: 6 },
+    { kind: 'item', stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
+    { kind: 'item', stockItemId: 'gone', name: 'Instant coffee 200g', targetQuantity: 6 },
   ],
 };
 
@@ -51,7 +55,7 @@ describe('a team lead on the shopping screen', () => {
   it('generates the buy list and is never blocked by a discrepancy', async () => {
     renderApp('/stock/shopping?list=t1');
 
-    expect(await screen.findByRole('row', { name: /Baked beans 400g/ })).toHaveTextContent('38');
+    expect(await screen.findByLabelText('Quantity for Baked beans 400g')).toHaveValue('38');
     expect(screen.getByText(/1 item needs an administrator.s attention/)).toBeInTheDocument();
 
     // Nothing on this screen is disabled for a team lead.

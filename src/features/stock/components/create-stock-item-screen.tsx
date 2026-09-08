@@ -7,28 +7,53 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
 import { parseWholeNumber } from '../../../lib/whole-number';
-import { useCreateStockItem, useStockItems } from '../queries';
+import { useCreateStockItem, useStockItems, useStockTakeGroupings } from '../queries';
 import { findStockItemByName } from '../stock.logic';
 import styles from './stock-item-form.module.css';
 
-const stockItemSchema = z.object({
-  name: z.string().trim().min(1, 'Enter an item name.').max(120, 'Use 120 characters or fewer.'),
-  category: z.string().trim().min(1, 'Enter a category.').max(40, 'Use 40 characters or fewer.'),
-  description: z.string().trim().max(200, 'Use 200 characters or fewer.'),
-  shelfNumber: z.string().trim().min(1, 'Enter the shelf.').max(20, 'Use 20 characters or fewer.'),
-  lowStockThreshold: z
-    .string()
-    .trim()
-    .superRefine((value, context) => {
-      if (value === '') return;
-      const parsed = parseWholeNumber(value, LOW_STOCK_THRESHOLD_BOUNDS);
-      if (!parsed.ok)
-        context.addIssue({ code: 'custom', message: lowStockThresholdMessage(parsed.problem) });
-    }),
-});
+const stockItemSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Enter an item name.').max(120, 'Use 120 characters or fewer.'),
+    category: z.string().trim().min(1, 'Enter a category.').max(40, 'Use 40 characters or fewer.'),
+    description: z.string().trim().max(200, 'Use 200 characters or fewer.'),
+    shelfNumber: z
+      .string()
+      .trim()
+      .min(1, 'Enter the shelf.')
+      .max(20, 'Use 20 characters or fewer.'),
+    lowStockThreshold: z
+      .string()
+      .trim()
+      .superRefine((value, context) => {
+        if (value === '') return;
+        const parsed = parseWholeNumber(value, LOW_STOCK_THRESHOLD_BOUNDS);
+        if (!parsed.ok)
+          context.addIssue({ code: 'custom', message: lowStockThresholdMessage(parsed.problem) });
+      }),
+    groupingId: z.string(),
+    unitsPerPack: z
+      .string()
+      .trim()
+      .superRefine((value, context) => {
+        if (value === '') return;
+        const parsed = parseWholeNumber(value, PACKING_UNIT_BOUNDS);
+        if (!parsed.ok)
+          context.addIssue({ code: 'custom', message: packingUnitMessage(parsed.problem) });
+      }),
+    packUnitLabel: z.string().trim().max(40, 'Use 40 characters or fewer.'),
+  })
+  .superRefine((values, context) => {
+    if (values.unitsPerPack === '' && values.packUnitLabel !== '')
+      context.addIssue({
+        code: 'custom',
+        message: 'Enter units per pack before naming the pack.',
+        path: ['packUnitLabel'],
+      });
+  });
 type StockItemFormValues = z.infer<typeof stockItemSchema>;
 
 const LOW_STOCK_THRESHOLD_BOUNDS = { minimum: 0, maximum: Number.MAX_SAFE_INTEGER };
+const PACKING_UNIT_BOUNDS = { minimum: 1, maximum: 99_999 };
 
 function lowStockThresholdMessage(problem: string): string {
   if (problem === 'below-minimum') return 'Enter 0 or more.';
@@ -36,9 +61,16 @@ function lowStockThresholdMessage(problem: string): string {
   return 'Use a whole number, for example 10.';
 }
 
+function packingUnitMessage(problem: string): string {
+  if (problem === 'below-minimum') return 'Enter 1 or more, or leave this blank.';
+  if (problem === 'above-maximum') return 'That number is too large.';
+  return 'Use a whole number, for example 24.';
+}
+
 export function CreateStockItemScreen() {
   const navigate = useNavigate();
   const items = useStockItems();
+  const groupings = useStockTakeGroupings();
   const create = useCreateStockItem();
   const nameId = useId();
   const nameErrorId = useId();
@@ -51,6 +83,11 @@ export function CreateStockItemScreen() {
   const lowStockThresholdId = useId();
   const lowStockThresholdErrorId = useId();
   const duplicateId = useId();
+  const groupingId = useId();
+  const packingUnitId = useId();
+  const packingUnitErrorId = useId();
+  const packUnitLabelId = useId();
+  const packUnitLabelErrorId = useId();
   const {
     control,
     formState: { errors, isSubmitting },
@@ -65,6 +102,9 @@ export function CreateStockItemScreen() {
       description: '',
       shelfNumber: '',
       lowStockThreshold: '',
+      groupingId: '',
+      unitsPerPack: '',
+      packUnitLabel: '',
     },
   });
 
@@ -82,12 +122,21 @@ export function CreateStockItemScreen() {
     if (duplicate !== undefined) return;
 
     try {
-      const { description, lowStockThreshold, ...item } = values;
+      const { description, lowStockThreshold, groupingId, unitsPerPack, packUnitLabel, ...item } =
+        values;
       const threshold = parseWholeNumber(lowStockThreshold, LOW_STOCK_THRESHOLD_BOUNDS);
+      const packingUnit = parseWholeNumber(unitsPerPack, PACKING_UNIT_BOUNDS);
       await create.mutateAsync({
         ...item,
         ...(description === '' ? {} : { description }),
         ...(threshold.ok ? { lowStockThreshold: threshold.value } : {}),
+        ...(groupingId === '' ? {} : { groupingId }),
+        ...(packingUnit.ok
+          ? {
+              unitsPerPack: packingUnit.value,
+              packUnitLabel: packUnitLabel === '' ? null : packUnitLabel,
+            }
+          : {}),
       });
       await navigate('/stock/items');
     } catch (error) {
@@ -137,6 +186,55 @@ export function CreateStockItemScreen() {
                   adding a second one: <Link to="/stock/items?retired=1">show retired items</Link>.
                 </>
               )}
+            </p>
+          )}
+        </div>
+        <div className={styles.field}>
+          <label htmlFor={groupingId}>Stock-take grouping</label>
+          <select {...register('groupingId')} className={styles.input} id={groupingId}>
+            <option value="">Use the default (Non-perishable)</option>
+            {groupings.data?.map((grouping) => (
+              <option key={grouping.id} value={grouping.id}>
+                {grouping.name}
+              </option>
+            ))}
+          </select>
+          <p className={styles.hint}>
+            A new item is counted directly. Administrators can later remove this assignment when a
+            crate counts it instead.
+          </p>
+        </div>
+        <div className={styles.field}>
+          <label htmlFor={packingUnitId}>Units per pack (optional)</label>
+          <input
+            {...register('unitsPerPack')}
+            aria-describedby={errors.unitsPerPack === undefined ? undefined : packingUnitErrorId}
+            aria-invalid={errors.unitsPerPack === undefined ? undefined : true}
+            className={styles.input}
+            id={packingUnitId}
+            inputMode="numeric"
+            type="text"
+          />
+          {errors.unitsPerPack !== undefined && (
+            <p className={styles.fieldError} id={packingUnitErrorId}>
+              {errors.unitsPerPack.message}
+            </p>
+          )}
+        </div>
+        <div className={styles.field}>
+          <label htmlFor={packUnitLabelId}>Pack name (optional)</label>
+          <input
+            {...register('packUnitLabel')}
+            aria-describedby={errors.packUnitLabel === undefined ? undefined : packUnitLabelErrorId}
+            aria-invalid={errors.packUnitLabel === undefined ? undefined : true}
+            className={styles.input}
+            id={packUnitLabelId}
+            type="text"
+          />
+          <p className={styles.hint}>For example, “box” or “sleeve”. Blank means packs.</p>
+          {errors.packUnitLabel !== undefined && (
+            <p className={styles.fieldError} id={packUnitLabelErrorId}>
+              {errors.packUnitLabel.message}
             </p>
           )}
         </div>

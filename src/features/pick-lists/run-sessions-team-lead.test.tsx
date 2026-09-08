@@ -101,7 +101,11 @@ beforeEach(() => {
             category: 'Tinned goods',
             description: 'In tomato sauce',
             shelfNumber: 'A2',
+            shelfSortKey: 'A2',
             lowStockThreshold: null,
+            groupingId: null,
+            unitsPerPack: null,
+            packUnitLabel: null,
             isActive: true,
           },
         ],
@@ -425,7 +429,11 @@ describe('a team lead running a session', () => {
               category: 'Tinned goods',
               description: 'In tomato sauce',
               shelfNumber: 'A2',
+              shelfSortKey: 'A2',
               lowStockThreshold: null,
+              groupingId: null,
+              unitsPerPack: null,
+              packUnitLabel: null,
               isActive: true,
             },
           ],
@@ -578,7 +586,11 @@ describe('a team lead running a session', () => {
       category: 'Fresh food',
       description: null,
       shelfNumber: 'C1',
+      shelfSortKey: 'C1',
       lowStockThreshold: null,
+      groupingId: null,
+      unitsPerPack: null,
+      packUnitLabel: null,
       isActive: true,
     };
     const beans = {
@@ -587,7 +599,11 @@ describe('a team lead running a session', () => {
       category: 'Tinned goods',
       description: 'In tomato sauce',
       shelfNumber: 'A2',
+      shelfSortKey: 'A2',
       lowStockThreshold: null,
+      groupingId: null,
+      unitsPerPack: null,
+      packUnitLabel: null,
       isActive: true,
     };
     const oats = {
@@ -596,7 +612,11 @@ describe('a team lead running a session', () => {
       category: 'Breakfast',
       description: null,
       shelfNumber: 'D2',
+      shelfSortKey: 'D2',
       lowStockThreshold: null,
+      groupingId: null,
+      unitsPerPack: null,
+      packUnitLabel: null,
       isActive: false,
     };
     const parcelWithRetiredLine: Parcel = {
@@ -708,7 +728,11 @@ describe('a team lead running a session', () => {
       category: 'Tinned goods',
       description: 'In tomato sauce',
       shelfNumber: 'A2',
+      shelfSortKey: 'A2',
       lowStockThreshold: null,
+      groupingId: null,
+      unitsPerPack: null,
+      packUnitLabel: null,
       isActive: true,
     };
     const apples = {
@@ -717,7 +741,11 @@ describe('a team lead running a session', () => {
       category: 'Fresh food',
       description: null,
       shelfNumber: 'C1',
+      shelfSortKey: 'C1',
       lowStockThreshold: null,
+      groupingId: null,
+      unitsPerPack: null,
+      packUnitLabel: null,
       isActive: true,
     };
     const oats = {
@@ -726,7 +754,11 @@ describe('a team lead running a session', () => {
       category: 'Breakfast',
       description: null,
       shelfNumber: 'D2',
+      shelfSortKey: 'D2',
       lowStockThreshold: null,
+      groupingId: null,
+      unitsPerPack: null,
+      packUnitLabel: null,
       isActive: false,
     };
     const parcelWithRetiredLine: Parcel = {
@@ -1307,6 +1339,7 @@ describe('a team lead running a session', () => {
                   name: 'Apples',
                   description: null,
                   shelfNumber: 'A1',
+                  shelfSortKey: 'A1',
                   quantity: 1,
                 },
                 {
@@ -1314,6 +1347,7 @@ describe('a team lead running a session', () => {
                   name: 'Baked beans',
                   description: 'In tomato sauce',
                   shelfNumber: 'A2',
+                  shelfSortKey: 'A2',
                   quantity: 2,
                 },
                 {
@@ -1321,6 +1355,7 @@ describe('a team lead running a session', () => {
                   name: 'Cereal',
                   description: null,
                   shelfNumber: 'A10',
+                  shelfSortKey: 'A10',
                   quantity: 3,
                 },
                 {
@@ -1328,6 +1363,7 @@ describe('a team lead running a session', () => {
                   name: 'Dried pasta',
                   description: null,
                   shelfNumber: 'B1',
+                  shelfSortKey: 'B1',
                   quantity: 4,
                 },
                 {
@@ -1335,6 +1371,7 @@ describe('a team lead running a session', () => {
                   name: 'Eggs',
                   description: null,
                   shelfNumber: 'B2',
+                  shelfSortKey: 'B2',
                   quantity: 5,
                 },
                 {
@@ -1342,6 +1379,7 @@ describe('a team lead running a session', () => {
                   name: 'Flour',
                   description: null,
                   shelfNumber: 'C1',
+                  shelfSortKey: 'C1',
                   quantity: 6,
                 },
                 {
@@ -1349,6 +1387,7 @@ describe('a team lead running a session', () => {
                   name: 'Jam',
                   description: null,
                   shelfNumber: 'C2',
+                  shelfSortKey: 'C2',
                   quantity: 7,
                 },
               ],

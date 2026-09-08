@@ -53,6 +53,18 @@ export function parseWholeQuantity(text: string, minimum: number): Quantity {
   return { ok: true, value };
 }
 
+/** Parse a non-negative count that the crate and packing-unit contracts allow to one decimal place. */
+export function parseOneDecimalQuantity(text: string, minimum: number): Quantity {
+  const trimmed = text.trim();
+  if (trimmed === '') return { ok: false, problem: 'empty' };
+  if (!/^[+-]?\d+(?:\.\d)?$/.test(trimmed)) return { ok: false, problem: 'not-a-whole-number' };
+  const value = Number(trimmed);
+  if (!Number.isFinite(value) || value > Number.MAX_SAFE_INTEGER)
+    return { ok: false, problem: 'too-large' };
+  if (value < minimum) return { ok: false, problem: 'below-minimum' };
+  return { ok: true, value };
+}
+
 /**
  * Every active item, plus a retired item that still has a balance to reset.
  * `filter` preserves the shelf order supplied by the API.
@@ -70,4 +82,41 @@ export function isLowStock(
     level.lowStockThreshold !== null &&
     level.quantityOnHand < level.lowStockThreshold
   );
+}
+
+/** The part of a crate returned by the API needed by stock-take presentation. */
+export interface StockTakeCrate {
+  readonly sizePerCrate: number;
+  readonly members: readonly StockTakeCrateMember[];
+}
+
+export interface StockTakeCrateMember {
+  readonly stockItemId: string;
+}
+
+/** A crate has no stored stock level: its reference is derived from its members. */
+export function computeCrateReferenceCount(
+  crate: StockTakeCrate,
+  levels: readonly Pick<StockLevel, 'id' | 'quantityOnHand'>[],
+): number {
+  const quantityByItemId = new Map(levels.map((level) => [level.id, level.quantityOnHand]));
+  const totalUnits = crate.members.reduce(
+    (sum, member) => sum + (quantityByItemId.get(member.stockItemId) ?? 0),
+    0,
+  );
+  return totalUnits / crate.sizePerCrate;
+}
+
+/** A blank optional label deliberately reads as the useful generic plural. */
+export function packUnitLabelFor(item: {
+  readonly unitsPerPack: number | null;
+  readonly packUnitLabel: string | null;
+}): string {
+  const label = item.packUnitLabel?.trim();
+  return label === undefined || label === '' ? 'packs' : label;
+}
+
+/** Converts a one-decimal pack count to the nearest whole item the stock ledger can store. */
+export function applyPackingUnit(packCount: number, unitsPerPack: number): number {
+  return Math.round(packCount * unitsPerPack);
 }

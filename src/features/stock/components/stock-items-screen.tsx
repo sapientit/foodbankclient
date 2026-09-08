@@ -5,7 +5,13 @@ import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
-import { useAmendStockItem, useStockItems, type StockItem } from '../queries';
+import {
+  useAmendStockItem,
+  useCrates,
+  useStockItems,
+  useStockTakeGroupings,
+  type StockItem,
+} from '../queries';
 import { splitByStatus } from '../stock.logic';
 import styles from './stock-items-screen.module.css';
 
@@ -14,10 +20,12 @@ const RETIRED_PARAM = 'retired';
 export function StockItemsScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const items = useStockItems();
+  const crates = useCrates();
+  const groupings = useStockTakeGroupings();
   const amend = useAmendStockItem();
   const [retiring, setRetiring] = useState<StockItem | null>(null);
 
-  if (items.isPending)
+  if (items.isPending || groupings.isPending || crates.isPending)
     return (
       <>
         <PageHeader title="Stock items" />
@@ -31,10 +39,28 @@ export function StockItemsScreen() {
         <ErrorNotice error={items.error} onRetry={() => void items.refetch()} />
       </>
     );
+  if (groupings.isError)
+    return (
+      <>
+        <PageHeader title="Stock items" />
+        <ErrorNotice error={groupings.error} onRetry={() => void groupings.refetch()} />
+      </>
+    );
+  if (crates.isError)
+    return (
+      <>
+        <PageHeader title="Stock items" />
+        <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
+      </>
+    );
 
   const showRetired = searchParams.get(RETIRED_PARAM) === '1';
   const { active, retired } = splitByStatus(items.data);
   const visible = showRetired ? [...active, ...retired] : active;
+  const groupingNames = new Map(groupings.data.map((grouping) => [grouping.id, grouping.name]));
+  const crateMemberIds = new Set(
+    crates.data.flatMap((crate) => crate.members.map((member) => member.stockItemId)),
+  );
 
   const setActive = (item: StockItem, isActive: boolean) => {
     amend.mutate(
@@ -58,8 +84,8 @@ export function StockItemsScreen() {
         }
       />
       <p className={styles.intro}>
-        Maintain the names, categories, descriptions and shelf locations used throughout stock work
-        and pick lists.
+        Maintain the names, categories, descriptions, shelf locations and counting arrangements used
+        throughout stock work and pick lists.
       </p>
       {amend.error !== null && <ErrorNotice error={amend.error} />}
       <p>
@@ -100,6 +126,8 @@ export function StockItemsScreen() {
               <th scope="col">Category</th>
               <th scope="col">Description</th>
               <th scope="col">Shelf</th>
+              <th scope="col">Stock-take grouping</th>
+              <th scope="col">Packing unit</th>
               <th scope="col">Low-stock threshold</th>
               <th scope="col">Status</th>
               <th scope="col">Actions</th>
@@ -112,6 +140,8 @@ export function StockItemsScreen() {
                 <td>{item.category}</td>
                 <td>{item.description ?? ''}</td>
                 <td>{item.shelfNumber}</td>
+                <td>{groupingNameFor(item, groupingNames, crateMemberIds)}</td>
+                <td>{packingUnitFor(item)}</td>
                 <td>{item.lowStockThreshold ?? 'Not watched'}</td>
                 <td>{item.isActive ? 'Active' : 'Retired'}</td>
                 <td className={styles.actions}>
@@ -162,4 +192,22 @@ export function StockItemsScreen() {
       )}
     </>
   );
+}
+
+/** `groupingId: null` only means a crate count where the loaded crate confirms membership. */
+function groupingNameFor(
+  item: StockItem,
+  names: ReadonlyMap<string, string>,
+  crateMemberIds: ReadonlySet<string>,
+): string {
+  if (item.groupingId === null)
+    return crateMemberIds.has(item.id) ? 'Counted by a crate' : 'No stock-take grouping assigned';
+  return names.get(item.groupingId) ?? 'Grouping no longer exists';
+}
+
+function packingUnitFor(item: StockItem): string {
+  if (item.unitsPerPack === null) return 'Individual units';
+  const storedLabel = item.packUnitLabel?.trim();
+  const label = storedLabel === undefined || storedLabel === '' ? 'packs' : storedLabel;
+  return `${String(item.unitsPerPack)}-unit ${label}`;
 }

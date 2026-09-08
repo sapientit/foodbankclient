@@ -17,7 +17,11 @@ const BEANS: StockItem = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A1',
+  shelfSortKey: 'A1',
   lowStockThreshold: null,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
 };
 const RICE: StockItem = {
@@ -26,7 +30,11 @@ const RICE: StockItem = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A2',
+  shelfSortKey: 'A2',
   lowStockThreshold: null,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
 };
 

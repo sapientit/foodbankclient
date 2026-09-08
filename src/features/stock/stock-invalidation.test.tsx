@@ -25,6 +25,7 @@ import type { StockItem, StockLevel } from './queries';
 const REFRESH = '/api/v1/auth/refresh';
 const ITEMS = '/api/v1/stock/items';
 const LEVELS = '/api/v1/stock/levels';
+const GROUPING = { id: 'g1', name: 'Non-perishable' };
 
 const BEANS: StockItem = {
   id: 's1',
@@ -32,7 +33,11 @@ const BEANS: StockItem = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A2',
+  shelfSortKey: 'A2',
   lowStockThreshold: null,
+  groupingId: GROUPING.id,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
 };
 const PASTA: StockItem = {
@@ -41,7 +46,11 @@ const PASTA: StockItem = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A10',
+  shelfSortKey: 'A10',
   lowStockThreshold: null,
+  groupingId: GROUPING.id,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
 };
 
@@ -85,6 +94,7 @@ beforeEach(() => {
         user: { id: 'u1', email: 'pete@x.com', displayName: 'Pete Bennett', role: 'admin' },
       }),
     ),
+    http.get('/api/v1/stock/groupings', () => HttpResponse.json({ items: [GROUPING] })),
   );
 });
 
@@ -154,7 +164,8 @@ describe('one stock key root', () => {
     expect(await screen.findByRole('row', { name: /Baked beans/ })).toHaveTextContent('12');
 
     await router.navigate('/stock/take');
-    await user.type(await screen.findByLabelText('Counted Baked beans'), '9');
+    await user.selectOptions(await screen.findByLabelText('Grouping'), GROUPING.id);
+    await user.type(await screen.findByLabelText('Counted Baked beans individually'), '9');
     await user.click(screen.getByRole('button', { name: 'Save this page' }));
     await screen.findByText('One changed count saved.');
 

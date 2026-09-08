@@ -19,7 +19,11 @@ const CEREAL: StockLevel = {
   category: 'Breakfast',
   description: null,
   shelfNumber: 'A1',
+  shelfSortKey: 'A1',
   lowStockThreshold: 10,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
   quantityOnHand: 95,
 };
@@ -29,7 +33,11 @@ const BEANS: StockLevel = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A2',
+  shelfSortKey: 'A2',
   lowStockThreshold: null,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
   // Negative after a correction. Real, and not an error.
   quantityOnHand: -4,
@@ -40,7 +48,11 @@ const PASTA: StockLevel = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A10',
+  shelfSortKey: 'A10',
   lowStockThreshold: 3,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
   quantityOnHand: 0,
 };
@@ -50,7 +62,11 @@ const SOUP: StockLevel = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'B1',
+  shelfSortKey: 'B1',
   lowStockThreshold: null,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: false,
   quantityOnHand: 7,
 };
@@ -126,11 +142,11 @@ describe('stock levels', () => {
     expect(screen.queryByText(/weekly stock take resets/)).toBeNull();
   });
 
-  it('does not offer a hand adjustment', async () => {
+  it('offers an administrator a hand adjustment for each stock item', async () => {
     renderApp('/stock');
 
     await screen.findByRole('row', { name: /Baked beans/ });
 
-    expect(screen.queryByRole('link', { name: 'Adjust' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Adjust Baked beans stock' })).toBeInTheDocument();
   });
 });

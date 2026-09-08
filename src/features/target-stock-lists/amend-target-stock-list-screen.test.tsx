@@ -16,7 +16,11 @@ const item = (
 ): StockItem => ({
   description: null,
   shelfNumber: 'A1',
+  shelfSortKey: 'A1',
   lowStockThreshold: null,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
   ...over,
 });
@@ -31,10 +35,10 @@ const LIST: TargetStockList = {
   id: 't1',
   name: 'Standard week',
   lines: [
-    { stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
-    { stockItemId: 's2', name: 'UHT milk 1L', targetQuantity: 60 },
-    { stockItemId: 's3', name: 'Value rice 500g', targetQuantity: 20 },
-    { stockItemId: 'gone', name: 'Instant coffee 200g', targetQuantity: 6 },
+    { kind: 'item', stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
+    { kind: 'item', stockItemId: 's2', name: 'UHT milk 1L', targetQuantity: 60 },
+    { kind: 'item', stockItemId: 's3', name: 'Value rice 500g', targetQuantity: 20 },
+    { kind: 'item', stockItemId: 'gone', name: 'Instant coffee 200g', targetQuantity: 6 },
   ],
 };
 
@@ -128,7 +132,7 @@ describe('amending a target stock list', () => {
     await screen.findByRole('heading', { name: 'Target stock lists' });
     expect(patch).toEqual({
       name: 'Standard week',
-      lines: [{ stockItemId: 's2', name: 'Long-life milk 1L', targetQuantity: 60 }],
+      lines: [{ kind: 'item', stockItemId: 's2', name: 'Long-life milk 1L', targetQuantity: 60 }],
     });
   });
 });

@@ -50,6 +50,9 @@ import { CreateStockItemScreen } from './features/stock/components/create-stock-
 import { StockItemsScreen } from './features/stock/components/stock-items-screen';
 import { StockLevelsScreen } from './features/stock/components/stock-levels-screen';
 import { StockTakeScreen } from './features/stock/components/stock-take-screen';
+import { StockGroupingsScreen } from './features/stock/components/stock-groupings-screen';
+import { CratesScreen } from './features/stock/components/crates-screen';
+import { StockValidationScreen } from './features/stock/components/stock-validation-screen';
 import { AmendTargetStockListScreen } from './features/target-stock-lists/components/amend-target-stock-list-screen';
 import { CreateTargetStockListScreen } from './features/target-stock-lists/components/create-target-stock-list-screen';
 import { ShoppingScreen } from './features/target-stock-lists/components/shopping-screen';
@@ -200,6 +203,9 @@ export const routes: RouteObject[] = [
       { path: 'stock/items', element: <StockItemsScreen /> },
       { path: 'stock/items/new', element: <CreateStockItemScreen /> },
       { path: 'stock/items/:stockItemId', element: <AmendStockItemScreen /> },
+      { path: 'stock/groupings', element: <StockGroupingsScreen /> },
+      { path: 'stock/crates', element: <CratesScreen /> },
+      { path: 'stock/validation', element: <StockValidationScreen /> },
       /*
        * Target stock lists — the named sets of desired stock levels. Maintenance
        * (`stock/target-lists*`) is admin only for **writes**; a team lead may

@@ -20,7 +20,7 @@ const LISTS = '/api/v1/target-stock-lists';
 const STANDARD: TargetStockList = {
   id: 't1',
   name: 'Standard week',
-  lines: [{ stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 }],
+  lines: [{ kind: 'item', stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 }],
 };
 
 describe('a team lead on the target-stock-list maintenance screen', () => {

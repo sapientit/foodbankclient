@@ -16,7 +16,11 @@ const item = (
 ): StockItem => ({
   description: null,
   shelfNumber: 'A1',
+  shelfSortKey: 'A1',
   lowStockThreshold: null,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
   isActive: true,
   ...over,
 });
@@ -74,7 +78,7 @@ describe('adding a target stock list', () => {
     await screen.findByRole('heading', { name: 'Target stock lists' });
     expect(body).toEqual({
       name: 'Christmas',
-      lines: [{ stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 96 }],
+      lines: [{ kind: 'item', stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 96 }],
     });
   });
 
