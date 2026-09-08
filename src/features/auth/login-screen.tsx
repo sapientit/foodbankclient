@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import * as z from 'zod';
 import foodbankLogo from '../../assets/foodbank-logo.webp';
 import { useAuth } from '../../auth/auth-context';
@@ -142,6 +142,12 @@ export function LoginScreen() {
           {isSubmitting ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
+
+      <p className={styles.stockTake}>
+        {/* The people who walk the shelves counting stock have no account and
+            never will. They get here with a code a team lead read out. */}
+        Doing a stock take? <Link to="/count">Enter a counting code</Link>
+      </p>
 
       {import.meta.env.DEV && (
         <div className={styles.devHint}>

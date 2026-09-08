@@ -98,6 +98,7 @@ describe('contextual navigation', () => {
     expect(subtabsFor('team_lead', '/stock/take').map((item) => item.label)).toEqual([
       'Stock',
       'Stock take',
+      'Volunteer code',
       'Shopping',
     ]);
   });
@@ -109,6 +110,7 @@ describe('contextual navigation', () => {
     expect(subtabsFor('admin', '/stock/target-lists').map((item) => item.label)).toEqual([
       'Stock',
       'Stock take',
+      'Volunteer code',
       'Stock items',
       'Stock groupings',
       'Crates',

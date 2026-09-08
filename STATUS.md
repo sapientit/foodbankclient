@@ -41,11 +41,14 @@ in [`DEFERRED-WORK.md`](./DEFERRED-WORK.md).
 | **17 — target stock lists**   | `src/features/target-stock-lists/`: the named standing target lists an admin maintains at `/stock/target-lists*`, and `/stock/shopping` where a team lead picks one and gets the buy list — target minus current stock, positive only, grouped by category, printed landscape or copied. Renamed / retired / missing reconciliation is client-side; the buy list joins the list to `GET /stock/levels`. Contract settled (server Q44–Q48).                 |
 | **18 — Christmas vouchers**   | `/voucher-config` under Master Data maintains the voucher dates. Referral review opens the dedicated first-time review screen, using existing previous-referral matches to save a previous session or no previous referral. Run a session receives only the `First time`/`Admin` marker; printed pick lists receive only the live voucher instruction.                                                                                                     |
 
-**All twenty menu destinations route to a real screen.** The role split is enforced as data in
+**All twenty-one menu destinations route to a real screen.** The role split is enforced as data in
 `src/auth/menu.ts` and tested in `src/auth/menu.test.ts`.
 
 The stock take is available to a team lead or administrator at `POST /stock/take`; levels and item
-maintenance retain their existing role split, with only the item list admin-only.
+maintenance retain their existing role split, with only the item list admin-only. A team lead or
+admin can also mint a stock-take volunteer code at `/stock/volunteer-code`; a no-account volunteer
+then counts at `/count` (no shell, no sign-in) authenticating on an `X-Volunteer-Code` header held
+in memory only — `src/api/volunteer-code-store.ts`, `src/api/auth-fetch.ts`.
 
 The rationale behind the structural decisions in these slices — which is the part worth keeping — is
 in [`docs/engineering/data-fetching.md`](./docs/engineering/data-fetching.md),

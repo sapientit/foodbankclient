@@ -52,6 +52,11 @@ export const MENU: readonly MenuItem[] = [
   // The weekly stock take is operational work for both roles.
   { to: '/stock/take', label: 'Stock take', roles: SESSION_STAFF },
 
+  // Minting a counting code for a volunteer with no account is part of running
+  // the stock take, so it follows the same both-roles split. The volunteer's
+  // own screen is outside the menu entirely — see `/count` in `routes.tsx`.
+  { to: '/stock/volunteer-code', label: 'Volunteer code', roles: SESSION_STAFF },
+
   // Maintaining the stock item list is not the same thing as moving stock.
   { to: '/stock/items', label: 'Stock items', roles: ADMIN_ONLY },
   { to: '/stock/groupings', label: 'Stock groupings', roles: ADMIN_ONLY },
@@ -133,7 +138,14 @@ export function navigationSectionsFor(role: Role): readonly NavigationSection[] 
   });
 
   if (role === 'team_lead') {
-    return [section(itemAt('/stock'), ['/stock', '/stock/take', '/stock/shopping'])];
+    return [
+      section(itemAt('/stock'), [
+        '/stock',
+        '/stock/take',
+        '/stock/volunteer-code',
+        '/stock/shopping',
+      ]),
+    ];
   }
 
   return [
@@ -147,6 +159,7 @@ export function navigationSectionsFor(role: Role): readonly NavigationSection[] 
     section(itemAt('/stock'), [
       '/stock',
       '/stock/take',
+      '/stock/volunteer-code',
       '/stock/items',
       '/stock/groupings',
       '/stock/crates',

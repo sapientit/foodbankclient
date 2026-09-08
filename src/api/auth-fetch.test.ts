@@ -4,6 +4,7 @@ import { server } from '../../test/msw/server';
 import { authFetch } from './auth-fetch';
 import { REFRESH_TIMEOUT_MS, withRefreshLock } from './refresh-lock';
 import { setAccessToken, subscribeToAuthEvents, type AuthEvent } from './token-store';
+import { setVolunteerCode } from './volunteer-code-store';
 
 /**
  * The highest-consequence file in the repo, so each test is named as the rule it
@@ -48,6 +49,7 @@ beforeEach(() => {
 afterEach(() => {
   unsubscribe();
   setAccessToken(null);
+  setVolunteerCode(null);
   vi.useRealTimers();
 });
 
@@ -329,6 +331,116 @@ describe('authFetch', () => {
     expect(refreshes).toBe(0);
     expect(response.status).toBe(403);
     expect(signOutCount()).toBe(0);
+  });
+
+  it('sends the stock-take volunteer code as a header instead of the bearer token', async () => {
+    // A counting device is not signed in — no bearer, no refresh cookie.
+    setAccessToken(null);
+    setVolunteerCode('kp7q-4xzm-9rtw-2njh');
+    let authorization: string | null = 'not called';
+    let volunteerCode: string | null = null;
+
+    server.use(
+      http.get('/api/v1/stock/levels', ({ request }) => {
+        authorization = request.headers.get('authorization');
+        volunteerCode = request.headers.get('x-volunteer-code');
+        return HttpResponse.json({ items: [] });
+      }),
+    );
+
+    const response = await authFetch(new Request('/api/v1/stock/levels'));
+
+    expect(response.status).toBe(200);
+    expect(authorization).toBeNull();
+    // Normalised to upper case by the store, sent as the volunteer typed it otherwise.
+    expect(volunteerCode).toBe('KP7Q-4XZM-9RTW-2NJH');
+  });
+
+  it('does not refresh or sign out on a 401 while a volunteer code is set', async () => {
+    setAccessToken(null);
+    setVolunteerCode('KP7Q-4XZM-9RTW-2NJH');
+    let refreshes = 0;
+
+    server.use(
+      http.post(REFRESH, () => {
+        refreshes += 1;
+        return HttpResponse.json(tokenResponse('never-needed'));
+      }),
+      http.post('/api/v1/stock/take', () => unauthorized()),
+    );
+
+    const response = await authFetch(new Request('/api/v1/stock/take', { method: 'POST' }));
+
+    // A 401 here means the code has lapsed. There is no refresh cookie to spend
+    // and only a team lead can issue a new code, so the response is handed back
+    // untouched for the counting screen to explain.
+    expect(response.status).toBe(401);
+    expect(refreshes).toBe(0);
+    expect(signOutCount()).toBe(0);
+  });
+
+  it('a 401 on any other path in volunteer-code mode is final — no refresh, no sign-out', async () => {
+    setAccessToken(null);
+    setVolunteerCode('KP7Q-4XZM-9RTW-2NJH');
+    let refreshes = 0;
+
+    server.use(
+      http.post(REFRESH, () => {
+        refreshes += 1;
+        return HttpResponse.json(tokenResponse('never-needed'));
+      }),
+      // The item list is not one of the four a code reaches.
+      http.get('/api/v1/stock/items', () => unauthorized()),
+    );
+
+    const response = await authFetch(new Request('/api/v1/stock/items'));
+
+    expect(response.status).toBe(401);
+    expect(refreshes).toBe(0);
+    expect(signOutCount()).toBe(0);
+  });
+
+  it('ignores a leftover volunteer code while someone is signed in', async () => {
+    // A team lead who minted a code then opened /count has both set. Their
+    // requests must stay on the bearer, or a saved count is filed against
+    // whoever the code was issued to.
+    setVolunteerCode('KP7Q-4XZM-9RTW-2NJH');
+    let authorization: string | null = null;
+    let volunteerCode: string | null = 'not called';
+
+    server.use(
+      http.get('/api/v1/stock/levels', ({ request }) => {
+        authorization = request.headers.get('authorization');
+        volunteerCode = request.headers.get('x-volunteer-code');
+        return HttpResponse.json({ items: [] });
+      }),
+    );
+
+    await authFetch(new Request('/api/v1/stock/levels'));
+
+    expect(authorization).toBe('Bearer stale-token');
+    expect(volunteerCode).toBeNull();
+  });
+
+  it('still uses the bearer token to mint a code — a code cannot mint another', async () => {
+    setVolunteerCode('KP7Q-4XZM-9RTW-2NJH');
+    let authorization: string | null = null;
+    let volunteerCode: string | null = 'not called';
+
+    server.use(
+      http.post('/api/v1/stock/take/volunteer-codes', ({ request }) => {
+        authorization = request.headers.get('authorization');
+        volunteerCode = request.headers.get('x-volunteer-code');
+        return HttpResponse.json({ code: 'AAAA-BBBB-CCCC-DDDD', expiresAt: 1 }, { status: 201 });
+      }),
+    );
+
+    await authFetch(new Request('/api/v1/stock/take/volunteer-codes', { method: 'POST' }));
+
+    // The mint is staff-only and not one of the four operations a code reaches,
+    // so it goes out on the bearer like any other authenticated request.
+    expect(authorization).toBe('Bearer stale-token');
+    expect(volunteerCode).toBeNull();
   });
 
   it('falls back to the in-process promise when the browser has no Web Locks', async () => {

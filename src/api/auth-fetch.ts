@@ -1,5 +1,6 @@
 import { withRefreshLock } from './refresh-lock';
 import { getAccessToken, publishAuthEvent, setAccessToken, type AuthUser } from './token-store';
+import { getVolunteerCode } from './volunteer-code-store';
 import { markSessionEnded } from '../lib/errors';
 
 /**
@@ -24,6 +25,21 @@ const UNAUTHENTICATED_PREFIXES = ['/api/v1/public/', '/api/v1/auth/'];
 
 const REFRESH_PATH = '/api/v1/auth/refresh';
 
+/**
+ * The four operations a stock-take volunteer code reaches, and the server
+ * refuses it on every other path — the item list and hand corrections included.
+ * Matched exactly, so `/api/v1/stock/take/volunteer-codes` (a staff-only mint,
+ * bearer as usual) is not one of them.
+ */
+const VOLUNTEER_CODE_PATHS = new Set([
+  '/api/v1/stock/levels',
+  '/api/v1/stock/groupings',
+  '/api/v1/stock/crates',
+  '/api/v1/stock/take',
+]);
+
+const VOLUNTEER_CODE_HEADER = 'X-Volunteer-Code';
+
 /** No bearer, no refresh — but still `credentials`, because `/auth/*` is where the cookie lives. */
 export function plainFetch(request: Request): Promise<Response> {
   return fetch(withSession(request, null));
@@ -31,6 +47,31 @@ export function plainFetch(request: Request): Promise<Response> {
 
 export async function authFetch(request: Request): Promise<Response> {
   if (isUnauthenticated(request.url)) return plainFetch(request);
+
+  /*
+   * Volunteer-code mode. A device counting the stock never signs in, so there
+   * is no bearer token and no refresh cookie: the code goes in a header and a
+   * 401 is a final answer — the code has lapsed — not a token to renew. Return
+   * the response untouched and let the query layer surface it; running the
+   * refresh dance here would only 401 against a cookie that was never set.
+   *
+   * **Gated on there being no signed-in session.** A team lead who generated a
+   * code and then opened `/count` has both set; their requests must stay on the
+   * bearer, or a stock take they save is recorded server-side against whoever
+   * the code was issued to. A signed-in staff user reaches all four endpoints
+   * on their token anyway, so nothing is lost.
+   *
+   * While a code is the only credential, **no other path gets the refresh
+   * dance** — there is no session to refresh or to end. Anything outside the
+   * four goes out bare and its 401 is returned as-is, so a query added to the
+   * counting screen later cannot fire a spurious sign-out.
+   */
+  const volunteerCode = getVolunteerCode();
+  if (volunteerCode !== null && getAccessToken() === null) {
+    return VOLUNTEER_CODE_PATHS.has(pathnameOf(request.url))
+      ? fetch(withVolunteerCode(request, volunteerCode))
+      : plainFetch(request);
+  }
 
   // Cloned before anything reads the body: a Request's body is consumed once,
   // and the retry needs its own copy.
@@ -147,8 +188,25 @@ function withSession(request: Request, token: string | null): Request {
 }
 
 function isUnauthenticated(url: string): boolean {
-  const { pathname } = new URL(url, location.href);
-  return UNAUTHENTICATED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  return UNAUTHENTICATED_PREFIXES.some((prefix) => pathnameOf(url).startsWith(prefix));
+}
+
+function pathnameOf(url: string): string {
+  return new URL(url, location.href).pathname;
+}
+
+/**
+ * The volunteer code replaces the bearer header rather than joining it — the
+ * server takes the code where both are present, so sending a stale token
+ * alongside it only risks confusion. `credentials` is still `same-origin` for
+ * consistency with the rest of this module, though a counting device has no
+ * cookie to send.
+ */
+function withVolunteerCode(request: Request, code: string): Request {
+  const headers = new Headers(request.headers);
+  headers.delete('Authorization');
+  headers.set(VOLUNTEER_CODE_HEADER, code);
+  return new Request(request, { headers, credentials: 'same-origin' });
 }
 
 /**

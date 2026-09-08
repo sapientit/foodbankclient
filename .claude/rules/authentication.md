@@ -3,8 +3,11 @@ paths:
   - 'src/api/auth-fetch.ts'
   - 'src/api/refresh-lock.ts'
   - 'src/api/token-store.ts'
+  - 'src/api/volunteer-code-store.ts'
   - 'src/auth/**'
   - 'src/features/auth/**'
+  - 'src/features/stock/components/volunteer-code-screen.tsx'
+  - 'src/features/stock/components/volunteer-count-screen.tsx'
 ---
 
 # Authentication rules
@@ -35,6 +38,18 @@ trade-offs and the history behind each rule:
   timeout** — a lock is held until its callback settles, so a hung network would wedge every tab at
   once.
 - **A `403` is never refreshed.** It is a role problem, and refreshing on it loops.
+- **The stock-take volunteer code is the one credential that is not a sign-in.** It lives in
+  `volunteer-code-store.ts`, in memory only, the same as the access token and for the same reason —
+  no `localStorage`, no `sessionStorage`. `auth-fetch.ts` sends it as `X-Volunteer-Code` **instead
+  of** the bearer, and only when there is no signed-in session (`getAccessToken() === null`) and the
+  path is one of the four the server accepts it on. In that mode **nothing refreshes and nothing
+  signs out** — there is no session — so a `401` is returned untouched for the counting screen to
+  explain. A leftover code must never change what a signed-in team lead's request carries; the
+  `getAccessToken() === null` gate is what enforces that, and `VolunteerCountScreen` also clears the
+  code when it unmounts. **It is never put in a URL** — path or query — for the same reason personal
+  data is not: an address reaches history, a shared device's suggestions and logs. The volunteer
+  types it into a box; it travels only as the `X-Volunteer-Code` header. See `screenDetails.md`,
+  "The stock take" and "#Login".
 - **This belongs in `auth-fetch.ts` and `refresh-lock.ts` and nowhere else.** A retry written at a
   call site is how the concurrent-refresh bug gets in.
 - **A sign-in lasts eight hours from sign-in, and refresh never extends it.** The replacement token

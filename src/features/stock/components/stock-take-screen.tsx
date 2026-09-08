@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
+import { ApiError } from '../../../lib/errors';
 import {
   applyPackingUnit,
   computeCrateReferenceCount,
@@ -40,8 +41,18 @@ type StockTakeRow =
   | { readonly kind: 'item'; readonly level: StockLevel }
   | { readonly kind: 'crate'; readonly crate: Crate };
 
-/** A real stock take: one grouping at a time, with direct and explicit crate counts kept separate. */
-export function StockTakeScreen() {
+/**
+ * A real stock take: one grouping at a time, with direct and explicit crate
+ * counts kept separate.
+ *
+ * `onAuthError` is how the no-account counting screen (`/count`) hears that the
+ * volunteer code has lapsed: on this screen a 401 is a final answer, not a
+ * token to refresh, so the wrapper clears the code and shows the "ask your team
+ * leader for a new one" message. A signed-in team lead passes nothing — a 401
+ * there was already handled by `auth-fetch`'s refresh before it could reach
+ * here.
+ */
+export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => void } = {}) {
   const levels = useStockLevels();
   const groupings = useStockTakeGroupings();
   const crates = useCrates();
@@ -90,6 +101,18 @@ export function StockTakeScreen() {
   const pageRows = model?.rows.slice(pageIndex * PAGE_SIZE, (pageIndex + 1) * PAGE_SIZE) ?? [];
   const pageDirect = pageRows.flatMap((row) => (row.kind === 'item' ? [row.level] : []));
   const pageCrates = pageRows.flatMap((row) => (row.kind === 'crate' ? [row.crate] : []));
+
+  const codeExpired =
+    onAuthError !== undefined &&
+    [levels.error, groupings.error, crates.error, save.error].some(
+      (error) => error instanceof ApiError && error.status === 401,
+    );
+  useEffect(() => {
+    if (codeExpired) onAuthError();
+  }, [codeExpired, onAuthError]);
+  // The wrapper is about to swap this screen for the expiry message; render
+  // nothing in the meantime rather than a scary error notice.
+  if (codeExpired) return null;
 
   if (levels.isPending || groupings.isPending || crates.isPending)
     return (
@@ -459,9 +482,14 @@ export function StockTakeScreen() {
             >
               {save.isPending ? 'Saving…' : 'Save this page'}
             </button>
-            <Link className="button-link button-secondary" to="/stock">
-              Back to stock
-            </Link>
+            {/* A volunteer on a code has no `/stock` to go back to — it is
+                guarded, and the link would bounce them to sign-in. Their way out
+                is "Finish counting" in the counting screen's own frame. */}
+            {onAuthError === undefined && (
+              <Link className="button-link button-secondary" to="/stock">
+                Back to stock
+              </Link>
+            )}
           </div>
         </>
       )}

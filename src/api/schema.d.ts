@@ -3313,6 +3313,9 @@ export interface paths {
          *     crates (`GET /stock/crates`) can interleave the two into one
          *     shelf-walk sequence for the stock-take screen rather than showing
          *     two separate lists.
+         *
+         *     Reachable with a signed-in admin or team lead token, **or** with a
+         *     stock-take volunteer code in `X-Volunteer-Code`.
          */
         get: {
             parameters: {
@@ -3664,6 +3667,10 @@ export interface paths {
          *     named by more than one source in the same request — a direct count
          *     and a crate, or two crates sharing a member — is the collision `400`
          *     below.
+         *
+         *     Reachable with a signed-in admin or team lead token, **or** with a
+         *     stock-take volunteer code in `X-Volunteer-Code`. A page saved on a
+         *     code is recorded against the team lead who issued it.
          */
         post: {
             parameters: {
@@ -3729,6 +3736,63 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stock/take/volunteer-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate a stock-take volunteer code
+         * @description Mints a code a team lead reads out to whoever is counting the shelves,
+         *     so a volunteer with no account can do the weekly stock take. Admin or
+         *     team lead only — a volunteer code cannot mint another.
+         *
+         *     The code is in this response and nowhere else: only its hash is stored
+         *     and it cannot be shown again. Sent as `X-Volunteer-Code`, it
+         *     authenticates the four grouped-stock-take operations
+         *     (`GET /stock/levels`, `GET /stock/groupings`, `GET /stock/crates`,
+         *     `POST /stock/take`) and nothing else — not the item list, not a hand
+         *     correction.
+         *
+         *     It lasts eight hours from issue. There is no way to revoke one sooner,
+         *     and nothing about it is kept once it lapses. Whatever is counted on it
+         *     is recorded against the team lead who generated it.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A fresh code. Show it to the team lead once; nothing retrieves it again. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Grouped `XXXX-XXXX-XXXX-XXXX`, Crockford base32. Sent back in `X-Volunteer-Code`; case and separators are normalised. */
+                            code: string;
+                            /** @description Epoch seconds — eight hours after issue. */
+                            expiresAt: number;
+                        };
+                    };
                 };
             };
         };
@@ -3839,7 +3903,7 @@ export interface paths {
         };
         /**
          * List stock-take groupings
-         * @description Admin and team lead — both roles use the grouped stock take. Ordered by name.
+         * @description Admin and team lead — both roles use the grouped stock take — **or** a stock-take volunteer code in `X-Volunteer-Code`. Ordered by name.
          */
         get: {
             parameters: {
@@ -3979,7 +4043,7 @@ export interface paths {
         };
         /**
          * List crates
-         * @description Admin and team lead — both roles use the grouped stock take. Ordered by name, each with its members. Each crate also carries a `shelfSortKey`, computed fresh on every read, so a stock-take screen can slot crates into the same shelf-walk order as `GET /stock/levels` instead of listing them separately.
+         * @description Admin and team lead — both roles use the grouped stock take — **or** a stock-take volunteer code in `X-Volunteer-Code`. Ordered by name, each with its members. Each crate also carries a `shelfSortKey`, computed fresh on every read, so a stock-take screen can slot crates into the same shelf-walk order as `GET /stock/levels` instead of listing them separately.
          */
         get: {
             parameters: {

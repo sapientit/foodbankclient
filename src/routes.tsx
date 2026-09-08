@@ -50,6 +50,8 @@ import { CreateStockItemScreen } from './features/stock/components/create-stock-
 import { StockItemsScreen } from './features/stock/components/stock-items-screen';
 import { StockLevelsScreen } from './features/stock/components/stock-levels-screen';
 import { StockTakeScreen } from './features/stock/components/stock-take-screen';
+import { VolunteerCodeScreen } from './features/stock/components/volunteer-code-screen';
+import { VolunteerCountScreen } from './features/stock/components/volunteer-count-screen';
 import { StockGroupingsScreen } from './features/stock/components/stock-groupings-screen';
 import { CratesScreen } from './features/stock/components/crates-screen';
 import { StockValidationScreen } from './features/stock/components/stock-validation-screen';
@@ -200,6 +202,13 @@ export const routes: RouteObject[] = [
        */
       { path: 'stock', element: <StockLevelsScreen /> },
       { path: 'stock/take', element: <StockTakeScreen /> },
+      /*
+       * Where a team lead or admin mints a counting code for a volunteer with
+       * no account. Staff work, so it lives inside the shell under the Stock
+       * menu; the volunteer's own screen is the `/count` sibling below, which
+       * has no shell and no sign-in.
+       */
+      { path: 'stock/volunteer-code', element: <VolunteerCodeScreen /> },
       { path: 'stock/items', element: <StockItemsScreen /> },
       { path: 'stock/items/new', element: <CreateStockItemScreen /> },
       { path: 'stock/items/:stockItemId', element: <AmendStockItemScreen /> },
@@ -261,6 +270,15 @@ export const routes: RouteObject[] = [
   },
 
   { path: '/login', element: <LoginScreen /> },
+
+  /*
+   * The stock-take counting screen for a volunteer with no account. A plain
+   * sibling, like `/login` and `/refer`: no `RequireAuth`, no `AppShell`, no
+   * menu. It authenticates on an `X-Volunteer-Code` header a team lead read out,
+   * held in memory only, and reaches nothing but the four grouped-stock-take
+   * operations. See `screenDetails.md`, "The stock take" and "#Login".
+   */
+  { path: '/count', element: <VolunteerCountScreen /> },
 
   // Splat: the real flow has steps under it (the form, the confirmation, the
   // fifteen-minute edit window) and none of them may fall through to the 404.

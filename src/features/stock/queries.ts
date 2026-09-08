@@ -365,6 +365,22 @@ export function useStockSearch(term: string) {
   });
 }
 
+export type VolunteerCode =
+  paths['/api/v1/stock/take/volunteer-codes']['post']['responses']['201']['content']['application/json'];
+
+/**
+ * Mint a stock-take volunteer code for whoever is counting the shelves this
+ * morning. Staff only (the server checks the signed token); the code is in the
+ * response and nowhere else, so the screen shows it once and never refetches.
+ * Nothing cached depends on it, so there is nothing to invalidate.
+ */
+export function useGenerateVolunteerCode() {
+  return useMutation({
+    mutationFn: (): Promise<VolunteerCode> =>
+      unwrap(api.POST('/api/v1/stock/take/volunteer-codes', {})),
+  });
+}
+
 /** Save one independently resumable page of a weekly stock take. */
 export function useSaveStockTake() {
   const queryClient = useQueryClient();
