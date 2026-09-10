@@ -39,15 +39,24 @@
 .wordmark {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 1.125rem;
+  gap: 0.55rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: inherit;
   text-decoration: none;
 }
 
-.wordmarkIcon {
-  color: #176b3a;
+/* The charity's own mark, not a glyph — screenDetails.md, "#Menus". The asset
+   is a wide lockup (the mark on the left, a tagline filling the rest); the
+   header wants only the mark, so the box is fixed and `object-fit` crops to
+   the left edge. Both dimensions are set, so the mark reserves its space
+   before the image loads and the name beside it does not jump. */
+.wordmarkLogo {
+  flex-shrink: 0;
+  block-size: 2.1rem;
+  inline-size: 3.8rem;
+  object-fit: cover;
+  object-position: left center;
 }
 
 .navList {
@@ -74,9 +83,9 @@
 /* Hung off the attribute NavLink already sets, so the thing a screen reader
    announces and the thing a sighted volunteer sees cannot drift apart. */
 .navList a[aria-current='page'] {
-  color: #176b3a;
+  color: #0f7a44;
   font-weight: 700;
-  box-shadow: inset 0 -3px 0 #176b3a;
+  box-shadow: inset 0 -3px 0 #0f7a44;
 }
 
 .account {
@@ -86,9 +95,12 @@
   margin-inline-start: auto;
 }
 
+/* The primary tabs sit on the logo's line — screenDetails.md, "#Menus" — so no
+   full-width basis here; they follow the logo in the DOM and the account
+   block's `margin-inline-start: auto` opens the gap to the user. Only the
+   contextual second row (`.subtabs`) takes a line of its own. */
 .topTabs {
-  flex-basis: 100%;
-  order: 2;
+  min-inline-size: 0;
 }
 
 .topTabs .navList,
@@ -105,32 +117,31 @@
 }
 
 .navList li[data-category='sessions'] a {
-  color: #176b3a;
+  color: #0f7a44;
 }
 
 .navList li[data-category='referrals'] a {
-  color: #6d3a8c;
+  color: #c62828;
 }
 
 .navList li[data-category='stock'] a {
-  color: #a84f0a;
+  color: #0f6f99;
 }
 
 .navList li[data-category='sessions'] a[aria-current='page'] {
-  box-shadow: inset 0 -3px 0 #176b3a;
+  box-shadow: inset 0 -3px 0 #0f7a44;
 }
 
 .navList li[data-category='referrals'] a[aria-current='page'] {
-  box-shadow: inset 0 -3px 0 #6d3a8c;
+  box-shadow: inset 0 -3px 0 #c62828;
 }
 
 .navList li[data-category='stock'] a[aria-current='page'] {
-  box-shadow: inset 0 -3px 0 #a84f0a;
+  box-shadow: inset 0 -3px 0 #0f6f99;
 }
 
 .subtabs {
   flex-basis: 100%;
-  order: 3;
 }
 
 .userName {
@@ -148,25 +159,47 @@
   background: var(--category-tint, #ffffff);
 }
 
+/*
+ * GUESS — the exact category hues are not settled. OPEN-QUESTIONS.md Q40.
+ *
+ * The brief Pete accepted names referrals #d84c51, stock #0ba1dd and a lighter
+ * sessions green #2fae7a. White text on any of those is below 4.5:1 and they
+ * read below 4.5:1 on white, so a button, a label or a meaningful icon cannot
+ * use them. The values below are darker shades drawn from each hue that do
+ * carry text; the bright hues themselves are kept for faint washes and the
+ * dashboard's decorative glyphs. Whether that split is what the look-and-feel
+ * owner wants — and exactly where the bright hue may appear — is Q40.
+ */
 .main[data-category='sessions'] {
-  --category-action: #176b3a;
-  --category-action-hover: #10512c;
-  --category-action-tint: #e8f4eb;
-  --category-tint: #f4faf5;
+  --category-action: #0f7a44;
+  --category-action-hover: #0b5c35;
+  --category-action-tint: #e6f5ee;
+  --category-tint: #f1faf5;
 }
 
 .main[data-category='referrals'] {
-  --category-action: #6d3a8c;
-  --category-action-hover: #512a69;
-  --category-action-tint: #f3eaf8;
-  --category-tint: #fbf7fd;
+  --category-action: #c62828;
+  --category-action-hover: #9e2020;
+  --category-action-tint: #fbeaea;
+  --category-tint: #fdf3f3;
 }
 
 .main[data-category='stock'] {
-  --category-action: #a84f0a;
-  --category-action-hover: #7f3b08;
-  --category-action-tint: #fff0e5;
-  --category-tint: #fff9f4;
+  --category-action: #0f6f99;
+  --category-action-hover: #0a5573;
+  --category-action-tint: #e7f5fb;
+  --category-tint: #f1fafd;
+}
+
+/* The tabs drop to their own line well before they would have to shred — an
+   admin's five icon+label tabs plus the logo and the account block stop fitting
+   on one line around here. screenDetails.md: "on a narrow screen … they drop to
+   a line of their own", "the rows wrap … rather than sending the whole page
+   sideways." */
+@media (max-width: 900px) {
+  .topTabs {
+    flex-basis: 100%;
+  }
 }
 
 @media (max-width: 700px) {

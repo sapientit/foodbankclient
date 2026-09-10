@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import foodbankLogo from '../assets/foodbank-logo.webp';
 import { useAuth } from '../auth/auth-context';
 import { categoryForPath, subtabsFor, topTabsFor, type NavigationCategory } from '../auth/menu';
 import { classNames } from '../lib/class-names';
@@ -71,22 +72,10 @@ export function AppShell() {
 
       <header className={styles.header}>
         <Link className={styles.wordmark} to="/">
-          <BoxIcon className={styles.wordmarkIcon} />
+          <img alt="" className={styles.wordmarkLogo} src={foodbankLogo} />
           Food Bank
         </Link>
 
-        <div className={styles.account}>
-          <span className={styles.userName}>{displayName}</span>
-          <button
-            className={classNames(styles.signOut, 'button-secondary')}
-            onClick={() => {
-              void endSession();
-            }}
-            type="button"
-          >
-            Sign out
-          </button>
-        </div>
         {topTabs.length > 0 && (
           <nav aria-label="Main navigation" className={styles.topTabs}>
             <ul className={styles.navList}>
@@ -104,6 +93,19 @@ export function AppShell() {
             </ul>
           </nav>
         )}
+
+        <div className={styles.account}>
+          <span className={styles.userName}>{displayName}</span>
+          <button
+            className={classNames(styles.signOut, 'button-secondary')}
+            onClick={() => {
+              void endSession();
+            }}
+            type="button"
+          >
+            Sign out
+          </button>
+        </div>
         {subtabs.length > 0 && (
           <nav aria-label="Section navigation" className={styles.subtabs}>
             <ul className={styles.navList}>

@@ -1,9 +1,11 @@
 .dashboard {
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(13rem, 1fr);
-  gap: 0.95rem;
-  padding: 0.75rem;
-  background: linear-gradient(135deg, #f7fbf8, #ffffff 48%, #f6f9fc);
+  gap: var(--space-4, 1rem);
+  padding: var(--space-3, 0.75rem);
+  /* Flat, very pale neutral — no gradient. screenDetails.md, "#Menus": "a
+     white or very pale neutral ground … No dark panels, no heavy gradients." */
+  background: #f6f8fb;
   border-radius: 0.875rem;
 }
 
@@ -44,22 +46,58 @@
   box-shadow: 0 0.2rem 0.7rem rgb(24 64 40 / 7%);
 }
 
+/* Only the tile needs these — it hosts the decorative glyph. `isolation`
+   creates the stacking context the glyph's `z-index: -1` sits inside;
+   `overflow` clips the oversized glyph. Kept off `.alert`, whose flush-edge
+   link would have its focus ring clipped by `overflow: hidden`. */
+.tile {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
 .tile[data-category='sessions'],
 .alert[data-category='sessions'] {
-  background: #f4faf5;
-  border-color: #b7d7c3;
+  background: #f1faf5;
+  border-color: #b3ddc7;
 }
 
 .tile[data-category='referrals'],
 .alert[data-category='referrals'] {
-  background: #fbf7fd;
-  border-color: #d9c2e8;
+  background: #fdf3f3;
+  border-color: #e6b0b2;
 }
 
 .alert[data-category='stock'] {
-  background: #fff9f4;
-  border-color: #f2c9a6;
+  background: #f1fafd;
+  border-color: #bfe3f2;
 }
+
+/* One oversized, very faint illustration of the box's own subject, behind the
+   text — screenDetails.md, "#Dashboard". Decoration only: clipped by the tile,
+   never interactive, and pale enough that the text over it is unaffected. The
+   `z-index: -1` sits it above the tile's own background but below its content.
+   This is the one place the bright category brand hue is used (at 8% it costs
+   no contrast); everything readable on the tile uses the darker shade. */
+.tileGlyph {
+  position: absolute;
+  inset-block-end: -1.25rem;
+  inset-inline-end: -1.25rem;
+  z-index: -1;
+  inline-size: 8.5rem;
+  block-size: 8.5rem;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.tile[data-category='sessions'] .tileGlyph {
+  color: #2fae7a;
+}
+
+.tile[data-category='referrals'] .tileGlyph {
+  color: #d84c51;
+}
+
 .tile h2,
 .alert h3 {
   margin-block-start: 0;
@@ -68,19 +106,19 @@
 .tile[data-category='sessions'] h2,
 .todaySessions h2,
 .upcomingPanel h2 {
-  color: #176b3a;
+  color: #0f7a44;
 }
 
 .tile[data-category='referrals'] h2 {
-  color: #6d3a8c;
+  color: #c62828;
 }
 .tile strong {
   font-size: 2.1rem;
-  color: #176b3a;
+  color: #0f7a44;
 }
 
 .tile[data-category='referrals'] strong {
-  color: #6d3a8c;
+  color: #c62828;
 }
 .todayList {
   display: grid;
@@ -115,11 +153,16 @@
   min-block-size: 2.4rem;
   margin-block-start: 0.25rem;
   padding-inline: 0.85rem;
-  border: 1px solid #b7d7c3;
+  border: 1px solid #b3ddc7;
   border-radius: 0.5rem;
-  color: #176b3a;
+  color: #0f7a44;
   font-weight: 600;
   text-decoration: none;
+}
+
+.tile[data-category='referrals'] > a {
+  border-color: #e6b0b2;
+  color: #c62828;
 }
 
 .upcomingPanel,
@@ -155,8 +198,8 @@
 }
 
 .tabs button[aria-selected='true'] {
-  border-block-end-color: #176b3a;
-  color: #176b3a;
+  border-block-end-color: #0f7a44;
+  color: #0f7a44;
   font-weight: 700;
 }
 
@@ -189,7 +232,7 @@
 
 .alertsPanel h2 {
   margin-block-start: 0;
-  color: #6d3a8c;
+  color: #c62828;
 }
 
 .alerts .alert {
@@ -221,15 +264,15 @@
 }
 
 .alert[data-category='sessions'] .alertLink {
-  color: #176b3a;
+  color: #0f7a44;
 }
 
 .alert[data-category='referrals'] .alertLink {
-  color: #6d3a8c;
+  color: #c62828;
 }
 
 .alert[data-category='stock'] .alertLink {
-  color: #a84f0a;
+  color: #0f6f99;
 }
 
 @media (max-width: 800px) {

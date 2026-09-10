@@ -132,6 +132,26 @@ describe('AppShell', () => {
     expect(section.getByRole('link', { name: 'Stock' })).not.toHaveAttribute('aria-current');
   });
 
+  it('puts the primary navigation before the account block, in reading order', async () => {
+    await renderShell('admin');
+
+    // screenDetails.md, "#Menus": the primary tabs sit on the logo's line, to
+    // the right of it and before the user/Sign out. Tab order must match that,
+    // so navigation is reached before the control that ends the session.
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+    const signOut = screen.getByRole('button', { name: 'Sign out' });
+    expect(nav.compareDocumentPosition(signOut) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('names the home link from its text, not the decorative logo', async () => {
+    await renderShell('admin');
+
+    // The logo is `alt=""` — the visible "Food Bank" text in the same link is
+    // the accessible name, and the mark must not be announced on top of it.
+    expect(screen.getByRole('link', { name: 'Food Bank' })).toHaveAttribute('href', '/');
+    expect(screen.queryByRole('img', { name: /logo/i })).toBeNull();
+  });
+
   it('offers a skip link to the main content', async () => {
     await renderShell('admin');
 

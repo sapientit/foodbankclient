@@ -134,6 +134,7 @@ export function HomeScreen() {
         <section aria-labelledby="todays-sessions" className={styles.overview}>
           {isAdmin && (
             <article className={styles.tile} data-category="referrals">
+              <UsersIcon className={styles.tileGlyph} />
               <h2>
                 <UsersIcon className={styles.headingIcon} />
                 Referrals
@@ -168,6 +169,7 @@ export function HomeScreen() {
                   return (
                     <li key={session.id}>
                       <article className={styles.tile} data-category="sessions">
+                        <CalendarIcon className={styles.tileGlyph} />
                         <h3>{time}</h3>
                         <CapacityMeter capacity={session.capacity} noun="" value={session.booked} />
                         {session.deliveryCapacity === 0 ? (

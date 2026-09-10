@@ -17,13 +17,13 @@ textarea {
   min-block-size: 5rem;
 }
 
-/* The administrator inbox's three tabs. Purple, the referral category's colour
-   — `screenDetails.md`, "referral equivalents are purple" — and otherwise
+/* The administrator inbox's three tabs. Red, the referral category's colour
+   — `screenDetails.md`, "referral equivalents are red" — and otherwise
    the same borderless, underlined-on-selection shape
    `run-session-tabs.module.css` uses for the five session tabs. */
 .tabs {
   margin-block-end: 1rem;
-  border-block-end: 1px solid #e4d6ee;
+  border-block-end: 1px solid #f0d5d5;
 }
 
 .tabList {
@@ -39,12 +39,12 @@ textarea {
   display: inline-flex;
   align-items: center;
   padding: 0.6rem 0.85rem;
-  color: #6d3a8c;
+  color: #c62828;
   text-decoration: none;
 }
 
 .tabList a[aria-current='page'] {
-  box-shadow: inset 0 -3px 0 #6d3a8c;
+  box-shadow: inset 0 -3px 0 #c62828;
   font-weight: 700;
 }
 

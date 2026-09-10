@@ -75,6 +75,18 @@ a control keeps its underline, and that nothing prints as a filled block of
 colour. The run-a-session screens are the one part with a sighted history: they
 carried this palette locally from 2026-08-17 and only lost their copy of it.
 
+The visual redesign compounds this. The category palette changed wholesale —
+referrals red, stock blue, sessions green — with new darker shades chosen for
+contrast (the bright brand hues from the brief cannot carry text); the signed-in
+header now runs the logo and primary tabs on one line and drops the tabs to a
+second line only on a narrow screen; and the dashboard's top-row boxes carry a
+faint oversized illustration behind the text. None of that renders in jsdom.
+What to look for in a browser: the header fitting on one line at common widths
+without shredding the tab row before it wraps; every category colour reading at
+its stated contrast on a real screen in a hall; the two reds on a referral screen
+(ordinary and destructive) still telling apart; and the dashboard glyphs staying
+faint enough to leave the figures over them fully legible.
+
 **The Turnstile widget has never run against the real Cloudflare script.**
 `src/features/referrals/turnstile.ts` injects
 `https://challenges.cloudflare.com/turnstile/v0/api.js`, which jsdom will not

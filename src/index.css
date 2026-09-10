@@ -14,6 +14,17 @@
   --category-action: #0b5cab;
   --category-action-hover: #084684;
   --category-action-tint: #eaf1f9;
+
+  /* One fixed spacing step set, so signed-in screens sit on a shared rhythm
+     rather than each picking its own margins — screenDetails.md, "#Menus"
+     ("spacing from a small fixed scale"). New and reworked screens use these;
+     older screens are moved onto them as they are touched, not in a sweep. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
 }
 
 body {
@@ -156,6 +167,13 @@ a:where(.button-link):where(.button-secondary):hover {
   color: var(--category-action-hover, #084684);
 }
 
+/* GUESS about how far this has to sit from the referral category — OPEN-QUESTIONS.md
+   Q39. Since the palette change, referrals are red (`--category-action: #c62828`),
+   so on a referral screen this destructive red now sits a shade away from an
+   ordinary referral button rather than a category apart. It is left deeper than
+   the referral hue and the weight is carried by the confirmation dialog; whether
+   that is enough, or destructive actions on referral screens should be drawn
+   unfilled, is Q39. */
 button:where(.button-danger) {
   background: #b3261e;
   border-color: #b3261e;

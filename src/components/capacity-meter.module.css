@@ -16,6 +16,8 @@
 .fill {
   display: block;
   block-size: 100%;
+  /* Traffic-light green (with amber and red below), not the sessions category
+     colour — this bar means "places remain", not "session". */
   background: #176b3a;
   border-radius: inherit;
 }
