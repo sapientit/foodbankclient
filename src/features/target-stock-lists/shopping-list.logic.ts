@@ -31,6 +31,14 @@ export interface ShoppingStockLevel {
   readonly quantityOnHand: number;
 }
 
+/** One live item from the cross-session requirements summary. */
+export interface ShoppingRequirement {
+  readonly id: string;
+  readonly name: string;
+  readonly category: string;
+  readonly requiredQuantity: number;
+}
+
 export interface ShoppingItem {
   /** The live catalogue name. */
   readonly name: string;
@@ -181,6 +189,36 @@ export function computeShoppingList(
   }
 
   return { groups: groupByCategory(items), attention, renamed };
+}
+
+/**
+ * Turns the server's cross-session requirements total into a shop list. The
+ * server deliberately returns requirements only: current stock is a live
+ * client-side input, so the calculation remains fresh when a stock take or
+ * attendance outcome changes while this screen is open.
+ */
+export function computeRequirementShoppingList(
+  requirements: readonly ShoppingRequirement[],
+  stockLevels: readonly Pick<ShoppingStockLevel, 'id' | 'quantityOnHand'>[],
+): ShoppingList {
+  const levelsById = new Map(stockLevels.map((level) => [level.id, level.quantityOnHand]));
+  const items = requirements.flatMap((requirement) => {
+    const quantityOnHand = levelsById.get(requirement.id) ?? 0;
+    const need = requirement.requiredQuantity - Math.max(0, quantityOnHand);
+    return need <= 0
+      ? []
+      : [
+          {
+            name: requirement.name,
+            category: requirement.category,
+            targetQuantity: requirement.requiredQuantity,
+            quantityOnHand,
+            need,
+            renamedFrom: null,
+          },
+        ];
+  });
+  return { groups: groupByCategory(items), attention: [], renamed: [] };
 }
 
 /** Merge raw item targets with client-derived crate shortfalls, without asking the Worker to scan the catalogue. */

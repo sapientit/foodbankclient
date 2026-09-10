@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeShoppingList,
   computeShoppingListWithCrates,
+  computeRequirementShoppingList,
   decomposeCrateShoppingShortfall,
   groupByCategory,
   shoppingListToPlainText,
@@ -111,6 +112,34 @@ describe('computeShoppingListWithCrates', () => {
     expect(result.groups[0]?.items).toEqual([
       expect.objectContaining({ name: 'Jam', need: 12 }),
       expect.objectContaining({ name: 'Marmite', need: 8 }),
+    ]);
+  });
+});
+
+describe('computeRequirementShoppingList', () => {
+  it('uses requirements rather than targets and subtracts only stock that is really on hand', () => {
+    const { groups } = computeRequirementShoppingList(
+      [
+        { id: 'beans', name: 'Baked beans', category: 'Tinned', requiredQuantity: 60 },
+        { id: 'milk', name: 'Long-life milk', category: 'Dairy', requiredQuantity: 8 },
+        { id: 'rice', name: 'Value rice', category: 'Dry goods', requiredQuantity: 4 },
+      ],
+      [
+        { id: 'beans', quantityOnHand: 10 },
+        { id: 'milk', quantityOnHand: 8 },
+        { id: 'rice', quantityOnHand: -2 },
+      ],
+    );
+
+    expect(groups).toEqual([
+      {
+        category: 'Dry goods',
+        items: [expect.objectContaining({ name: 'Value rice', need: 4, targetQuantity: 4 })],
+      },
+      {
+        category: 'Tinned',
+        items: [expect.objectContaining({ name: 'Baked beans', need: 50, targetQuantity: 60 })],
+      },
     ]);
   });
 });

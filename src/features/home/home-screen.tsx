@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
 import { CapacityMeter } from '../../components/capacity-meter';
 import { EmptyState } from '../../components/empty-state';
+import { ErrorNotice } from '../../components/error-notice';
 import { BellIcon, BoxIcon, CalendarIcon, UsersIcon } from '../../components/icons';
 import { Pagination } from '../../components/pagination';
 import { SessionListFilters } from '../../components/session-list-filters';
@@ -13,6 +14,7 @@ import {
   endOfWeek,
   formatSessionDate,
   formatTimeRange,
+  formatLondonDateTime,
   londonToday,
   startOfWeek,
 } from '../../lib/london-time';
@@ -25,7 +27,7 @@ import {
   filterSessionsByStatus,
   readSessionListSelection,
 } from '../sessions/session-list-filters.logic';
-import { useLowStockSummary } from '../stock/queries';
+import { useLatestVolunteerCode, useLowStockSummary } from '../stock/queries';
 import { previousWeeksNotCompleted } from './dashboard.logic';
 import styles from './home-screen.module.css';
 
@@ -70,6 +72,7 @@ export function HomeScreen() {
   const pending = useReferrals({ status: 'pending_review' }, isAdmin);
   const active = useReferrals({ status: 'active' }, isAdmin);
   const lowStock = useLowStockSummary(isAdmin);
+  const latestVolunteerCode = useLatestVolunteerCode(isAdmin);
   const sms = useSmsAttentionSummary(isAdmin);
   const referralsWaiting = (pending.data?.length ?? 0) + (active.data?.length ?? 0);
   /*
@@ -82,6 +85,7 @@ export function HomeScreen() {
   const alertsPending =
     referralsCountPending ||
     (isAdmin && lowStock.isPending) ||
+    (isAdmin && latestVolunteerCode.isPending) ||
     (isAdmin && sms.isPending) ||
     previous.isPending;
   const oldSessions = previousWeeksNotCompleted(previous.data ?? [], thisWeek.from);
@@ -93,8 +97,11 @@ export function HomeScreen() {
   const displayed = shown.slice((page - 1) * 10, page * 10);
   const lowStockCount = lowStock.data?.lowStockCount ?? 0;
   const unreadTotal = sms.data?.unreadTotal ?? 0;
+  const expiringVolunteerCode = latestVolunteerCode.data?.latest;
   const nothingNeedsAttention =
-    lowStockCount + referralsWaiting + oldSessions.length + unreadTotal === 0;
+    lowStockCount + referralsWaiting + oldSessions.length + unreadTotal === 0 &&
+    expiringVolunteerCode?.expiringSoon !== true &&
+    !latestVolunteerCode.isError;
 
   /*
    * A page kept from a wider or differently-filtered range can point past the
@@ -315,11 +322,24 @@ export function HomeScreen() {
           <Spinner label="Loading alerts…" />
         ) : (
           <div className={styles.alerts}>
+            {isAdmin && latestVolunteerCode.isError && (
+              <ErrorNotice
+                error={latestVolunteerCode.error}
+                onRetry={() => void latestVolunteerCode.refetch()}
+              />
+            )}
             {isAdmin && lowStockCount > 0 && (
               <Alert
                 category="stock"
                 headline={`${String(lowStockCount)} stock items with low stock`}
                 to="/stock"
+              />
+            )}
+            {isAdmin && expiringVolunteerCode?.expiringSoon === true && (
+              <Alert
+                category="stock"
+                headline={`Volunteer code expires at ${formatLondonDateTime(new Date(expiringVolunteerCode.expiresAt * 1000).toISOString())} UK time`}
+                to="/stock/volunteer-code"
               />
             )}
             {isAdmin && referralsWaiting > 0 && (

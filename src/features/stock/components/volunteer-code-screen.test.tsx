@@ -41,6 +41,7 @@ describe('the volunteer code screen', () => {
     await user.click(await screen.findByRole('button', { name: 'Generate a code' }));
 
     expect(await screen.findByText(CODE)).toBeInTheDocument();
+    expect(screen.getByText('This is the code to use for doing a stock take.')).toBeInTheDocument();
     // Once, and only once — a code read out twice is a code typed wrong.
     expect(screen.getAllByText(CODE)).toHaveLength(1);
 
@@ -65,6 +66,7 @@ describe('the volunteer code screen', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Generate a code' }));
     await screen.findByText(CODE);
+    expect(screen.getByText('This is the code to use for doing a stock take.')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Generate another code' }));
 
@@ -127,7 +129,7 @@ describe('the volunteer code screen', () => {
     expect(screen.queryByText('Read this out or write it down')).toBeNull();
   });
 
-  it('copies the exact code to the clipboard and confirms it', async () => {
+  it('copies a WhatsApp-ready message with the purpose, code and expiry', async () => {
     renderApp('/stock/volunteer-code');
     const user = userEvent.setup();
 
@@ -138,9 +140,30 @@ describe('the volunteer code screen', () => {
     await user.click(await screen.findByRole('button', { name: 'Generate a code' }));
     await screen.findByText(CODE);
 
-    await user.click(screen.getByRole('button', { name: 'Copy code' }));
+    await user.click(screen.getByRole('button', { name: 'Copy message' }));
 
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument();
-    expect(writeText).toHaveBeenCalledWith(CODE);
+    expect(writeText).toHaveBeenCalledWith(
+      `This is the code to use for doing a stock take.\n\n${CODE}\n\nIt stops working at ${formatLondonDateTime(new Date(EXPIRES_AT * 1000).toISOString())} UK time.`,
+    );
+  });
+
+  it('explains how to copy the whole message if clipboard access is unavailable', async () => {
+    renderApp('/stock/volunteer-code');
+    const user = userEvent.setup();
+    const writeText = vi
+      .fn<(text: string) => Promise<void>>()
+      .mockRejectedValue(new Error('Denied'));
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+
+    await user.click(await screen.findByRole('button', { name: 'Generate a code' }));
+    await user.click(screen.getByRole('button', { name: 'Copy message' }));
+
+    expect(
+      await screen.findByText(/Select the message, code and expiry above/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Select the message, code and expiry shown and copy them by hand.',
+    );
   });
 });

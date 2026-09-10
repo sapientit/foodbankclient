@@ -436,9 +436,6 @@ export function PickListPrintScreen() {
                     <HouseholdCompositionGrid composition={householdComposition} />
                   )}
                 </header>
-                {parcel.voucherInstruction !== null && (
-                  <p>{voucherInstruction(parcel.voucherInstruction)}</p>
-                )}
                 {parcel.notes !== null && parcel.notes.trim() !== '' && (
                   /* The same words the team lead typed it under, because the
                      picker holding this sheet is the "picker" that label
@@ -771,6 +768,7 @@ export function RunSessionDetailScreen() {
                 <th scope="col">Pick #</th>
                 <th scope="col">Client</th>
                 <th scope="col">First-time status</th>
+                <th scope="col">Christmas voucher</th>
                 <th scope="col">Status</th>
                 <th scope="col">Action</th>
               </tr>
@@ -851,7 +849,7 @@ const FIRST_TIME_MARKER: Record<Exclude<Parcel['firstTimeMarker'], null>, string
   admin: 'Admin',
 };
 
-function voucherInstruction(
+function voucherInstructionLabel(
   instruction: 'provide_voucher' | 'already_received' | 'refer_to_admin',
 ): string {
   if (instruction === 'provide_voucher') return 'Provide voucher for this client';
@@ -896,6 +894,13 @@ function ClientRow({
       <td>
         {parcel.firstTimeMarker !== null && (
           <span className={styles.status}>{FIRST_TIME_MARKER[parcel.firstTimeMarker]}</span>
+        )}
+      </td>
+      <td>
+        {parcel.voucherInstruction !== null && (
+          <span className={styles.status}>
+            {voucherInstructionLabel(parcel.voucherInstruction)}
+          </span>
         )}
       </td>
       <td>

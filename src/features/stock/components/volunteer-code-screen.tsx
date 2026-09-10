@@ -14,7 +14,8 @@ import styles from './volunteer-code-screen.module.css';
  * **The code is in the response and nowhere else** — only a hash is stored, so
  * nothing fetches it again. It is shown once, big enough to read out across a
  * warehouse, alongside the time it stops working. If it is lost the answer is
- * always another press of the button; the old code just lapses on its own.
+ * always another press of the button; every earlier code lapses at its own
+ * expiry time.
  */
 export function VolunteerCodeScreen() {
   const generate = useGenerateVolunteerCode();
@@ -30,11 +31,10 @@ export function VolunteerCodeScreen() {
    * **The lock releases on every outcome, including a 5xx or a dropped
    * connection** — a deliberate divergence from that rule's "a network failure
    * or a 5xx does not unlock". The rule guards writes where a duplicate costs
-   * something; here a second code simply supersedes the first and the first
-   * lapses on its own in eight hours. Holding the lock after a failed request
-   * would instead leave a team lead with a dead button and no code, which is
-   * the worse outcome. The guard still earns its place against the fast double
-   * tap.
+   * something; here a second code leaves the first valid until its own expiry.
+   * Holding the lock after a failed request would instead leave a team lead
+   * with a dead button and no code, which is the worse outcome. The guard still
+   * earns its place against the fast double tap.
    */
   const inFlight = useRef(false);
 
@@ -67,7 +67,7 @@ export function VolunteerCodeScreen() {
       <p className={styles.intro}>
         Generate a code for whoever is counting the shelves this morning. They enter it on the
         stock-take sign-in — no account needed — and it lets them onto the stock take and nothing
-        else. It stops working eight hours after you generate it.
+        else. The expiry date and time come from the code you generate.
       </p>
 
       {generate.isError && <ErrorNotice error={generate.error} />}
@@ -77,6 +77,7 @@ export function VolunteerCodeScreen() {
           <h2 className={styles.resultHeading} ref={resultRef} tabIndex={-1}>
             Read this out or write it down
           </h2>
+          <p className={styles.shareText}>This is the code to use for doing a stock take.</p>
           <p className={styles.code}>{issued.code}</p>
           <p className={styles.expiry}>Stops working at {expiryTime(issued.expiresAt)}.</p>
           <p className={styles.once}>
@@ -86,24 +87,25 @@ export function VolunteerCodeScreen() {
           <button
             className="button-secondary"
             onClick={() => {
-              void copyToClipboard(issued.code).then((ok) => {
+              void copyToClipboard(volunteerCodeMessage(issued)).then((ok) => {
                 setCopyState(ok ? 'copied' : 'failed');
               });
             }}
             type="button"
           >
-            {copyState === 'copied' ? 'Copied' : 'Copy code'}
+            {copyState === 'copied' ? 'Copied' : 'Copy message'}
           </button>
           {copyState === 'failed' && (
             <p className={styles.copyError}>
-              Copy did not work on this device. Select the code above and copy it by hand.
+              Copy did not work on this device. Select the message, code and expiry above and copy
+              them by hand.
             </p>
           )}
           <p className={styles.srOnly} role="status">
             {copyState === 'copied'
               ? 'Code copied to the clipboard.'
               : copyState === 'failed'
-                ? 'Copy did not work. Select the code shown and copy it by hand.'
+                ? 'Copy did not work. Select the message, code and expiry shown and copy them by hand.'
                 : ''}
           </p>
         </div>
@@ -129,5 +131,10 @@ export function VolunteerCodeScreen() {
 
 /** `expiresAt` is epoch seconds — an instant, so formatting it in London is correct. */
 function expiryTime(expiresAt: number): string {
-  return formatLondonDateTime(new Date(expiresAt * 1000).toISOString());
+  return `${formatLondonDateTime(new Date(expiresAt * 1000).toISOString())} UK time`;
+}
+
+/** The full, self-contained message a team lead can paste directly into WhatsApp. */
+function volunteerCodeMessage(issued: VolunteerCode): string {
+  return `This is the code to use for doing a stock take.\n\n${issued.code}\n\nIt stops working at ${expiryTime(issued.expiresAt)}.`;
 }

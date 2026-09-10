@@ -18,7 +18,6 @@ const BEANS: StockLevel = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A2',
-  shelfSortKey: 'shelf/002',
   lowStockThreshold: null,
   groupingId: GROUPING.id,
   unitsPerPack: null,
@@ -32,7 +31,6 @@ const RICE: StockLevel = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A10',
-  shelfSortKey: 'shelf/010',
   lowStockThreshold: null,
   groupingId: GROUPING.id,
   unitsPerPack: null,
@@ -66,8 +64,7 @@ function directLevels(count: number): StockLevel[] {
       ...BEANS,
       id: `item-${String(number)}`,
       name: `Item ${String(number)}`,
-      shelfNumber: `Shelf ${String(number)}`,
-      shelfSortKey: `shelf/${String(number).padStart(3, '0')}`,
+      shelfNumber: `Shelf ${String(number).padStart(3, '0')}`,
       quantityOnHand: number,
     };
   });
@@ -81,21 +78,18 @@ describe('saving a stock take page', () => {
       id: 'jam',
       name: 'Jam',
       groupingId: null,
-      shelfSortKey: 'member/jam',
     };
     const marmite: StockLevel = {
       ...BEANS,
       id: 'marmite',
       name: 'Marmite',
       groupingId: null,
-      shelfSortKey: 'member/marmite',
     };
     const itemFortyOne: StockLevel = {
       ...BEANS,
       id: 'item-41',
       name: 'Item 41',
-      shelfNumber: 'Shelf 41',
-      shelfSortKey: 'shelf/041',
+      shelfNumber: 'Shelf 041',
       quantityOnHand: 41,
     };
     const bodies: unknown[] = [];
@@ -109,8 +103,7 @@ describe('saving a stock take page', () => {
             {
               id: 'c1',
               name: 'Tinned mix',
-              shelfKey: 'Shelf 40',
-              shelfSortKey: 'shelf/040',
+              shelfKey: 'Shelf 040',
               groupingId: GROUPING.id,
               sizePerCrate: 12,
               members: [
@@ -167,7 +160,6 @@ describe('saving a stock take page', () => {
       id: 'fresh-1',
       name: 'Fresh item',
       groupingId: FRESH_GROUPING.id,
-      shelfSortKey: 'fresh/001',
     };
     server.use(
       http.get(LEVELS, () => HttpResponse.json({ items: [...levels, freshItem] })),
@@ -224,40 +216,36 @@ describe('saving a stock take page', () => {
     ]);
   });
 
-  it('interleaves crates with direct items in shelf order and shows their composition immediately', async () => {
+  it('interleaves crates with direct items by their plain-string shelf labels and shows composition immediately', async () => {
     const cereal: StockLevel = {
       ...BEANS,
       id: 's3',
       name: 'Cereal',
-      shelfNumber: 'Z-17',
-      shelfSortKey: 'warehouse/0010',
+      shelfNumber: 'A1',
     };
     const jam: StockLevel = {
       ...BEANS,
       id: 's4',
       name: 'Jam',
       groupingId: null,
-      shelfNumber: 'Rack 99',
-      shelfSortKey: 'warehouse/0020',
+      shelfNumber: 'A10',
     };
     const marmite: StockLevel = {
       ...BEANS,
       id: 's5',
       name: 'Marmite',
       groupingId: null,
-      shelfNumber: 'Rack 99',
-      shelfSortKey: 'warehouse/0020',
+      shelfNumber: 'A10',
     };
     const pasta: StockLevel = {
       ...BEANS,
       id: 's6',
       name: 'Pasta',
-      shelfNumber: 'A-1',
-      shelfSortKey: 'warehouse/0030',
+      shelfNumber: 'A2',
     };
     server.use(
-      // Neither the server's array position nor the display shelf text is the
-      // shelf walk order. The opaque keys are deliberately authoritative.
+      // Neither response array is in order; direct labels and crate shelf keys
+      // compare as plain strings, so A10 comes before A2.
       http.get(LEVELS, () => HttpResponse.json({ items: [pasta, marmite, cereal, jam] })),
       http.get('/api/v1/stock/crates', () =>
         HttpResponse.json({
@@ -265,8 +253,7 @@ describe('saving a stock take page', () => {
             {
               id: 'c1',
               name: 'Tinned mix',
-              shelfKey: 'Middle rack',
-              shelfSortKey: 'warehouse/0025',
+              shelfKey: 'A10',
               groupingId: GROUPING.id,
               sizePerCrate: 12,
               members: [
@@ -326,8 +313,8 @@ describe('saving a stock take page', () => {
     expect(await screen.findByText('2 changed counts saved.')).toBeInTheDocument();
     expect(body).toEqual({
       counts: [
-        { stockItemId: 's1', countedQuantity: 9 },
         { stockItemId: 's2', countedQuantity: 0 },
+        { stockItemId: 's1', countedQuantity: 9 },
       ],
       crateCounts: [],
     });

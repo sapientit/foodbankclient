@@ -8,18 +8,13 @@ import type { StockLevel } from './queries';
 const REFRESH = '/api/v1/auth/refresh';
 const LEVELS = '/api/v1/stock/levels';
 
-/**
- * The order here is the server's, and it is the point of the fixture: a
- * zero-padded shelf key gives A1, A2, A10, which is the order a picker walks the
- * aisle in. Sorted as strings, A10 would come second.
- */
+/** The server orders visible shelf labels as plain strings: A1, A10, A2. */
 const CEREAL: StockLevel = {
   id: 's1',
   name: 'Cereal',
   category: 'Breakfast',
   description: null,
   shelfNumber: 'A1',
-  shelfSortKey: 'A1',
   lowStockThreshold: 10,
   groupingId: null,
   unitsPerPack: null,
@@ -33,7 +28,6 @@ const BEANS: StockLevel = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A2',
-  shelfSortKey: 'A2',
   lowStockThreshold: null,
   groupingId: null,
   unitsPerPack: null,
@@ -48,7 +42,6 @@ const PASTA: StockLevel = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A10',
-  shelfSortKey: 'A10',
   lowStockThreshold: 3,
   groupingId: null,
   unitsPerPack: null,
@@ -62,7 +55,6 @@ const SOUP: StockLevel = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'B1',
-  shelfSortKey: 'B1',
   lowStockThreshold: null,
   groupingId: null,
   unitsPerPack: null,
@@ -82,7 +74,7 @@ function session() {
 beforeEach(() => {
   server.use(
     http.post(REFRESH, () => session()),
-    http.get(LEVELS, () => HttpResponse.json({ items: [CEREAL, BEANS, PASTA, SOUP] })),
+    http.get(LEVELS, () => HttpResponse.json({ items: [CEREAL, PASTA, BEANS, SOUP] })),
   );
 });
 
@@ -96,8 +88,7 @@ describe('stock levels', () => {
       .slice(1)
       .map((row) => within(row).getAllByRole('cell')[0]?.textContent);
 
-    // A naive sort() on shelfNumber would put A10 before A2.
-    expect(shelves).toEqual(['A1', 'A2', 'A10']);
+    expect(shelves).toEqual(['A1', 'A10', 'A2']);
   });
 
   it('renders a negative quantity as a number, not as an error', async () => {

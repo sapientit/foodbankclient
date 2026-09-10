@@ -4,12 +4,53 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
+import type {
+  buildPickListInformation,
+  pickListInformationNeedsOptionSources,
+} from '../pick-lists/pick-list-information';
+import type {
+  resolvePreferenceLines,
+  validatePreferenceRules,
+} from '../pick-lists/preference-rules';
 import type { StockItem, StockLevel } from '../stock/queries';
 import type { TargetStockList } from './queries';
+
+interface PreferenceRulesModule {
+  readonly resolvePreferenceLines: typeof resolvePreferenceLines;
+  readonly validatePreferenceRules: typeof validatePreferenceRules;
+}
+interface PickListInformationModule {
+  readonly buildPickListInformation: typeof buildPickListInformation;
+  readonly pickListInformationNeedsOptionSources: typeof pickListInformationNeedsOptionSources;
+}
+
+vi.mock('../pick-lists/preference-rules', async (importOriginal) => {
+  const actual = await importOriginal<PreferenceRulesModule>();
+  return {
+    ...actual,
+    resolvePreferenceLines: () => [],
+    validatePreferenceRules: () => ({ errors: [] }),
+  };
+});
+
+vi.mock('../pick-lists/pick-list-information', async (importOriginal) => {
+  const actual = await importOriginal<PickListInformationModule>();
+  return {
+    ...actual,
+    buildPickListInformation: () => [],
+    pickListInformationNeedsOptionSources: () => false,
+  };
+});
 
 const REFRESH = '/api/v1/auth/refresh';
 const LISTS = '/api/v1/target-stock-lists';
 const STOCK_LEVELS = '/api/v1/stock/levels';
+const STOCK_ITEMS = '/api/v1/stock/items';
+const CRATES = '/api/v1/stock/crates';
+const SESSIONS = '/api/v1/sessions';
+const REFERRALS = '/api/v1/referrals';
+const PREPARE_PICK_LIST = '/api/v1/sessions/:sessionId/pick-list';
+const REQUIREMENT_SUMMARY = '/api/v1/pick-lists/stock-requirement-summary';
 
 const level = (
   over: Partial<StockLevel> &
@@ -17,7 +58,6 @@ const level = (
 ): StockLevel => ({
   description: null,
   shelfNumber: 'A1',
-  shelfSortKey: 'A1',
   lowStockThreshold: null,
   groupingId: null,
   unitsPerPack: null,
@@ -66,6 +106,106 @@ beforeEach(() => {
 });
 
 describe('the shopping screen', () => {
+  it('prepares this week’s open pick lists before calculating selected-list requirements', async () => {
+    let prepared = false;
+    let summaryRequested = false;
+    server.use(
+      http.get(LISTS, () =>
+        HttpResponse.json({
+          targetStockLists: [
+            {
+              id: 't1',
+              name: 'Standard week',
+              lines: [
+                { kind: 'item', stockItemId: 's1', name: 'Baked beans 400g', targetQuantity: 48 },
+                { kind: 'crate', crateId: 'c1', crateName: 'Tinned supplies', targetQuantity: 1 },
+              ],
+            },
+          ],
+        }),
+      ),
+      http.get(CRATES, () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'c1',
+              name: 'Tinned supplies',
+              sizePerCrate: 1,
+              members: [{ stockItemId: 's4', shoppingCompositionPercent: 100 }],
+            },
+          ],
+        }),
+      ),
+      http.get(STOCK_ITEMS, () =>
+        HttpResponse.json({
+          items: [
+            { id: 's1', name: 'Baked beans 400g', category: 'Tinned', isActive: true },
+            { id: 's2', name: 'Long-life milk 1L', category: 'Dairy', isActive: true },
+          ],
+        }),
+      ),
+      http.get(SESSIONS, () =>
+        HttpResponse.json({
+          sessions: [
+            { id: 'session-this-week', status: 'planned' },
+            { id: 'session-confirmed', status: 'confirmed' },
+            { id: 'session-cancelled', status: 'cancelled' },
+          ],
+        }),
+      ),
+      http.get(REFERRALS, () =>
+        HttpResponse.json({ referrals: [{ id: 'r1', adults: 1, children: 0, answers: {} }] }),
+      ),
+      http.post(PREPARE_PICK_LIST, ({ params }) => {
+        expect(params.sessionId).toBe('session-this-week');
+        prepared = true;
+        return HttpResponse.json({ sessionId: 'session-this-week', created: true });
+      }),
+      http.get(REQUIREMENT_SUMMARY, ({ request }) => {
+        expect(prepared).toBe(true);
+        expect(new URL(request.url).searchParams.get('order')).toBe('category');
+        summaryRequested = true;
+        return HttpResponse.json({
+          items: [
+            { id: 's1', name: 'Baked beans 400g', category: 'Tinned', requiredQuantity: 60 },
+            { id: 's2', name: 'Long-life milk 1L', category: 'Dairy', requiredQuantity: 8 },
+            { id: 's4', name: 'Sugar 1kg', category: 'Baking', requiredQuantity: 100 },
+            {
+              id: 'not-on-list',
+              name: 'Tinned peaches',
+              category: 'Tinned',
+              requiredQuantity: 100,
+            },
+          ],
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderApp('/stock/shopping?list=t1');
+
+    await user.click(
+      await screen.findByRole('radio', { name: /Cover session requirements through Saturday/ }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Calculate requirements' }));
+
+    expect(await screen.findByLabelText('Quantity for Baked beans 400g')).toHaveValue('20');
+    expect(screen.queryByLabelText('Quantity for Long-life milk 1L')).toBeNull();
+    expect(screen.getByLabelText('Quantity for Sugar 1kg')).toHaveValue('85');
+    expect(screen.queryByLabelText('Quantity for Tinned peaches')).toBeNull();
+    expect(prepared).toBe(true);
+    expect(summaryRequested).toBe(true);
+
+    await user.click(screen.getByRole('radio', { name: 'Bring stock up to target' }));
+    expect(await screen.findByLabelText('Quantity for Baked beans 400g')).toHaveValue('8');
+
+    await user.click(
+      screen.getByRole('radio', { name: /Cover session requirements through Saturday/ }),
+    );
+    expect(screen.getByRole('button', { name: 'Calculate requirements' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open print dialog' })).toBeNull();
+  });
+
   it('shows only shortfalls in three columns, with editable quantities labelled for assistive technology only', async () => {
     renderApp('/stock/shopping');
     const user = userEvent.setup();

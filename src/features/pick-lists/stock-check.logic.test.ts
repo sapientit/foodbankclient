@@ -9,7 +9,6 @@ function line(overrides: Partial<StockRequirementLine>): StockRequirementLine {
     category: 'Tinned Goods',
     description: null,
     shelfNumber: 'A2',
-    shelfSortKey: 'A2',
     lowStockThreshold: null,
     groupingId: null,
     unitsPerPack: null,

@@ -12,7 +12,7 @@ import type { StockItem, StockLevel } from './queries';
  *
  * Items and levels are two lists of the same thing. Adding an item makes a row
  * appear in the levels list, and changing an item's shelf number **reorders**
- * it, because the server sorts on a derived shelf key. So an item mutation has
+ * it, because the server sorts on its shelf label. So an item mutation has
  * to invalidate levels — and with two disjoint key roots it cannot, which is a
  * levels screen showing the old shelf order to somebody walking the aisle.
  *
@@ -33,7 +33,6 @@ const BEANS: StockItem = {
   category: 'Tinned goods',
   description: null,
   shelfNumber: 'A2',
-  shelfSortKey: 'A2',
   lowStockThreshold: null,
   groupingId: GROUPING.id,
   unitsPerPack: null,
@@ -46,7 +45,6 @@ const PASTA: StockItem = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A10',
-  shelfSortKey: 'A10',
   lowStockThreshold: null,
   groupingId: GROUPING.id,
   unitsPerPack: null,
@@ -58,13 +56,11 @@ function level(item: StockItem, quantityOnHand: number): StockLevel {
   return { ...item, quantityOnHand };
 }
 
-/** What the server's shelf sort would answer: the numeric run is compared as a number. */
+/** What the server's shelf sort answers: the shelf label is a plain string. */
 function byShelf(items: readonly StockItem[]): StockItem[] {
-  return [...items].sort((a, b) => {
-    const [aLetters = '', aDigits = '0'] = /^(\D*)(\d*)/.exec(a.shelfNumber)?.slice(1) ?? [];
-    const [bLetters = '', bDigits = '0'] = /^(\D*)(\d*)/.exec(b.shelfNumber)?.slice(1) ?? [];
-    return aLetters === bLetters ? Number(aDigits) - Number(bDigits) : aLetters < bLetters ? -1 : 1;
-  });
+  return [...items].sort((a, b) =>
+    a.shelfNumber < b.shelfNumber ? -1 : a.shelfNumber > b.shelfNumber ? 1 : 0,
+  );
 }
 
 function rowNames(): (string | null)[] {
@@ -119,12 +115,12 @@ describe('one stock key root', () => {
     const user = userEvent.setup();
 
     await screen.findByRole('columnheader', { name: 'On hand' });
-    expect(rowNames()).toEqual(['Baked beans', 'Pasta']);
+    expect(rowNames()).toEqual(['Pasta', 'Baked beans']);
 
     await router.navigate(`/stock/items/${BEANS.id}`);
     const shelfInput = await screen.findByLabelText('Shelf');
     await user.clear(shelfInput);
-    await user.type(shelfInput, 'B9');
+    await user.type(shelfInput, 'A0');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     await screen.findByRole('heading', { name: 'Stock items' });
 
@@ -138,7 +134,7 @@ describe('one stock key root', () => {
      * and the failure is a picker sent down the aisle in the wrong order.
      */
     await waitFor(() => {
-      expect(rowNames()).toEqual(['Pasta', 'Baked beans']);
+      expect(rowNames()).toEqual(['Baked beans', 'Pasta']);
     });
   });
 

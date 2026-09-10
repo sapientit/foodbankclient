@@ -63,6 +63,7 @@ const PARCEL: Parcel = {
   attendance: 'attended',
   notes: 'Allergies: no dairy',
   firstTimeMarker: null,
+  voucherInstruction: null,
   answers: { Allergies: 'No dairy' },
   lines: [
     {
@@ -124,7 +125,6 @@ beforeEach(() => {
             category: 'Tinned goods',
             description: 'In tomato sauce',
             shelfNumber: 'A2',
-            shelfSortKey: 'A2',
             lowStockThreshold: null,
             groupingId: null,
             unitsPerPack: null,

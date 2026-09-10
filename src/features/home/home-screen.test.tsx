@@ -1,4 +1,5 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, delay, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -47,6 +48,9 @@ beforeEach(() => {
     http.get('/api/v1/stock/items/low-stock-summary', () =>
       HttpResponse.json({ lowStockCount: 2 }),
     ),
+    http.get('/api/v1/stock/take/volunteer-codes/latest', () =>
+      HttpResponse.json({ latest: { expiresAt: 1_788_888_888, expiringSoon: false } }),
+    ),
     http.get('/api/v1/sms-messages/attention-summary', () => HttpResponse.json({ unreadTotal: 3 })),
   );
 });
@@ -62,6 +66,97 @@ describe('the administrator dashboard', () => {
     expect(await screen.findByText('3 unread SMS messages')).toBeInTheDocument();
     expect(screen.queryByText('Go to stock to reorder')).toBeNull();
     expect(screen.queryByText('Review and process referrals')).toBeNull();
+  });
+
+  it('alerts an administrator when the latest volunteer code has under five days left', async () => {
+    server.use(
+      http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
+      http.get('/api/v1/stock/items/low-stock-summary', () =>
+        HttpResponse.json({ lowStockCount: 0 }),
+      ),
+      http.get('/api/v1/sms-messages/attention-summary', () =>
+        HttpResponse.json({ unreadTotal: 0 }),
+      ),
+      http.get('/api/v1/stock/take/volunteer-codes/latest', () =>
+        HttpResponse.json({ latest: { expiresAt: 1_788_888_888, expiringSoon: true } }),
+      ),
+    );
+    renderApp('/');
+
+    const alert = await screen.findByRole('link', { name: /Volunteer code expires at/ });
+    expect(alert).toHaveAttribute('href', '/stock/volunteer-code');
+    expect(screen.queryByText('Nothing needs attention right now.')).toBeNull();
+  });
+
+  it('does not show a volunteer-code alert when no unexpired code exists', async () => {
+    server.use(
+      http.get('/api/v1/stock/take/volunteer-codes/latest', () =>
+        HttpResponse.json({ latest: null }),
+      ),
+    );
+    renderApp('/');
+
+    await screen.findByRole('heading', { name: 'Alerts' });
+    expect(screen.queryByRole('link', { name: /Volunteer code expires at/ })).toBeNull();
+  });
+
+  it('does not show a false all-clear when checking the volunteer-code expiry fails', async () => {
+    server.use(
+      http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
+      http.get('/api/v1/stock/items/low-stock-summary', () =>
+        HttpResponse.json({ lowStockCount: 0 }),
+      ),
+      http.get('/api/v1/sms-messages/attention-summary', () =>
+        HttpResponse.json({ unreadTotal: 0 }),
+      ),
+      http.get('/api/v1/stock/take/volunteer-codes/latest', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'INTERNAL_ERROR',
+              message: 'Could not check the volunteer code',
+              requestId: 'r1',
+            },
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+    renderApp('/');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong at our end');
+    expect(screen.queryByText('Nothing needs attention right now.')).toBeNull();
+  });
+
+  it('refreshes a cached dashboard alert after generating a replacement code', async () => {
+    let expiringSoon = true;
+    server.use(
+      http.get('/api/v1/stock/take/volunteer-codes/latest', () =>
+        HttpResponse.json({ latest: { expiresAt: 1_788_888_888, expiringSoon } }),
+      ),
+      http.post('/api/v1/stock/take/volunteer-codes', () => {
+        expiringSoon = false;
+        return HttpResponse.json(
+          { code: 'KP7Q-4XZM-9RTW-2NJH', expiresAt: 1_788_888_888 },
+          { status: 201 },
+        );
+      }),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60_000 }, mutations: { retry: false } },
+    });
+    const { router } = renderApp('/', queryClient);
+    const user = userEvent.setup();
+
+    await screen.findByRole('link', { name: /Volunteer code expires at/ });
+    await router.navigate('/stock/volunteer-code');
+    await user.click(await screen.findByRole('button', { name: 'Generate a code' }));
+    await screen.findByText('KP7Q-4XZM-9RTW-2NJH');
+    await router.navigate('/');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: /Volunteer code expires at/ })).toBeNull();
+    });
   });
 
   /*

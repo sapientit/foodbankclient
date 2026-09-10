@@ -48,8 +48,7 @@ async function fetchStockItems(order: 'category' | 'shelf'): Promise<StockItem[]
     api.GET('/api/v1/stock/items', { params: { query: { includeInactive: 'true', order } } }),
   );
 
-  // The server owns both orderings, including its numeric shelf sort key. Never
-  // reproduce it in the browser: a string sort puts A10 before A2.
+  // The server owns both orderings, including plain string shelf order.
   return [...items];
 }
 
@@ -58,12 +57,8 @@ async function fetchStockLevels(): Promise<StockLevel[]> {
     api.GET('/api/v1/stock/levels', { params: { query: { includeInactive: 'true' } } }),
   );
 
-  /*
-   * **Server order, never re-sorted.** The server derives a `shelfSortKey` that
-   * zero-pads the numeric run, so it answers `A1, A2, A10` — the order a picker
-   * walks the aisle in. A `sort()` on `shelfNumber` here would put `A10` second
-   * and send somebody back down the aisle.
-   */
+  // Server order, never re-sorted: shelf labels compare as plain strings, so
+  // `A10` comes before `A2`.
   return [...items];
 }
 
@@ -375,9 +370,32 @@ export type VolunteerCode =
  * Nothing cached depends on it, so there is nothing to invalidate.
  */
 export function useGenerateVolunteerCode() {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (): Promise<VolunteerCode> =>
       unwrap(api.POST('/api/v1/stock/take/volunteer-codes', {})),
+    // A fresh code makes any dashboard warning about the earlier latest code
+    // stale immediately; waiting for the normal one-minute cache would leave
+    // an administrator acting on an alert that is no longer true.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: stockKeys.latestVolunteerCode() }),
+  });
+}
+
+export type LatestVolunteerCode =
+  paths['/api/v1/stock/take/volunteer-codes/latest']['get']['responses']['200']['content']['application/json'];
+
+/**
+ * The dashboard asks the server whether the latest code is close to its own
+ * expiry. It deliberately never receives the code: that was visible only at
+ * generation time and cannot safely be retrieved later.
+ */
+export function useLatestVolunteerCode(enabled: boolean) {
+  return useQuery({
+    queryKey: stockKeys.latestVolunteerCode(),
+    queryFn: (): Promise<LatestVolunteerCode> =>
+      unwrap(api.GET('/api/v1/stock/take/volunteer-codes/latest')),
+    enabled,
   });
 }
 

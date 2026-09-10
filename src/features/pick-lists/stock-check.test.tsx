@@ -65,6 +65,7 @@ const PARCEL: Parcel = {
   attendance: 'pending',
   notes: null,
   firstTimeMarker: null,
+  voucherInstruction: null,
   answers: {},
   lines: [],
 };
@@ -78,7 +79,6 @@ const REQUIREMENT: StockRequirement = {
       category: 'Tinned goods',
       description: 'In tomato sauce',
       shelfNumber: 'A2',
-      shelfSortKey: 'A2',
       lowStockThreshold: null,
       groupingId: null,
       unitsPerPack: null,
@@ -94,7 +94,6 @@ const REQUIREMENT: StockRequirement = {
       category: 'Dry goods',
       description: null,
       shelfNumber: 'A10',
-      shelfSortKey: 'A10',
       lowStockThreshold: null,
       groupingId: null,
       unitsPerPack: null,

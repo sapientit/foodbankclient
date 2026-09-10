@@ -24,10 +24,19 @@ beforeEach(() => {
 
 describe('the team-lead dashboard', () => {
   it('does not render or request administrator-only summaries', async () => {
+    let volunteerCodeExpiryRequested = false;
+    server.use(
+      http.get('/api/v1/stock/take/volunteer-codes/latest', () => {
+        volunteerCodeExpiryRequested = true;
+        return HttpResponse.json({ latest: null });
+      }),
+    );
     renderApp('/');
     expect(await screen.findByRole('heading', { name: "Today's sessions" })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Referrals' })).toBeNull();
     expect(screen.queryByText(/stock items with low stock/)).toBeNull();
+    expect(screen.queryByText(/Volunteer code expires at/)).toBeNull();
     expect(screen.queryByText(/unread SMS messages/)).toBeNull();
+    expect(volunteerCodeExpiryRequested).toBe(false);
   });
 });

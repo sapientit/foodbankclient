@@ -11,6 +11,7 @@ import {
   listenerColumns,
   listenerColumnsNeedReferralReasons,
   listenerColumnValue,
+  listenerFirstTimeOrVoucherText,
 } from '../listener-sheet.logic';
 import { useListenerSheet } from '../queries';
 import styles from './listener-sheet-screen.module.css';
@@ -148,6 +149,7 @@ export function ListenerSheetScreen() {
                   {column.label}
                 </th>
               ))}
+              <th scope="col">First time / voucher</th>
             </tr>
           </thead>
           <tbody>
@@ -166,6 +168,7 @@ export function ListenerSheetScreen() {
                     <td key={column.key}>{value}</td>
                   );
                 })}
+                <td>{listenerFirstTimeOrVoucherText(household)}</td>
               </tr>
             ))}
           </tbody>

@@ -5,6 +5,28 @@
   max-inline-size: 24rem;
 }
 
+.calculation {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  max-inline-size: 32rem;
+  border: 1px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
+.calculation label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.requirementsNote,
+.requirementsAction {
+  max-inline-size: 60ch;
+  margin-block: 0 1.5rem;
+}
+
 .select {
   padding: 0.6rem 0.75rem;
   font: inherit;

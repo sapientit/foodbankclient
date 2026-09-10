@@ -1292,6 +1292,13 @@ export interface paths {
          *     Deliberately minimal. **No address, postcode, phone, date of birth or
          *     anything about the referrer.** This ends up on paper in a hall.
          *
+         *     The only thing beyond "what went wrong" is `firstTimeMarker` and
+         *     `voucherInstruction` — the **same two derived enums** `Parcel`
+         *     carries for the Run a session screen, with the same values. The
+         *     listener is the one talking to the household, so they see whether it
+         *     is new and what to do about a Christmas voucher. Both carry no
+         *     historic session date and nothing else about the referral.
+         *
          *     `answers` is the referral's dynamic answers **whole and unfiltered**, and
          *     **the client chooses which of them belong on the sheet**: its referral
          *     form marks them, because the client owns that definition and the server
@@ -2022,7 +2029,7 @@ export interface paths {
          *     `POST /referrals/{id}/copy`, not moved.
          *
          *     **A referral whose details have been forgotten cannot be amended or
-         *     moved either**, and is a `409`. Twelve months on there is no name and no
+         *     moved either**, and is a `409`. Fifteen months on there is no name and no
          *     answers left, so there is nothing to correct — and writing a name back
          *     onto one would put back exactly what the charity promised to forget.
          */
@@ -2083,7 +2090,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Every referral this household has had in the last twelve months
+         * Every referral this household has had in the last fifteen months
          * @description **Admin only**, and the button behind `repeatReferrals` on the referral
          *     itself. A team lead gets a `403`.
          *
@@ -2123,7 +2130,7 @@ export interface paths {
          *     strength of a shared postcode would be the wrong kind of help. The
          *     charity was explicit about this.
          *
-         *     The lookback is twelve months, counted from when each referral was
+         *     The lookback is fifteen months, counted from when each referral was
          *     made — the same clock the retention purge runs on, so a household whose
          *     details have been forgotten cannot be found. That is accepted, not a
          *     gap: there is nothing left on the row to match on.
@@ -2246,7 +2253,7 @@ export interface paths {
          *     **This reaches every referral the food bank still holds details for,
          *     cancelled and rejected included** — "we turned that one away in March"
          *     is exactly what the caller is ringing about — and there is no
-         *     twelve-month window here, unlike the duplicate count. It cannot reach a
+         *     fifteen-month window here, unlike the duplicate count. It cannot reach a
          *     referral whose details have been forgotten: the purge nulls the very
          *     columns this searches on, so there is nothing left to match.
          *
@@ -2451,7 +2458,7 @@ export interface paths {
          *     **Every referral is meant to be read**, not only the ones held up by an unrecognised address, and this is what makes "which has nobody looked at yet?" answerable — list `status=active` for the pile still to do.
          *     Being reviewed changes nothing else: the household holds its place, it is picked, and it appears on the listener sheet exactly as before. The only thing it says is that somebody has read it.
          *     No body. There is no comment here — `reviewComment` belongs to the accept/reject decision, and no separate review timestamp is kept.
-         *     A referral still `pending_review` is a `409`: decide it first. So is one already reviewed, rejected or cancelled, and so is one whose details have been forgotten — twelve months on there is nothing left to read.
+         *     A referral still `pending_review` is a `409`: decide it first. So is one already reviewed, rejected or cancelled, and so is one whose details have been forgotten — fifteen months on there is nothing left to read.
          */
         post: {
             parameters: {
@@ -2582,7 +2589,7 @@ export interface paths {
          *     A referral on a **confirmed** session is also a `409`: the session is closed to every kind of change, cancellation included.
          *     **A referral whose parcel already has an outcome cannot be cancelled** and is a `409` — the same stopping point as a move, settled by the charity on 2026-08-15. Once a household has collected, been delivered to, or been marked as not having turned up, what happened on the day is the record: the food has come off the shelves and cannot be un-given, and cancelling afterwards would leave the parcel's account of the morning contradicting the referral's. The confirmed-session rule does not cover this, because a session stays open until *every* household has an outcome.
          *     Two things an operator might have meant instead, and neither is this button: if the **outcome** was recorded by mistake, take the outcome back through `POST /parcels/{id}/attendance`, which undoes the stock with it; if a household who did not turn up is to be given **another chance**, copy the referral onto a later session with `POST /referrals/{id}/copy` and leave the no-show where it happened.
-         *     **A referral whose details have been forgotten is a `409` too.** Twelve months on there is nothing left to cancel.
+         *     **A referral whose details have been forgotten is a `409` too.** Fifteen months on there is nothing left to cancel.
          *     **If a pick list has already been generated, this marks that household's parcel `attendance: "cancelled"` in the same write.** The parcel is not deleted and its lines, notes and `pickNumber` are untouched — it stays the record of what was picked. What changes is that it stops reading as a household still to come: it no longer needs reviewing, no longer needs an attendance outcome, is left out of `GET /pick-lists/{id}/print`, and `POST /parcels/{id}/attendance` on it is a `409`. It is still returned by `GET /sessions/{sessionId}/pick-list`, so a session screen can show why that pick number is not coming.
          */
         post: {
@@ -2685,8 +2692,8 @@ export interface paths {
          *
          *     **`referredAt` is the moment the copy was made**, not the original's.
          *     The copy is a new referral and reads as one on the search screen — and
-         *     `referredAt` is what the twelve-month purge counts from, so reusing the
-         *     original's would put a copy of an eleven-month-old referral a month from
+         *     `referredAt` is what the fifteen-month purge counts from, so reusing the
+         *     original's would put a copy of a fourteen-month-old referral a month from
          *     being forgotten.
          *
          *     **`adminInfo` on the copy is set by the server** to `Copied from
@@ -3302,17 +3309,17 @@ export interface paths {
         };
         /**
          * Stock levels, ordered by shelf
-         * @description The stock-take screen. Ordered so a picker walks the aisle once: A1,
-         *     A2, A10 — not alphabetically. Levels are derived by summing the ledger;
-         *     there is no stored balance.
+         * @description The stock-take screen. Ordered by a plain string sort of `shelfNumber`
+         *     as typed — `A10` sorts before `A2`, and numbering the shelves so the
+         *     walk comes out right is a labelling job. Levels are derived by summing
+         *     the ledger; there is no stored balance.
          *
          *     **Defaults to shelf order**, unlike `GET /stock/items`, because the
          *     screen behind it is somebody walking the warehouse with a clipboard.
          *
-         *     Each item carries a `shelfSortKey`, so a client that also lists
-         *     crates (`GET /stock/crates`) can interleave the two into one
-         *     shelf-walk sequence for the stock-take screen rather than showing
-         *     two separate lists.
+         *     A client that also lists crates (`GET /stock/crates`) interleaves the
+         *     two into one sequence by comparing `shelfNumber` and `Crate.shelfKey`
+         *     as plain strings, rather than showing two separate lists.
          *
          *     Reachable with a signed-in admin or team lead token, **or** with a
          *     stock-take volunteer code in `X-Volunteer-Code`.
@@ -3321,7 +3328,7 @@ export interface paths {
             parameters: {
                 query?: {
                     includeInactive?: "true";
-                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` follows the shelf numbers so a volunteer walks the warehouse once — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
+                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` is a plain string sort of the shelf label as typed (`A10` before `A2`) — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
                     order?: components["parameters"]["StockOrder"];
                 };
                 header?: never;
@@ -3421,7 +3428,7 @@ export interface paths {
             parameters: {
                 query?: {
                     includeInactive?: "true";
-                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` follows the shelf numbers so a volunteer walks the warehouse once — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
+                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` is a plain string sort of the shelf label as typed (`A10` before `A2`) — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
                     order?: components["parameters"]["StockOrder"];
                 };
                 header?: never;
@@ -3767,9 +3774,11 @@ export interface paths {
          *     `POST /stock/take`) and nothing else — not the item list, not a hand
          *     correction.
          *
-         *     It lasts eight hours from issue. There is no way to revoke one sooner,
-         *     and nothing about it is kept once it lapses. Whatever is counted on it
-         *     is recorded against the team lead who generated it.
+         *     It lasts fourteen days from issue. There is no way to revoke one
+         *     sooner, and nothing about it is kept once it lapses. Generating another
+         *     code does not touch the earlier ones — each works until its own expiry.
+         *     Whatever is counted on it is recorded against the team lead who
+         *     generated it.
          */
         post: {
             parameters: {
@@ -3789,13 +3798,66 @@ export interface paths {
                         "application/json": {
                             /** @description Grouped `XXXX-XXXX-XXXX-XXXX`, Crockford base32. Sent back in `X-Volunteer-Code`; case and separators are normalised. */
                             code: string;
-                            /** @description Epoch seconds — eight hours after issue. */
+                            /** @description Epoch seconds — fourteen days after issue. */
                             expiresAt: number;
                         };
                     };
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stock/take/volunteer-codes/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * When the current stock-take volunteer code expires
+         * @description For the admin screen's warning that the current code is running out —
+         *     `INITIAL_SPEC1.txt`, #Stock maintenance. Admin only.
+         *
+         *     Returns when the unexpired code with the latest issue time stops
+         *     working, and whether it is within five days of that. It **never
+         *     returns the code itself** — only a hash is stored. `latest` is `null`
+         *     when there is no unexpired code: before the first is generated, or
+         *     once the last has lapsed (a lapsed code is not kept).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The current code's expiry, or `null` if there is no unexpired code. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            latest: {
+                                /** @description Epoch seconds — when this code stops working. */
+                                expiresAt: number;
+                                /** @description `true` once the code has under five days left. */
+                                expiringSoon: boolean;
+                            } | null;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4043,7 +4105,7 @@ export interface paths {
         };
         /**
          * List crates
-         * @description Admin and team lead — both roles use the grouped stock take — **or** a stock-take volunteer code in `X-Volunteer-Code`. Ordered by name, each with its members. Each crate also carries a `shelfSortKey`, computed fresh on every read, so a stock-take screen can slot crates into the same shelf-walk order as `GET /stock/levels` instead of listing them separately.
+         * @description Admin and team lead — both roles use the grouped stock take — **or** a stock-take volunteer code in `X-Volunteer-Code`. Ordered by name, each with its members. A stock-take screen slots crates into the same order as `GET /stock/levels` by comparing a crate's `shelfKey` against an item's `shelfNumber` as plain strings, instead of listing them separately.
          */
         get: {
             parameters: {
@@ -4627,7 +4689,7 @@ export interface paths {
         };
         /**
          * The Christmas-voucher date range
-         * @description Admin only, reading included — nobody else needs the raw range, only the derived `Parcel.firstTimeMarker` and `PrintParcel.voucherInstruction` it already carries. `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`.
+         * @description Admin only, reading included — nobody else needs the raw range, only the derived `Parcel.firstTimeMarker` and `Parcel.voucherInstruction` it already carries. `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`.
          *     Both dates are `null` until an administrator sets a range. Voucher activity applies to a session whose date falls **inside the range, including both boundary dates**.
          */
         get: {
@@ -5069,7 +5131,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` follows the shelf numbers so a volunteer walks the warehouse once — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
+                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` is a plain string sort of the shelf label as typed (`A10` before `A2`) — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
                     order?: components["parameters"]["StockOrder"];
                 };
                 header?: never;
@@ -5160,7 +5222,7 @@ export interface paths {
                 query: {
                     /** @description Inclusive cut-off on `sessionDate`. The floor is not a parameter — see above. */
                     upTo: string;
-                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` follows the shelf numbers so a volunteer walks the warehouse once — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
+                    /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` is a plain string sort of the shelf label as typed (`A10` before `A2`) — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
                     order?: components["parameters"]["StockOrder"];
                 };
                 header?: never;
@@ -6524,7 +6586,7 @@ export interface components {
             /** @description True when this claim had already completed and this call changed nothing — a safe retry, not a problem. */
             alreadyExtracted: boolean;
         };
-        /** @description How many times this household has been referred in the last twelve months, and the session date of the most recent of those. */
+        /** @description How many times this household has been referred in the last fifteen months, and the session date of the most recent of those. */
         RepeatReferralSummary: {
             /** @description Referrals, not parcels: everything except a cancelled or rejected one. Excludes the referral being looked at. **Never capped** — on the list route it can exceed the 50 rows in `matches`, which is how an administrator is told there are more. */
             count: number;
@@ -6663,7 +6725,7 @@ export interface components {
              * @description **Admin only, and — with one settled exception — only on a response carrying one referral** — `GET /referrals/{id}`, `PATCH /referrals/{id}`, and the accept, reject, review and cancel routes. **Absent from the `GET /referrals` list rows**, and absent from every printed, exported or messaged payload: the listener sheet, the referral-details list, the repeat-referral list, the pick list, the fuel help list, SMS and the spreadsheet extract.
              *     **The exception is `ReferralSearchResult`**, where the note is on every row — the only response carrying more than one referral that has it, settled by the charity on 2026-08-15 because that screen is an administrator on the phone to a household. See that schema for why it is required-and-nullable there rather than optional as it is here. It is not a licence to expect the note on any other list.
              *     The administrators' own free-text note about the household — what the office learned from ringing them. It is **not** one of `answers`: the answers are the referrer's and you replace them wholesale from the form you own, and a note the office wrote must not be lost because a form page was saved without it. Amend it through `ReferralAmend.adminInfo`.
-             *     Null when there is no note. Cleared by the twelve-month purge along with the household's own fields and `answers` — unlike `reviewComment`, which survives it.
+             *     Null when there is no note. Cleared by the fifteen-month purge along with the household's own fields and `answers` — unlike `reviewComment`, which survives it.
              */
             adminInfo?: string | null;
             /**
@@ -6700,9 +6762,8 @@ export interface components {
              * @example Half a kilo counts as one unit when rice is also given
              */
             description: string | null;
+            /** @description The shelf label as typed. Ordering the stock take and the printed pick sheet is a plain string sort of this value — no cleverness about numbers inside it, so `A10` sorts before `A2`. A client building a combined stock-take screen interleaves crates among items by comparing this against `Crate.shelfKey` as plain strings. */
             shelfNumber: string;
-            /** @description Opaque. Plain string comparison walks the aisle correctly — `A1` before `A2` before `A10` — the same order `GET /stock/levels` already returns when `order=shelf`. Returned so a client building a combined stock-take screen can interleave crates among items: `Crate.shelfSortKey` is computed the same way and compares directly against this one. Do not parse it. */
-            shelfSortKey: string;
             /** @description Below this figure the item counts towards the low-stock summary. `null` where nobody has asked for the item to be watched — that is the default, not a warning level of zero. */
             lowStockThreshold: number | null;
             /**
@@ -6761,8 +6822,6 @@ export interface components {
         Crate: components["schemas"]["CrateInput"] & {
             /** Format: uuid */
             id: string;
-            /** @description Computed from `shelfKey` the same way `StockItem.shelfSortKey` is computed from `shelfNumber`, so the two compare directly. Worked out fresh on every read rather than stored — a crate has nothing else that depends on it staying in step. Opaque; compare as a plain string, do not parse it. */
-            shelfSortKey: string;
         };
         StockValidationIssue: {
             /**
@@ -6802,6 +6861,18 @@ export interface components {
             answers: {
                 [key: string]: unknown;
             };
+            /**
+             * @description Whether this household is new — `INITIAL_SPEC1.txt`, `#Listener sheet`. **Identical to `Parcel.firstTimeMarker`** and derived by the same rule: `first_time` when the first-time review recorded no previous session, `admin` while it is still `unreviewed`, `null` once a previous-session date is recorded. The listener sees this because they are the one talking to the household. **Never the date itself or the raw review status** — that is what makes it safe for a team lead.
+             * @enum {string|null}
+             */
+            firstTimeMarker: "first_time" | "admin" | null;
+            /**
+             * @description The one Christmas-voucher instruction for this household — `INITIAL_SPEC1.txt`, `#Listener sheet`. **Identical to `Parcel.voucherInstruction`**, derived fresh on every read from the same rule and never persisted on the parcel: an administrator may make the first-time-review decision after the sheet has been produced once.
+             *     `null` — the session's date is outside the configured voucher range, or no range is configured. `refer_to_admin` — in range, first-time review still `unreviewed`. `provide_voucher` — in range, and either no previous referral or a recorded previous-session date outside the range. `already_received` — in range, and the recorded previous-session date falls inside it too.
+             *     **Never the historic previous-session date or any other referral data.**
+             * @enum {string|null}
+             */
+            voucherInstruction: "provide_voucher" | "already_received" | "refer_to_admin" | null;
         };
         /** @description The session, and contact details for every household on it. See the route for what is deliberately absent. */
         SessionReferralDetails: {
@@ -6995,7 +7066,7 @@ export interface components {
              * @description The pick-list information as it should read on the sheet, composed by you from the answers your form marks as belonging there — labels and all. The server holds no form definition, never inspects an answer and never understands a question key; it stores exactly what you send.
              *     Trimmed before it is measured, and it must not be empty once trimmed. To clear a note, use `PATCH /parcels/{id}` with `null` rather than sending an empty one here.
              *     **Written only onto a parcel this call creates.** Sending the same entry on a later reconciliation never overwrites what is already on a parcel — by then the note belongs to the team leader, who may have corrected it.
-             *     **Deleted along with the referral at the twelve-month purge**, on the same run as the referral's own answers — see `INITIAL_SPEC1.txt`, `#Forgetting a referral`. The purge job itself has not been rebuilt to do this yet (`STATUS.md`, "Agreed but not yet built"); today's job still anonymises the referral in place and leaves the parcel untouched.
+             *     **Deleted along with the referral at the fifteen-month purge**, on the same run as the referral's own answers — see `INITIAL_SPEC1.txt`, `#Forgetting a referral`. The purge job itself has not been rebuilt to do this yet (`STATUS.md`, "Agreed but not yet built"); today's job still anonymises the referral in place and leaves the parcel untouched.
              */
             notes: string;
         };
@@ -7052,7 +7123,7 @@ export interface components {
             attendance: "pending" | "attended" | "no_show" | "cancelled";
             /**
              * @description The parcel's pick-list information: snapshotted from your `pickListInformation` when the parcel was created, and the team leader's to edit through `PATCH /parcels/{id}` from then on. Show this rather than recomposing it from `answers`, which would hide any correction made to it.
-             *     Deleted along with the rest of the parcel at the twelve-month purge, in the same run as `answers` — see `x-assumed` on `PickListInformationEntry.notes` for the current gap between that and what the purge job actually does today.
+             *     Deleted along with the rest of the parcel at the fifteen-month purge, in the same run as `answers` — see `x-assumed` on `PickListInformationEntry.notes` for the current gap between that and what the purge job actually does today.
              */
             notes: string | null;
             /**
@@ -7068,6 +7139,16 @@ export interface components {
              * @enum {string|null}
              */
             firstTimeMarker: "first_time" | "admin" | null;
+            /**
+             * @description The one Christmas-voucher instruction for this household, shown to the team leader on the Run a session screen — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. **Calculated fresh on every read, never stored on the parcel or generated with the pick list** — an administrator may make the first-time-review decision after this pick list already exists, so the screen must always reflect the current one.
+             *     `null` — no instruction at all. Either the session's date is outside the configured voucher range, or no range has been configured.
+             *     `refer_to_admin` — the session is in range and this household's first-time review is still `unreviewed`.
+             *     `provide_voucher` — the session is in range and either there is no previous referral, or a previous-session date is recorded but it falls outside the range.
+             *     `already_received` — the session is in range and the recorded previous-session date falls inside it too.
+             *     **Never the historic date itself, and nothing else about the referral** — only ever one of these three words or `null`. It is not on `PrintParcel`: the voucher is acted on at the session, not off the sheet carried round the hall.
+             * @enum {string|null}
+             */
+            voucherInstruction: "provide_voucher" | "already_received" | "refer_to_admin" | null;
             lines: components["schemas"]["ParcelLine"][];
         };
         /**
@@ -7090,16 +7171,6 @@ export interface components {
             deliveryPhone: string | null;
             /** @description The pick-list information as saved on the parcel — what the team leader meant the sheet to say, not the answers as they read today. */
             notes: string | null;
-            /**
-             * @description The one voucher instruction for the top of this sheet — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. **Calculated fresh on every print, never stored on the parcel or generated with the pick list** — an administrator may make the first-time-review decision after this pick list already exists, so printing must always reflect the current one.
-             *     `null` — no instruction at all, printed as nothing. Either the session's date is outside the configured voucher range, or no range has been configured.
-             *     `refer_to_admin` — the session is in range and this household's first-time review is still `unreviewed`.
-             *     `provide_voucher` — the session is in range and either there is no previous referral, or a previous-session date is recorded but it falls outside the range.
-             *     `already_received` — the session is in range and the recorded previous-session date falls inside it too.
-             *     **Never the historic date itself, and nothing else about the referral** — only ever one of these three words or `null`.
-             * @enum {string|null}
-             */
-            voucherInstruction: "provide_voucher" | "already_received" | "refer_to_admin" | null;
             lines: components["schemas"]["ParcelLine"][];
         };
         /** @description Who may refer. `matchValue` for a domain is stored bare (`guildford.gov.uk`) — the `*@` a UI shows is stripped on the way in and must be re-added on the way out if you want to display it. */
@@ -7192,7 +7263,7 @@ export interface components {
     parameters: {
         Id: string;
         SessionId: string;
-        /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` follows the shelf numbers so a volunteer walks the warehouse once — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
+        /** @description How to order the list. `category` sorts by category and then by item name within it — the maintenance screen and the pick-list amendment screen. `shelf` is a plain string sort of the shelf label as typed (`A10` before `A2`) — the stock take and the printed pick list. Each endpoint defaults to the one its own screen wants; an unrecognised value is a `400` rather than a silent fallback. */
         StockOrder: "category" | "shelf";
     };
     requestBodies: never;

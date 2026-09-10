@@ -1,9 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../api/client';
+import { api, publicApi } from '../../api/client';
 import type { components, paths } from '../../api/schema';
 import { unwrap, unwrapVoid } from '../../api/unwrap';
+import { reasonOptionSources } from '../referrals/referral-lookups';
 import { sessionKeys } from '../sessions/keys';
 import { pickListKeys } from './keys';
+import {
+  buildPickListInformation,
+  pickListInformationNeedsOptionSources,
+} from './pick-list-information';
+import { resolvePreferenceLines, validatePreferenceRules } from './preference-rules';
 
 export type PickList = components['schemas']['PickList'];
 export type Parcel = components['schemas']['Parcel'];
@@ -28,7 +34,21 @@ export type SmsAttentionSummary = components['schemas']['SmsAttentionSummary'];
 export type StockRequirement =
   paths['/api/v1/sessions/{sessionId}/stock-requirement']['get']['responses'][200]['content']['application/json'];
 export type StockRequirementLine = components['schemas']['StockRequirementLine'];
+export type StockRequirementSummary =
+  paths['/api/v1/pick-lists/stock-requirement-summary']['get']['responses'][200]['content']['application/json'];
+export type StockRequirementSummaryLine = components['schemas']['StockRequirementSummaryLine'];
 export type SessionReferralDetails = components['schemas']['SessionReferralDetails'];
+
+export interface PreparePickListsInput {
+  /** Inclusive session-date window, expressed as London calendar dates. */
+  readonly from: string;
+  readonly to: string;
+}
+
+export interface PreparePickListsResult {
+  /** Open sessions reconciled; a POST is deliberately idempotent. */
+  readonly preparedSessionCount: number;
+}
 
 export function useSessionReferralDetails(sessionId: string) {
   return useQuery({
@@ -98,6 +118,89 @@ export function useSessionStockRequirement(sessionId: string, enabled: boolean) 
           params: { path: { sessionId } },
         }),
       ),
+  });
+}
+
+/**
+ * What every still-open session needs through an inclusive calendar-date
+ * cut-off. The server returns requirements, not a shortfall: the caller joins
+ * current stock at the point the shopping list is calculated.
+ *
+ * This is deliberately opt-in. It is an administrator planning report and a
+ * potentially expensive aggregate, not data the run-session workflow needs.
+ */
+export function useStockRequirementSummary(upTo: string, enabled: boolean) {
+  return useQuery({
+    queryKey: pickListKeys.stockRequirementSummary(upTo),
+    enabled: enabled && upTo !== '',
+    staleTime: 0,
+    queryFn: (): Promise<StockRequirementSummary> =>
+      unwrap(
+        api.GET('/api/v1/pick-lists/stock-requirement-summary', {
+          params: { query: { upTo, order: 'category' } },
+        }),
+      ),
+  });
+}
+
+/**
+ * Creates any missing parcels for every open session in a date window before a
+ * cross-session requirement is read. The server cannot do this in bulk: the
+ * browser owns the reviewed preference rules and has to resolve them against
+ * the live stock catalogue for each session.
+ *
+ * Requests are sequential on purpose. A hall's connection should never have a
+ * month's worth of referral payloads racing at once, and a failure stops the
+ * operation before a partial aggregate can be presented as complete.
+ */
+export function usePreparePickLists() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ from, to }: PreparePickListsInput): Promise<PreparePickListsResult> => {
+      const [{ sessions }, { items: stockItems }] = await Promise.all([
+        unwrap(api.GET('/api/v1/sessions', { params: { query: { from, to } } })),
+        unwrap(
+          api.GET('/api/v1/stock/items', {
+            params: { query: { includeInactive: 'true', order: 'category' } },
+          }),
+        ),
+      ]);
+      const ruleHealth = validatePreferenceRules(stockItems);
+      if (ruleHealth.errors.length > 0)
+        throw new Error(`Preference rule configuration is invalid: ${ruleHealth.errors.join(' ')}`);
+
+      const sources = pickListInformationNeedsOptionSources()
+        ? reasonOptionSources(
+            (await unwrap(publicApi.GET('/api/v1/public/referral-reasons'))).referralReasons,
+          )
+        : reasonOptionSources([]);
+      const openSessions = sessions.filter(
+        (session) => session.status === 'planned' || session.status === 'in_progress',
+      );
+
+      for (const session of openSessions) {
+        const { referrals } = await unwrap(
+          api.GET('/api/v1/referrals', { params: { query: { sessionId: session.id } } }),
+        );
+        const preferenceLines = resolvePreferenceLines(referrals, stockItems);
+        const pickListInformation = buildPickListInformation(referrals, sources);
+        await unwrap(
+          api.POST('/api/v1/sessions/{sessionId}/pick-list', {
+            params: { path: { sessionId: session.id } },
+            body: {
+              preferenceLines,
+              ...(pickListInformation.length === 0 ? {} : { pickListInformation }),
+            },
+          }),
+        );
+      }
+      return { preparedSessionCount: openSessions.length };
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: pickListKeys.all });
+      void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
+    },
   });
 }
 

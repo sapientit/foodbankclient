@@ -15,8 +15,7 @@ import styles from './stock-check-panel.module.css';
  *
  * **Rendered in the order given**, which is shelf order, because somebody
  * reading this is usually about to go and look. Never re-sorted: the server
- * pads the numeric run so it answers `A1, A2, A10`, and a sort here on
- * `shelfNumber` would put `A10` second and send a volunteer back down the aisle.
+ * compares the shelf labels as plain strings, so it answers `A1, A10, A2`.
  *
  * **The shelf number itself is not shown.** The order carries the walk, which
  * is the whole of what it is for here; printed against every row it is a column

@@ -18,7 +18,6 @@ const LEVELS: StockLevel[] = [
     category: 'Tinned',
     description: null,
     shelfNumber: 'A1',
-    shelfSortKey: 'A1',
     lowStockThreshold: null,
     groupingId: null,
     unitsPerPack: null,
@@ -72,5 +71,17 @@ describe('a team lead on the shopping screen', () => {
     const nav = screen.getByRole('navigation', { name: 'Section navigation' });
     expect(within(nav).getByRole('link', { name: 'Shopping' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Target lists' })).toBeNull();
+  });
+
+  it('does not offer the administrator-only session-requirements calculation', async () => {
+    renderApp('/stock/shopping?list=t1&calculation=requirements');
+
+    await screen.findByLabelText('Choose a target stock list');
+    expect(screen.queryByRole('radio', { name: /Cover session requirements/ })).toBeNull();
+    expect(screen.getByRole('radio', { name: 'Bring stock up to target' })).toBeChecked();
+    expect(screen.queryByRole('button', { name: 'Calculate requirements' })).toBeNull();
+    expect(
+      screen.getByText('Session-requirements planning is available to administrators.'),
+    ).toBeInTheDocument();
   });
 });

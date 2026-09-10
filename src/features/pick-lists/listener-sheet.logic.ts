@@ -11,6 +11,23 @@ import type {
 
 type ListenerSheetHousehold = ListenerSheet['households'][number];
 
+const FIRST_TIME_MARKER: Record<
+  Exclude<ListenerSheetHousehold['firstTimeMarker'], null>,
+  string
+> = {
+  first_time: 'First time',
+  admin: 'Admin',
+};
+
+const VOUCHER_INSTRUCTION: Record<
+  Exclude<ListenerSheetHousehold['voucherInstruction'], null>,
+  string
+> = {
+  provide_voucher: 'Provide voucher for this client',
+  already_received: 'Client has already received voucher',
+  refer_to_admin: 'Refer to administrators for voucher',
+};
+
 export interface ListenerColumn {
   readonly key: string;
   readonly label: string;
@@ -96,6 +113,21 @@ export function listenerColumnValue(
     return optionText(optionsFor(column.question, sources), answer);
   }
   return answerText(answer);
+}
+
+/**
+ * The listener's one operational status: whether the household is new and
+ * what, if anything, to do about a Christmas voucher. The server deliberately
+ * returns enums here, so words remain a client presentation concern.
+ */
+export function listenerFirstTimeOrVoucherText(household: ListenerSheetHousehold): string | null {
+  const firstTime =
+    household.firstTimeMarker === null ? null : FIRST_TIME_MARKER[household.firstTimeMarker];
+  const voucher =
+    household.voucherInstruction === null
+      ? null
+      : VOUCHER_INSTRUCTION[household.voucherInstruction];
+  return [firstTime, voucher].filter((value) => value !== null).join(' — ') || null;
 }
 
 /**

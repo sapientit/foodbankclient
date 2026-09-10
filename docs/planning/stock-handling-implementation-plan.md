@@ -120,9 +120,10 @@ crate remains exclusively for a commingled shelf with more than one member item.
 integer-only, so a decimal pack entry that does not multiply to a whole item is rounded to the
 nearest item; the stock-take screen displays that saved quantity before submission.
 
-**Combined stock-take order:** `GET /stock/levels` and `GET /stock/crates` each return the
-server-computed opaque `shelfSortKey`. The client merges direct-item and crate rows by comparing
-that key as a plain string; it must not parse or derive an order from the visible shelf names.
+**Combined stock-take order:** `GET /stock/levels` and `GET /stock/crates` use the visible shelf
+strings. The client merges direct-item and crate rows by comparing `StockLevel.shelfNumber` and
+`Crate.shelfKey` as plain strings; it must not interpret numbers inside them, so `A10` precedes
+`A2`.
 
 **Initial data:** migration creates a `Non-perishable` stock-take grouping and assigns every
 existing stock item directly to it. No existing item is left without a counting method. A later

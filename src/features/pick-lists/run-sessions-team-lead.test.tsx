@@ -62,6 +62,7 @@ const PARCEL: Parcel = {
   attendance: 'pending',
   notes: null,
   firstTimeMarker: null,
+  voucherInstruction: null,
   answers: {
     Allergies: 'Gluten-free food for one person',
     Pulses: 'Vegetarian',
@@ -101,7 +102,6 @@ beforeEach(() => {
             category: 'Tinned goods',
             description: 'In tomato sauce',
             shelfNumber: 'A2',
-            shelfSortKey: 'A2',
             lowStockThreshold: null,
             groupingId: null,
             unitsPerPack: null,
@@ -429,7 +429,6 @@ describe('a team lead running a session', () => {
               category: 'Tinned goods',
               description: 'In tomato sauce',
               shelfNumber: 'A2',
-              shelfSortKey: 'A2',
               lowStockThreshold: null,
               groupingId: null,
               unitsPerPack: null,
@@ -586,7 +585,6 @@ describe('a team lead running a session', () => {
       category: 'Fresh food',
       description: null,
       shelfNumber: 'C1',
-      shelfSortKey: 'C1',
       lowStockThreshold: null,
       groupingId: null,
       unitsPerPack: null,
@@ -599,7 +597,6 @@ describe('a team lead running a session', () => {
       category: 'Tinned goods',
       description: 'In tomato sauce',
       shelfNumber: 'A2',
-      shelfSortKey: 'A2',
       lowStockThreshold: null,
       groupingId: null,
       unitsPerPack: null,
@@ -612,7 +609,6 @@ describe('a team lead running a session', () => {
       category: 'Breakfast',
       description: null,
       shelfNumber: 'D2',
-      shelfSortKey: 'D2',
       lowStockThreshold: null,
       groupingId: null,
       unitsPerPack: null,
@@ -728,7 +724,6 @@ describe('a team lead running a session', () => {
       category: 'Tinned goods',
       description: 'In tomato sauce',
       shelfNumber: 'A2',
-      shelfSortKey: 'A2',
       lowStockThreshold: null,
       groupingId: null,
       unitsPerPack: null,
@@ -741,7 +736,6 @@ describe('a team lead running a session', () => {
       category: 'Fresh food',
       description: null,
       shelfNumber: 'C1',
-      shelfSortKey: 'C1',
       lowStockThreshold: null,
       groupingId: null,
       unitsPerPack: null,
@@ -754,7 +748,6 @@ describe('a team lead running a session', () => {
       category: 'Breakfast',
       description: null,
       shelfNumber: 'D2',
-      shelfSortKey: 'D2',
       lowStockThreshold: null,
       groupingId: null,
       unitsPerPack: null,
@@ -1196,14 +1189,14 @@ describe('a team lead running a session', () => {
     expect(screen.queryByRole('table', { name: 'Clients on this session' })).toBeNull();
   });
 
-  it('lists a client as a table row naming its pick number, household, status and action', async () => {
+  it('lists a client as a table row naming its pick number, household, voucher, status and action', async () => {
     server.use(
       http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
       http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json({
           pickList: PICK_LIST,
-          parcels: [{ ...PARCEL, firstTimeMarker: 'admin' }],
+          parcels: [{ ...PARCEL, firstTimeMarker: 'admin', voucherInstruction: 'provide_voucher' }],
         }),
       ),
       http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
@@ -1221,6 +1214,7 @@ describe('a team lead running a session', () => {
     expect(screen.getByRole('columnheader', { name: 'Pick #' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Client' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'First-time status' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Christmas voucher' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Action' })).toBeInTheDocument();
 
@@ -1230,6 +1224,9 @@ describe('a team lead running a session', () => {
     expect(screen.getByRole('rowheader', { name: '#1' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'Sam Taylor' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'Admin' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('cell', { name: 'Provide voucher for this client' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'Pending Review' })).toBeInTheDocument();
     expect(
       screen.getByRole('cell', { name: 'Review Pick list' }).querySelector('a'),
@@ -1306,7 +1303,6 @@ describe('a team lead running a session', () => {
   it('prints only after every parcel has been reviewed', async () => {
     let markedPrinted = false;
     let printReads = 0;
-    let voucherInstruction = 'provide_voucher';
     const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     const reviewedParcel: Parcel = {
       ...PARCEL,
@@ -1330,7 +1326,6 @@ describe('a team lead running a session', () => {
               deliveryAddress: null,
               deliveryPostcode: null,
               deliveryPhone: null,
-              voucherInstruction,
               notes: 'Allergies: Gluten-free food for one person',
               reason: 'Never print this',
               lines: [
@@ -1339,7 +1334,6 @@ describe('a team lead running a session', () => {
                   name: 'Apples',
                   description: null,
                   shelfNumber: 'A1',
-                  shelfSortKey: 'A1',
                   quantity: 1,
                 },
                 {
@@ -1347,7 +1341,6 @@ describe('a team lead running a session', () => {
                   name: 'Baked beans',
                   description: 'In tomato sauce',
                   shelfNumber: 'A2',
-                  shelfSortKey: 'A2',
                   quantity: 2,
                 },
                 {
@@ -1355,7 +1348,6 @@ describe('a team lead running a session', () => {
                   name: 'Cereal',
                   description: null,
                   shelfNumber: 'A10',
-                  shelfSortKey: 'A10',
                   quantity: 3,
                 },
                 {
@@ -1363,7 +1355,6 @@ describe('a team lead running a session', () => {
                   name: 'Dried pasta',
                   description: null,
                   shelfNumber: 'B1',
-                  shelfSortKey: 'B1',
                   quantity: 4,
                 },
                 {
@@ -1371,7 +1362,6 @@ describe('a team lead running a session', () => {
                   name: 'Eggs',
                   description: null,
                   shelfNumber: 'B2',
-                  shelfSortKey: 'B2',
                   quantity: 5,
                 },
                 {
@@ -1379,7 +1369,6 @@ describe('a team lead running a session', () => {
                   name: 'Flour',
                   description: null,
                   shelfNumber: 'C1',
-                  shelfSortKey: 'C1',
                   quantity: 6,
                 },
                 {
@@ -1387,7 +1376,6 @@ describe('a team lead running a session', () => {
                   name: 'Jam',
                   description: null,
                   shelfNumber: 'C2',
-                  shelfSortKey: 'C2',
                   quantity: 7,
                 },
               ],
@@ -1413,13 +1401,12 @@ describe('a team lead running a session', () => {
       expect(printSpy).toHaveBeenCalledOnce();
     });
     const readsBeforeManualPrint = printReads;
-    voucherInstruction = 'already_received';
     await userEvent.setup().click(openPrint);
     await waitFor(() => {
       expect(printReads).toBeGreaterThan(readsBeforeManualPrint);
       expect(printSpy).toHaveBeenCalledTimes(2);
     });
-    expect(screen.getByText('Client has already received voucher')).toBeInTheDocument();
+    expect(screen.queryByText(/voucher/i)).toBeNull();
     expect(screen.getByRole('table', { name: 'Household composition' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Information for pickers' })).toHaveTextContent(
       'Allergies: Gluten-free food for one person',

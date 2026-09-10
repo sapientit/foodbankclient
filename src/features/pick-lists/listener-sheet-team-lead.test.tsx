@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient } from '@tanstack/react-query';
 import { HttpResponse, http } from 'msw';
@@ -59,6 +59,8 @@ const LISTENER_SHEET = {
       refereeSurname: 'Ahmed',
       reason: 'Unexpected expenses',
       needsFuelHelp: true,
+      firstTimeMarker: 'first_time',
+      voucherInstruction: 'provide_voucher',
       answers: {
         reasonAdditional: 'The boiler broke and used the rent money.',
         Secondary: 'reason-debt',
@@ -74,6 +76,8 @@ const LISTENER_SHEET = {
       refereeSurname: 'Brown',
       reason: 'Benefit delay',
       needsFuelHelp: false,
+      firstTimeMarker: 'admin',
+      voucherInstruction: 'refer_to_admin',
       answers: { reasonAdditional: 'The first payment has not arrived.' },
     },
     {
@@ -83,6 +87,8 @@ const LISTENER_SHEET = {
       refereeSurname: 'Cole',
       reason: 'Low income',
       needsFuelHelp: false,
+      firstTimeMarker: null,
+      voucherInstruction: 'already_received',
       answers: {},
     },
   ],
@@ -204,7 +210,6 @@ describe('a team lead listener sheet', () => {
               category: 'Drinks',
               description: null,
               shelfNumber: 'A1',
-              shelfSortKey: 'A1',
               lowStockThreshold: null,
               groupingId: null,
               unitsPerPack: null,
@@ -217,7 +222,6 @@ describe('a team lead listener sheet', () => {
               category: 'Drinks',
               description: null,
               shelfNumber: 'A2',
-              shelfSortKey: 'A2',
               lowStockThreshold: null,
               groupingId: null,
               unitsPerPack: null,
@@ -230,7 +234,6 @@ describe('a team lead listener sheet', () => {
               category: 'Drinks',
               description: null,
               shelfNumber: 'A3',
-              shelfSortKey: 'A3',
               lowStockThreshold: null,
               groupingId: null,
               unitsPerPack: null,
@@ -243,7 +246,6 @@ describe('a team lead listener sheet', () => {
               category: 'Drinks',
               description: null,
               shelfNumber: 'A4',
-              shelfSortKey: 'A4',
               lowStockThreshold: null,
               groupingId: null,
               unitsPerPack: null,
@@ -350,6 +352,25 @@ describe('a team lead listener sheet', () => {
     expect(screen.getAllByText('No')).toHaveLength(2);
     expect(screen.getByText('Yes')).toBeInTheDocument();
     expect(screen.getAllByText('None given')).toHaveLength(3);
+
+    expect(screen.getByRole('columnheader', { name: 'First time / voucher' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('row', { name: /Amina Ahmed/ })).getByRole('cell', {
+        name: 'First time — Provide voucher for this client',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('row', { name: /Ben Brown/ })).getByRole('cell', {
+        name: 'Admin — Refer to administrators for voucher',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('row', { name: /Cora Cole/ })).getByRole('cell', {
+        name: 'Client has already received voucher',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('first_time')).toBeNull();
+    expect(screen.queryByText('provide_voucher')).toBeNull();
 
     // The endpoint sends the answers whole, so what keeps the rest of a
     // referral off this page is the marker and nothing else.

@@ -267,13 +267,12 @@ response-wide; that half did not land. If a `volunteer` row ever appears, the ce
 is empty rather than showing the string `undefined`, which is the better of the two
 failures but is still not a label.
 
-**Shelf ordering is proven by one observation, not by a test that could fail.**
+**Shelf ordering is proven by one observation, not by an end-to-end test that could fail.**
 `GET /stock/levels` and `GET /stock/items` were confirmed on a running server to
-answer `A1, A2, A10` — the zero-padded shelf sort — and this client renders that
-order untouched. The tests assert only that a fixture in that order survives to
-the screen, which is the right thing to assert here, but nothing in this repo
-would notice if the **server's** sort regressed. The failure would be a picker
-walking the aisle twice.
+answer `A1, A10, A2` — plain string shelf order — and client regression tests
+preserve that order and use the same comparison to interleave crates. Nothing in
+this repo would notice if the **server's** sort regressed. The failure would be a
+picker walking the aisle twice.
 
 **No screen has yet seen a real `400` from `/stock/adjustments`.** The three
 issue paths were read off a running server (`quantityDelta`, `movementType`,

@@ -15,6 +15,8 @@ export const pickListKeys = {
    */
   stockRequirement: (sessionId: string) =>
     [...pickListKeys.all, 'stock-requirement', sessionId] as const,
+  stockRequirementSummary: (upTo: string) =>
+    [...pickListKeys.all, 'stock-requirement-summary', upTo] as const,
   smsSummary: (sessionId: string) => [...pickListKeys.all, 'sms-summary', sessionId] as const,
   smsThread: (referralId: string) => [...pickListKeys.all, 'sms-thread', referralId] as const,
   smsInbox: () => [...pickListKeys.all, 'sms-inbox'] as const,

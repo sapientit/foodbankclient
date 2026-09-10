@@ -23,7 +23,6 @@ const FLOUR = {
   category: 'Dry goods',
   description: null,
   shelfNumber: 'A1',
-  shelfSortKey: 'A1',
   lowStockThreshold: null,
   groupingId: 'g1',
   unitsPerPack: null,
@@ -166,12 +165,7 @@ describe('crate composition inputs', () => {
       ),
       http.get('/api/v1/stock/items', () =>
         HttpResponse.json({
-          items: [
-            FLOUR,
-            FLOUR_SR,
-            { ...SUGAR, shelfNumber: 'B1', shelfSortKey: 'B1' },
-            { ...RICE, shelfNumber: 'B1', shelfSortKey: 'B1' },
-          ],
+          items: [FLOUR, FLOUR_SR, { ...SUGAR, shelfNumber: 'B1' }, { ...RICE, shelfNumber: 'B1' }],
         }),
       ),
       http.patch('/api/v1/stock/crates/:id', async ({ request }) => {

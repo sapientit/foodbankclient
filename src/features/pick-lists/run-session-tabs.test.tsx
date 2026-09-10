@@ -67,6 +67,7 @@ const PENDING_PARCEL: Parcel = {
   attendance: 'pending',
   notes: null,
   firstTimeMarker: null,
+  voucherInstruction: null,
   answers: {},
   lines: [],
 };

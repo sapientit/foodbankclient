@@ -77,17 +77,17 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
       ...direct.map((level, index) => ({
         row: { kind: 'item' as const, level },
         index,
-        shelfSortKey: level.shelfSortKey,
+        shelf: level.shelfNumber,
       })),
       ...groupingCrates.map((crate, index) => ({
         row: { kind: 'crate' as const, crate },
         index: direct.length + index,
-        shelfSortKey: crate.shelfSortKey,
+        shelf: crate.shelfKey,
       })),
     ]
       .sort((left, right) => {
-        if (left.shelfSortKey === right.shelfSortKey) return left.index - right.index;
-        return left.shelfSortKey < right.shelfSortKey ? -1 : 1;
+        if (left.shelf === right.shelf) return left.index - right.index;
+        return left.shelf < right.shelf ? -1 : 1;
       })
       .map(({ row }) => row);
     return {

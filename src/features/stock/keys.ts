@@ -3,8 +3,8 @@
  *
  * `stock` is a single server module, and its two lists are not independent:
  * adding an item makes a row appear in the levels list, and changing an item's
- * **shelf number reorders it**, because the server sorts both lists by a derived
- * shelf key. So an item mutation has to invalidate levels. Two disjoint roots —
+ * **shelf number reorders it**, because the server sorts both lists by the shelf
+ * label. So an item mutation has to invalidate levels. Two disjoint roots —
  * which is what this feature had while it was `stock-items/` — cannot invalidate
  * each other, and the bug that follows is a levels screen showing the old shelf
  * order. No test that renders one screen would ever see it.
@@ -23,6 +23,7 @@ export const stockKeys = {
   items: (order: 'category' | 'shelf' = 'category') => [...stockKeys.all, 'items', order] as const,
   levels: () => [...stockKeys.all, 'levels'] as const,
   lowStockSummary: () => [...stockKeys.all, 'low-stock-summary'] as const,
+  latestVolunteerCode: () => [...stockKeys.all, 'latest-volunteer-code'] as const,
 
   /**
    * One entry per search term, which is what makes a slow answer for `sug`
