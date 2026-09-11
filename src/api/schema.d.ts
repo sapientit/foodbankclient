@@ -6111,6 +6111,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dev-test/referral-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk-load prepared, anonymised referral scenarios
+         * @description **Not registered in production — the route does not exist there, and
+         *     that is what actually protects it.** Built for the client's own
+         *     dev/test automation: it picks a valid current reason, attaches a
+         *     session, sends prepared scenarios under one stable `importKey`, then
+         *     checks the resulting referrals and pick list.
+         *
+         *     **Admin only**, on top of the environment gate. Every referral is
+         *     created `active` — the referrer-authorisation decision a real
+         *     submission makes is never run, because there is no real referrer to
+         *     protect here — and the 16:00-the-day-before booking cutoff does not
+         *     apply, so a scenario can target a session later today. The session
+         *     must still be open (not confirmed or cancelled) and have room,
+         *     including delivery capacity, for every referral in the request.
+         *
+         *     **Defence-in-depth, not the only protection:** every `referrerEmail`
+         *     must end `example.test` and is refused otherwise, regardless of the
+         *     environment gate above.
+         *
+         *     **Atomic.** One request either creates every referral in it or none
+         *     of them — there is no partial import to clean up.
+         *
+         *     **`importKey` is idempotent.** Repeating the same call with the same
+         *     key and body returns the same `referrals` mapping rather than
+         *     importing a second time. Reusing a key with a **different** body is
+         *     refused with `409` — it is not silently replayed and not silently
+         *     re-run.
+         *
+         *     `sourceIndex` in the response is 1-based and follows the position of
+         *     each scenario in the request's own `referrals` array, so the caller
+         *     can tell which prepared scenario became which referral.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReferralImportRequest"];
+                };
+            };
+            responses: {
+                /** @description Every scenario imported (or replayed from an earlier call with this importKey) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReferralImportResponse"];
+                    };
+                };
+                /** @description Request validation failed, or an email did not end `example.test` — `details.issues` names the fields, never their values */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The caller is not an administrator */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Session not found — or, in production, this route does not exist and every method on this path 404s */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The session is full, cancelled or confirmed, or `importKey` was already used for a different request */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description That reason for referral is no longer offered */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6297,6 +6406,60 @@ export interface components {
             answers?: {
                 [key: string]: unknown;
             };
+        };
+        /** @description One prepared, anonymised scenario. The same shape as `ReferralSubmission` minus `sessionId` and `reasonId` — both shared across the whole import and supplied once on `ReferralImportRequest` — and with `referrerEmail` restricted to `example.test`. */
+        ReferralImportReferral: {
+            referrerName: string;
+            /**
+             * Format: email
+             * @description Must end `example.test`. Anything else is a `400`.
+             */
+            referrerEmail: string;
+            referrerOrganisation: string;
+            referrerPhone: string;
+            refereeFirstName: string;
+            refereeSurname: string;
+            /** Format: date */
+            refereeDateOfBirth: string;
+            refereeAddress: string;
+            refereePostcode: string;
+            refereePhone?: string;
+            /** @default false */
+            needsFuelHelp: boolean;
+            adults: number;
+            children?: number;
+            /** @enum {string} */
+            collectionMethod: "collection" | "delivery" | "referrer_collect";
+            answers?: {
+                [key: string]: unknown;
+            };
+        };
+        ReferralImportRequest: {
+            /**
+             * Format: uuid
+             * @description The caller's own stable key for this run. Repeating a call with the same key and the same body returns the original result rather than importing twice; the same key with a different body is a `409`.
+             */
+            importKey: string;
+            /** Format: uuid */
+            sessionId: string;
+            /**
+             * Format: uuid
+             * @description Must currently be offered, the same rule a real submission follows.
+             */
+            reasonId: string;
+            referrals: components["schemas"]["ReferralImportReferral"][];
+        };
+        ReferralImportResponse: {
+            /** Format: uuid */
+            sessionId: string;
+            /** Format: uuid */
+            importKey: string;
+            referrals: {
+                /** @description 1-based position of this scenario in the request's own `referrals` array. */
+                sourceIndex: number;
+                /** Format: uuid */
+                referralId: string;
+            }[];
         };
         /**
          * @description **The household's own details, the answers, and the administrators' note.** Admin only — there is no self-service amendment; a referrer who needs a change phones the food bank and an administrator makes it.
