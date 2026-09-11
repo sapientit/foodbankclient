@@ -7,6 +7,8 @@ import { URL } from 'node:url';
 
 import {
   createGoogleAuthorizationUrl,
+  createGoogleTokenExchangeBody,
+  describeGoogleTokenFailure,
   readGeneratedConfiguration,
   readActiveStock,
   validateQuestionnaireWithApplicationParser,
@@ -238,6 +240,39 @@ test('creates a read-only Google PKCE authorisation address', () => {
   assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
   assert.equal(url.searchParams.get('state'), 'state-value');
   assert.notEqual(url.searchParams.get('code_challenge'), 'verifier-value');
+});
+
+test('includes the Desktop OAuth client secret in the token exchange', () => {
+  const body = createGoogleTokenExchangeBody({
+    clientId: 'desktop-client',
+    clientSecret: 'desktop-secret',
+    code: 'one-time-code',
+    verifier: 'pkce-verifier',
+    redirectUri: 'http://127.0.0.1:41000/oauth2/callback',
+  });
+
+  assert.equal(body.get('client_id'), 'desktop-client');
+  assert.equal(body.get('client_secret'), 'desktop-secret');
+  assert.equal(body.get('code'), 'one-time-code');
+  assert.equal(body.get('code_verifier'), 'pkce-verifier');
+});
+
+test('reports bounded Google token-exchange details without exposing a response body', () => {
+  assert.equal(
+    describeGoogleTokenFailure(
+      { status: 400 },
+      {
+        error: 'invalid_grant',
+        error_description: 'The supplied authorization code is invalid.\nIt may have expired.',
+        access_token: 'must-not-appear',
+      },
+    ),
+    'Google did not return a Sheets access token (HTTP 400): invalid_grant — The supplied authorization code is invalid. It may have expired.',
+  );
+  assert.equal(
+    describeGoogleTokenFailure({ status: 500 }, { access_token: 'must-not-appear' }),
+    'Google did not return a Sheets access token (HTTP 500).',
+  );
 });
 
 test('reads both reviewed generated JSON cells directly from Google Sheets', async () => {

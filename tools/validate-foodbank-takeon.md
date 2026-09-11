@@ -26,6 +26,18 @@ preference keys and offered answers, and that every fixed or `$selectedAnswer`
 stock name resolves to exactly one active item. It reports all detected
 configuration problems and changes no files by default.
 
+The Desktop OAuth client secret is required by Google's token endpoint, but is
+not stored by the validator. Supply it only for the command being run:
+
+```sh
+GOOGLE_SHEETS_CLIENT_SECRET=YOUR_DESKTOP_CLIENT_SECRET \
+  node tools/validate-foodbank-takeon.mjs [the arguments above]
+```
+
+If Google rejects the final token exchange, the command reports its HTTP status
+and bounded OAuth error description, but never the authorisation code, token or
+client secret.
+
 ## One-time Google setup
 
 In the charity's Google Cloud project, enable the Google Sheets API and create

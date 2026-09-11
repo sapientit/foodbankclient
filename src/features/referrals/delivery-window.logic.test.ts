@@ -154,7 +154,7 @@ describe('deliveryWindowConfirmation', () => {
   it('finds the confirmation and the answer about the window in the real config', () => {
     const found = deliveryWindowConfirmation(referralFormDefinition);
     expect(found).not.toBeNull();
-    expect(found?.value).toContain('at home');
+    expect(found?.value).toContain('will be in');
   });
 
   it('picks the second answer, never the first', () => {

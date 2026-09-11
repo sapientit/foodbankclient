@@ -233,9 +233,42 @@ export function createGoogleAuthorizationUrl({ clientId, redirectUri, state, ver
   return url.toString();
 }
 
+export function createGoogleTokenExchangeBody({
+  clientId,
+  clientSecret,
+  code,
+  verifier,
+  redirectUri,
+}) {
+  return new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    code,
+    code_verifier: verifier,
+    grant_type: 'authorization_code',
+    redirect_uri: redirectUri,
+  });
+}
+
+/** Keeps an OAuth failure actionable without echoing the authorisation code or token response. */
+export function describeGoogleTokenFailure(response, token) {
+  const status = typeof response.status === 'number' ? ` (HTTP ${String(response.status)})` : '';
+  if (!isRecord(token)) return `Google did not return a Sheets access token${status}.`;
+  const error = typeof token.error === 'string' ? token.error : undefined;
+  const description =
+    typeof token.error_description === 'string'
+      ? token.error_description.replace(/\s+/g, ' ').trim().slice(0, 500)
+      : undefined;
+  const details = [error, description].filter((detail) => detail !== undefined);
+  return details.length === 0
+    ? `Google did not return a Sheets access token${status}.`
+    : `Google did not return a Sheets access token${status}: ${details.join(' — ')}`;
+}
+
 /** Uses a Desktop OAuth client. The short-lived Sheets token never reaches disk. */
 export async function requestReadonlySheetsAccess({
   googleClientId,
+  googleClientSecret,
   fetchImpl = globalThis.fetch,
   port = 0,
   timeoutMs = 5 * 60 * 1000,
@@ -305,17 +338,17 @@ export async function requestReadonlySheetsAccess({
     const tokenResponse = await fetchImpl('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: googleClientId,
+      body: createGoogleTokenExchangeBody({
+        clientId: googleClientId,
+        clientSecret: googleClientSecret,
         code,
-        code_verifier: verifier,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
+        verifier,
+        redirectUri,
       }),
     });
     const token = await tokenResponse.json().catch(() => ({}));
     if (!tokenResponse.ok || !isRecord(token) || typeof token.access_token !== 'string')
-      throw new Error('Google did not return a Sheets access token.');
+      throw new Error(describeGoogleTokenFailure(tokenResponse, token));
     return token.access_token;
   } finally {
     clearTimer(timeout);
@@ -476,6 +509,9 @@ async function main() {
     throw new Error('--spreadsheet-id and --google-client-id must be supplied together.');
   if (usesFiles === usesWorkbook)
     throw new Error('Choose either direct workbook access or both saved JSON files.');
+  const googleClientSecret = process.env.GOOGLE_SHEETS_CLIENT_SECRET;
+  if (usesWorkbook && (typeof googleClientSecret !== 'string' || googleClientSecret === ''))
+    throw new Error('GOOGLE_SHEETS_CLIENT_SECRET is required for direct workbook access.');
   const paths = pathsFor(defaultProjectRoot);
   const stockItems = await readActiveStock({ baseUrl: options.baseUrl, email: options.email });
   const source = usesFiles
@@ -487,6 +523,7 @@ async function main() {
         spreadsheetId: options.spreadsheetId,
         accessToken: await requestReadonlySheetsAccess({
           googleClientId: options.googleClientId,
+          googleClientSecret,
         }),
       });
   validateQuestionnaireWithApplicationParser({

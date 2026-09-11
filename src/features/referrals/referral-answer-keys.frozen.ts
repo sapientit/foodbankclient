@@ -82,4 +82,5 @@ export const FROZEN_ANSWER_KEYS: readonly FrozenAnswerKey[] = [
   { key: 'Gas debt', type: 'choice' },
   { key: 'Permission', type: 'choice' },
   { key: 'reasonAdditional', type: 'text' },
+  { key: 'Incontinence products', type: 'choice' },
 ];

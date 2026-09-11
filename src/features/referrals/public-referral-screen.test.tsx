@@ -196,8 +196,8 @@ async function fillPageOne(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/Client's date of birth/), '1985-03-12');
   await user.selectOptions(screen.getByRole('combobox', { name: /Client's gender/ }), 'Female');
   await user.selectOptions(screen.getByRole('combobox', { name: /^Ethnicity/ }), 'White -British');
-  await user.type(screen.getByLabelText(/Spoken Languages/), 'English');
-  await user.type(screen.getByLabelText(/Client's address/), '1 Elm Street');
+  await user.type(screen.getByLabelText(/Mother tongue and level of spoken English/), 'English');
+  await user.type(screen.getByLabelText(/First line of address/), '1 Elm Street');
   await user.type(screen.getByLabelText(/Client's postcode/), 'gu234xx');
   await fillHouseholdComposition(user);
   await user.selectOptions(
@@ -738,7 +738,7 @@ describe('the questions themselves', () => {
       name: 'The client meets the criteria for delivery',
     });
     const atHome = screen.getByRole('checkbox', {
-      name: 'The client will be at home for the delivery time above',
+      name: 'The client will be in at the above time',
     });
 
     // One of the two is not a confirmation of the pair.
@@ -868,13 +868,13 @@ describe('submitting', () => {
       'Pasta/Rice': 'Both',
       Spread: ['Jam'],
       'Tea/Coffee': ['Tea', 'Coffee'],
+      Porridge: 'Yes',
     });
     // A question left on None records nothing at all.
-    expect(body.answers).not.toHaveProperty('Porridge');
     expect(body.answers).not.toHaveProperty('Tampons');
     // A choice that takes several stays a list.
     expect(body.answers).toMatchObject({
-      Toiletries: ['Shower gel', 'Deodorant', 'Conditioner'],
+      Toiletries: ['Shower gel', 'Deodorant', 'Shampoo & Conditioner'],
     });
     // A key field never leaks into the answers bag.
     // The composition is one sparse reporting answer: untouched zero cells do
@@ -952,11 +952,11 @@ describe('submitting', () => {
     expect(screen.getByLabelText(/Client's first name/)).toHaveValue('');
     expect(screen.getByLabelText(/Client's surname/)).toHaveValue('');
     expect(screen.getByLabelText(/Client's date of birth/)).toHaveValue('');
-    expect(screen.getByLabelText(/Client's address/)).toHaveValue('');
+    expect(screen.getByLabelText(/First line of address/)).toHaveValue('');
     expect(screen.getByLabelText(/Client's postcode/)).toHaveValue('');
     expect(screen.getByRole('combobox', { name: /Client's gender/ })).toHaveValue('');
     expect(screen.getByLabelText('18 to State Pension age, Female')).toHaveValue('');
-    expect(screen.getByLabelText(/Spoken Languages/)).toHaveValue('');
+    expect(screen.getByLabelText(/Mother tongue and level of spoken English/)).toHaveValue('');
     expect(screen.getByRole('combobox', { name: /Session date/ })).toHaveValue('');
 
     await user.click(next());
@@ -1075,7 +1075,7 @@ describe('submitting', () => {
     await screen.findByText('Page 1 of 7');
 
     expect(
-      screen.getByRole('checkbox', { name: /at home for the delivery time/ }),
+      screen.getByRole('checkbox', { name: /will be in at the above time/ }),
     ).not.toBeChecked();
   });
 

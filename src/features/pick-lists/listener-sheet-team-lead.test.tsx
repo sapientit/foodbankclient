@@ -128,6 +128,23 @@ beforeEach(() => {
         occurrenceDate: null,
       }),
     ),
+    // The shared session tabs fetch these summaries even though the listener
+    // route itself does not display a pick list or SMS status.
+    http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+      HttpResponse.json({
+        pickList: {
+          id: 'pick-list-1',
+          sessionId: SESSION_ID,
+          status: 'draft',
+          generatedAt: '2099-08-06T09:00:00.000Z',
+          firstPrintedAt: null,
+        },
+        parcels: [],
+      }),
+    ),
+    http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+      HttpResponse.json({ sessionId: SESSION_ID, unreadTotal: 0, households: [] }),
+    ),
   );
 });
 

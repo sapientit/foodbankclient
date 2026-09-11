@@ -114,7 +114,7 @@
         "set": [
           {
             "stock": "$selectedAnswer",
-            "quantity": 2
+            "quantity": 1
           }
         ]
       }
@@ -164,6 +164,34 @@
     },
     {
       "when": {
+        "key": "Eggs",
+        "hasAnswer": "Yes"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Egg boxes",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Egg boxes",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
         "key": "Tampons",
         "hasAnswer": "1"
       },
@@ -308,6 +336,301 @@
           {
             "stock": "Sanitary pads",
             "quantity": 5
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Incontinence products",
+        "hasAnswer": "1"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Incontinence products",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Incontinence products",
+        "hasAnswer": "2"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Incontinence products",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Incontinence products",
+        "hasAnswer": "3"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Incontinence products",
+            "quantity": 3
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Incontinence products",
+        "hasAnswer": "4"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Incontinence products",
+            "quantity": 4
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toiletries",
+        "hasAnswer": "Shower gel"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "Shower gel",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Shower gel",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toiletries",
+        "hasAnswer": "Deodorant"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "Deodorant",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Deodorant",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toiletries",
+        "hasAnswer": "Toothpaste"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "Toothpaste - adult",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothpaste - adult",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toiletries",
+        "hasAnswer": "Toothpaste"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "children",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "Toothpaste - child",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothpaste - child",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toiletries",
+        "hasAnswer": "Toothbrush"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "Toothbrush - adult",
+              "quantity": 4
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Toothbrush - adult",
+              "quantity": 3
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 2
+          },
+          "set": [
+            {
+              "stock": "Toothbrush - adult",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - adult",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toiletries",
+        "hasAnswer": "Toothbrush"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "children",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "Toothbrush - child",
+              "quantity": 4
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "children",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Toothbrush - child",
+              "quantity": 3
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "children",
+            "atLeast": 2
+          },
+          "set": [
+            {
+              "stock": "Toothbrush - child",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - child",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toiletries",
+        "hasAnswer": "Shampoo & Conditioner"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Shampoo",
+            "quantity": 1
+          },
+          {
+            "stock": "Conditioner",
+            "quantity": 1
           }
         ]
       }
@@ -339,21 +662,7 @@
           },
           {
             "stock": "Wipes",
-            "quantity": 1
-          }
-        ]
-      }
-    },
-    {
-      "when": {
-        "key": "Baby Food"
-      },
-      "cases": [],
-      "otherwise": {
-        "set": [
-          {
-            "stock": "$selectedAnswer",
-            "quantity": 1
+            "quantity": 2
           }
         ]
       }
@@ -375,7 +684,7 @@
     {
       "when": {
         "key": "Household",
-        "hasAnswer": "Laundry powder"
+        "hasAnswer": "Laundry detergent"
       },
       "cases": [
         {
@@ -385,8 +694,8 @@
           },
           "set": [
             {
-              "stock": "$selectedAnswer",
-              "quantity": 2
+              "stock": "Laundry liquid - large",
+              "quantity": 1
             }
           ]
         }
@@ -394,7 +703,26 @@
       "otherwise": {
         "set": [
           {
-            "stock": "$selectedAnswer",
+            "stock": "Laundry liquid - small",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Household",
+        "hasAnswer": "Cloths & Sponges"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Cloths",
+            "quantity": 1
+          },
+          {
+            "stock": "Sponges",
             "quantity": 1
           }
         ]

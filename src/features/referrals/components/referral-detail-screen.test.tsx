@@ -469,7 +469,7 @@ describe('the admin referral detail screen', () => {
     );
     await user.click(
       screen.getByRole('checkbox', {
-        name: 'The client will be at home for the delivery time above',
+        name: 'The client will be in at the above time',
       }),
     );
     const surname = screen.getByLabelText(/Client.s surname/i);
@@ -494,7 +494,7 @@ describe('the admin referral detail screen', () => {
           // a multi-answer choice stores a list even when it is fully ticked.
           deliveryConfirm: [
             'The client meets the criteria for delivery',
-            'The client will be at home for the delivery time above',
+            'The client will be in at the above time',
           ],
         },
       });
