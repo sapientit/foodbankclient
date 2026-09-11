@@ -75,12 +75,18 @@ export async function loadAnonymisedReferrals({
   if (typeof login.accessToken !== 'string' || login.user?.role !== 'admin')
     fail('Administrator login did not return an administrator session.');
   const sessions = await readJson(
-    await fetchFn(`${baseUrl}/api/v1/sessions`, { headers: { authorization: `Bearer ${login.accessToken}` } }),
+    await fetchFn(`${baseUrl}/api/v1/sessions`, {
+      headers: { authorization: `Bearer ${login.accessToken}` },
+    }),
     'Session lookup',
   );
-  const matches = (sessions.sessions ?? []).filter((session) => session.sessionDate === sessionDate && session.startTime === startTime);
+  const matches = (sessions.sessions ?? []).filter(
+    (session) => session.sessionDate === sessionDate && session.startTime === startTime,
+  );
   if (matches.length !== 1 || typeof matches[0]?.id !== 'string')
-    fail(`Expected exactly one session at ${sessionDate} ${startTime}; found ${String(matches.length)}.`);
+    fail(
+      `Expected exactly one session at ${sessionDate} ${startTime}; found ${String(matches.length)}.`,
+    );
   const sessionId = matches[0].id;
   const reasons = await readJson(
     await fetchFn(`${baseUrl}/api/v1/public/referral-reasons`),
@@ -112,8 +118,14 @@ function argumentsFrom(argv) {
     else if (['--session-date', '--start-time', '--source', '--email'].includes(argument)) {
       const value = argv[++index];
       if (value === undefined) fail(`Missing value for ${argument}.`);
-      result[{ '--session-date': 'sessionDate', '--start-time': 'startTime', '--source': 'source', '--email': 'email' }[argument]] =
-        value;
+      result[
+        {
+          '--session-date': 'sessionDate',
+          '--start-time': 'startTime',
+          '--source': 'source',
+          '--email': 'email',
+        }[argument]
+      ] = value;
     } else fail(usage());
   }
   return result;
