@@ -6427,7 +6427,7 @@ export interface components {
             /** @default false */
             needsFuelHelp: boolean;
             adults: number;
-            children?: number;
+            children: number;
             /** @enum {string} */
             collectionMethod: "collection" | "delivery" | "referrer_collect";
             answers?: {
