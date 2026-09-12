@@ -43,6 +43,9 @@ async function renderShell(role: 'admin' | 'team_lead', path = '/sessions') {
       HttpResponse.json({ lowStockCount: 0 }),
     ),
     http.get('/api/v1/sms-messages/attention-summary', () => HttpResponse.json({ unreadTotal: 0 })),
+    http.get('/api/v1/platform-stats/usage/alert-summary', () =>
+      HttpResponse.json({ windowDays: 14, daysWithExceededThreshold: 0 }),
+    ),
   );
 
   const router = createMemoryRouter(routes, { initialEntries: [path] });
@@ -109,7 +112,14 @@ describe('AppShell', () => {
       ['/sessions', ['Manage Sessions', 'Weekly sessions']],
       [
         '/referrers',
-        ['Approved referrers', 'Users', 'Reasons for Crisis', 'Rule check', 'Christmas vouchers'],
+        [
+          'Approved referrers',
+          'Users',
+          'Reasons for Crisis',
+          'Rule check',
+          'Christmas vouchers',
+          'Cloudflare statistics',
+        ],
       ],
     ] as const;
 

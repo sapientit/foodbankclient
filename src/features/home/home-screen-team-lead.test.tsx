@@ -25,10 +25,15 @@ beforeEach(() => {
 describe('the team-lead dashboard', () => {
   it('does not render or request administrator-only summaries', async () => {
     let volunteerCodeExpiryRequested = false;
+    let platformUsageAlertRequested = false;
     server.use(
       http.get('/api/v1/stock/take/volunteer-codes/latest', () => {
         volunteerCodeExpiryRequested = true;
         return HttpResponse.json({ latest: null });
+      }),
+      http.get('/api/v1/platform-stats/usage/alert-summary', () => {
+        platformUsageAlertRequested = true;
+        return HttpResponse.json({ windowDays: 14, daysWithExceededThreshold: 0 });
       }),
     );
     renderApp('/');
@@ -36,7 +41,9 @@ describe('the team-lead dashboard', () => {
     expect(screen.queryByRole('heading', { name: 'Referrals' })).toBeNull();
     expect(screen.queryByText(/stock items with low stock/)).toBeNull();
     expect(screen.queryByText(/Volunteer code expires at/)).toBeNull();
+    expect(screen.queryByText(/Cloudflare threshold/)).toBeNull();
     expect(screen.queryByText(/unread SMS messages/)).toBeNull();
     expect(volunteerCodeExpiryRequested).toBe(false);
+    expect(platformUsageAlertRequested).toBe(false);
   });
 });

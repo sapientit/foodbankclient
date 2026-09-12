@@ -159,6 +159,7 @@ describe('contextual navigation', () => {
       'Reasons for Crisis',
       'Rule check',
       'Christmas vouchers',
+      'Cloudflare statistics',
     ]);
   });
 });

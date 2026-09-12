@@ -5,6 +5,7 @@ import { HttpResponse, delay, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
+import { platformStatsKeys } from '../platform-stats/keys';
 import type { Session } from '../sessions/queries';
 
 function session(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
@@ -52,6 +53,9 @@ beforeEach(() => {
       HttpResponse.json({ latest: { expiresAt: 1_788_888_888, expiringSoon: false } }),
     ),
     http.get('/api/v1/sms-messages/attention-summary', () => HttpResponse.json({ unreadTotal: 3 })),
+    http.get('/api/v1/platform-stats/usage/alert-summary', () =>
+      HttpResponse.json({ windowDays: 14, daysWithExceededThreshold: 0 }),
+    ),
   );
 });
 
@@ -126,6 +130,87 @@ describe('the administrator dashboard', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong at our end');
     expect(screen.queryByText('Nothing needs attention right now.')).toBeNull();
+  });
+
+  it('links an administrator to Cloudflare statistics when the server flags recent concerns', async () => {
+    server.use(
+      http.get('/api/v1/platform-stats/usage/alert-summary', () =>
+        HttpResponse.json({ windowDays: 14, daysWithExceededThreshold: 2 }),
+      ),
+    );
+    renderApp('/');
+
+    const alert = await screen.findByRole('link', {
+      name: '2 of the last 14 days exceeded a Cloudflare threshold',
+    });
+    expect(alert).toHaveAttribute('href', '/platform-stats/usage');
+    expect(screen.queryByText('Nothing needs attention right now.')).toBeNull();
+  });
+
+  it('does not show a false all-clear when checking Cloudflare concerns fails', async () => {
+    server.use(
+      http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
+      http.get('/api/v1/stock/items/low-stock-summary', () =>
+        HttpResponse.json({ lowStockCount: 0 }),
+      ),
+      http.get('/api/v1/sms-messages/attention-summary', () =>
+        HttpResponse.json({ unreadTotal: 0 }),
+      ),
+      http.get('/api/v1/platform-stats/usage/alert-summary', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'INTERNAL_ERROR',
+              message: 'Could not check Cloudflare usage',
+              requestId: 'r1',
+            },
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+    renderApp('/');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong at our end');
+    expect(screen.queryByText('Nothing needs attention right now.')).toBeNull();
+  });
+
+  it('does not show a cached Cloudflare all-clear while a refreshed summary is loading', async () => {
+    let concernDays = 0;
+    let delayRefresh = false;
+    server.use(
+      http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
+      http.get('/api/v1/stock/items/low-stock-summary', () =>
+        HttpResponse.json({ lowStockCount: 0 }),
+      ),
+      http.get('/api/v1/stock/take/volunteer-codes/latest', () =>
+        HttpResponse.json({ latest: null }),
+      ),
+      http.get('/api/v1/sms-messages/attention-summary', () =>
+        HttpResponse.json({ unreadTotal: 0 }),
+      ),
+      http.get('/api/v1/platform-stats/usage/alert-summary', async () => {
+        if (delayRefresh) await delay(300);
+        return HttpResponse.json({ windowDays: 14, daysWithExceededThreshold: concernDays });
+      }),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60_000 }, mutations: { retry: false } },
+    });
+    renderApp('/', queryClient);
+
+    expect(await screen.findByText('Nothing needs attention right now.')).toBeInTheDocument();
+    concernDays = 1;
+    delayRefresh = true;
+    void queryClient.invalidateQueries({ queryKey: platformStatsKeys.alertSummary() });
+
+    expect(await screen.findByText('Loading alerts…')).toBeInTheDocument();
+    expect(screen.queryByText('Nothing needs attention right now.')).toBeNull();
+    expect(
+      await screen.findByRole('link', {
+        name: '1 of the last 14 days exceeded a Cloudflare threshold',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('refreshes a cached dashboard alert after generating a replacement code', async () => {

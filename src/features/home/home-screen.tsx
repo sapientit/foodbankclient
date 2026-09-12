@@ -28,6 +28,7 @@ import {
   readSessionListSelection,
 } from '../sessions/session-list-filters.logic';
 import { useLatestVolunteerCode, useLowStockSummary } from '../stock/queries';
+import { usePlatformUsageAlertSummary } from '../platform-stats/queries';
 import { previousWeeksNotCompleted } from './dashboard.logic';
 import styles from './home-screen.module.css';
 
@@ -74,6 +75,7 @@ export function HomeScreen() {
   const lowStock = useLowStockSummary(isAdmin);
   const latestVolunteerCode = useLatestVolunteerCode(isAdmin);
   const sms = useSmsAttentionSummary(isAdmin);
+  const platformUsage = usePlatformUsageAlertSummary(isAdmin);
   const referralsWaiting = (pending.data?.length ?? 0) + (active.data?.length ?? 0);
   /*
    * A disabled query (a team lead's browser never issues these) stays
@@ -87,6 +89,7 @@ export function HomeScreen() {
     (isAdmin && lowStock.isPending) ||
     (isAdmin && latestVolunteerCode.isPending) ||
     (isAdmin && sms.isPending) ||
+    (isAdmin && (platformUsage.isPending || platformUsage.isFetching)) ||
     previous.isPending;
   const oldSessions = previousWeeksNotCompleted(previous.data ?? [], thisWeek.from);
   const shown =
@@ -98,10 +101,13 @@ export function HomeScreen() {
   const lowStockCount = lowStock.data?.lowStockCount ?? 0;
   const unreadTotal = sms.data?.unreadTotal ?? 0;
   const expiringVolunteerCode = latestVolunteerCode.data?.latest;
+  const platformConcernDays = platformUsage.data?.daysWithExceededThreshold ?? 0;
   const nothingNeedsAttention =
     lowStockCount + referralsWaiting + oldSessions.length + unreadTotal === 0 &&
     expiringVolunteerCode?.expiringSoon !== true &&
-    !latestVolunteerCode.isError;
+    !latestVolunteerCode.isError &&
+    platformConcernDays === 0 &&
+    !platformUsage.isError;
 
   /*
    * A page kept from a wider or differently-filtered range can point past the
@@ -323,11 +329,17 @@ export function HomeScreen() {
         {alertsPending ? (
           <Spinner label="Loading alerts…" />
         ) : (
-          <div className={styles.alerts}>
+          <div aria-live="polite" className={styles.alerts}>
             {isAdmin && latestVolunteerCode.isError && (
               <ErrorNotice
                 error={latestVolunteerCode.error}
                 onRetry={() => void latestVolunteerCode.refetch()}
+              />
+            )}
+            {isAdmin && platformUsage.isError && (
+              <ErrorNotice
+                error={platformUsage.error}
+                onRetry={() => void platformUsage.refetch()}
               />
             )}
             {isAdmin && lowStockCount > 0 && (
@@ -368,6 +380,13 @@ export function HomeScreen() {
                 to="/sms"
               />
             )}
+            {isAdmin && platformConcernDays > 0 && (
+              <Alert
+                category="master-data"
+                headline={`${String(platformConcernDays)} of the last 14 days exceeded a Cloudflare threshold`}
+                to="/platform-stats/usage"
+              />
+            )}
             {nothingNeedsAttention && (
               <EmptyState
                 headline="Nothing needs attention"
@@ -386,6 +405,7 @@ const ALERT_ICON = {
   sessions: CalendarIcon,
   referrals: UsersIcon,
   stock: BoxIcon,
+  'master-data': BellIcon,
 } as const;
 
 function Alert({
@@ -393,7 +413,7 @@ function Alert({
   headline,
   to,
 }: {
-  readonly category: 'sessions' | 'referrals' | 'stock';
+  readonly category: 'sessions' | 'referrals' | 'stock' | 'master-data';
   readonly headline: string;
   readonly to: string;
 }) {

@@ -63,6 +63,7 @@ import { AmendUserScreen } from './features/users/components/amend-user-screen';
 import { CreateUserScreen } from './features/users/components/create-user-screen';
 import { UsersScreen } from './features/users/components/users-screen';
 import { ExtractScreen } from './features/extracts/components/extract-screen';
+import { PlatformUsageScreen } from './features/platform-stats/components/platform-usage-screen';
 
 /**
  * The route table, and the shape of it is the point.
@@ -266,6 +267,7 @@ export const routes: RouteObject[] = [
       { path: 'users', element: <UsersScreen /> },
       { path: 'users/new', element: <CreateUserScreen /> },
       { path: 'users/:userId', element: <AmendUserScreen /> },
+      { path: 'platform-stats/usage', element: <PlatformUsageScreen /> },
     ],
   },
 

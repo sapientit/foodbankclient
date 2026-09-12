@@ -73,6 +73,11 @@
   border-color: #bfe3f2;
 }
 
+.alert[data-category='master-data'] {
+  background: #fff8e8;
+  border-color: #ead49f;
+}
+
 /* One oversized, very faint illustration of the box's own subject, behind the
    text — screenDetails.md, "#Dashboard". Decoration only: clipped by the tile,
    never interactive, and pale enough that the text over it is unaffected. The
@@ -273,6 +278,10 @@
 
 .alert[data-category='stock'] .alertLink {
   color: #0f6f99;
+}
+
+.alert[data-category='master-data'] .alertLink {
+  color: #76520a;
 }
 
 @media (max-width: 800px) {

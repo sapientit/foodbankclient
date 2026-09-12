@@ -6100,11 +6100,115 @@ export interface paths {
                             occurrencesPlanned?: number;
                             sessionsCreated?: number;
                             referralsPurged?: number;
+                            /**
+                             * Format: date
+                             * @description The UTC day of Cloudflare usage collected by this run, or null if the platform-usage settings are not all configured yet. See `GET /platform-stats/usage`.
+                             */
+                            platformUsageDate?: string | null;
                         };
                     };
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-stats/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cloudflare usage against the free-plan caps, for a date range
+         * @description Admin only. For each day in `[from, to]` that the nightly job has
+         *     captured, this deployment's own Cloudflare Worker and D1 usage
+         *     alongside Cloudflare's published free-plan caps, so an administrator
+         *     can see at a glance whether anything is running close to one.
+         *
+         *     A date with no row — the job has not run yet, or has not been
+         *     configured, or a run was missed — is simply absent from `days` rather
+         *     than reported as zero.
+         *
+         *     See `INITIAL_SPEC1.txt`, `#Platform usage monitoring`.
+         */
+        get: {
+            parameters: {
+                query: {
+                    from: string;
+                    to: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Usage report */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            days?: components["schemas"]["PlatformStatsDay"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-stats/usage/alert-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How many of the last 14 days had a worrying measure
+         * @description Admin only. A count, not a list — for the alert section of the new
+         *     screen this feeds, rather than the detailed report `GET
+         *     /platform-stats/usage` gives. A day with no captured row does not
+         *     count either way; see that operation.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Alert summary */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Always 14 today — see `INITIAL_SPEC1.txt`. */
+                            windowDays?: number;
+                            daysWithExceededThreshold?: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7374,6 +7478,40 @@ export interface components {
             note: string | null;
             /** Format: date-time */
             committedAt: string | null;
+        };
+        /** @description A measure Cloudflare puts a free-plan cap on. `cap` is that published limit, a fact; `threshold` is the assumed level for "worrying" — `x-assumed`, see below — and `exceeded` is `value >= threshold`. */
+        CappedMeasure: {
+            value: number;
+            cap: number;
+            threshold: number;
+            exceeded: boolean;
+        };
+        /** @description A measure with an assumed worrying level but no Cloudflare cap behind it at all — currently only the Worker error rate. */
+        UncappedMeasure: {
+            value: number;
+            threshold: number;
+            exceeded: boolean;
+        };
+        /** @description Carried for context only. No cap, no threshold, never "exceeded". */
+        InformationalMeasure: {
+            value: number;
+        };
+        /** @description One captured Cloudflare usage day. See `INITIAL_SPEC1.txt`, `#Platform usage monitoring`. */
+        PlatformStatsDay: {
+            /**
+             * Format: date
+             * @description UTC, not London — Cloudflare's own usage day, which resets at UTC midnight regardless of where the food bank is.
+             */
+            date: string;
+            workerRequestsAccountWide: components["schemas"]["CappedMeasure"] & unknown;
+            workerRequestsThisApp: components["schemas"]["InformationalMeasure"] & unknown;
+            workerErrorRateThisApp: components["schemas"]["UncappedMeasure"];
+            workerCpuTimeP99Us: components["schemas"]["CappedMeasure"] & unknown;
+            workerSubrequestsAvgPerInvocation: components["schemas"]["CappedMeasure"] & unknown;
+            workerWallTimeP99Ms: components["schemas"]["InformationalMeasure"] & unknown;
+            d1RowsRead: components["schemas"]["CappedMeasure"];
+            d1RowsWritten: components["schemas"]["CappedMeasure"];
+            d1StorageBytes: components["schemas"]["CappedMeasure"] & unknown;
         };
     };
     responses: {
