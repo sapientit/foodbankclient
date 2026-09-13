@@ -68,8 +68,8 @@ The personal commands below deploy **only** the test pair. `deploy_foodbank`
 is the ordinary release command: it runs the server and client checks before
 either Worker changes, including the client's generated-types comparison with
 `../foodbankserver/openapi.yaml`; then it migrates and deploys the server,
-deploys the client, and verifies the final pair's health, app shell and proxied
-public API response.
+deploys the client, and verifies both deployed commit versions, server
+health/readiness, the client shell and a proxied public API response.
 
 ```sh
 deploy_foodbank

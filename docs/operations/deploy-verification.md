@@ -7,8 +7,8 @@ hand the first time the proxy is deployed, and again whenever `src/worker/index.
 For the test system, run `deploy_foodbank` first. It runs both repositories'
 checks before either deployment, checks that the generated client API types
 match the server's `openapi.yaml`, deploys the server before the client, and
-then confirms server health/readiness, the client shell, and a public API read
-through the deployed proxy. Those automatic checks are necessary but do not
+then confirms both deployed commit versions, server health/readiness, the client shell, and a public API read through
+the deployed proxy. Those automatic checks are necessary but do not
 replace the deployed-browser checks below.
 
 The same checklist is tracked, with what has and has not been confirmed so far, in
