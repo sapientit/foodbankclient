@@ -1,13 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useId, type ChangeEvent } from 'react';
 import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import * as z from 'zod';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
+import { listReturnContext, returnContextFromState } from '../../../lib/list-return';
 import { useAmendRecurringSession, useRecurringSession, type RecurringSession } from '../queries';
 import {
   CAPACITY_BOUNDS,
@@ -186,6 +187,7 @@ export function AmendRecurringSessionScreen() {
 
 function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const amend = useAmendRecurringSession();
 
   const nameId = useId();
@@ -267,7 +269,11 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
           deliveryWindowEnd: deliveryCapacity.value > 0 ? values.deliveryWindowEnd : null,
         },
       });
-      await navigate('/sessions/recurring');
+      const returnContext = returnContextFromState(location.state as unknown);
+      await navigate(returnContext?.listPath ?? '/sessions/recurring', {
+        replace: true,
+        state: listReturnContext(returnContext?.listPath ?? '/sessions/recurring', row.id),
+      });
     } catch (error) {
       applyFieldErrors(error, setError);
     }

@@ -1,9 +1,11 @@
-import { Link, useSearchParams } from 'react-router';
+import { Link, useLocation, useSearchParams } from 'react-router';
+import type { RefObject } from 'react';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatLondonDateTime, formatSessionDate } from '../../../lib/london-time';
+import { listPathFor, listReturnContext, useReturnedListItem } from '../../../lib/list-return';
 import { useSessions, type Session } from '../../sessions/queries';
 import { useReferrals, type Referral } from '../queries';
 import {
@@ -35,6 +37,7 @@ const STATUS_PARAM = 'status';
  */
 export function ReferralsScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
 
   const sessionId = searchParams.get(SESSION_PARAM) ?? '';
   const statusParam = searchParams.get(STATUS_PARAM);
@@ -45,6 +48,9 @@ export function ReferralsScreen() {
     ...(status === undefined ? {} : { status }),
   };
   const referrals = useReferrals(filters);
+  const [returnedReferralId, returnedReferralRef] = useReturnedListItem<HTMLAnchorElement>(
+    referrals.isSuccess && !referrals.isFetching,
+  );
   // Only used to label rows and filter options with a date rather than a bare
   // id. Its own failure is not this screen's failure — see `sessionLabel`.
   const sessions = useSessions();
@@ -145,7 +151,14 @@ export function ReferralsScreen() {
             </thead>
             <tbody>
               {sortForReview(referrals.data).map((referral) => (
-                <ReferralRow key={referral.id} referral={referral} sessions={sessions.data ?? []} />
+                <ReferralRow
+                  key={referral.id}
+                  referral={referral}
+                  returnPath={listPathFor(location.pathname, location.search)}
+                  returnedReferralId={returnedReferralId}
+                  returnedReferralRef={returnedReferralRef}
+                  sessions={sessions.data ?? []}
+                />
               ))}
             </tbody>
           </table>
@@ -154,7 +167,19 @@ export function ReferralsScreen() {
   );
 }
 
-function ReferralRow({ referral, sessions }: { referral: Referral; sessions: readonly Session[] }) {
+function ReferralRow({
+  referral,
+  sessions,
+  returnPath,
+  returnedReferralId,
+  returnedReferralRef,
+}: {
+  referral: Referral;
+  sessions: readonly Session[];
+  returnPath: string;
+  returnedReferralId: string | null;
+  returnedReferralRef: RefObject<HTMLAnchorElement | null>;
+}) {
   const session = sessions.find((candidate) => candidate.id === referral.sessionId);
   const purged = isPurged(referral);
 
@@ -171,7 +196,11 @@ function ReferralRow({ referral, sessions }: { referral: Referral; sessions: rea
       data-pending-review={referral.status === 'pending_review' || undefined}
     >
       <th scope="row">
-        <Link to={`/referrals/${referral.id}`}>
+        <Link
+          ref={referral.id === returnedReferralId ? returnedReferralRef : undefined}
+          state={listReturnContext(returnPath, referral.id)}
+          to={`/referrals/${referral.id}`}
+        >
           {purged ? 'Details removed' : (refereeNameForList(referral) ?? '—')}
         </Link>
       </th>

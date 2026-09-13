@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useLocation, useSearchParams } from 'react-router';
+import { listPathFor, listReturnContext, useReturnedListItem } from '../../../lib/list-return';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
@@ -19,11 +20,15 @@ const RETIRED_PARAM = 'retired';
 
 export function StockItemsScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const items = useStockItems();
   const crates = useCrates();
   const groupings = useStockTakeGroupings();
   const amend = useAmendStockItem();
   const [retiring, setRetiring] = useState<StockItem | null>(null);
+  const [returnedItemId, returnedItemRef] = useReturnedListItem<HTMLAnchorElement>(
+    items.isSuccess && !items.isFetching,
+  );
 
   if (items.isPending || groupings.isPending || crates.isPending)
     return (
@@ -145,7 +150,15 @@ export function StockItemsScreen() {
                 <td>{item.lowStockThreshold ?? 'Not watched'}</td>
                 <td>{item.isActive ? 'Active' : 'Retired'}</td>
                 <td className={styles.actions}>
-                  <Link className="button-link" to={`/stock/items/${item.id}`}>
+                  <Link
+                    className="button-link"
+                    ref={item.id === returnedItemId ? returnedItemRef : undefined}
+                    state={listReturnContext(
+                      listPathFor(location.pathname, location.search),
+                      item.id,
+                    )}
+                    to={`/stock/items/${item.id}`}
+                  >
                     Amend
                   </Link>
                   {item.isActive ? (

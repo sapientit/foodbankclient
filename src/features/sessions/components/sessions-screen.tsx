@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router';
+import { Link, useLocation, useSearchParams } from 'react-router';
 import { useAuth } from '../../../auth/auth-context';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
@@ -8,6 +8,7 @@ import { SessionTable } from '../../../components/session-table';
 import { Spinner } from '../../../components/spinner';
 import { classNames } from '../../../lib/class-names';
 import { formatSessionDate, formatTimeRange, londonToday } from '../../../lib/london-time';
+import { listPathFor, listReturnContext, useReturnedListItem } from '../../../lib/list-return';
 import { useSessions } from '../queries';
 import { filterSessionsByStatus, readSessionListSelection } from '../session-list-filters.logic';
 import styles from './sessions-screen.module.css';
@@ -30,11 +31,15 @@ import styles from './sessions-screen.module.css';
 export function SessionsScreen() {
   const { state } = useAuth();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
 
   const selection = readSessionListSelection(searchParams, londonToday());
   // Every hook above this line runs on every render, signed in or not — the
   // narrowing return below must come after the last hook call, not before it.
   const sessions = useSessions({ from: selection.from, to: selection.to });
+  const [returnedSessionId, returnedSessionRef] = useReturnedListItem<HTMLAnchorElement>(
+    sessions.isSuccess && !sessions.isFetching,
+  );
 
   // Rendered inside RequireAuth via the shell; narrowing rather than asserting.
   if (state.status !== 'signed-in') return null;
@@ -106,6 +111,11 @@ export function SessionsScreen() {
                     <Link
                       aria-label={`Amend session, ${when}, ${hours}`}
                       className={styles.rowAction}
+                      ref={session.id === returnedSessionId ? returnedSessionRef : undefined}
+                      state={listReturnContext(
+                        listPathFor(location.pathname, location.search),
+                        session.id,
+                      )}
                       to={`/sessions/${session.id}`}
                     >
                       ✎

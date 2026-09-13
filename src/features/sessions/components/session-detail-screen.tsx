@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useId, useState, type ChangeEvent } from 'react';
 import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import * as z from 'zod';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
@@ -10,6 +10,7 @@ import { Spinner } from '../../../components/spinner';
 import { classNames } from '../../../lib/class-names';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
 import { formatSessionDate } from '../../../lib/london-time';
+import { listReturnContext, returnContextFromState } from '../../../lib/list-return';
 import { useAmendSession, useCancelSession, useSession, type Session } from '../queries';
 import {
   CAPACITY_BOUNDS,
@@ -168,6 +169,7 @@ export function SessionDetailScreen() {
 
 function SessionDetailForm({ session }: { session: Session }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const amend = useAmendSession();
   const cancel = useCancelSession();
   const [cancelling, setCancelling] = useState(false);
@@ -250,7 +252,11 @@ function SessionDetailForm({ session }: { session: Session }) {
           deliveryWindowEnd: deliveryCapacity.value > 0 ? values.deliveryWindowEnd : null,
         },
       });
-      await navigate('/sessions');
+      const returnContext = returnContextFromState(location.state as unknown);
+      await navigate(returnContext?.listPath ?? '/sessions', {
+        replace: true,
+        state: listReturnContext(returnContext?.listPath ?? '/sessions', session.id),
+      });
     } catch (error) {
       applyFieldErrors(error, setError);
     }

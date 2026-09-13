@@ -1,10 +1,11 @@
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { classNames } from '../../../lib/class-names';
 import { formatSessionDate } from '../../../lib/london-time';
+import { listPathFor, listReturnContext, useReturnedListItem } from '../../../lib/list-return';
 import { useRecurringSessions, useRunSessionMaterialisation } from '../queries';
 import { WEEKDAY_LABELS, describeDeliveries, describeMaterialisation } from '../sessions.logic';
 import styles from './recurring-sessions-screen.module.css';
@@ -20,8 +21,12 @@ import styles from './recurring-sessions-screen.module.css';
  * screen never invalidates the sessions list; see `queries.ts`.
  */
 export function RecurringSessionsScreen() {
+  const location = useLocation();
   const recurring = useRecurringSessions();
   const generate = useRunSessionMaterialisation();
+  const [returnedSessionId, returnedSessionRef] = useReturnedListItem<HTMLAnchorElement>(
+    recurring.isSuccess && !recurring.isFetching,
+  );
 
   if (recurring.isPending) {
     return (
@@ -130,7 +135,16 @@ export function RecurringSessionsScreen() {
                 </td>
                 <td>{describeDeliveries(row)}</td>
                 <td>
-                  <Link to={`/sessions/recurring/${row.id}`}>Amend</Link>
+                  <Link
+                    ref={row.id === returnedSessionId ? returnedSessionRef : undefined}
+                    state={listReturnContext(
+                      listPathFor(location.pathname, location.search),
+                      row.id,
+                    )}
+                    to={`/sessions/recurring/${row.id}`}
+                  >
+                    Amend
+                  </Link>
                 </td>
               </tr>
             ))}

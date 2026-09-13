@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useId } from 'react';
 import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { listReturnContext, returnContextFromState } from '../../../lib/list-return';
 import * as z from 'zod';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
@@ -111,6 +112,7 @@ export function AmendStockItemScreen() {
 
 function AmendStockItemForm({ item }: { item: StockItem }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const items = useStockItems();
   const groupings = useStockTakeGroupings();
   const amend = useAmendStockItem();
@@ -186,7 +188,11 @@ function AmendStockItemForm({ item }: { item: StockItem }) {
           packUnitLabel: packingUnit.ok ? (packUnitLabel === '' ? null : packUnitLabel) : null,
         },
       });
-      await navigate('/stock/items');
+      const returnContext = returnContextFromState(location.state as unknown);
+      await navigate(returnContext?.listPath ?? '/stock/items', {
+        replace: true,
+        state: listReturnContext(returnContext?.listPath ?? '/stock/items', item.id),
+      });
     } catch (error) {
       applyFieldErrors(error, setError);
     }

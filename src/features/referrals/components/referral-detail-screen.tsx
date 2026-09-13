@@ -12,6 +12,7 @@ import {
   formatLondonDateTime,
   formatSessionDate,
 } from '../../../lib/london-time';
+import { listReturnContext, returnContextFromState } from '../../../lib/list-return';
 import { describeSessionChoice, standingFromCapacity } from '../../../lib/session-description';
 import { useReferralReasons, type AdminReferralReason } from '../../admin-setup/queries';
 import { useSessions, type Session } from '../../sessions/queries';
@@ -1242,11 +1243,17 @@ function ReferralActionsPanel({
   const copy = useCopyReferral();
   const markReviewed = useMarkReferralReviewed();
   const navigate = useNavigate();
+  const location = useLocation();
   const [dialog, setDialog] = useState<'cancel' | 'move' | 'copy' | null>(null);
   const [reason, setReason] = useState('');
   const [targetSessionId, setTargetSessionId] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [copyUncertain, setCopyUncertain] = useState(false);
+  const listReturn = returnContextFromState(location.state as unknown);
+  const returnTo = cameFromSearch(location.state as unknown)
+    ? '/referrals/search'
+    : (listReturn?.listPath ?? '/referrals');
+  const returnState = listReturn === null ? null : listReturnContext(returnTo, listReturn.itemId);
 
   /**
    * Copying is not idempotent and the server deliberately does not refuse a
@@ -1300,6 +1307,7 @@ function ReferralActionsPanel({
       {
         onSuccess: () => {
           setDialog(null);
+          void navigate(returnTo, { replace: true, state: returnState });
         },
       },
     );
@@ -1390,7 +1398,11 @@ function ReferralActionsPanel({
             aria-disabled={markReviewed.isPending}
             className={styles.submit}
             onClick={() => {
-              markReviewed.mutate(referral.id);
+              markReviewed.mutate(referral.id, {
+                onSuccess: () => {
+                  void navigate(returnTo, { replace: true, state: returnState });
+                },
+              });
             }}
             type="button"
           >
