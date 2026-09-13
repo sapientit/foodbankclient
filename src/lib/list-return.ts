@@ -39,8 +39,15 @@ export function useReturnedListItem<T extends HTMLElement>(
 
   useEffect(() => {
     if (context === null || !ready) return;
-    target.current?.scrollIntoView({ block: 'center' });
-    target.current?.focus();
+    const returnedItem = target.current;
+    if (returnedItem === null) return;
+
+    // JSDOM does not implement scrolling. Treat it as the progressive
+    // enhancement it is: the returned control still receives focus.
+    if (typeof returnedItem.scrollIntoView === 'function') {
+      returnedItem.scrollIntoView({ block: 'center' });
+    }
+    returnedItem.focus();
     void navigate(
       { pathname: location.pathname, search: location.search },
       { replace: true, state: null },
