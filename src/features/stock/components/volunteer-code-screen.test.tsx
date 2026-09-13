@@ -34,6 +34,14 @@ beforeEach(() => {
 });
 
 describe('the volunteer code screen', () => {
+  it('does not offer a route back to the stock take', async () => {
+    renderApp('/stock/volunteer-code');
+
+    await screen.findByRole('button', { name: 'Generate a code' });
+
+    expect(screen.queryByRole('link', { name: 'Back to the stock take' })).toBeNull();
+  });
+
   it('shows the generated code once, with its expiry as a London time', async () => {
     renderApp('/stock/volunteer-code');
     const user = userEvent.setup();

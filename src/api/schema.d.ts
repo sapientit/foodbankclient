@@ -33,6 +33,8 @@ export interface paths {
                         "application/json": {
                             /** @enum {string} */
                             status: "ok";
+                            /** @description The deployed commit's git SHA, stamped at deploy time. Null where none was stamped (local dev, CI's dry run). */
+                            version: string | null;
                         };
                     };
                 };
@@ -7486,7 +7488,7 @@ export interface components {
             threshold: number;
             exceeded: boolean;
         };
-        /** @description A measure with an assumed worrying level but no Cloudflare cap behind it at all — currently only the Worker error rate. */
+        /** @description A measure with a worrying level but no Cloudflare cap behind it at all — currently only the Worker error count, where `threshold` is always `0`: Pete settled 2026-09-13 that a single error is worrying, not some rate or proportion of requests. */
         UncappedMeasure: {
             value: number;
             threshold: number;
@@ -7495,6 +7497,11 @@ export interface components {
         /** @description Carried for context only. No cap, no threshold, never "exceeded". */
         InformationalMeasure: {
             value: number;
+        };
+        /** @description A measure shown against a Cloudflare cap for context, but that never marks a day or counts toward the fourteen-day alert — currently only processing time. Pete settled 2026-09-13 that this doesn't get a threshold at all: the recorded P99 mixes every kind of invocation this Worker handles, including its own nightly maintenance run, not only the requests the food bank's own use produces, so a high reading here doesn't mean the food bank is pushing the system toward the cap. */
+        CapReferenceMeasure: {
+            value: number;
+            cap: number;
         };
         /** @description One captured Cloudflare usage day. See `INITIAL_SPEC1.txt`, `#Platform usage monitoring`. */
         PlatformStatsDay: {
@@ -7505,8 +7512,8 @@ export interface components {
             date: string;
             workerRequestsAccountWide: components["schemas"]["CappedMeasure"] & unknown;
             workerRequestsThisApp: components["schemas"]["InformationalMeasure"] & unknown;
-            workerErrorRateThisApp: components["schemas"]["UncappedMeasure"];
-            workerCpuTimeP99Us: components["schemas"]["CappedMeasure"] & unknown;
+            workerErrorsThisApp: components["schemas"]["UncappedMeasure"] & unknown;
+            workerCpuTimeP99Us: components["schemas"]["CapReferenceMeasure"] & unknown;
             workerSubrequestsAvgPerInvocation: components["schemas"]["CappedMeasure"] & unknown;
             workerWallTimeP99Ms: components["schemas"]["InformationalMeasure"] & unknown;
             d1RowsRead: components["schemas"]["CappedMeasure"];

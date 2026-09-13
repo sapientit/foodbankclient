@@ -1088,7 +1088,7 @@ function ParcelPanel({
   const [draftLines, setDraftLines] = useState(() => toDraftLines(parcel.lines));
   const [savedNotes, setSavedNotes] = useState(parcel.notes ?? '');
   const [draftNotes, setDraftNotes] = useState(parcel.notes ?? '');
-  const [showUnselectedStockItems, setShowUnselectedStockItems] = useState(true);
+  const [showUnselectedStockItems, setShowUnselectedStockItems] = useState(false);
   // A recorded outcome stops the parcel changing, but does not stop it being
   // corrected. Only closing the containing session locks both.
   const parcelLinesLocked = parcel.attendance !== 'pending' || readOnly;

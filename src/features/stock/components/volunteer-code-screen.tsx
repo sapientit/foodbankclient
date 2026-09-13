@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { copyToClipboard } from '../../../lib/clipboard';
@@ -121,9 +120,6 @@ export function VolunteerCodeScreen() {
         >
           {busy ? 'Generating…' : issued === null ? 'Generate a code' : 'Generate another code'}
         </button>
-        <Link className="button-link button-secondary" to="/stock/take">
-          Back to the stock take
-        </Link>
       </div>
     </>
   );

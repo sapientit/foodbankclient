@@ -164,7 +164,6 @@ export function navigationSectionsFor(role: Role): readonly NavigationSection[] 
       '/stock/items',
       '/stock/groupings',
       '/stock/crates',
-      '/stock/validation',
       '/stock/target-lists',
       '/stock/shopping',
       '/model-parcels',
@@ -174,9 +173,10 @@ export function navigationSectionsFor(role: Role): readonly NavigationSection[] 
     section(itemAt('/referrers'), [
       '/referrers',
       '/users',
+      '/voucher-config',
       '/referral-reasons',
       '/preference-rules',
-      '/voucher-config',
+      '/stock/validation',
       '/platform-stats/usage',
     ]),
   ];
@@ -192,6 +192,7 @@ export function subtabsFor(role: Role, pathname: string): readonly MenuItem[] {
 
 /** The visual category follows the work a route belongs to, not a user's role. */
 export function categoryForPath(pathname: string): NavigationCategory {
+  if (pathname === '/stock/validation') return 'master-data';
   if (
     ['/referrals', '/extracts', '/sms', '/fuel-help'].some(
       (path) => pathname === path || pathname.startsWith(`${path}/`),

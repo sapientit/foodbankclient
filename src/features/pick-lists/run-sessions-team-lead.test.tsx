@@ -578,7 +578,7 @@ describe('a team lead running a session', () => {
     expect(await screen.findByText('Client not found')).toBeInTheDocument();
   });
 
-  it('offers every active item and a retired parcel line in server shelf order', async () => {
+  it('initially offers selected and retired parcel lines in server shelf order', async () => {
     const apples = {
       id: 'stock-apples',
       name: 'Apples',
@@ -646,14 +646,13 @@ describe('a team lead running a session', () => {
     await screen.findByRole('heading', { level: 1, name: 'Pick #1: Sam Taylor' });
 
     const quantities = await screen.findAllByRole('spinbutton');
-    expect(quantities).toHaveLength(3);
+    expect(quantities).toHaveLength(2);
     expect(stockOrder).toBe('shelf');
     expect(quantities[0]).toHaveAccessibleName(/^Baked beans/);
     expect(quantities[0]).toHaveValue(2);
-    expect(quantities[1]).toHaveAccessibleName('Apples');
-    expect(quantities[1]).toHaveValue(null);
-    expect(quantities[2]).toHaveAccessibleName('Oats (retired)');
-    expect(quantities[2]).toHaveValue(1);
+    expect(screen.queryByRole('spinbutton', { name: 'Apples' })).toBeNull();
+    expect(quantities[1]).toHaveAccessibleName('Oats (retired)');
+    expect(quantities[1]).toHaveValue(1);
   });
 
   it('keeps pick-list information editable after attendance until the session is confirmed', async () => {
@@ -793,25 +792,25 @@ describe('a team lead running a session', () => {
     await screen.findByRole('heading', { level: 1, name: 'Pick #1: Sam Taylor' });
 
     const toggle = screen.getByRole('checkbox', { name: 'Show unselected Stock items' });
-    expect(toggle).toBeChecked();
-    expect(await screen.findByRole('spinbutton', { name: 'Apples' })).toBeInTheDocument();
-    expect(screen.getByRole('spinbutton', { name: /Baked beans/ })).toBeInTheDocument();
+    expect(toggle).not.toBeChecked();
+    expect(screen.queryByRole('spinbutton', { name: 'Apples' })).toBeNull();
+    expect(await screen.findByRole('spinbutton', { name: /Baked beans/ })).toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: 'Oats (retired)' })).toBeInTheDocument();
 
     const stockItemRequestsBeforeToggle = stockItemRequests;
     const mutationsBeforeToggle = mutations;
     await user.click(toggle);
 
-    expect(toggle).not.toBeChecked();
-    expect(screen.queryByRole('spinbutton', { name: 'Apples' })).toBeNull();
+    expect(toggle).toBeChecked();
+    expect(await screen.findByRole('spinbutton', { name: 'Apples' })).toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: /Baked beans/ })).toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: 'Oats (retired)' })).toBeInTheDocument();
     expect(stockItemRequests).toBe(stockItemRequestsBeforeToggle);
     expect(mutations).toBe(mutationsBeforeToggle);
 
     await user.click(toggle);
-    expect(toggle).toBeChecked();
-    expect(screen.getByRole('spinbutton', { name: 'Apples' })).toBeInTheDocument();
+    expect(toggle).not.toBeChecked();
+    expect(screen.queryByRole('spinbutton', { name: 'Apples' })).toBeNull();
     expect(stockItemRequests).toBe(stockItemRequestsBeforeToggle);
     expect(mutations).toBe(mutationsBeforeToggle);
   });

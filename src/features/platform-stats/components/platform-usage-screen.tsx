@@ -21,7 +21,6 @@ interface DisplayMeasure {
   readonly format: (value: number) => string;
 }
 const number = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2 });
-const percent = new Intl.NumberFormat('en-GB', { style: 'percent', maximumFractionDigits: 2 });
 const MEASURES: readonly DisplayMeasure[] = [
   {
     key: 'workerRequestsAccountWide',
@@ -34,9 +33,9 @@ const MEASURES: readonly DisplayMeasure[] = [
     format: (value) => number.format(value),
   },
   {
-    key: 'workerErrorRateThisApp',
-    name: 'Worker error rate (this app)',
-    format: (value) => percent.format(value),
+    key: 'workerErrorsThisApp',
+    name: 'Worker errors (this app)',
+    format: (value) => number.format(value),
   },
   {
     key: 'workerCpuTimeP99Us',

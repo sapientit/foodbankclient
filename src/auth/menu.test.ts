@@ -114,7 +114,6 @@ describe('contextual navigation', () => {
       'Stock items',
       'Stock groupings',
       'Crates',
-      'Stock validation',
       'Target lists',
       'Shopping',
       'Model parcels',
@@ -156,9 +155,10 @@ describe('contextual navigation', () => {
     expect(subtabsFor('admin', '/referrers').map((item) => item.label)).toEqual([
       'Approved referrers',
       'Users',
+      'Christmas vouchers',
       'Reasons for Crisis',
       'Rule check',
-      'Christmas vouchers',
+      'Stock validation',
       'Cloudflare statistics',
     ]);
   });
@@ -199,6 +199,7 @@ describe('categoryForPath', () => {
     ['/sms', 'referrals'],
     ['/fuel-help', 'referrals'],
     ['/stock/take', 'stock'],
+    ['/stock/validation', 'master-data'],
     ['/model-parcels/grid', 'stock'],
   ] as const)('gives %s the %s visual category', (path, expected) => {
     expect(categoryForPath(path)).toBe(expected);

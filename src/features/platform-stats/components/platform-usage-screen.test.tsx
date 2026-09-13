@@ -14,8 +14,8 @@ function usageDay(overrides: Partial<PlatformStatsDay> = {}): PlatformStatsDay {
     date: '2026-09-10',
     workerRequestsAccountWide: { value: 100, cap: 100_000, threshold: 80_000, exceeded: false },
     workerRequestsThisApp: { value: 50 },
-    workerErrorRateThisApp: { value: 0.001, threshold: 0.01, exceeded: false },
-    workerCpuTimeP99Us: { value: 10, cap: 30_000, threshold: 24_000, exceeded: false },
+    workerErrorsThisApp: { value: 0, threshold: 0, exceeded: false },
+    workerCpuTimeP99Us: { value: 10, cap: 10_000 },
     workerSubrequestsAvgPerInvocation: { value: 1, cap: 50, threshold: 40, exceeded: false },
     workerWallTimeP99Ms: { value: 20 },
     d1RowsRead: { value: 100, cap: 5_000_000, threshold: 4_000_000, exceeded: false },
@@ -103,6 +103,7 @@ describe('the Cloudflare statistics screen', () => {
                 threshold: 4_000_000,
                 exceeded: true,
               },
+              workerErrorsThisApp: { value: 1, threshold: 0, exceeded: true },
             }),
           ],
         }),
@@ -126,11 +127,19 @@ describe('the Cloudflare statistics screen', () => {
     const flagged = within(table).getByRole('row', { name: /D1 rows read.*5,000,000.*Exceeded/ });
     expect(within(flagged).getByText('Exceeded')).toBeInTheDocument();
     expect(within(flagged).getAllByText('4,000,000')).toHaveLength(2);
+    expect(
+      within(table).getByRole('row', { name: /Worker errors \(this app\).*1.*Exceeded/ }),
+    ).toBeInTheDocument();
     const informational = within(table).getByRole('row', {
       name: /Worker requests \(this app\).*Informational/,
     });
     expect(within(informational).getByText('Informational')).toBeInTheDocument();
     expect(within(informational).getAllByText('No threshold')).toHaveLength(1);
+    expect(
+      within(table).getByRole('row', {
+        name: /Worker CPU time p99.*10,000.*No threshold.*Informational/,
+      }),
+    ).toBeInTheDocument();
 
     await user.click(exceeded);
     expect(exceeded).toHaveAttribute('aria-expanded', 'false');

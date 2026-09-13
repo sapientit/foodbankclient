@@ -108,16 +108,31 @@ describe('AppShell', () => {
         '/referrals',
         ['Check referrals', 'Search referrals', 'Send to Sheets', 'SMS Messages', 'Fuel'],
       ],
-      ['/stock', ['Stock', 'Stock take', 'Stock items', 'Model parcels', 'Parcel Grid']],
+      [
+        '/stock',
+        [
+          'Stock',
+          'Stock take',
+          'Volunteer code',
+          'Stock items',
+          'Stock groupings',
+          'Crates',
+          'Target lists',
+          'Shopping',
+          'Model parcels',
+          'Parcel Grid',
+        ],
+      ],
       ['/sessions', ['Manage Sessions', 'Weekly sessions']],
       [
         '/referrers',
         [
           'Approved referrers',
           'Users',
+          'Christmas vouchers',
           'Reasons for Crisis',
           'Rule check',
-          'Christmas vouchers',
+          'Stock validation',
           'Cloudflare statistics',
         ],
       ],
@@ -126,8 +141,11 @@ describe('AppShell', () => {
     for (const [path, labels] of cases) {
       await renderShell('admin', path);
       const navigation = within(screen.getByRole('navigation', { name: 'Section navigation' }));
+      expect(navigation.getAllByRole('link').map((link) => link.textContent)).toEqual(labels);
       for (const label of labels)
         expect(navigation.getByRole('link', { name: label })).toBeInTheDocument();
+      if (path === '/stock')
+        expect(navigation.queryByRole('link', { name: 'Stock validation' })).toBeNull();
       cleanup();
     }
   });
