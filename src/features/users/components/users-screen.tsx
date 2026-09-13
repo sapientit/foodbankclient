@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useAuth } from '../../../auth/auth-context';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
+import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError } from '../../../lib/errors';
@@ -176,8 +177,13 @@ export function UsersScreen() {
                 </td>
                 <td>{formatLondonDate(row.createdAt)}</td>
                 <td className={styles.actions}>
-                  <Link className="button-link" to={`/users/${row.id}`}>
-                    Amend
+                  <Link
+                    aria-label={`Amend ${row.displayName}`}
+                    className="button-link"
+                    to={`/users/${row.id}`}
+                    title={`Amend ${row.displayName}`}
+                  >
+                    <PencilIcon />
                   </Link>
 
                   {row.isActive ? (
@@ -186,15 +192,17 @@ export function UsersScreen() {
                           removed control: somebody looking for Deactivate has to
                           be able to find it and be told why not. */}
                       <button
+                        aria-label={`Deactivate ${row.displayName}`}
                         aria-describedby={refusal === null ? undefined : reasonId}
                         aria-disabled={refusal !== null}
                         onClick={() => {
                           if (refusal !== null) return;
                           setDeactivating(row);
                         }}
+                        title={`Deactivate ${row.displayName}`}
                         type="button"
                       >
-                        Deactivate
+                        <ArchiveIcon />
                       </button>
                       {refusal !== null && (
                         <p className={styles.reason} id={reasonId}>
@@ -204,12 +212,14 @@ export function UsersScreen() {
                     </>
                   ) : (
                     <button
+                      aria-label={`Reactivate ${row.displayName}`}
                       onClick={() => {
                         change(row, true);
                       }}
+                      title={`Reactivate ${row.displayName}`}
                       type="button"
                     >
-                      Reactivate
+                      <RestoreIcon />
                     </button>
                   )}
                 </td>

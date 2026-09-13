@@ -4,6 +4,7 @@ import { listPathFor, listReturnContext, useReturnedListItem } from '../../../li
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import {
@@ -151,6 +152,7 @@ export function StockItemsScreen() {
                 <td>{item.isActive ? 'Active' : 'Retired'}</td>
                 <td className={styles.actions}>
                   <Link
+                    aria-label={`Amend ${item.name}`}
                     className="button-link"
                     ref={item.id === returnedItemId ? returnedItemRef : undefined}
                     state={listReturnContext(
@@ -158,26 +160,31 @@ export function StockItemsScreen() {
                       item.id,
                     )}
                     to={`/stock/items/${item.id}`}
+                    title={`Amend ${item.name}`}
                   >
-                    Amend
+                    <PencilIcon />
                   </Link>
                   {item.isActive ? (
                     <button
+                      aria-label={`Retire ${item.name}`}
                       onClick={() => {
                         setRetiring(item);
                       }}
+                      title={`Retire ${item.name}`}
                       type="button"
                     >
-                      Retire
+                      <ArchiveIcon />
                     </button>
                   ) : (
                     <button
+                      aria-label={`Reactivate ${item.name}`}
                       onClick={() => {
                         setActive(item, true);
                       }}
+                      title={`Reactivate ${item.name}`}
                       type="button"
                     >
-                      Reactivate
+                      <RestoreIcon />
                     </button>
                   )}
                 </td>

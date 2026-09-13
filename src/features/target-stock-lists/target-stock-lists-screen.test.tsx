@@ -76,7 +76,7 @@ describe('the target stock lists screen', () => {
 
     await screen.findByRole('rowheader', { name: 'Christmas' });
     const christmasRow = screen.getByRole('row', { name: /Christmas/ });
-    await user.click(within(christmasRow).getByRole('button', { name: 'Delete' }));
+    await user.click(within(christmasRow).getByRole('button', { name: 'Delete Christmas' }));
 
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
@@ -86,5 +86,20 @@ describe('the target stock lists screen', () => {
     expect(screen.queryByRole('rowheader', { name: 'Christmas' })).toBeNull();
     expect(screen.getByRole('status')).toHaveTextContent('Deleted Christmas.');
     expect(screen.getByRole('link', { name: 'Add a target stock list' })).toHaveFocus();
+  });
+
+  it('gives compact list actions their item-specific names', async () => {
+    server.use(http.get(LISTS, () => HttpResponse.json({ targetStockLists: [STANDARD] })));
+    renderApp('/stock/target-lists');
+
+    const row = await screen.findByRole('row', { name: /Standard week/ });
+    expect(within(row).getByRole('link', { name: 'Amend Standard week' })).toHaveAttribute(
+      'title',
+      'Amend Standard week',
+    );
+    expect(within(row).getByRole('button', { name: 'Delete Standard week' })).toHaveAttribute(
+      'title',
+      'Delete Standard week',
+    );
   });
 });

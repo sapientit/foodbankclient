@@ -125,6 +125,14 @@ describe('one stock key root', () => {
     await screen.findByRole('heading', { name: 'Stock items' });
 
     await router.navigate('/stock');
+    // The heading appears as soon as React commits the form's return route,
+    // before the submit handler has finished awaiting that navigation. Wait
+    // for that handler to settle before starting the next route change, or its
+    // final continuation can send this test back to Stock items.
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/stock');
+      expect(router.state.navigation.state).toBe('idle');
+    });
     await screen.findByRole('columnheader', { name: 'On hand' });
 
     /*

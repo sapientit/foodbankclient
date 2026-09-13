@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { blockedActiveDomain, displayMatchValue } from '../admin-setup.logic';
@@ -122,26 +123,35 @@ export function ReferrersScreen() {
                   <td>{row.isActive ? 'Active' : 'Inactive'}</td>
                   <td className={styles.notes}>{row.notes ?? ''}</td>
                   <td className={styles.actions}>
-                    <Link className="button-link" to={`/referrers/${row.id}`}>
-                      Amend
+                    <Link
+                      aria-label={`Amend ${displayMatchValue(row)}`}
+                      className="button-link"
+                      to={`/referrers/${row.id}`}
+                      title={`Amend ${displayMatchValue(row)}`}
+                    >
+                      <PencilIcon />
                     </Link>
                     {row.isActive ? (
                       <button
+                        aria-label={`Deactivate ${displayMatchValue(row)}`}
                         onClick={() => {
                           setDeactivating(row);
                         }}
+                        title={`Deactivate ${displayMatchValue(row)}`}
                         type="button"
                       >
-                        Deactivate
+                        <ArchiveIcon />
                       </button>
                     ) : (
                       <button
+                        aria-label={`Reactivate ${displayMatchValue(row)}`}
                         onClick={() => {
                           setActive(row, true);
                         }}
+                        title={`Reactivate ${displayMatchValue(row)}`}
                         type="button"
                       >
-                        Reactivate
+                        <RestoreIcon />
                       </button>
                     )}
                   </td>

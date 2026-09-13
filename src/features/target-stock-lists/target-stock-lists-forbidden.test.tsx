@@ -54,7 +54,7 @@ describe('a team lead on the target-stock-list maintenance screen', () => {
     const user = userEvent.setup();
 
     const row = await screen.findByRole('row', { name: /Standard week/ });
-    await user.click(within(row).getByRole('button', { name: 'Delete' }));
+    await user.click(within(row).getByRole('button', { name: 'Delete Standard week' }));
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
 

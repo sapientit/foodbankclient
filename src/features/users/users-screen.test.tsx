@@ -123,7 +123,9 @@ describe('the users list', () => {
     // In words, not colour alone, and no strikethrough: the person stays named
     // on the stock, attendance and audit records they are part of.
     expect((await row('Sam Gone')).getByText('Retired')).toBeInTheDocument();
-    expect((await row('Sam Gone')).getByRole('button', { name: 'Reactivate' })).toBeInTheDocument();
+    expect(
+      (await row('Sam Gone')).getByRole('button', { name: 'Reactivate Sam Gone' }),
+    ).toBeInTheDocument();
   });
 
   it('never offers to deactivate your own account, and sends no PATCH', async () => {
@@ -136,7 +138,9 @@ describe('the users list', () => {
     );
     renderApp('/users');
 
-    const deactivate = (await row('Pete Bennett')).getByRole('button', { name: 'Deactivate' });
+    const deactivate = (await row('Pete Bennett')).getByRole('button', {
+      name: 'Deactivate Pete Bennett',
+    });
 
     // Refused with a reason on a real focusable button, not a removed control:
     // somebody looking for Deactivate has to find it and be told why not.
@@ -155,7 +159,7 @@ describe('the users list', () => {
     renderApp('/users');
     const user = userEvent.setup();
 
-    await user.click((await row('Ada Lead')).getByRole('button', { name: 'Deactivate' }));
+    await user.click((await row('Ada Lead')).getByRole('button', { name: 'Deactivate Ada Lead' }));
 
     // "May take a few minutes" would be a lie an admin could act on — they would
     // close the laptop believing somebody was locked out.
@@ -184,7 +188,7 @@ describe('the users list', () => {
     renderApp('/users');
     const user = userEvent.setup();
 
-    await user.click((await row('Ada Lead')).getByRole('button', { name: 'Deactivate' }));
+    await user.click((await row('Ada Lead')).getByRole('button', { name: 'Deactivate Ada Lead' }));
     await user.click(confirmButton());
 
     expect(patched).toEqual({ isActive: false });
@@ -213,7 +217,9 @@ describe('the users list', () => {
     renderApp('/users');
     const user = userEvent.setup();
 
-    await user.click((await row('Bev Admin')).getByRole('button', { name: 'Deactivate' }));
+    await user.click(
+      (await row('Bev Admin')).getByRole('button', { name: 'Deactivate Bev Admin' }),
+    );
     await user.click(confirmButton());
 
     // Verbatim, and nothing added: a manufactured next step here would be a
@@ -237,7 +243,9 @@ describe('the users list', () => {
     );
     renderApp('/users');
     const user = userEvent.setup();
-    await user.click((await row('Bev Admin')).getByRole('button', { name: 'Deactivate' }));
+    await user.click(
+      (await row('Bev Admin')).getByRole('button', { name: 'Deactivate Bev Admin' }),
+    );
     const before = lists.mock.calls.length;
 
     await user.click(confirmButton());
@@ -261,7 +269,7 @@ describe('the users list', () => {
     renderApp('/users?retired=1');
     const user = userEvent.setup();
 
-    await user.click((await row('Sam Gone')).getByRole('button', { name: 'Reactivate' }));
+    await user.click((await row('Sam Gone')).getByRole('button', { name: 'Reactivate Sam Gone' }));
 
     expect(patched).toEqual({ isActive: true });
   });

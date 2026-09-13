@@ -61,7 +61,7 @@ describe('the reasons for referral list', () => {
     renderApp('/referral-reasons');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Retire' }));
+    await user.click(await screen.findByRole('button', { name: 'Retire Financial hardship' }));
     const dialog = within(await screen.findByRole('dialog'));
     await user.click(dialog.getByRole('button', { name: 'Retire' }));
 
@@ -81,7 +81,7 @@ describe('the reasons for referral list', () => {
     renderApp('/referral-reasons');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Restore' }));
+    await user.click(await screen.findByRole('button', { name: 'Restore Old reason' }));
 
     expect(patched).toEqual({ isActive: true });
   });

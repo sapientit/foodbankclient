@@ -81,8 +81,12 @@ describe('the authorised referrers list', () => {
     renderApp('/referrers');
     await screen.findByText('anna@guildford.gov.uk');
 
-    expect(screen.getByRole('button', { name: 'Reactivate' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Deactivate' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Reactivate anna@guildford.gov.uk' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Deactivate *@guildford.gov.uk' }),
+    ).toBeInTheDocument();
   });
 
   it('deactivates a referrer through the confirmation dialog', async () => {
@@ -98,7 +102,7 @@ describe('the authorised referrers list', () => {
     renderApp('/referrers');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Deactivate' }));
+    await user.click(await screen.findByRole('button', { name: 'Deactivate *@guildford.gov.uk' }));
     const dialog = within(await screen.findByRole('dialog'));
     await user.click(dialog.getByRole('button', { name: 'Deactivate' }));
 

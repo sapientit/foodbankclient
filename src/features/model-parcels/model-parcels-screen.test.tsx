@@ -77,7 +77,7 @@ describe('the model parcels list', () => {
     const user = userEvent.setup();
 
     const row = await screen.findByRole('row', { name: /Family parcel/ });
-    await user.click(within(row).getByRole('button', { name: 'Delete' }));
+    await user.click(within(row).getByRole('button', { name: 'Delete Family parcel' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Delete Family parcel?' }));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
@@ -107,7 +107,7 @@ describe('the model parcels list', () => {
     const user = userEvent.setup();
 
     await screen.findByRole('rowheader', { name: 'Family parcel' });
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByRole('button', { name: 'Delete Family parcel' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Delete Family parcel?' }));
     await user.click(dialog.getByRole('button', { name: 'Delete' }));
 
@@ -116,5 +116,20 @@ describe('the model parcels list', () => {
     );
     // Still in the list — the delete did not happen.
     expect(screen.getByRole('rowheader', { name: 'Family parcel' })).toBeInTheDocument();
+  });
+
+  it('gives compact parcel actions their parcel-specific names', async () => {
+    server.use(http.get(MODEL_PARCELS, () => HttpResponse.json({ modelParcels: [FAMILY] })));
+    renderApp('/model-parcels');
+
+    const row = await screen.findByRole('row', { name: /Family parcel/ });
+    expect(within(row).getByRole('link', { name: 'Amend Family parcel' })).toHaveAttribute(
+      'title',
+      'Amend Family parcel',
+    );
+    expect(within(row).getByRole('button', { name: 'Delete Family parcel' })).toHaveAttribute(
+      'title',
+      'Delete Family parcel',
+    );
   });
 });

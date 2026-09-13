@@ -71,7 +71,11 @@ describe('crate deletion', () => {
   it('asks for an explicit, named confirmation before deleting a crate', async () => {
     renderApp('/stock/crates');
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(await screen.findByRole('button', { name: 'Edit Spread' })).toHaveAttribute(
+      'title',
+      'Edit Spread',
+    );
+    await user.click(screen.getByRole('button', { name: 'Delete Spread' }));
     expect(screen.getByRole('heading', { name: 'Delete Spread?' })).toBeInTheDocument();
     expect(screen.getByText(/Target lists that name it/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -90,8 +94,12 @@ describe('crate deletion', () => {
     renderApp('/stock/crates');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    await user.click(screen.getByRole('button', { name: 'Delete Spread' }));
+    await user.click(await screen.findByRole('button', { name: 'Delete Spread' }));
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Delete Spread?' })).getByRole('button', {
+        name: 'Delete Spread',
+      }),
+    );
 
     await waitFor(() => {
       expect(groupingPatches).toEqual([
@@ -140,7 +148,7 @@ describe('crate composition inputs', () => {
     renderApp('/stock/crates');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit Spread' }));
 
     const retiredRow = screen.getByRole('row', { name: /Flour: SR/ });
     expect(within(retiredRow).getByRole('checkbox', { name: 'Include' })).toBeChecked();
@@ -176,7 +184,7 @@ describe('crate composition inputs', () => {
     renderApp('/stock/crates');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit Spread' }));
     await user.selectOptions(screen.getByLabelText('Shelf'), 'B1');
     await user.selectOptions(screen.getByLabelText('Shelf'), 'A1');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -206,7 +214,7 @@ describe('crate composition inputs', () => {
     renderApp('/stock/crates');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit Spread' }));
 
     expect(screen.getByRole('columnheader', { name: 'Stock %' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Shopping %' })).toBeInTheDocument();
@@ -274,7 +282,7 @@ describe('crate composition inputs', () => {
     renderApp('/stock/crates');
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit Spread' }));
     await user.click(
       within(screen.getByRole('row', { name: /Flour/ })).getByRole('checkbox', { name: 'Include' }),
     );

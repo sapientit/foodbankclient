@@ -43,6 +43,25 @@
   gap: 1rem;
 }
 
+.tableActions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tableActions button {
+  display: grid;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  place-items: center;
+  padding: 0.4rem;
+}
+
+.tableActions svg {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
 .submit {
   padding: 0.6rem 1.25rem;
 }

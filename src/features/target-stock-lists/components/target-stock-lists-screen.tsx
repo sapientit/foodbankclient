@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { PencilIcon, TrashIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { useDeleteTargetStockList, useTargetStockLists, type TargetStockList } from '../queries';
@@ -108,17 +109,24 @@ export function TargetStockListsScreen() {
                 <th scope="row">{list.name}</th>
                 <td>{list.lines.length}</td>
                 <td className={styles.actions}>
-                  <Link className="button-link" to={`/stock/target-lists/${list.id}`}>
-                    Amend
+                  <Link
+                    aria-label={`Amend ${list.name}`}
+                    className="button-link"
+                    to={`/stock/target-lists/${list.id}`}
+                    title={`Amend ${list.name}`}
+                  >
+                    <PencilIcon />
                   </Link>
                   <button
+                    aria-label={`Delete ${list.name}`}
                     className="button-danger"
                     onClick={() => {
                       setDeleting(list);
                     }}
+                    title={`Delete ${list.name}`}
                     type="button"
                   >
-                    Delete
+                    <TrashIcon />
                   </button>
                 </td>
               </tr>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { EmptyState } from '../../../components/empty-state';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
+import { PencilIcon, TrashIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import {
@@ -293,24 +294,28 @@ export function CratesScreen() {
                 <td>{crate.sizePerCrate}</td>
                 <td>{crate.members.length}</td>
                 <td>{computeCrateReferenceCount(crate, levels.data).toFixed(1)}</td>
-                <td>
+                <td className={styles.tableActions}>
                   <button
+                    aria-label={`Edit ${crate.name}`}
                     onClick={() => {
                       beginEdit(crate);
                     }}
+                    title={`Edit ${crate.name}`}
                     type="button"
                   >
-                    Edit
-                  </button>{' '}
+                    <PencilIcon />
+                  </button>
                   <button
+                    aria-label={`Delete ${crate.name}`}
                     className="button-danger"
                     disabled={remove.isPending}
                     onClick={() => {
                       setDeleteCandidate(crate);
                     }}
+                    title={`Delete ${crate.name}`}
                     type="button"
                   >
-                    Delete
+                    <TrashIcon />
                   </button>
                 </td>
               </tr>

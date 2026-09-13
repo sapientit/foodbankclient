@@ -1,12 +1,13 @@
 /**
- * A small set of decorative glyphs for navigation and section headings.
+ * A small set of decorative glyphs for navigation, section headings and named
+ * icon controls.
  *
  * Hand-authored rather than a dependency — six icons do not justify one, per
  * `CLAUDE.md`. Each is sized at `1em` and coloured with `currentColor`, so it
  * follows the font-size and colour of whatever text it sits beside rather
  * than carrying its own. Every icon is `aria-hidden`: it sits next to a text
- * label that already says what it is, so it must not be announced a second
- * time.
+ * label or control name that already says what it is, so it must not be
+ * announced a second time.
  */
 
 interface IconProps {
@@ -91,6 +92,49 @@ export function BellIcon({ className }: IconProps) {
     <svg {...shared} className={className}>
       <path d="M6 8a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 12 6 8Z" />
       <path d="M9.5 17.5a2.5 2.5 0 0 0 5 0" />
+    </svg>
+  );
+}
+
+export function PencilIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="m4 20 4.1-1 10.8-10.8a2.1 2.1 0 0 0-3-3L5.1 16 4 20Z" />
+      <path d="m13.8 7.3 3 3" />
+    </svg>
+  );
+}
+
+export function ArchiveIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="M4 8h16v12H4z" />
+      <path d="M3 4h18v4H3z" />
+      <path d="M12 11v5" />
+      <path d="m9.5 13.5 2.5 2.5 2.5-2.5" />
+    </svg>
+  );
+}
+
+export function RestoreIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="M4 8h16v12H4z" />
+      <path d="M3 4h18v4H3z" />
+      <path d="M12 16v-5" />
+      <path d="m9.5 13.5 2.5-2.5 2.5 2.5" />
+    </svg>
+  );
+}
+
+export function TrashIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="M5 7h14" />
+      <path d="M9 7V4h6v3" />
+      <path d="M7 7l1 13h8l1-13" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
     </svg>
   );
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { PencilIcon, TrashIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { useDeleteModelParcel, useModelParcels, type ModelParcel } from '../queries';
@@ -106,17 +107,24 @@ export function ModelParcelsScreen() {
                 <td className={styles.description}>{parcel.description ?? ''}</td>
                 <td>{parcel.contents.length}</td>
                 <td className={styles.actions}>
-                  <Link className="button-link" to={`/model-parcels/${parcel.id}`}>
-                    Amend
+                  <Link
+                    aria-label={`Amend ${parcel.name}`}
+                    className="button-link"
+                    to={`/model-parcels/${parcel.id}`}
+                    title={`Amend ${parcel.name}`}
+                  >
+                    <PencilIcon />
                   </Link>
                   <button
+                    aria-label={`Delete ${parcel.name}`}
                     className="button-danger"
                     onClick={() => {
                       setDeleting(parcel);
                     }}
+                    title={`Delete ${parcel.name}`}
                     type="button"
                   >
-                    Delete
+                    <TrashIcon />
                   </button>
                 </td>
               </tr>

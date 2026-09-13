@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { useAmendReferralReason, useReferralReasons, type AdminReferralReason } from '../queries';
@@ -100,26 +101,35 @@ export function ReferralReasonsScreen() {
                 <td className={styles.numeric}>{reason.displayOrder}</td>
                 <td>{reason.isActive ? 'Active' : 'Retired'}</td>
                 <td className={styles.actions}>
-                  <Link className="button-link" to={`/referral-reasons/${reason.id}`}>
-                    Amend
+                  <Link
+                    aria-label={`Amend ${reason.label}`}
+                    className="button-link"
+                    to={`/referral-reasons/${reason.id}`}
+                    title={`Amend ${reason.label}`}
+                  >
+                    <PencilIcon />
                   </Link>
                   {reason.isActive ? (
                     <button
+                      aria-label={`Retire ${reason.label}`}
                       onClick={() => {
                         setRetiring(reason);
                       }}
+                      title={`Retire ${reason.label}`}
                       type="button"
                     >
-                      Retire
+                      <ArchiveIcon />
                     </button>
                   ) : (
                     <button
+                      aria-label={`Restore ${reason.label}`}
                       onClick={() => {
                         setActive(reason, true);
                       }}
+                      title={`Restore ${reason.label}`}
                       type="button"
                     >
-                      Restore
+                      <RestoreIcon />
                     </button>
                   )}
                 </td>

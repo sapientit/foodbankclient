@@ -90,7 +90,7 @@ describe('stock-item maintenance', () => {
     await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Show retired items (1)' }));
 
     expect(await screen.findByRole('row', { name: /Rice/ })).toHaveTextContent('Retired');
-    expect(screen.getByRole('button', { name: 'Reactivate' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reactivate Rice' })).toBeInTheDocument();
   });
 
   it('says an item is counted by a crate only when a loaded crate actually names it', async () => {
@@ -368,11 +368,23 @@ describe('stock-item maintenance', () => {
     const user = userEvent.setup();
 
     const row = await screen.findByRole('row', { name: /Baked beans/ });
-    await user.click(within(row).getByRole('button', { name: 'Retire' }));
+    await user.click(within(row).getByRole('button', { name: 'Retire Baked beans' }));
     const dialog = screen.getByRole('dialog', { name: 'Retire Baked beans?' });
     expect(dialog).toHaveTextContent('does not delete the item');
     await user.click(within(dialog).getByRole('button', { name: 'Retire' }));
 
     expect(patched).toEqual({ isActive: false });
+  });
+
+  it('provides adjacent compact icon actions with names for each stock item', async () => {
+    renderApp('/stock/items');
+
+    const row = await screen.findByRole('row', { name: /Baked beans/ });
+    const amend = within(row).getByRole('link', { name: 'Amend Baked beans' });
+    const retire = within(row).getByRole('button', { name: 'Retire Baked beans' });
+    expect(amend).toHaveAttribute('title', 'Amend Baked beans');
+    expect(amend).not.toHaveTextContent('Amend');
+    expect(retire).toHaveAttribute('title', 'Retire Baked beans');
+    expect(retire).not.toHaveTextContent('Retire');
   });
 });
