@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,7 @@ const { writeClaim } = vi.hoisted(() => ({
   writeClaim: vi.fn<(...args: unknown[]) => Promise<void>>().mockResolvedValue(undefined),
 }));
 vi.mock('./google-auth', () => ({
+  preloadSheetsAccess: vi.fn(() => Promise.resolve()),
   requestSheetsAccess: vi.fn(() => Promise.resolve('google-token')),
 }));
 vi.mock('./google-sheets', () => ({ writeClaim }));
@@ -26,6 +27,9 @@ const REASONS = [
 
 beforeEach(() => {
   server.use(
+    http.get('/api/v1/extracts/config', () =>
+      HttpResponse.json({ configured: true, spreadsheetId: 'sheet', googleClientId: 'client' }),
+    ),
     http.get('/api/v1/referral-reasons', () => HttpResponse.json({ referralReasons: REASONS })),
     http.post('/api/v1/auth/refresh', () =>
       HttpResponse.json({
@@ -49,9 +53,7 @@ describe('spreadsheet extract', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Start extract' }));
 
-    expect(screen.getByRole('dialog', { name: 'This might take some time' })).toHaveTextContent(
-      'Do you want to continue?',
-    );
+    expect(await screen.findByText(/Do you want to continue/)).toBeInTheDocument();
     expect(screen.queryByText('Waiting for Google Sheets permission…')).toBeNull();
   });
 
@@ -277,12 +279,7 @@ describe('spreadsheet extract', () => {
     expect(claims).toBe(1);
   });
 
-  /**
-   * Sessions are what the loop works through; rows are what land in the
-   * spreadsheet. A session with four referrals on it adds four rows, and it is
-   * rows an administrator counts when they go and look at the sheet.
-   */
-  it('counts the rows it has added to Sheets, not just the sessions', async () => {
+  it('counts one processed session even when it writes several referral rows', async () => {
     let claims = 0;
     const row = {
       referralId: '00000000-0000-4000-8000-00000000000a',
@@ -316,8 +313,7 @@ describe('spreadsheet extract', () => {
                   sessionId: '00000000-0000-4000-8000-000000000099',
                   sessionDate: '2026-08-07',
                   sessionLocation: "St Mary's Hall",
-                  // Three referrals on one session — three rows from one
-                  // completed session, which is the distinction being tested.
+                  // Three referral rows still count as one processed session.
                   rows: [row, row, row],
                 },
               }
@@ -341,14 +337,12 @@ describe('spreadsheet extract', () => {
     await user.click(await screen.findByRole('button', { name: 'Start extract' }));
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
-    expect(
-      await screen.findByText(/1 extracted in this run, 3 rows added to Sheets/),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('1 session processed in this run.');
+    });
   });
 
-  it('counts rows written even when marking the session extracted then fails', async () => {
-    // The rows are in the spreadsheet at that point and the session is not
-    // marked, so the count is what somebody checks the sheet against.
+  it('does not count a session as processed when marking it extracted fails', async () => {
     let claims = 0;
     const row = {
       referralId: '00000000-0000-4000-8000-00000000000a',
@@ -399,7 +393,9 @@ describe('spreadsheet extract', () => {
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
     await screen.findByRole('button', { name: 'Try marking this session extracted again' });
-    expect(screen.getByText(/2 rows added to Sheets in this run/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/no session is counted as processed until this mark succeeds/),
+    ).toBeInTheDocument();
     expect(claims).toBe(1);
   });
 

@@ -6820,6 +6820,14 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** @description One stock item a session actually issued, for the extract's stock-usage summary — aggregated server-side from the stock ledger's `parcel_issued` movements for the session, summed across every parcel on it. An item the session never issued, or whose issued quantity nets to zero, is not in the array at all. A retired stock item is still listed if it was issued for this session. No stock movement's id, or any other per-movement detail, is exposed this way — only the total per item. */
+        StockItemUsage: {
+            /** Format: uuid */
+            stockItemId: string;
+            stockItemName: string;
+            /** @description Positive whole number: the total issued for this item across every parcel on the session. Never zero or negative — an item with nothing issued is simply absent from the array. */
+            quantity: number;
+        };
         ExtractClaim: {
             /**
              * Format: uuid
@@ -6842,6 +6850,8 @@ export interface components {
             sessionLocation: string;
             /** @description Every referral on the session, whatever its status — cancelled and rejected included. */
             rows: components["schemas"]["ExtractRow"][];
+            /** @description This session's stock-usage summary — see `StockItemUsage`. Reserved and marked extracted together with `rows`, through this same claim and its `complete` call: there is no separate queue or reservation for it. `[]`, not omitted, when the session issued no stock. */
+            stockItemUsage: components["schemas"]["StockItemUsage"][];
         };
         ExtractClaimResponse: components["schemas"]["ExtractProgress"] & {
             /** @description `null` when nothing could be handed out — the queue is empty, or everything left in it is currently reserved. That is how a batch ends, not an error. **It does not mean the work is done:** read `remaining` to tell "finished" from "the rest are reserved", including by an extract of your own that failed and cannot give its reservation back before it expires. */

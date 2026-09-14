@@ -117,7 +117,11 @@ export function LoginScreen() {
       <form
         noValidate
         onSubmit={(event) => {
-          void submit(event);
+          // React Hook Form also cancels this, but the form boundary must do
+          // so itself: Safari otherwise falls back to a native page reload
+          // before the asynchronous sign-in request begins.
+          event.preventDefault();
+          void submit();
         }}
       >
         <div className={styles.field}>
@@ -138,7 +142,12 @@ export function LoginScreen() {
           )}
         </div>
 
-        <button className={styles.submit} disabled={isSubmitting} type="submit">
+        <button
+          className={styles.submit}
+          disabled={isSubmitting}
+          onClick={() => void submit()}
+          type="button"
+        >
           {isSubmitting ? 'Signing in…' : 'Sign in'}
         </button>
       </form>

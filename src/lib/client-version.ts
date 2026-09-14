@@ -21,6 +21,12 @@ export async function reloadForNewerClient(
     window.location.replace(path);
   },
 ): Promise<boolean> {
+  // Vite does not inject a build revision in development, while the proxy
+  // serves the last generated client-version.json. Comparing the two would
+  // force a reload after every local sign-in — particularly harmful in Safari,
+  // which may not retain the Secure refresh cookie over HTTP localhost.
+  if (import.meta.env.DEV) return false;
+
   try {
     const response = await fetchVersion('/client-version.json', { cache: 'no-store' });
     if (!response.ok) return false;

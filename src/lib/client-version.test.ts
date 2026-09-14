@@ -1,7 +1,15 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { reloadForNewerClient } from './client-version';
 
 describe('reloadForNewerClient', () => {
+  beforeEach(() => {
+    vi.stubEnv('DEV', false);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('replaces the page after sign-in when the deployed client differs', async () => {
     const fetchVersion = vi
       .fn<typeof fetch>()
@@ -55,6 +63,17 @@ describe('reloadForNewerClient', () => {
       ),
     ).resolves.toBe(false);
 
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('does not version-check a Vite development server after sign-in', async () => {
+    vi.stubEnv('DEV', true);
+    const fetchVersion = vi.fn<typeof fetch>();
+    const replace = vi.fn();
+
+    await expect(reloadForNewerClient('/sessions', fetchVersion, replace)).resolves.toBe(false);
+
+    expect(fetchVersion).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
   });
 });

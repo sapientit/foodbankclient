@@ -5,6 +5,7 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
+import { listReturnContext } from '../../lib/list-return';
 import type { StockItem, StockLevel } from './queries';
 
 /**
@@ -117,23 +118,21 @@ describe('one stock key root', () => {
     await screen.findByRole('columnheader', { name: 'On hand' });
     expect(rowNames()).toEqual(['Pasta', 'Baked beans']);
 
-    await router.navigate(`/stock/items/${BEANS.id}`);
+    // Ask the amendment screen to return to the levels screen. This keeps the
+    // route transition under test in the mutation handler instead of racing a
+    // second, test-owned navigation against it.
+    await router.navigate(`/stock/items/${BEANS.id}`, {
+      state: listReturnContext('/stock', BEANS.id),
+    });
     const shelfInput = await screen.findByLabelText('Shelf');
     await user.clear(shelfInput);
     await user.type(shelfInput, 'A0');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
-    await screen.findByRole('heading', { name: 'Stock items' });
-
-    await router.navigate('/stock');
-    // The heading appears as soon as React commits the form's return route,
-    // before the submit handler has finished awaiting that navigation. Wait
-    // for that handler to settle before starting the next route change, or its
-    // final continuation can send this test back to Stock items.
+    await screen.findByRole('columnheader', { name: 'On hand' });
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/stock');
       expect(router.state.navigation.state).toBe('idle');
     });
-    await screen.findByRole('columnheader', { name: 'On hand' });
 
     /*
      * The cache is fresh for another minute, so this order can only change if

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { createEvent, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -75,6 +75,23 @@ describe('sign-in screen', () => {
     await submit('pete@x.com');
 
     expect(await screen.findByText('Sessions')).toBeInTheDocument();
+  });
+
+  it('cancels the browser form navigation before starting sign-in', () => {
+    renderLogin();
+    const form = screen.getByRole('button', { name: 'Sign in' }).closest('form');
+    if (form === null) throw new Error('Sign-in button is not in a form');
+    const event = createEvent.submit(form, { cancelable: true });
+
+    fireEvent(form, event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('uses a non-submitting button so Safari cannot navigate away before sign-in begins', () => {
+    renderLogin();
+
+    expect(screen.getByRole('button', { name: 'Sign in' })).toHaveAttribute('type', 'button');
   });
 
   it('restarts on the current client after a deployment instead of routing in the old one', async () => {

@@ -9,6 +9,7 @@ declare global {
             client_id: string;
             scope: string;
             callback: (response: { access_token?: string; error?: string }) => void;
+            error_callback?: (error: { type?: string }) => void;
           }): { requestAccessToken(config: { prompt: string }): void };
         };
       };
@@ -16,6 +17,13 @@ declare global {
   }
 }
 const GIS = 'https://accounts.google.com/gsi/client';
+let gisLoad: Promise<void> | null = null;
+
+/** Load GIS before the administrator reaches the confirm button; no consent is requested here. */
+export function preloadSheetsAccess(): Promise<void> {
+  return loadGis();
+}
+
 export function requestSheetsAccess(clientId: string): Promise<string> {
   return loadGis().then(
     () =>
@@ -30,6 +38,15 @@ export function requestSheetsAccess(clientId: string): Promise<string> {
                 new ShowableError(response.error ?? 'Google did not grant Sheets permission.'),
               );
           },
+          error_callback: (error) => {
+            const message =
+              error.type === 'popup_failed_to_open'
+                ? 'Google Sheets permission could not open its window. Allow pop-ups and try again.'
+                : error.type === 'popup_closed'
+                  ? 'Google Sheets permission was closed before it finished.'
+                  : 'Google Sheets permission could not start.';
+            reject(new ShowableError(message));
+          },
         });
         if (client === undefined) {
           reject(new ShowableError('Google sign-in could not start.'));
@@ -41,7 +58,8 @@ export function requestSheetsAccess(clientId: string): Promise<string> {
 }
 function loadGis(): Promise<void> {
   if (window.google !== undefined) return Promise.resolve();
-  return new Promise((resolve, reject) => {
+  if (gisLoad !== null) return gisLoad;
+  gisLoad = new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = GIS;
     script.async = true;
@@ -53,4 +71,5 @@ function loadGis(): Promise<void> {
     };
     document.head.append(script);
   });
+  return gisLoad;
 }

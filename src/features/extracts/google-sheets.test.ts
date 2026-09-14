@@ -2,7 +2,8 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { FIXED_HEADERS, HOUSEHOLD_COMPOSITION_SHEET_COLUMNS } from './archive-rows.logic';
-import { GoogleSheetsError, writeClaim } from './google-sheets';
+import { GoogleSheetsError, writeClaim, writeStockItemUsage } from './google-sheets';
+import { STOCK_ITEM_USAGE_FIXED_HEADERS } from './stock-item-usage.logic';
 import type { ExtractClaim } from './queries';
 import {
   emptyHouseholdComposition,
@@ -35,6 +36,7 @@ const claim: ExtractClaim = {
   sessionDate: '2026-08-07',
   sessionLocation: "St Mary's Hall",
   rows: [extractRow],
+  stockItemUsage: [],
 };
 
 interface SheetsWrite {
@@ -55,7 +57,13 @@ function stubSheets(
 
       if (request.method === 'GET') {
         return HttpResponse.json({
-          values: path.includes('/values/archive!') ? [archiveKeys] : mappingRows,
+          values: path.includes('/values/archive!')
+            ? [archiveKeys]
+            : path.includes("/values/'stock item usage'!")
+              ? [STOCK_ITEM_USAGE_FIXED_HEADERS]
+              : path.includes("/values/'stock item usage mapping'!")
+                ? [['key', 'column']]
+                : mappingRows,
         });
       }
 
@@ -90,6 +98,7 @@ function writeAt(writes: readonly SheetsWrite[], path: string): SheetsWrite {
 interface FakeSpreadsheet {
   archive: (string | number | boolean)[][];
   mapping: (string | number | boolean)[][];
+  stockItemUsage: (string | number | boolean)[][];
 }
 
 const CELL_RANGE = /^(archive|mapping)!([A-Z]+)(\d+):[A-Z]+\d+$/;
@@ -104,7 +113,7 @@ function columnIndex(name: string): number {
 }
 
 function stubSpreadsheet(): FakeSpreadsheet {
-  const sheet: FakeSpreadsheet = { archive: [], mapping: [] };
+  const sheet: FakeSpreadsheet = { archive: [], mapping: [], stockItemUsage: [] };
 
   server.use(
     http.all('https://sheets.googleapis.com/v4/spreadsheets/*', async ({ request }) => {
@@ -113,12 +122,22 @@ function stubSpreadsheet(): FakeSpreadsheet {
 
       if (request.method === 'GET') {
         // Sheets omits `values` for an empty range rather than sending [[]].
-        const rows = range.startsWith('archive!') ? sheet.archive.slice(0, 1) : sheet.mapping;
+        const rows = range.startsWith('archive!')
+          ? sheet.archive.slice(0, 1)
+          : range.startsWith("'stock item usage'!")
+            ? [STOCK_ITEM_USAGE_FIXED_HEADERS]
+            : range.startsWith("'stock item usage mapping'!")
+              ? [['key', 'column']]
+              : sheet.mapping;
         return HttpResponse.json(rows.length === 0 ? {} : { values: rows });
       }
 
       const { values } = (await request.json()) as { values: (string | number | boolean)[][] };
-      const target = range.startsWith('archive!') ? sheet.archive : sheet.mapping;
+      const target = range.startsWith('archive!')
+        ? sheet.archive
+        : range.startsWith("'stock item usage'!")
+          ? sheet.stockItemUsage
+          : sheet.mapping;
 
       if (range.endsWith(':append')) {
         target.push(...values);
@@ -145,6 +164,66 @@ function stubSpreadsheet(): FakeSpreadsheet {
 }
 
 describe('writing a claim to the spreadsheet', () => {
+  it('shows Google’s explanation when a workbook range cannot be used', async () => {
+    server.use(
+      http.get('https://sheets.googleapis.com/v4/spreadsheets/*', () =>
+        HttpResponse.json(
+          { error: { message: "Unable to parse range: 'stock item usage'!1:1" } },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    await expect(
+      writeStockItemUsage('sheet-1', 'google-token', {
+        sessionId: SESSION_ID,
+        sessionDate: '2026-08-07',
+        sessionLocation: "St Mary's Hall",
+        stockItemUsage: [],
+      }),
+    ).rejects.toThrow(
+      "Google Sheets could not complete the write (400): Unable to parse range: 'stock item usage'!1:1",
+    );
+  });
+
+  it('writes one stock-usage row with stable keys, item headings, and its reconciliation id', async () => {
+    const writes = stubSheets(FIXED_HEADERS, [['key', 'column']]);
+
+    await writeStockItemUsage('sheet-1', 'google-token', {
+      sessionId: SESSION_ID,
+      sessionDate: '2026-08-07',
+      sessionLocation: "St Mary's Hall",
+      stockItemUsage: [
+        { stockItemId: 'item-a', stockItemName: 'Pasta', quantity: 4 },
+        { stockItemId: 'item-b', stockItemName: 'Baked beans', quantity: 12 },
+      ],
+    });
+
+    expect(
+      writeAt(writes, "/v4/spreadsheets/sheet-1/values/'stock item usage'!D1:E1").body,
+    ).toEqual({
+      values: [['stockItem.item-a', 'stockItem.item-b']],
+    });
+    expect(
+      writeAt(writes, "/v4/spreadsheets/sheet-1/values/'stock item usage'!D2:E2").body,
+    ).toEqual({
+      values: [['Pasta', 'Baked beans']],
+    });
+    expect(
+      writeAt(writes, "/v4/spreadsheets/sheet-1/values/'stock item usage mapping'!A:B:append").body,
+    ).toEqual({
+      values: [
+        ['stockItem.item-a', 4],
+        ['stockItem.item-b', 5],
+      ],
+    });
+    expect(
+      writeAt(writes, "/v4/spreadsheets/sheet-1/values/'stock item usage'!A:ZZ:append").body,
+    ).toEqual({
+      values: [[SESSION_ID, '2026-08-07', "St Mary's Hall", 4, 12]],
+    });
+  });
+
   it('uses hidden keys, not editable headings, to write an existing answer column', async () => {
     const keys = [...FIXED_HEADERS, DYNAMIC_KEY];
     const writes = stubSheets(keys, [
@@ -188,7 +267,7 @@ describe('writing a claim to the spreadsheet', () => {
     expect(archiveWrite.body).toEqual({
       values: [expect.arrayContaining(["St Mary's Hall", 'No money for food'])],
     });
-    expect(JSON.stringify(writes)).not.toContain(SESSION_ID);
+    expect(JSON.stringify(archiveWrite.body)).not.toContain(SESSION_ID);
   });
 
   it('adds stable columns for a composition grid and writes individual counts', async () => {

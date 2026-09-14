@@ -3,7 +3,7 @@ import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { ShowableError } from '../../../lib/errors';
-import { requestSheetsAccess } from '../google-auth';
+import { preloadSheetsAccess, requestSheetsAccess } from '../google-auth';
 import { writeClaim } from '../google-sheets';
 import { useCompleteExtractClaim, useExtractClaim, useExtractConfig } from '../queries';
 import { useReferralReasons } from '../../admin-setup/queries';
@@ -32,37 +32,22 @@ interface PendingCompletion {
   spreadsheetId: string;
 }
 
-/**
- * `12 rows added to Sheets`. Sessions are what the extract works through, but
- * rows are what land in the spreadsheet and what an administrator counts when
- * they go and check it — a session with no referrals on it adds none at all.
- */
-function rowsAdded(rows: number): string {
-  return `${String(rows)} ${rows === 1 ? 'row' : 'rows'} added to Sheets`;
+function sessionsProcessed(sessions: number): string {
+  return `${String(sessions)} ${sessions === 1 ? 'session' : 'sessions'} processed`;
 }
 
 export function ExtractScreen() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [batchCount, setBatchCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
-  /**
-   * Rows appended to the archive, counted **when the Sheets write returns** and
-   * not when the session is marked extracted.
-   *
-   * The two are deliberately different moments. A write that succeeds and a
-   * completion that then fails leaves rows in the spreadsheet against a session
-   * still queued — that is the intended failure direction, and it is exactly
-   * when somebody needs to know how many rows went in, because they are the
-   * ones that will be duplicated by the next run.
-   */
-  const [rowCount, setRowCount] = useState(0);
   const [runSequence, setRunSequence] = useState(0);
   const [error, setError] = useState<unknown>(null);
+  const [gisReady, setGisReady] = useState(false);
   const [pendingCompletion, setPendingCompletion] = useState<PendingCompletion | null>(null);
   const accessToken = useRef<string | null>(null);
   const spreadsheetId = useRef<string | null>(null);
   const started = useRef(false);
-  const config = useExtractConfig(phase === 'configuring');
+  const config = useExtractConfig(true);
   const claim = useExtractClaim();
   const complete = useCompleteExtractClaim();
   /*
@@ -73,33 +58,53 @@ export function ExtractScreen() {
    */
   const reasons = useReferralReasons(ANSWERS_NEED_LOOKUPS);
 
+  // GIS must be ready before the administrator confirms. Loading its script is
+  // not a consent request; it preserves the click gesture for the popup Safari
+  // otherwise blocks after an asynchronous script/configuration round trip.
+  useEffect(() => {
+    void preloadSheetsAccess().then(
+      () => {
+        setGisReady(true);
+      },
+      () => {
+        // The confirm dialog stays unavailable; requesting from a later retry
+        // would lose Safari's user gesture again.
+      },
+    );
+  }, []);
+
+  function beginAuthorisation(): void {
+    if (
+      !config.data?.configured ||
+      config.data.spreadsheetId === undefined ||
+      config.data.googleClientId === undefined
+    ) {
+      setError(new ShowableError('Spreadsheet extraction is not configured for this deployment.'));
+      setPhase('error');
+      return;
+    }
+    spreadsheetId.current = config.data.spreadsheetId;
+    setPhase('authorising');
+    void requestSheetsAccess(config.data.googleClientId)
+      .then((token) => {
+        accessToken.current = token;
+        setPhase('running');
+      })
+      .catch((reason: unknown) => {
+        setError(reason);
+        setPhase('error');
+      });
+  }
+
   useEffect(() => {
     if (phase !== 'configuring' || !config.isSuccess) return;
     queueMicrotask(() => {
-      if (
-        !config.data.configured ||
-        config.data.spreadsheetId === undefined ||
-        config.data.googleClientId === undefined
-      ) {
-        setError(
-          new ShowableError('Spreadsheet extraction is not configured for this deployment.'),
-        );
-        setPhase('error');
-        return;
-      }
-      spreadsheetId.current = config.data.spreadsheetId;
-      setPhase('authorising');
-      void requestSheetsAccess(config.data.googleClientId)
-        .then((token) => {
-          accessToken.current = token;
-          setPhase('running');
-        })
-        .catch((reason: unknown) => {
-          setError(reason);
-          setPhase('error');
-        });
+      beginAuthorisation();
     });
-  }, [config.data, config.isSuccess, phase]);
+    // `beginAuthorisation` deliberately runs once when a slow config request
+    // finishes. The normal path calls it directly from the confirm gesture.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.isSuccess, phase]);
 
   async function extractNext(): Promise<void> {
     try {
@@ -119,10 +124,6 @@ export function ExtractScreen() {
           'The reasons for referral could not be loaded. Nothing was written.',
         );
       await writeClaim(sheet, token, response.claim, reasonOptionSources(reasons.data ?? []));
-      // One archive row per referral on the session, and they are in the sheet
-      // now — counted here rather than after the mark, which may yet fail.
-      const written = response.claim.rows.length;
-      setRowCount((count) => count + written);
       try {
         await complete.mutateAsync(response.claim.claimId);
       } catch (reason) {
@@ -172,7 +173,8 @@ export function ExtractScreen() {
     started.current = true;
     setError(null);
     setBatchCount(0);
-    setPhase('configuring');
+    if (config.isSuccess) beginAuthorisation();
+    else setPhase('configuring');
   }
   /**
    * Ends the run. **The counts go back to zero with it**, because `stop` drops
@@ -188,7 +190,6 @@ export function ExtractScreen() {
     started.current = false;
     setBatchCount(0);
     setTotalCount(0);
-    setRowCount(0);
     setPhase('idle');
   }
 
@@ -237,14 +238,14 @@ export function ExtractScreen() {
         <p role="status">
           {phase === 'authorising'
             ? 'Waiting for Google Sheets permission…'
-            : `Extracting sessions: ${String(totalCount)} completed in this run, ${rowsAdded(rowCount)}.`}
+            : `Extracting sessions: ${sessionsProcessed(totalCount)} in this run.`}
         </p>
       )}
       {phase === 'done' && (
         <>
           <p role="status">
-            There are no unextracted confirmed sessions waiting. {String(totalCount)} extracted in
-            this run, {rowsAdded(rowCount)}.
+            There are no unextracted confirmed sessions waiting. {sessionsProcessed(totalCount)} in
+            this run.
           </p>
           <button onClick={stop} type="button">
             Finish
@@ -254,13 +255,10 @@ export function ExtractScreen() {
       {phase === 'error' && (
         <>
           <ErrorNotice error={error} />
-          {/* What the run actually left behind. "Nothing was marked extracted"
-              is the reassurance somebody needs before they go and look at the
-              spreadsheet, and the row count is what they compare it against —
-              rows can be in the sheet on a session that is still queued. */}
+          {/* A failed write never marks a session extracted. */}
           <p>
             No session was marked extracted by this failure, and any session claimed for it returns
-            to the queue within ten minutes. {rowsAdded(rowCount)} before it stopped.
+            to the queue within ten minutes.
           </p>
           {/* "Finish" said this run had finished, on a screen that had just
               failed to do it — which is why it was believed to be what marked
@@ -279,8 +277,8 @@ export function ExtractScreen() {
         <>
           <ErrorNotice error={error} />
           <p>
-            The rows may be in the spreadsheet. Google will not be called again.{' '}
-            {rowsAdded(rowCount)} in this run.
+            The spreadsheet write may have succeeded. Google will not be called again, and no
+            session is counted as processed until this mark succeeds.
           </p>
           <button onClick={() => void retryCompletion()} type="button">
             Try marking this session extracted again
@@ -294,6 +292,7 @@ export function ExtractScreen() {
       )}
       {phase === 'continue' && (
         <ConfirmDialog
+          busy={totalCount === 0 && (!config.isSuccess || !gisReady)}
           confirmLabel={totalCount === 0 ? 'Continue' : 'Continue extracting'}
           onCancel={stop}
           onConfirm={() => {
@@ -307,9 +306,11 @@ export function ExtractScreen() {
           title={totalCount === 0 ? 'This might take some time' : 'Continue extracting?'}
         >
           <p>
-            {totalCount === 0
-              ? 'Do you want to continue? You will then be asked separately for Google Sheets permission.'
-              : `Twenty sessions have been extracted. Do you want to continue?`}
+            {totalCount === 0 && (!config.isSuccess || !gisReady)
+              ? 'Preparing Google Sheets permission…'
+              : totalCount === 0
+                ? 'Do you want to continue? You will then be asked separately for Google Sheets permission.'
+                : `Twenty sessions have been extracted. Do you want to continue?`}
           </p>
         </ConfirmDialog>
       )}
