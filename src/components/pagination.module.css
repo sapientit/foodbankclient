@@ -8,3 +8,19 @@
 .pagination span {
   font-variant-numeric: tabular-nums;
 }
+
+.pagination button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 2.5rem;
+  min-block-size: 2.5rem;
+  padding: 0.4rem;
+  border-radius: 999px;
+}
+
+.pagination button svg {
+  inline-size: 1.35rem;
+  block-size: 1.35rem;
+  stroke-width: 2.4;
+}

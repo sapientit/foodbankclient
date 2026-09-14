@@ -171,13 +171,13 @@ describe('AppShell', () => {
     expect(nav.compareDocumentPosition(signOut) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('names the home link from its text, not the decorative logo', async () => {
+  it('keeps the home link named after removing the duplicate wordmark text', async () => {
     await renderShell('admin');
 
-    // The logo is `alt=""` — the visible "Food Bank" text in the same link is
-    // the accessible name, and the mark must not be announced on top of it.
+    // The image includes the charity name, so it provides the link's accessible
+    // name without a second visible "Food Bank" label beside the mark.
     expect(screen.getByRole('link', { name: 'Food Bank' })).toHaveAttribute('href', '/');
-    expect(screen.queryByRole('img', { name: /logo/i })).toBeNull();
+    expect(screen.getByRole('img', { name: 'Food Bank' })).toBeInTheDocument();
   });
 
   it('offers a skip link to the main content', async () => {

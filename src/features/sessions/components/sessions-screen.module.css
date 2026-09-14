@@ -30,6 +30,13 @@
   max-inline-size: 70ch;
 }
 
+@media (min-width: 80rem) {
+  .rowAction {
+    min-inline-size: auto;
+    padding-inline: 0.65rem;
+  }
+}
+
 @media print {
   .actions {
     display: none;

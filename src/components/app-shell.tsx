@@ -72,8 +72,7 @@ export function AppShell() {
 
       <header className={styles.header}>
         <Link className={styles.wordmark} to="/">
-          <img alt="" className={styles.wordmarkLogo} src={foodbankLogo} />
-          Food Bank
+          <img alt="Food Bank" className={styles.wordmarkLogo} src={foodbankLogo} />
         </Link>
 
         {topTabs.length > 0 && (

@@ -105,6 +105,30 @@ export function PencilIcon({ className }: IconProps) {
   );
 }
 
+export function PlayIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="m9 5 10 7-10 7V5Z" />
+    </svg>
+  );
+}
+
+export function ChevronLeftIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="m14.5 5-7 7 7 7" />
+    </svg>
+  );
+}
+
+export function ChevronRightIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="m9.5 5 7 7-7 7" />
+    </svg>
+  );
+}
+
 export function ArchiveIcon({ className }: IconProps) {
   return (
     <svg {...shared} className={className}>

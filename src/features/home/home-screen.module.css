@@ -16,12 +16,22 @@
 .overview {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  align-items: start;
   gap: 0.95rem;
   margin-block-end: 0.95rem;
 }
 
+.dashboardActions {
+  display: grid;
+  gap: 0.95rem;
+}
+
 .todaySessions h2 {
   margin-block-start: 0;
+}
+
+.todaySessions {
+  justify-self: start;
 }
 
 .tile h2,
@@ -35,6 +45,29 @@
 
 .headingIcon {
   flex-shrink: 0;
+}
+
+.sectionIconCircle,
+.referralsIconCircle {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  inline-size: 2.35rem;
+  block-size: 2.35rem;
+  border-radius: 50%;
+  background: #0f7a44;
+  color: #ffffff;
+}
+
+.sectionIconCircle svg,
+.referralsIconCircle svg {
+  inline-size: 1.35rem;
+  block-size: 1.35rem;
+  stroke-width: 2.2;
+}
+
+.referralsIconCircle {
+  background: #c62828;
 }
 
 .tile,
@@ -54,6 +87,16 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
+}
+
+.tileTopIcon {
+  position: absolute;
+  inset-block-start: 0.85rem;
+  inset-inline-end: 0.85rem;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  color: #c62828;
+  stroke-width: 2.2;
 }
 
 .tile[data-category='sessions'],
@@ -115,6 +158,7 @@
 }
 
 .tile[data-category='referrals'] h2 {
+  padding-inline-end: 2rem;
   color: #c62828;
 }
 .tile strong {
@@ -127,7 +171,7 @@
 }
 .todayList {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(13rem, max-content));
   gap: 0.95rem;
   padding: 0;
   list-style: none;
@@ -137,12 +181,30 @@
   min-inline-size: 0;
 }
 
-.todayList .tile {
-  block-size: 100%;
-}
-
 .todayList .tile h3 {
   margin-block-start: 0;
+  color: #0f7a44;
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sessionTimeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.sessionTimeRow h3 {
+  margin-block-end: 0;
+}
+
+.sessionIcon {
+  flex: 0 0 auto;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  color: #0f7a44;
+  stroke-width: 2.2;
 }
 
 .tile p {
@@ -150,24 +212,44 @@
   font-size: 0.9rem;
 }
 
-.todayList .tile a,
-.tile > a {
+.todayList .tile a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-block-size: 2.4rem;
   margin-block-start: 0.25rem;
   padding-inline: 0.85rem;
-  border: 1px solid #b3ddc7;
+  border: 1px solid #0f7a44;
   border-radius: 0.5rem;
-  color: #0f7a44;
+  background: #0f7a44;
+  color: #ffffff;
   font-weight: 600;
   text-decoration: none;
 }
 
-.tile[data-category='referrals'] > a {
-  border-color: #e6b0b2;
-  color: #c62828;
+.todayList .tile a {
+  inline-size: 100%;
+}
+
+.todayList .tile a:hover {
+  background: #0b5c35;
+}
+
+.dashboardAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 3.5rem;
+  margin-block-start: 1rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.625rem;
+  background: #c62828;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.dashboardAction:hover {
+  background: #9f2020;
 }
 
 .upcomingPanel,
@@ -186,25 +268,23 @@
 .tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0;
+  gap: 0.4rem;
   margin-block-end: 0.5rem;
-  border-block-end: 1px solid #cfdbd3;
 }
 
-/* These are navigation choices, not actions. The shared plain-control style
-   removes the filled action button; the connected baseline and selected edge
-   make the chosen range visibly a tab. */
+/* These are navigation choices, not form actions. A filled selected tab states
+   the current range without turning the range picker into a row of buttons. */
 .tabs button {
-  position: relative;
-  margin-block-end: -1px;
   padding: 0.5rem 0.75rem;
-  border-block-end: 3px solid transparent;
-  border-radius: 0;
+  border: 1px solid #8cb99d;
+  border-radius: 0.55rem;
+  color: #0f7a44;
 }
 
 .tabs button[aria-selected='true'] {
-  border-block-end-color: #0f7a44;
-  color: #0f7a44;
+  border-color: #0f7a44;
+  background: #0f7a44;
+  color: #ffffff;
   font-weight: 700;
 }
 
@@ -258,9 +338,6 @@
   gap: 0.35rem;
   margin: 0;
   font-size: 0.9rem;
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.15em;
 }
 
 .alertIcon {
@@ -292,5 +369,31 @@
 
   .alertsPanel {
     position: static;
+  }
+}
+
+@media (min-width: 80rem) {
+  .rowAction {
+    min-inline-size: auto;
+    padding-inline: 0.65rem;
+  }
+
+  .todayList .tile h3 {
+    font-size: clamp(1.45rem, 1.2rem + 0.55vw, 1.9rem);
+  }
+
+  .sessionIcon {
+    inline-size: 1.8rem;
+    block-size: 1.8rem;
+  }
+
+  .alertIcon {
+    inline-size: 1.55rem;
+    block-size: 1.55rem;
+    stroke-width: 2.2;
+  }
+
+  .alertLink h3 {
+    gap: 0.55rem;
   }
 }

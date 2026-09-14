@@ -84,6 +84,8 @@ describe('the model parcels list', () => {
     await waitFor(() => {
       expect(screen.queryByRole('rowheader', { name: 'Family parcel' })).toBeNull();
     });
+    expect(screen.getByRole('status')).toHaveTextContent('Deleted Family parcel.');
+    expect(screen.getByRole('link', { name: 'Add a model parcel' })).toHaveFocus();
   });
 
   it('shows the server’s refusal verbatim when the grid still uses the parcel', async () => {
@@ -130,6 +132,13 @@ describe('the model parcels list', () => {
     expect(within(row).getByRole('button', { name: 'Delete Family parcel' })).toHaveAttribute(
       'title',
       'Delete Family parcel',
+    );
+    expect(within(row).getByRole('link', { name: 'Amend Family parcel' })).toHaveClass(
+      'button-plain',
+    );
+    expect(within(row).getByRole('button', { name: 'Delete Family parcel' })).toHaveClass(
+      'button-danger',
+      'button-plain',
     );
   });
 });

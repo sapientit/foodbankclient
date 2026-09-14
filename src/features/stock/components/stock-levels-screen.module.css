@@ -33,9 +33,21 @@
 }
 
 .adjust {
-  margin-inline-start: 0.5rem;
-  padding: 0.1rem 0.35rem;
-  font-size: 1rem;
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 2.25rem;
+  min-block-size: 2.25rem;
+  padding: 0.25rem;
+}
+
+.adjust svg {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  stroke-width: 2.2;
+}
+
+.adjustmentAction {
+  text-align: center;
 }
 
 .adjustmentRow td {
@@ -95,5 +107,57 @@
   .toggle,
   .actions {
     display: none;
+  }
+}
+
+@media (max-width: 50rem) {
+  .table,
+  .table tbody,
+  .table tr,
+  .table th,
+  .table td {
+    display: block;
+  }
+
+  .table thead {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .table tbody > tr:not(.adjustmentRow) {
+    margin-block-end: 1rem;
+    border: 1px solid #d4d4d4;
+  }
+
+  .table tbody > tr:not(.adjustmentRow) > th {
+    border-block-end: 2px solid #1a1a1a;
+  }
+
+  .table tbody > tr:not(.adjustmentRow) > td {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .table tbody > tr:not(.adjustmentRow) > td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    text-align: start;
+  }
+
+  .table tbody > tr:not(.adjustmentRow) > td.numeric {
+    text-align: end;
+  }
+
+  .table tbody > tr:not(.adjustmentRow) > td.numeric::before {
+    text-align: start;
+  }
+
+  .adjustmentAction {
+    text-align: end;
   }
 }

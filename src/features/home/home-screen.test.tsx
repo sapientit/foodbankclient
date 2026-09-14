@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, delay, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -70,6 +70,9 @@ describe('the administrator dashboard', () => {
     expect(await screen.findByText('3 unread SMS messages')).toBeInTheDocument();
     expect(screen.queryByText('Go to stock to reorder')).toBeNull();
     expect(screen.queryByText('Review and process referrals')).toBeNull();
+
+    const checkReferrals = screen.getByRole('link', { name: 'Check referrals' });
+    expect(checkReferrals.querySelectorAll('svg')).toHaveLength(0);
   });
 
   it('alerts an administrator when the latest volunteer code has under five days left', async () => {
@@ -292,8 +295,12 @@ describe('the administrator dashboard', () => {
 
     expect(await screen.findByRole('heading', { name: '09:00–10:30' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '14:00–15:30' })).toBeInTheDocument();
-    expect(screen.getAllByText('10 of 25')).toHaveLength(4);
-    expect(screen.queryByText('10 of 25 booked')).toBeNull();
+    const todaySection = screen
+      .getByRole('heading', { name: "Today's sessions" })
+      .closest('section');
+    if (todaySection === null) throw new Error("Today's sessions section is missing.");
+    expect(within(todaySection).getAllByText('10 of 25 bookings')).toHaveLength(2);
+    expect(within(todaySection).getAllByText('Collection Only')).toHaveLength(2);
     expect(screen.getByRole('link', { name: 'Run session, 09:00–10:30' })).toHaveAttribute(
       'href',
       '/run-sessions/morning',
@@ -302,6 +309,9 @@ describe('the administrator dashboard', () => {
       'href',
       '/run-sessions/afternoon',
     );
+    expect(
+      screen.getByRole('link', { name: 'Run session, 09:00–10:30' }).querySelectorAll('svg'),
+    ).toHaveLength(0);
   });
 
   it('takes an upcoming session date to Run a session while keeping the run and amend controls', async () => {
@@ -365,16 +375,18 @@ describe('the upcoming-sessions table, Custom range', () => {
     fireEvent.change(to, { target: { value: '2026-06-30' } });
 
     await screen.findByText('Page 1 of 2');
-    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
     await screen.findByText('Page 2 of 2');
 
     // Narrow the range to only the first three sessions — page 2 no longer
     // exists in it.
     fireEvent.change(to, { target: { value: '2026-06-03' } });
 
-    expect(await screen.findByText('Page 1 of 1')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByRole('row')).toHaveLength(4); // header + 3 sessions
+    });
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).toBeNull();
     expect(screen.queryByText('No sessions fall in this range.')).toBeNull();
-    expect(screen.getAllByRole('row')).toHaveLength(4); // header + 3 sessions
   });
 
   it('moves through the session range tabs with the keyboard', async () => {

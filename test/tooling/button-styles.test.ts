@@ -44,8 +44,18 @@ const CONTROL_ONLY_COLOURS = [
 describe('the global control style', () => {
   const globalStyles = readFileSync(join(REPO_ROOT, 'src/index.css'), 'utf8').toLowerCase();
 
+  it('removes underlines from visible links without changing their colour', () => {
+    expect(globalStyles).toMatch(/^a\s*\{\s*text-decoration:\s*none;\s*\}/m);
+  });
+
   it('is hung off `button` itself, so a button written tomorrow is drawn correctly', () => {
     expect(globalStyles).toMatch(/^button,$/m);
+  });
+
+  it('draws visible link controls without an underline', () => {
+    expect(globalStyles).toMatch(
+      /a:where\(\.button-link\)\s*\{[^}]*display:\s*inline-block;[^}]*text-decoration:\s*none;/,
+    );
   });
 
   it.each(['button-secondary', 'button-danger', 'button-plain'])(
@@ -178,5 +188,20 @@ describe('the CSS modules', () => {
     for (const colour of CONTROL_ONLY_COLOURS) {
       expect(stylesheet).not.toContain(colour);
     }
+  });
+
+  it('keeps the Stock groupings Add button out of the compact icon-action row', () => {
+    const screen = readFileSync(
+      join(REPO_ROOT, 'src/features/stock/components/stock-groupings-screen.tsx'),
+      'utf8',
+    );
+    const stockItemsStyles = readFileSync(
+      join(REPO_ROOT, 'src/features/stock/components/stock-items-screen.module.css'),
+      'utf8',
+    );
+
+    expect(screen).toContain('className={styles.groupingActions}');
+    expect(stockItemsStyles).toMatch(/\.groupingActions\s*\{[^}]*display:\s*flex;/);
+    expect(stockItemsStyles).not.toMatch(/\.groupingActions\s+button\s*\{[^}]*inline-size:/);
   });
 });

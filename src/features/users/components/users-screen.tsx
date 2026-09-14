@@ -4,6 +4,7 @@ import { useAuth } from '../../../auth/auth-context';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
 import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
+import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError } from '../../../lib/errors';
@@ -183,7 +184,9 @@ export function UsersScreen() {
                     to={`/users/${row.id}`}
                     title={`Amend ${row.displayName}`}
                   >
-                    <PencilIcon />
+                    <ResponsiveIconLabel label="Edit">
+                      <PencilIcon />
+                    </ResponsiveIconLabel>
                   </Link>
 
                   {row.isActive ? (

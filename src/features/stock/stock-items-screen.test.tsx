@@ -383,8 +383,10 @@ describe('stock-item maintenance', () => {
     const amend = within(row).getByRole('link', { name: 'Amend Baked beans' });
     const retire = within(row).getByRole('button', { name: 'Retire Baked beans' });
     expect(amend).toHaveAttribute('title', 'Amend Baked beans');
+    expect(amend).toHaveClass('button-plain');
     expect(amend).not.toHaveTextContent('Amend');
     expect(retire).toHaveAttribute('title', 'Retire Baked beans');
+    expect(retire).toHaveClass('button-danger', 'button-plain');
     expect(retire).not.toHaveTextContent('Retire');
   });
 });

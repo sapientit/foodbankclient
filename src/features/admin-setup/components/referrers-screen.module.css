@@ -54,6 +54,13 @@
   block-size: 1.25rem;
 }
 
+@media (min-width: 80rem) {
+  .actions a {
+    inline-size: auto;
+    padding-inline: 0.65rem;
+  }
+}
+
 @media print {
   .actions {
     display: none;

@@ -1,7 +1,8 @@
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
-import { PageHeader } from '../../../components/page-header';
+import { FeatureHero } from '../../../components/feature-hero';
+import { UsersIcon } from '../../../components/icons';
 import { formatSessionDate } from '../../../lib/london-time';
 import { useReferralReasons } from '../../admin-setup/queries';
 import { useReferralSearch, useReferralSearchMemory } from '../queries';
@@ -26,14 +27,26 @@ export function ReferralSearchScreen() {
   const [dateOfBirth, setDateOfBirth] = useState(criteria?.dateOfBirth ?? '');
   const [surnamePrefix, setSurnamePrefix] = useState(criteria?.surnamePrefix ?? '');
   const hasTerm = postcode !== '' || phone !== '' || dateOfBirth !== '';
+
+  function clear(): void {
+    setDateOfBirth('');
+    setPostcode('');
+    setPhone('');
+    setSurnamePrefix('');
+    setCriteria(null);
+    memory.clear();
+  }
+
   return (
     <>
-      <PageHeader title="Search referrals" />
-      <p>
-        Search by date of birth, postcode and/or phone number. A surname start narrows those
-        results.
-      </p>
+      <FeatureHero eyebrow="Referral management" icon={<UsersIcon />} title="Search referrals">
+        <p>
+          Search by date of birth, postcode and/or phone number. A surname start narrows those
+          results.
+        </p>
+      </FeatureHero>
       <form
+        className={styles.formPanel}
         onSubmit={(event) => {
           event.preventDefault();
           if (!hasTerm) return;
@@ -52,9 +65,9 @@ export function ReferralSearchScreen() {
           if (unchanged) void search.refetch();
         }}
       >
-        <div className={styles.fieldRow}>
-          <label>
-            DoB{' '}
+        <div className={styles.fieldGrid}>
+          <label className={styles.field}>
+            <span>Date of birth</span>
             <input
               type="date"
               value={dateOfBirth}
@@ -63,8 +76,8 @@ export function ReferralSearchScreen() {
               }}
             />
           </label>
-          <label>
-            or Postcode{' '}
+          <label className={styles.field}>
+            <span>Postcode</span>
             <input
               value={postcode}
               onChange={(event) => {
@@ -72,8 +85,8 @@ export function ReferralSearchScreen() {
               }}
             />
           </label>
-          <label>
-            or Phone number{' '}
+          <label className={styles.field}>
+            <span>Phone number</span>
             <input
               value={phone}
               onChange={(event) => {
@@ -81,10 +94,8 @@ export function ReferralSearchScreen() {
               }}
             />
           </label>
-        </div>
-        <div className={styles.fieldRow}>
-          <label>
-            Start of surname{' '}
+          <label className={styles.field}>
+            <span>Start of surname</span>
             <input
               value={surnamePrefix}
               onChange={(event) => {
@@ -92,17 +103,22 @@ export function ReferralSearchScreen() {
               }}
             />
           </label>
-          <button disabled={!hasTerm || search.isFetching} type="submit">
-            Search
-          </button>
+          <div className={styles.actions}>
+            <button disabled={!hasTerm || search.isFetching} type="submit">
+              Search
+            </button>
+            <button className="button-secondary" onClick={clear} type="button">
+              Clear
+            </button>
+          </div>
         </div>
       </form>
       {search.error !== null && <ErrorNotice error={search.error} />}
       {search.data !== undefined && (
-        <>
-          <p>
-            {search.data.count} result{search.data.count === 1 ? '' : 's'} found.
-          </p>
+        <section aria-labelledby="search-results-heading" className={styles.resultsPanel}>
+          <h2 id="search-results-heading">
+            {search.data.count} result{search.data.count === 1 ? '' : 's'} found
+          </h2>
           <div
             aria-label="Referral search results"
             className={styles.tableWrap}
@@ -119,39 +135,54 @@ export function ReferralSearchScreen() {
                   <th scope="col">Postcode</th>
                   <th scope="col">Phone</th>
                   <th scope="col">Referrer organisation</th>
+                  <th scope="col">Notes</th>
+                  <th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {search.data.results.map((result) => (
-                  <Fragment key={result.referralId}>
-                    <tr>
-                      <td>{formatSessionDate(result.sessionDate)}</td>
-                      <td>{REFERRAL_STATUS_LABELS[result.status]}</td>
-                      <th scope="row">
-                        {/* The flag is what puts "Back to search results" on the
+                  <tr key={result.referralId}>
+                    <td>{formatSessionDate(result.sessionDate)}</td>
+                    <td>
+                      <span className={styles.status} data-status={result.status}>
+                        {REFERRAL_STATUS_LABELS[result.status]}
+                      </span>
+                    </td>
+                    <th scope="row">
+                      {/* The flag is what puts "Back to search results" on the
                             referral, and it is a boolean rather than the search
                             itself: history state is not a place personal data
                             may go. */}
-                        <Link state={{ fromSearch: true }} to={`/referrals/${result.referralId}`}>
-                          {formatName(result.refereeSurname, result.refereeFirstName)}
-                        </Link>
-                      </th>
-                      <td>{result.refereePostcode ?? '—'}</td>
-                      <td>{result.refereePhone ?? '—'}</td>
-                      <td>{result.referrerOrganisation}</td>
-                    </tr>
-                    <tr className={styles.summaryRow}>
-                      <td colSpan={6}>
-                        {reasonLabel(reasons.data, result.reasonId)} /{' '}
-                        {reasonLabel(
-                          reasons.data,
-                          answerChoiceId(result.answers, SECONDARY_REASON_KEY),
-                        )}{' '}
-                        / {answerText(result.answers, REASON_ADDITIONAL_KEY)} /{' '}
-                        {result.adminInfo ?? '—'}
-                      </td>
-                    </tr>
-                  </Fragment>
+                      <Link
+                        className={styles.nameLink}
+                        state={{ fromSearch: true }}
+                        to={`/referrals/${result.referralId}`}
+                      >
+                        {formatName(result.refereeSurname, result.refereeFirstName)}
+                      </Link>
+                    </th>
+                    <td>{result.refereePostcode ?? '—'}</td>
+                    <td>{result.refereePhone ?? '—'}</td>
+                    <td>{result.referrerOrganisation}</td>
+                    <td className={styles.notes}>
+                      {reasonLabel(reasons.data, result.reasonId)} /{' '}
+                      {reasonLabel(
+                        reasons.data,
+                        answerChoiceId(result.answers, SECONDARY_REASON_KEY),
+                      )}{' '}
+                      / {answerText(result.answers, REASON_ADDITIONAL_KEY)} /{' '}
+                      {result.adminInfo ?? '—'}
+                    </td>
+                    <td>
+                      <Link
+                        className="button-link button-secondary"
+                        state={{ fromSearch: true }}
+                        to={`/referrals/${result.referralId}`}
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -162,7 +193,7 @@ export function ReferralSearchScreen() {
               households.
             </p>
           )}
-        </>
+        </section>
       )}
     </>
   );

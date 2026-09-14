@@ -17,10 +17,10 @@ const CEREAL: StockLevel = {
   shelfNumber: 'A1',
   lowStockThreshold: 10,
   groupingId: null,
-  unitsPerPack: null,
-  packUnitLabel: null,
+  unitsPerPack: 24,
+  packUnitLabel: 'boxes',
   isActive: true,
-  quantityOnHand: 95,
+  quantityOnHand: 40,
 };
 const BEANS: StockLevel = {
   id: 's2',
@@ -123,6 +123,19 @@ describe('stock levels', () => {
     expect(screen.getByRole('row', { name: /Baked beans/ })).toHaveTextContent('Not watched');
   });
 
+  it('shows the packing description and one-decimal packing quantity where configured', async () => {
+    renderApp('/stock');
+
+    const cereal = await screen.findByRole('row', { name: /Cereal/ });
+    expect(within(cereal).getByText('boxes')).toBeInTheDocument();
+    expect(within(cereal).getByText('1.7')).toBeInTheDocument();
+
+    const beans = screen.getByRole('row', { name: /Baked beans/ });
+    const cells = within(beans).getAllByRole('cell');
+    expect(cells[3]).toBeEmptyDOMElement();
+    expect(cells[4]).toBeEmptyDOMElement();
+  });
+
   it('shows active stock only, without a retired-items control', async () => {
     renderApp('/stock');
 
@@ -136,8 +149,13 @@ describe('stock levels', () => {
   it('offers an administrator a hand adjustment for each stock item', async () => {
     renderApp('/stock');
 
-    await screen.findByRole('row', { name: /Baked beans/ });
+    const row = await screen.findByRole('row', { name: /Baked beans/ });
 
     expect(screen.getByRole('button', { name: 'Adjust Baked beans stock' })).toBeInTheDocument();
+    const cells = within(row).getAllByRole('cell');
+    expect(cells[1]).toContainElement(
+      screen.getByRole('button', { name: 'Adjust Baked beans stock' }),
+    );
+    expect(cells[2]).toHaveTextContent('-4');
   });
 });

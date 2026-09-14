@@ -73,6 +73,28 @@ beforeEach(() => {
 });
 
 describe('the referrals list', () => {
+  it('clears both filters back to the privacy-safe list URL', async () => {
+    server.use(
+      http.get(REFERRALS, () => HttpResponse.json({ referrals: [referral({ id: 'r1' })] })),
+    );
+    const { router } = renderApp('/referrals?sessionId=s1&status=cancelled');
+    const user = userEvent.setup();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Referrals' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Filter referrals' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Referrals' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Session')).toHaveValue('s1');
+    expect(screen.getByLabelText('Status')).toHaveValue('cancelled');
+
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('');
+    });
+    expect(screen.getByLabelText('Session')).toHaveValue('');
+    expect(screen.getByLabelText('Status')).toHaveValue('');
+  });
+
   it('highlights a referral still to be read so it stands out from reviewed ones', async () => {
     server.use(
       http.get(REFERRALS, () =>

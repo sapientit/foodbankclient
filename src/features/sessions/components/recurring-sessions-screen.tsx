@@ -1,12 +1,21 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
+import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { PencilIcon, TrashIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
+import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { Spinner } from '../../../components/spinner';
 import { classNames } from '../../../lib/class-names';
 import { formatSessionDate } from '../../../lib/london-time';
 import { listPathFor, listReturnContext, useReturnedListItem } from '../../../lib/list-return';
-import { useRecurringSessions, useRunSessionMaterialisation } from '../queries';
+import {
+  useDeleteRecurringSession,
+  useRecurringSessions,
+  useRunSessionMaterialisation,
+  type RecurringSession,
+} from '../queries';
 import { WEEKDAY_LABELS, describeDeliveries, describeMaterialisation } from '../sessions.logic';
 import styles from './recurring-sessions-screen.module.css';
 
@@ -24,9 +33,31 @@ export function RecurringSessionsScreen() {
   const location = useLocation();
   const recurring = useRecurringSessions();
   const generate = useRunSessionMaterialisation();
+  const remove = useDeleteRecurringSession();
+  const [deleting, setDeleting] = useState<RecurringSession | null>(null);
+  const [deletedName, setDeletedName] = useState<string | null>(null);
+  const addLinkRef = useRef<HTMLAnchorElement>(null);
   const [returnedSessionId, returnedSessionRef] = useReturnedListItem<HTMLAnchorElement>(
     recurring.isSuccess && !recurring.isFetching,
   );
+
+  useEffect(() => {
+    if (deletedName !== null) addLinkRef.current?.focus();
+  }, [deletedName]);
+
+  const confirmDelete = (template: RecurringSession) => {
+    remove.mutate(template.id, {
+      onSuccess: () => {
+        setDeleting(null);
+        setDeletedName(template.name);
+        // The Delete button vanishes with its row, so restore the keyboard to
+        // the action that remains available after a successful deletion.
+      },
+      onError: () => {
+        setDeleting(null);
+      },
+    });
+  };
 
   if (recurring.isPending) {
     return (
@@ -57,12 +88,20 @@ export function RecurringSessionsScreen() {
         title="Weekly sessions"
         action={
           <div className={styles.headerActions}>
-            <Link className={classNames(styles.add, 'button-link')} to="/sessions/recurring/new">
+            <Link
+              className={classNames(styles.add, 'button-link')}
+              ref={addLinkRef}
+              to="/sessions/recurring/new"
+            >
               Add a weekly session
             </Link>
           </div>
         }
       />
+
+      <p aria-live="polite" className={styles.visuallyHidden} role="status">
+        {deletedName !== null && `Deleted ${deletedName}.`}
+      </p>
 
       <p className={styles.intro}>
         Every Monday session, every Thursday session, and so on. A template does not create anything
@@ -99,6 +138,7 @@ export function RecurringSessionsScreen() {
       </div>
 
       {generate.error !== null && <ErrorNotice error={generate.error} />}
+      {remove.error !== null && <ErrorNotice error={remove.error} />}
 
       {recurring.data.length === 0 ? (
         <EmptyState
@@ -134,22 +174,58 @@ export function RecurringSessionsScreen() {
                   {row.activeUntil !== null && <> to {formatSessionDate(row.activeUntil)}</>}
                 </td>
                 <td>{describeDeliveries(row)}</td>
-                <td>
+                <td className={styles.actions}>
                   <Link
+                    aria-label={`Amend ${row.name}`}
+                    className="button-link button-plain"
                     ref={row.id === returnedSessionId ? returnedSessionRef : undefined}
                     state={listReturnContext(
                       listPathFor(location.pathname, location.search),
                       row.id,
                     )}
+                    title={`Amend ${row.name}`}
                     to={`/sessions/recurring/${row.id}`}
                   >
-                    Amend
+                    <ResponsiveIconLabel label="Edit">
+                      <PencilIcon />
+                    </ResponsiveIconLabel>
                   </Link>
+                  <button
+                    aria-label={`Delete ${row.name}`}
+                    className="button-danger button-plain"
+                    onClick={() => {
+                      setDeleting(row);
+                    }}
+                    title={`Delete ${row.name}`}
+                    type="button"
+                  >
+                    <TrashIcon />
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      )}
+
+      {deleting !== null && (
+        <ConfirmDialog
+          busy={remove.isPending}
+          confirmLabel="Delete"
+          destructive
+          onCancel={() => {
+            setDeleting(null);
+          }}
+          onConfirm={() => {
+            confirmDelete(deleting);
+          }}
+          title={`Delete ${deleting.name}?`}
+        >
+          <p>
+            This stops future weekly sessions from being created. Sessions already on the calendar
+            remain and can be managed individually.
+          </p>
+        </ConfirmDialog>
       )}
     </>
   );

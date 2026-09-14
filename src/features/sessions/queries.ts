@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { components, paths } from '../../api/schema';
-import { unwrap } from '../../api/unwrap';
+import { unwrap, unwrapVoid } from '../../api/unwrap';
 import { sessionKeys, type SessionListFilters } from './keys';
 import { sortRecurringSessions, sortSessions } from './sessions.logic';
 
@@ -219,6 +219,26 @@ export function useAmendRecurringSession() {
       ),
     onSuccess: (updated) => {
       spliceIntoRecurringList(queryClient, updated);
+    },
+  });
+}
+
+/**
+ * Removing a weekly template stops only future materialisation. Existing
+ * sessions remain, but are detached from the deleted template, so their list
+ * cache is invalidated as well as removing the template from this list.
+ */
+export function useDeleteRecurringSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string): Promise<void> =>
+      unwrapVoid(api.DELETE('/api/v1/recurring-sessions/{id}', { params: { path: { id } } })),
+    onSuccess: (_result, id) => {
+      queryClient.setQueryData<RecurringSession[]>(sessionKeys.recurring(), (current) =>
+        current === undefined ? undefined : current.filter((row) => row.id !== id),
+      );
+      void queryClient.invalidateQueries({ queryKey: sessionKeys.all });
     },
   });
 }

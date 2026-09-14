@@ -1216,7 +1216,31 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a weekly template
+         * @description Admin only. Idempotent — deleting an id that does not exist, or has already been deleted, still returns `204`.
+         *     **Does not delete or alter the individual sessions already generated from it.** Those sessions remain exactly as they were — same date, time, capacity and referrals — just detached from the template: their `recurringSessionId` becomes absent/null, and they continue to be manageable individually through the `/sessions` endpoints. Only future materialisation from this template stops; nothing already on the calendar is removed.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /**

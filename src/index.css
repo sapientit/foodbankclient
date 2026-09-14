@@ -39,6 +39,20 @@ body {
   background: #ffffff;
 }
 
+/* A destination is identified by its readable link colour and visible focus,
+   not an underline. This applies equally to links in prose, lists and tables;
+   component rules still choose the appropriate colour. Navigation keeps its
+   active-page bottom marker as a separate state signal. */
+a {
+  text-decoration: none;
+}
+
+/* Colour distinguishes a destination at a glance, and its heavier text makes
+   the same distinction without relying on colour or the removed underline. */
+a:not(.button-link) {
+  font-weight: 600;
+}
+
 /* Volunteers use unfamiliar devices and keyboards. A visible focus ring is not
    decoration — it is how someone finds their place. Never remove it. */
 :focus-visible {
@@ -65,8 +79,7 @@ body {
  *
  * What it replaced: an available control and an unavailable one differed by
  * `#1a1a1a` against `#555555` inside identical white boxes, and the only strong
- * "you can press this" signal was an underline nobody had chosen — links have
- * one because browsers underline links, the buttons had none. So a working
+ * "you can press this" signal was an underline nobody had chosen. So a working
  * stock check was read as the greyed-out control beside it and reported as
  * broken, in the middle of a session.
  *
@@ -131,11 +144,12 @@ a:where(.button-link) {
   cursor: pointer;
 }
 
-/* A link drawn as a control keeps its underline: the fill says "control", the
-   underline still says "this one goes somewhere". Inline-block so its padding
-   makes a box rather than overlapping the line above. */
+/* A link drawn as a visible control needs the same visual language as a
+   button. Inline-block makes its padding a box rather than overlapping the
+   line above. */
 a:where(.button-link) {
   display: inline-block;
+  text-decoration: none;
 }
 
 button:not(:disabled, [aria-disabled='true']):hover,
@@ -187,8 +201,9 @@ button:where(.button-danger):not(:disabled, [aria-disabled='true']):hover {
 }
 
 /* No box, because it is not one: a row in a list, or a word in a sentence.
-   Blue and unadorned — not underlined, which stays with links. */
-button:where(.button-plain) {
+   Blue and unadorned, without an underline. */
+button:where(.button-plain),
+a:where(.button-link):where(.button-plain) {
   padding: 0;
   border: 0;
   background: none;
@@ -197,7 +212,8 @@ button:where(.button-plain) {
   text-align: inherit;
 }
 
-button:where(.button-plain):not(:disabled, [aria-disabled='true']):hover {
+button:where(.button-plain):not(:disabled, [aria-disabled='true']):hover,
+a:where(.button-link):where(.button-plain):hover {
   background: none;
   color: var(--category-action-hover, #084684);
 }
@@ -218,10 +234,23 @@ button[aria-disabled='true'] {
 /* A plain control has no box to grey, so it says it in the only way it has.
    #595959 on white is 7:1. */
 button:where(.button-plain):disabled,
-button:where(.button-plain)[aria-disabled='true'] {
+button:where(.button-plain)[aria-disabled='true'],
+a:where(.button-link):where(.button-plain)[aria-disabled='true'] {
   background: none;
   color: #595959;
   cursor: not-allowed;
+}
+
+/* A destructive row action still needs its warning colour when it is deliberately
+   unboxed. The trash or archive glyph and its accessible name identify the
+   action; the red distinguishes its consequence without making the row look
+   like a bank of filled buttons. */
+button:where(.button-plain):where(.button-danger) {
+  color: #b3261e;
+}
+
+button:where(.button-plain):where(.button-danger):not(:disabled, [aria-disabled='true']):hover {
+  color: #8c1e18;
 }
 
 @media print {

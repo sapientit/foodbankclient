@@ -419,6 +419,7 @@ describe('SmsInboxLayout — Loose messages tab', () => {
   it('opens referral search with an unmatched sender number pre-filled without putting it in the URL', async () => {
     let searchBody: unknown;
     server.use(
+      http.get('/api/v1/referral-reasons', () => HttpResponse.json({ referralReasons: [] })),
       http.post('/api/v1/referrals/search', async ({ request }) => {
         searchBody = await request.json();
         return HttpResponse.json({ count: 0, results: [] });
@@ -433,8 +434,8 @@ describe('SmsInboxLayout — Loose messages tab', () => {
     await user.click(await screen.findByRole('link', { name: 'Search referrals for this number' }));
 
     expect(await screen.findByRole('heading', { name: 'Search referrals' })).toBeInTheDocument();
-    expect(screen.getByLabelText('or Phone number')).toHaveValue('+441111111111');
-    expect(await screen.findByText('0 results found.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Phone number')).toHaveValue('+441111111111');
+    expect(await screen.findByRole('heading', { name: '0 results found' })).toBeInTheDocument();
     expect(searchBody).toEqual({ phone: '+441111111111' });
     expect(router.state.location.pathname).toBe('/referrals/search');
     expect(router.state.location.search).toBe('');

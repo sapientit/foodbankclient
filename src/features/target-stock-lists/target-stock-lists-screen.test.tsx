@@ -101,5 +101,12 @@ describe('the target stock lists screen', () => {
       'title',
       'Delete Standard week',
     );
+    expect(within(row).getByRole('link', { name: 'Amend Standard week' })).toHaveClass(
+      'button-plain',
+    );
+    expect(within(row).getByRole('button', { name: 'Delete Standard week' })).toHaveClass(
+      'button-danger',
+      'button-plain',
+    );
   });
 });

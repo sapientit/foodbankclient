@@ -263,7 +263,7 @@ describe('changing a referral and the search results behind it', () => {
 
     renderApp('/referrals/search', client);
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText('or Postcode'), 'AB1 2CD');
+    await user.type(await screen.findByLabelText('Postcode'), 'AB1 2CD');
     await user.click(screen.getByRole('button', { name: 'Search' }));
     await screen.findByRole('link', { name: 'Rowe, Jamie' });
     expect(screen.getByText('Pending review')).toBeInTheDocument();

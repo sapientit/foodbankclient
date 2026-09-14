@@ -2,11 +2,12 @@ import { useRef, useState } from 'react';
 import { useAuth } from '../../../auth/auth-context';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { PencilIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError } from '../../../lib/errors';
 import { useCorrectStockLevel, useStockLevels, type StockLevel } from '../queries';
-import { isLowStock } from '../stock.logic';
+import { isLowStock, packUnitLabelFor } from '../stock.logic';
 import styles from './stock-levels-screen.module.css';
 
 /**
@@ -119,8 +120,13 @@ export function StockLevelsScreen() {
             <tr>
               <th scope="col">Item</th>
               <th scope="col">Shelf</th>
+              <th scope="col">Adjust</th>
               <th className={styles.numeric} scope="col">
                 On hand
+              </th>
+              <th scope="col">Count description</th>
+              <th className={styles.numeric} scope="col">
+                Count quantity
               </th>
               <th className={styles.numeric} scope="col">
                 Low-stock threshold
@@ -210,28 +216,36 @@ function StockLevelRow({
           {lowStock && <span className={styles.lowStock}>Low stock</span>}
           {!level.isActive && <span className={styles.retired}> (retired)</span>}
         </th>
-        <td>{level.shelfNumber}</td>
-        <td className={styles.numeric}>
-          {level.quantityOnHand}
+        <td data-label="Shelf">{level.shelfNumber}</td>
+        <td className={styles.adjustmentAction} data-label="Adjust">
           {canCorrect && (
             <button
               aria-expanded={isAdjusting}
               aria-label={`Adjust ${level.name} stock`}
-              className={styles.adjust}
+              className={['button-plain', styles.adjust].filter(Boolean).join(' ')}
               onClick={() => {
                 onAdjust(level);
               }}
               type="button"
             >
-              ✎
+              <PencilIcon />
             </button>
           )}
         </td>
-        <td className={styles.numeric}>{level.lowStockThreshold ?? 'Not watched'}</td>
+        <td className={styles.numeric} data-label="On hand">
+          {level.quantityOnHand}
+        </td>
+        <td data-label="Count description">{countDescriptionFor(level)}</td>
+        <td className={styles.numeric} data-label="Count quantity">
+          {countQuantityFor(level)}
+        </td>
+        <td className={styles.numeric} data-label="Low-stock threshold">
+          {level.lowStockThreshold ?? 'Not watched'}
+        </td>
       </tr>
       {isAdjusting && (
         <tr className={styles.adjustmentRow}>
-          <td colSpan={4}>
+          <td colSpan={7} data-label="Adjust stock">
             <form
               aria-label={`Adjust ${level.name} stock`}
               className={styles.adjustmentForm}
@@ -282,6 +296,14 @@ function StockLevelRow({
       )}
     </>
   );
+}
+
+function countDescriptionFor(level: StockLevel): string {
+  return level.unitsPerPack === null ? '' : packUnitLabelFor(level);
+}
+
+function countQuantityFor(level: StockLevel): string {
+  return level.unitsPerPack === null ? '' : (level.quantityOnHand / level.unitsPerPack).toFixed(1);
 }
 
 function parseQuantity(value: string, operation: Operation): number | string {

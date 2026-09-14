@@ -47,6 +47,14 @@ beforeEach(() => {
 });
 
 describe('spreadsheet extract', () => {
+  it('presents Send to Sheets with the extract panel while retaining the explicit start step', async () => {
+    renderApp('/extracts');
+
+    expect(await screen.findByRole('heading', { name: 'Send to Sheets' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Run spreadsheet extract' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start extract' })).toBeInTheDocument();
+  });
+
   it('asks whether to continue before asking Google for permission', async () => {
     renderApp('/extracts');
     const user = userEvent.setup();

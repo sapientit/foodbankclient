@@ -3,6 +3,8 @@ import { useAuth } from '../../../auth/auth-context';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
+import { PencilIcon, PlayIcon } from '../../../components/icons';
+import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { SessionListFilters } from '../../../components/session-list-filters';
 import { SessionTable } from '../../../components/session-table';
 import { Spinner } from '../../../components/spinner';
@@ -105,7 +107,9 @@ export function SessionsScreen() {
                     className={styles.rowAction}
                     to={`/run-sessions/${session.id}`}
                   >
-                    ▶
+                    <ResponsiveIconLabel label="Run">
+                      <PlayIcon />
+                    </ResponsiveIconLabel>
                   </Link>
                   {isAdmin && (
                     <Link
@@ -118,7 +122,9 @@ export function SessionsScreen() {
                       )}
                       to={`/sessions/${session.id}`}
                     >
-                      ✎
+                      <ResponsiveIconLabel label="Edit">
+                        <PencilIcon />
+                      </ResponsiveIconLabel>
                     </Link>
                   )}
                 </span>

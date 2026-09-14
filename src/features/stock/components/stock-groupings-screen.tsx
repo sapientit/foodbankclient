@@ -72,7 +72,7 @@ export function StockGroupingsScreen() {
           ))}
         </tbody>
       </table>
-      <div className={styles.actions}>
+      <div className={styles.groupingActions}>
         <label htmlFor={inputId}>New grouping name</label>
         <input
           id={inputId}

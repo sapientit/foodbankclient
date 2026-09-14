@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PencilIcon, TrashIcon } from '../../../components/icons';
+import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { useDeleteTargetStockList, useTargetStockLists, type TargetStockList } from '../queries';
@@ -26,6 +27,10 @@ export function TargetStockListsScreen() {
   const [deleting, setDeleting] = useState<TargetStockList | null>(null);
   const [deletedName, setDeletedName] = useState<string | null>(null);
   const addLinkRef = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    if (deletedName !== null) addLinkRef.current?.focus();
+  }, [deletedName]);
 
   if (lists.isPending) {
     return (
@@ -51,9 +56,8 @@ export function TargetStockListsScreen() {
         setDeleting(null);
         setDeletedName(list.name);
         // The Delete button that opened the dialog is about to unmount with its
-        // row, so ConfirmDialog has nowhere to put focus back — land it on the
-        // one control that is always here.
-        addLinkRef.current?.focus();
+        // row, so after ConfirmDialog has closed the effect lands on the one
+        // control that is always here.
       },
       onError: () => {
         setDeleting(null);
@@ -111,15 +115,17 @@ export function TargetStockListsScreen() {
                 <td className={styles.actions}>
                   <Link
                     aria-label={`Amend ${list.name}`}
-                    className="button-link"
+                    className="button-link button-plain"
                     to={`/stock/target-lists/${list.id}`}
                     title={`Amend ${list.name}`}
                   >
-                    <PencilIcon />
+                    <ResponsiveIconLabel label="Edit">
+                      <PencilIcon />
+                    </ResponsiveIconLabel>
                   </Link>
                   <button
                     aria-label={`Delete ${list.name}`}
-                    className="button-danger"
+                    className="button-danger button-plain"
                     onClick={() => {
                       setDeleting(list);
                     }}

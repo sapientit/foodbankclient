@@ -1,0 +1,31 @@
+.runPanel {
+  max-inline-size: 52rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid #e6c9c9;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0 0.2rem 0.7rem rgb(94 25 25 / 7%);
+}
+
+.runPanel h2 {
+  margin: 0;
+  color: var(--category-action, #c62828);
+  font-size: 1.35rem;
+}
+
+.guidance {
+  max-inline-size: 65ch;
+  margin-block: var(--space-2) var(--space-5);
+}
+
+.progress {
+  padding: var(--space-4);
+  margin: 0;
+  border-inline-start: 0.3rem solid var(--category-action, #c62828);
+  background: var(--category-action-tint, #fbeaea);
+  font-weight: 700;
+}
+
+.runPanel button + button {
+  margin-inline-start: var(--space-3);
+}

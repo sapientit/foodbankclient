@@ -8,10 +8,11 @@
  * `sessionKeys.all` is the one thing every mutation in this file can safely
  * reach for without having to reason about which sub-tree it affects.
  *
- * Recurring sessions are a third, independent sub-tree. Amending a template
- * **does not** retrospectively change sessions already generated — `API.md`
- * section 4 and the server's `CLAUDE.md` both say so — so a recurring-session
- * mutation invalidates only `recurring()`, never `lists()`.
+ * Recurring sessions are a third, independent sub-tree. Creating or amending
+ * a template **does not** retrospectively change sessions already generated —
+ * `API.md` section 4 and the server's `CLAUDE.md` both say so — so those
+ * mutations invalidate only `recurring()`. Deleting differs: it detaches every
+ * generated session from its template, so it invalidates this complete root.
  */
 
 export type SessionStatus = 'planned' | 'in_progress' | 'confirmed' | 'cancelled';

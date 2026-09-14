@@ -75,6 +75,11 @@ describe('crate deletion', () => {
       'title',
       'Edit Spread',
     );
+    expect(screen.getByRole('button', { name: 'Edit Spread' })).toHaveClass('button-plain');
+    expect(screen.getByRole('button', { name: 'Delete Spread' })).toHaveClass(
+      'button-danger',
+      'button-plain',
+    );
     await user.click(screen.getByRole('button', { name: 'Delete Spread' }));
     expect(screen.getByRole('heading', { name: 'Delete Spread?' })).toBeInTheDocument();
     expect(screen.getByText(/Target lists that name it/)).toBeInTheDocument();
@@ -111,6 +116,8 @@ describe('crate deletion', () => {
     expect(
       screen.queryByText('The server returned no content where a body was expected.'),
     ).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('Deleted Spread.');
+    expect(screen.getByRole('button', { name: 'Add crate' })).toHaveFocus();
   });
 });
 

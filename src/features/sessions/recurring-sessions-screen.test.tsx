@@ -1,9 +1,10 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
+import { sessionKeys } from './keys';
 import type { RecurringSession } from './queries';
 
 const RECURRING = '/api/v1/recurring-sessions';
@@ -97,6 +98,91 @@ describe('the weekly session list', () => {
     const row = await screen.findByRole('row', { name: /Tuesday session/ });
     expect(row).toHaveTextContent('From Thu, 1 Jan 2026');
     expect(row).not.toHaveTextContent(/From.*to/);
+  });
+
+  it('offers a plain named Pencil/Edit action for amending a weekly template', async () => {
+    server.use(
+      http.get(RECURRING, () =>
+        HttpResponse.json({ recurringSessions: [template({ id: 't1', name: 'Tuesday session' })] }),
+      ),
+    );
+
+    renderApp('/sessions/recurring');
+
+    const edit = await screen.findByRole('link', { name: 'Amend Tuesday session' });
+    expect(edit).toHaveAttribute('href', '/sessions/recurring/t1');
+    expect(edit).toHaveAttribute('title', 'Amend Tuesday session');
+    expect(edit).toHaveClass('button-plain');
+  });
+
+  it('deletes a template only after confirming, without implying that existing sessions disappear', async () => {
+    let deleted = false;
+    const deleteTemplate = vi.fn();
+    server.use(
+      http.get(RECURRING, () =>
+        HttpResponse.json({
+          recurringSessions: deleted ? [] : [template({ id: 't1', name: 'Tuesday session' })],
+        }),
+      ),
+      http.delete(`${RECURRING}/:id`, ({ params }) => {
+        deleteTemplate(params.id);
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const { queryClient } = renderApp('/sessions/recurring');
+    queryClient.setQueryData(sessionKeys.detail('already-generated'), { recurringSessionId: 't1' });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete Tuesday session' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Delete Tuesday session?' });
+    expect(
+      within(dialog).getByText(/stops future weekly sessions from being created/i),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(/already on the calendar remain/i)).toBeInTheDocument();
+    expect(deleteTemplate).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(deleteTemplate).toHaveBeenCalledWith('t1');
+      expect(screen.queryByRole('row', { name: /Tuesday session/ })).toBeNull();
+      expect(
+        queryClient.getQueryState(sessionKeys.detail('already-generated'))?.isInvalidated,
+      ).toBe(true);
+    });
+    expect(screen.getByText('Deleted Tuesday session.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Add a weekly session' })).toHaveFocus();
+    });
+  });
+
+  it('keeps the template and shows the failure when deletion is refused', async () => {
+    server.use(
+      http.get(RECURRING, () =>
+        HttpResponse.json({ recurringSessions: [template({ id: 't1', name: 'Tuesday session' })] }),
+      ),
+      http.delete(`${RECURRING}/:id`, () =>
+        HttpResponse.json(
+          { error: { code: 'INTERNAL_ERROR', message: 'Try again later.', requestId: 'r1' } },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    renderApp('/sessions/recurring');
+    const user = userEvent.setup();
+    const deleteButton = await screen.findByRole('button', { name: 'Delete Tuesday session' });
+    await user.click(deleteButton);
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong at our end');
+    expect(screen.getByRole('row', { name: /Tuesday session/ })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(deleteButton).toHaveFocus();
+    });
   });
 
   it('reads a both-null stored window as delivering across the session’s own hours, never as a gap', async () => {

@@ -1,11 +1,19 @@
 import { useRef, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../auth/auth-context';
-import { CapacityMeter } from '../../components/capacity-meter';
 import { EmptyState } from '../../components/empty-state';
 import { ErrorNotice } from '../../components/error-notice';
-import { BellIcon, BoxIcon, CalendarIcon, UsersIcon } from '../../components/icons';
+import { CapacityMeter } from '../../components/capacity-meter';
+import {
+  BellIcon,
+  BoxIcon,
+  CalendarIcon,
+  PencilIcon,
+  PlayIcon,
+  UsersIcon,
+} from '../../components/icons';
 import { Pagination } from '../../components/pagination';
+import { ResponsiveIconLabel } from '../../components/responsive-icon-label';
 import { SessionListFilters } from '../../components/session-list-filters';
 import { SessionTable } from '../../components/session-table';
 import { Spinner } from '../../components/spinner';
@@ -137,28 +145,37 @@ export function HomeScreen() {
   return (
     <div aria-label="Dashboard" className={styles.dashboard}>
       <div className={styles.dashboardMain}>
-        <section aria-labelledby="todays-sessions" className={styles.overview}>
+        <div className={styles.overview}>
           {isAdmin && (
-            <article className={styles.tile} data-category="referrals">
-              <UsersIcon className={styles.tileGlyph} />
-              <h2>
-                <UsersIcon className={styles.headingIcon} />
-                Referrals
-              </h2>
-              {referralsCountPending ? (
-                <Spinner label="Loading referral count…" />
-              ) : (
-                <>
-                  <strong>{referralsWaiting}</strong>
-                  <p>waiting for review</p>
-                </>
-              )}
-              <Link to="/referrals">Check referrals</Link>
-            </article>
+            <section aria-label="Dashboard actions" className={styles.dashboardActions}>
+              <article className={styles.tile} data-category="referrals">
+                <UsersIcon className={styles.tileGlyph} />
+                <UsersIcon className={styles.tileTopIcon} />
+                <h2>
+                  <span aria-hidden="true" className={styles.referralsIconCircle}>
+                    <UsersIcon />
+                  </span>
+                  Referrals
+                </h2>
+                {referralsCountPending ? (
+                  <Spinner label="Loading referral count…" />
+                ) : (
+                  <>
+                    <strong>{referralsWaiting}</strong>
+                    <p>waiting for review</p>
+                  </>
+                )}
+                <Link className={styles.dashboardAction} to="/referrals">
+                  Check referrals
+                </Link>
+              </article>
+            </section>
           )}
           <section className={styles.todaySessions}>
             <h2 id="todays-sessions">
-              <CalendarIcon className={styles.headingIcon} />
+              <span aria-hidden="true" className={styles.sectionIconCircle}>
+                <CalendarIcon />
+              </span>
               Today's sessions
             </h2>
             {todaySessions.isPending ? (
@@ -176,14 +193,21 @@ export function HomeScreen() {
                     <li key={session.id}>
                       <article className={styles.tile} data-category="sessions">
                         <CalendarIcon className={styles.tileGlyph} />
-                        <h3>{time}</h3>
-                        <CapacityMeter capacity={session.capacity} noun="" value={session.booked} />
+                        <div className={styles.sessionTimeRow}>
+                          <h3>{time}</h3>
+                          <CalendarIcon className={styles.sessionIcon} />
+                        </div>
+                        <CapacityMeter
+                          capacity={session.capacity}
+                          noun="bookings"
+                          value={session.booked}
+                        />
                         {session.deliveryCapacity === 0 ? (
                           <p>Collection Only</p>
                         ) : (
                           <CapacityMeter
                             capacity={delivery.deliveryCapacity}
-                            noun=""
+                            noun="deliveries"
                             value={delivery.deliveryBooked}
                           />
                         )}
@@ -200,7 +224,7 @@ export function HomeScreen() {
               </ul>
             )}
           </section>
-        </section>
+        </div>
         <section aria-labelledby="upcoming-sessions" className={styles.upcomingPanel}>
           <h2 id="upcoming-sessions">
             <CalendarIcon className={styles.headingIcon} />
@@ -288,7 +312,9 @@ export function HomeScreen() {
                                 className={styles.rowAction}
                                 to={`/run-sessions/${session.id}`}
                               >
-                                ▶
+                                <ResponsiveIconLabel label="Run">
+                                  <PlayIcon />
+                                </ResponsiveIconLabel>
                               </Link>
                               {isAdmin && (
                                 <Link
@@ -296,7 +322,9 @@ export function HomeScreen() {
                                   className={styles.rowAction}
                                   to={`/sessions/${session.id}`}
                                 >
-                                  ✎
+                                  <ResponsiveIconLabel label="Edit">
+                                    <PencilIcon />
+                                  </ResponsiveIconLabel>
                                 </Link>
                               )}
                             </span>

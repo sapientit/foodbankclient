@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
-import { PageHeader } from '../../../components/page-header';
+import { FeatureHero } from '../../../components/feature-hero';
 import { ShowableError } from '../../../lib/errors';
 import { preloadSheetsAccess, requestSheetsAccess } from '../google-auth';
 import { writeClaim } from '../google-sheets';
@@ -10,6 +10,7 @@ import { useReferralReasons } from '../../admin-setup/queries';
 import { referralFormDefinition } from '../../referrals/referral-form-config';
 import { allQuestions, needsOptionSources } from '../../referrals/referral-form-definition';
 import { reasonOptionSources } from '../../referrals/referral-lookups';
+import styles from './extract-screen.module.css';
 
 /**
  * Whether any answer could have been chosen from a maintained lookup, and so is
@@ -219,77 +220,85 @@ export function ExtractScreen() {
 
   return (
     <>
-      <PageHeader title="Spreadsheet extract" />
-      <p>
-        Send confirmed sessions to the food bank&rsquo;s Google spreadsheet. This sends household
-        details outside this system.
-      </p>
-      {phase === 'idle' && (
-        <button
-          onClick={() => {
-            setPhase('continue');
-          }}
-          type="button"
-        >
-          Start extract
-        </button>
-      )}
-      {(phase === 'configuring' || phase === 'authorising' || phase === 'running') && (
-        <p role="status">
-          {phase === 'authorising'
-            ? 'Waiting for Google Sheets permission…'
-            : `Extracting sessions: ${sessionsProcessed(totalCount)} in this run.`}
+      <FeatureHero eyebrow="Spreadsheet extract" title="Send to Sheets">
+        <p>
+          Send confirmed sessions to the food bank&rsquo;s Google spreadsheet. This sends household
+          details outside this system.
         </p>
-      )}
-      {phase === 'done' && (
-        <>
-          <p role="status">
-            There are no unextracted confirmed sessions waiting. {sessionsProcessed(totalCount)} in
-            this run.
-          </p>
-          <button onClick={stop} type="button">
-            Finish
+      </FeatureHero>
+      <section aria-labelledby="run-extract-heading" className={styles.runPanel}>
+        <h2 id="run-extract-heading">Run spreadsheet extract</h2>
+        <p className={styles.guidance}>
+          Each completed session is sent in turn. Google Sheets permission is requested only after
+          you choose to continue.
+        </p>
+        {phase === 'idle' && (
+          <button
+            onClick={() => {
+              setPhase('continue');
+            }}
+            type="button"
+          >
+            Start extract
           </button>
-        </>
-      )}
-      {phase === 'error' && (
-        <>
-          <ErrorNotice error={error} />
-          {/* A failed write never marks a session extracted. */}
-          <p>
-            No session was marked extracted by this failure, and any session claimed for it returns
-            to the queue within ten minutes.
+        )}
+        {(phase === 'configuring' || phase === 'authorising' || phase === 'running') && (
+          <p className={styles.progress} role="status">
+            {phase === 'authorising'
+              ? 'Waiting for Google Sheets permission…'
+              : `Extracting sessions: ${sessionsProcessed(totalCount)} in this run.`}
           </p>
-          {/* "Finish" said this run had finished, on a screen that had just
+        )}
+        {phase === 'done' && (
+          <>
+            <p className={styles.progress} role="status">
+              There are no unextracted confirmed sessions waiting. {sessionsProcessed(totalCount)}{' '}
+              in this run.
+            </p>
+            <button onClick={stop} type="button">
+              Finish
+            </button>
+          </>
+        )}
+        {phase === 'error' && (
+          <>
+            <ErrorNotice error={error} />
+            {/* A failed write never marks a session extracted. */}
+            <p>
+              No session was marked extracted by this failure, and any session claimed for it
+              returns to the queue within ten minutes.
+            </p>
+            {/* "Finish" said this run had finished, on a screen that had just
               failed to do it — which is why it was believed to be what marked
               sessions extracted. It never wrote anything; it says what it does
               now. Carrying on picks up the next waiting session, not the one
               that failed: see `retryRun`. */}
-          <button onClick={retryRun} type="button">
-            Try again
-          </button>
-          <button className="button-secondary" onClick={stop} type="button">
-            Stop extracting
-          </button>
-        </>
-      )}
-      {phase === 'completion-error' && (
-        <>
-          <ErrorNotice error={error} />
-          <p>
-            The spreadsheet write may have succeeded. Google will not be called again, and no
-            session is counted as processed until this mark succeeds.
-          </p>
-          <button onClick={() => void retryCompletion()} type="button">
-            Try marking this session extracted again
-          </button>
-          {/* Leaving here genuinely leaves work undone — rows written, session
+            <button onClick={retryRun} type="button">
+              Try again
+            </button>
+            <button className="button-secondary" onClick={stop} type="button">
+              Stop extracting
+            </button>
+          </>
+        )}
+        {phase === 'completion-error' && (
+          <>
+            <ErrorNotice error={error} />
+            <p>
+              The spreadsheet write may have succeeded. Google will not be called again, and no
+              session is counted as processed until this mark succeeds.
+            </p>
+            <button onClick={() => void retryCompletion()} type="button">
+              Try marking this session extracted again
+            </button>
+            {/* Leaving here genuinely leaves work undone — rows written, session
               still queued — so this must not say "Finish" either. */}
-          <button className="button-secondary" onClick={stop} type="button">
-            Stop extracting
-          </button>
-        </>
-      )}
+            <button className="button-secondary" onClick={stop} type="button">
+              Stop extracting
+            </button>
+          </>
+        )}
+      </section>
       {phase === 'continue' && (
         <ConfirmDialog
           busy={totalCount === 0 && (!config.isSuccess || !gisReady)}

@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '../../../components/empty-state';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PencilIcon, TrashIcon } from '../../../components/icons';
+import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import {
@@ -48,6 +49,12 @@ export function CratesScreen() {
   const [draft, setDraft] = useState(EMPTY);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<Crate | null>(null);
+  const [deletedName, setDeletedName] = useState<string | null>(null);
+  const addCrateButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (deletedName !== null) addCrateButtonRef.current?.focus();
+  }, [deletedName]);
 
   const shelves = useMemo(() => {
     if (items.data === undefined) return new Map<string, StockItem[]>();
@@ -109,6 +116,9 @@ export function CratesScreen() {
     try {
       await remove.mutateAsync(deleteCandidate);
       setDeleteCandidate(null);
+      setDeletedName(deleteCandidate.name);
+      // The effect runs after ConfirmDialog closes, rather than racing its
+      // opener-focus cleanup while the deleted row is unmounting.
     } catch {
       // Keep the confirmation open with the parsed server error visible above.
     }
@@ -297,17 +307,20 @@ export function CratesScreen() {
                 <td className={styles.tableActions}>
                   <button
                     aria-label={`Edit ${crate.name}`}
+                    className="button-plain"
                     onClick={() => {
                       beginEdit(crate);
                     }}
                     title={`Edit ${crate.name}`}
                     type="button"
                   >
-                    <PencilIcon />
+                    <ResponsiveIconLabel label="Edit">
+                      <PencilIcon />
+                    </ResponsiveIconLabel>
                   </button>
                   <button
                     aria-label={`Delete ${crate.name}`}
-                    className="button-danger"
+                    className="button-danger button-plain"
                     disabled={remove.isPending}
                     onClick={() => {
                       setDeleteCandidate(crate);
@@ -328,6 +341,9 @@ export function CratesScreen() {
         {(create.error !== null || amend.error !== null || remove.error !== null) && (
           <ErrorNotice error={create.error ?? amend.error ?? remove.error} />
         )}
+        <p aria-live="polite" className={styles.visuallyHidden} role="status">
+          {deletedName !== null && `Deleted ${deletedName}.`}
+        </p>
         <div className={styles.field}>
           <label htmlFor="crate-name">Name</label>
           <input
@@ -480,6 +496,7 @@ export function CratesScreen() {
           <button
             disabled={create.isPending || amend.isPending}
             onClick={() => void submit()}
+            ref={addCrateButtonRef}
             type="button"
           >
             {editing === null ? 'Add crate' : 'Save changes'}

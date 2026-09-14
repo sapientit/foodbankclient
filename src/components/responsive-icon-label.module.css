@@ -1,0 +1,27 @@
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.action svg {
+  inline-size: 1.35rem;
+  block-size: 1.35rem;
+  stroke-width: 2.2;
+}
+
+.label {
+  display: none;
+}
+
+@media (min-width: 80rem) {
+  .action svg {
+    inline-size: 1.55rem;
+    block-size: 1.55rem;
+  }
+
+  .label {
+    display: inline;
+  }
+}

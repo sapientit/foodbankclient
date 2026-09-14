@@ -55,6 +55,13 @@
   block-size: 1.25rem;
 }
 
+@media (min-width: 80rem) {
+  .actions a {
+    inline-size: auto;
+    padding-inline: 0.65rem;
+  }
+}
+
 /* A refused control still says why, in the cell, not only to a screen reader. */
 .reason {
   flex-basis: 100%;

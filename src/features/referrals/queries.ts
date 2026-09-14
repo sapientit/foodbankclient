@@ -442,6 +442,9 @@ export function useReferralSearchMemory() {
     remember: (input: ReferralSearchRequest): void => {
       queryClient.setQueryData(referralKeys.lastSearch(), input);
     },
+    clear: (): void => {
+      queryClient.removeQueries({ queryKey: referralKeys.lastSearch(), exact: true });
+    },
   };
 }
 

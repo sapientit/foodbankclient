@@ -45,6 +45,23 @@
   block-size: 1.25rem;
 }
 
+/* This is a form action, not the compact icon-control row above. Keeping it
+   separate prevents the shared action-row sizing from turning its text button
+   into a small square. */
+.groupingActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (min-width: 80rem) {
+  .actions a {
+    inline-size: auto;
+    padding-inline: 0.65rem;
+  }
+}
+
 @media print {
   .toggle,
   .actions {

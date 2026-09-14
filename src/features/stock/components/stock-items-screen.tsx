@@ -5,6 +5,7 @@ import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
+import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import {
@@ -153,7 +154,7 @@ export function StockItemsScreen() {
                 <td className={styles.actions}>
                   <Link
                     aria-label={`Amend ${item.name}`}
-                    className="button-link"
+                    className="button-link button-plain"
                     ref={item.id === returnedItemId ? returnedItemRef : undefined}
                     state={listReturnContext(
                       listPathFor(location.pathname, location.search),
@@ -162,11 +163,14 @@ export function StockItemsScreen() {
                     to={`/stock/items/${item.id}`}
                     title={`Amend ${item.name}`}
                   >
-                    <PencilIcon />
+                    <ResponsiveIconLabel label="Edit">
+                      <PencilIcon />
+                    </ResponsiveIconLabel>
                   </Link>
                   {item.isActive ? (
                     <button
                       aria-label={`Retire ${item.name}`}
+                      className="button-danger button-plain"
                       onClick={() => {
                         setRetiring(item);
                       }}
@@ -178,6 +182,7 @@ export function StockItemsScreen() {
                   ) : (
                     <button
                       aria-label={`Reactivate ${item.name}`}
+                      className="button-plain"
                       onClick={() => {
                         setActive(item, true);
                       }}

@@ -4,6 +4,7 @@ import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
+import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { blockedActiveDomain, displayMatchValue } from '../admin-setup.logic';
@@ -129,7 +130,9 @@ export function ReferrersScreen() {
                       to={`/referrers/${row.id}`}
                       title={`Amend ${displayMatchValue(row)}`}
                     >
-                      <PencilIcon />
+                      <ResponsiveIconLabel label="Edit">
+                        <PencilIcon />
+                      </ResponsiveIconLabel>
                     </Link>
                     {row.isActive ? (
                       <button
