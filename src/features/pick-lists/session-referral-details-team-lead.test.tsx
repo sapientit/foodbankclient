@@ -44,7 +44,7 @@ beforeEach(() => {
 });
 
 describe('team-lead session referral details', () => {
-  it('shows and prints only the server-provided contact details', async () => {
+  it('shows and prints the server-provided contact details with their pick number', async () => {
     server.use(
       http.get('/api/v1/sessions/:sessionId/referral-details', ({ params }) => {
         expect(params.sessionId).toBe(SESSION_ID);
@@ -63,6 +63,7 @@ describe('team-lead session referral details', () => {
               refereePhone: '01483 123456',
               referrerName: 'Sam Referrer',
               referrerPhone: '01483 999999',
+              pickNumber: 1,
             },
           ],
         });
@@ -71,6 +72,7 @@ describe('team-lead session referral details', () => {
     const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
     expect(await screen.findByRole('row', { name: /Jamie Rowe/ })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Jamie Rowe/ })).toHaveTextContent('#1');
     expect(screen.getByText('Sam Referrer')).toBeInTheDocument();
     expect(screen.queryByText('Reason for referral')).toBeNull();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Print referral details' }));
@@ -106,6 +108,7 @@ describe('team-lead session referral details', () => {
               refereePhone: '01483 123456',
               referrerName: 'Sam Referrer',
               referrerPhone: '01483 999999',
+              pickNumber: null,
             },
           ],
         }),
@@ -118,7 +121,7 @@ describe('team-lead session referral details', () => {
       name: 'Referral details for every household on this session',
     });
     const headings = screen.getAllByRole('columnheader');
-    expect(headings).toHaveLength(6);
+    expect(headings).toHaveLength(7);
     expect(table.querySelectorAll('colgroup > col')).toHaveLength(headings.length);
     // The long values are on the page in full rather than truncated into it:
     // the columns wrap, they do not clip.
@@ -126,5 +129,6 @@ describe('team-lead session referral details', () => {
       screen.getByText('Flat 12b, The Old Biscuit Factory, 447 Wandsworth Bridge Road'),
     ).toBeInTheDocument();
     expect(screen.getByText('01483 999999')).toBeInTheDocument();
+    expect(screen.getByLabelText('No pick number assigned')).toBeInTheDocument();
   });
 });

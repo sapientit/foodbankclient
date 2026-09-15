@@ -1,7 +1,7 @@
 /*
  * The whole-session referral details, laid out to survive A4.
  *
- * Six columns, one of them a full address and another a household's name, on a
+ * Seven columns, one of them a full address and another a household's name, on a
  * page 18cm wide once the shell's 1.5cm margins are taken off.
  */
 
@@ -20,6 +20,7 @@
 
 .table {
   inline-size: 100%;
+  min-inline-size: 58rem;
   border-collapse: collapse;
 }
 
@@ -58,6 +59,7 @@
    */
   .table {
     table-layout: fixed;
+    min-inline-size: 0;
     font-size: 10pt;
   }
 
@@ -73,16 +75,20 @@
    * broken across two lines is a transcription error waiting to happen. The
    * address gets what is left over, being the only column that is a sentence.
    */
+  .pickNumber {
+    inline-size: 7%;
+  }
+
   .client {
-    inline-size: 15%;
+    inline-size: 13%;
   }
 
   .address {
-    inline-size: 23%;
+    inline-size: 20%;
   }
 
   .postcode {
-    inline-size: 13%;
+    inline-size: 12%;
   }
 
   .phone,
@@ -91,7 +97,15 @@
   }
 
   .referrer {
-    inline-size: 17%;
+    inline-size: 16%;
+  }
+
+  .pickNumber,
+  .postcode,
+  .phone,
+  .referrerPhone {
+    white-space: nowrap;
+    overflow-wrap: normal;
   }
 
   /* Repeated at the top of every printed page. A session of thirty households

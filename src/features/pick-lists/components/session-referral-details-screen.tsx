@@ -38,6 +38,8 @@ export function SessionReferralDetailsScreen() {
           unreachable by keyboard otherwise — the same wrapper the session lists
           use. */}
       <div
+        aria-label="Referral details table"
+        role="region"
         className={styles.tableWrap}
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- The scrollable table needs a keyboard focus target.
         tabIndex={0}
@@ -50,6 +52,7 @@ export function SessionReferralDetailsScreen() {
               `table-layout: fixed` and these, one long address pushes the
               referrer's phone number off the edge of the paper. */}
           <colgroup>
+            <col className={styles.pickNumber} />
             <col className={styles.client} />
             <col className={styles.address} />
             <col className={styles.postcode} />
@@ -59,6 +62,7 @@ export function SessionReferralDetailsScreen() {
           </colgroup>
           <thead>
             <tr>
+              <th scope="col">Pick #</th>
               <th scope="col">Client</th>
               <th scope="col">Address</th>
               <th scope="col">Postcode</th>
@@ -71,9 +75,16 @@ export function SessionReferralDetailsScreen() {
             {data.referrals.map((referral) => (
               <tr key={referral.referralId}>
                 <td>
+                  {referral.pickNumber === null ? (
+                    <span aria-label="No pick number assigned">—</span>
+                  ) : (
+                    `#${String(referral.pickNumber)}`
+                  )}
+                </td>
+                <th scope="row">
                   {[referral.refereeFirstName, referral.refereeSurname].filter(Boolean).join(' ') ||
                     'Unknown'}
-                </td>
+                </th>
                 <td>{referral.refereeAddress ?? '—'}</td>
                 <td>{referral.refereePostcode ?? '—'}</td>
                 <td>{referral.refereePhone ?? '—'}</td>

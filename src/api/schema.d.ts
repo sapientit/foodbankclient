@@ -7188,7 +7188,7 @@ export interface components {
             location: string;
             referrals: components["schemas"]["ReferralDetailsHousehold"][];
         };
-        /** @description One household's contact details for the session being run. Every field below is nullable except `referrerOrganisation`, because the referee columns are nulled by the retention purge — a purged household is still on the session and still has to appear, with nothing left to reach it by. */
+        /** @description One household's contact details for the session being run. Every field below except `referrerOrganisation` and `pickNumber` is nullable because the referee columns are nulled by the retention purge — a purged household is still on the session and still has to appear, with nothing left to reach it by. `pickNumber` is nullable for a different reason — see its own description. */
         ReferralDetailsHousehold: {
             /** Format: uuid */
             referralId: string;
@@ -7203,6 +7203,8 @@ export interface components {
             /** @description Where the referrer works — what the referrer said it was, so expect three spellings of the same council. **Never null**, here or after a purge: it is the one non-nullable field on this object. */
             referrerOrganisation: string;
             referrerPhone: string | null;
+            /** @description The number on the household's parcel — the same `pickNumber` as on the picking sheets, short enough to read out over the phone. Null when the household has no parcel yet: no pick list has been generated for the session, or it was referred after one was. Unlike the listener sheet, this list is never refused over a missing pick number — it is open before picking happens at all. */
+            pickNumber: number | null;
         };
         /** @description At least one of the three is required; a body with none of them is a `400`. Send what the caller gave you and let the server settle it — do not normalise or pad a partial postcode yourself. */
         ReferralSearchRequest: {
