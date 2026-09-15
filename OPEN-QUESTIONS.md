@@ -105,3 +105,32 @@ brief gives)? And is there anywhere the bright hue should appear that it current
 **A:**
 
 ---
+
+## Q52 — Master Data has no neutral colour of its own
+
+`Status: open` · `Raised by: client` · `Blocks: nothing — Master Data reads in Sessions' green and
+Stock's blue meanwhile, which is the bug this asks how to fix`
+
+`screenDetails.md` (`#Menus`) settles that "Master Data equivalents are neutral," alongside sessions
+green, referrals red and stock blue — but `app-shell.module.css` only ever defined the three brand
+categories. There is no `master-data` block: nothing sets an active-tab colour for it, and nothing
+sets its `--category-action` variable. Because of the cascade, the Master Data tab currently lights
+up in Sessions' own green when it is the current page, and every button and link on a Master Data
+screen — Approved referrers, Users, Christmas vouchers, Reasons for Crisis, Rule check, Stock
+validation, Cloudflare statistics — falls through to the page's plain default blue, which sits close
+enough to Stock's blue (`#0f6f99`) to be hard to tell apart there.
+
+That Master Data should be neutral is already settled; which neutral is not. The other three
+categories each carry a bright brand hue for decoration and washes and a darker, contrast-safe shade
+drawn from it for anything read or acted on (`screenDetails.md`, `#Buttons and other controls`; Q40
+covers how those shades were chosen). Master Data has no hue of its own to draw from — nothing in the
+brief names one — so this needs a colour picked from scratch rather than darkened from something
+already agreed.
+
+**Question for the design owner (via Pete):** what should Master Data's neutral colour be — a
+specific grey or charcoal, drawn from the same darker-shade convention as the other three categories
+— for its active nav tab and its buttons, links and borders?
+
+**A:**
+
+---

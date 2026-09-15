@@ -180,7 +180,7 @@ export function UsersScreen() {
                 <td className={styles.actions}>
                   <Link
                     aria-label={`Amend ${row.displayName}`}
-                    className="button-link"
+                    className="button-link button-plain"
                     to={`/users/${row.id}`}
                     title={`Amend ${row.displayName}`}
                   >
@@ -198,6 +198,7 @@ export function UsersScreen() {
                         aria-label={`Deactivate ${row.displayName}`}
                         aria-describedby={refusal === null ? undefined : reasonId}
                         aria-disabled={refusal !== null}
+                        className="button-danger button-plain"
                         onClick={() => {
                           if (refusal !== null) return;
                           setDeactivating(row);
@@ -216,6 +217,7 @@ export function UsersScreen() {
                   ) : (
                     <button
                       aria-label={`Reactivate ${row.displayName}`}
+                      className="button-plain"
                       onClick={() => {
                         change(row, true);
                       }}

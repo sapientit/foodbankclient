@@ -104,7 +104,7 @@ export function ReferralReasonsScreen() {
                 <td className={styles.actions}>
                   <Link
                     aria-label={`Amend ${reason.label}`}
-                    className="button-link"
+                    className="button-link button-plain"
                     to={`/referral-reasons/${reason.id}`}
                     title={`Amend ${reason.label}`}
                   >
@@ -115,6 +115,7 @@ export function ReferralReasonsScreen() {
                   {reason.isActive ? (
                     <button
                       aria-label={`Retire ${reason.label}`}
+                      className="button-danger button-plain"
                       onClick={() => {
                         setRetiring(reason);
                       }}
@@ -126,6 +127,7 @@ export function ReferralReasonsScreen() {
                   ) : (
                     <button
                       aria-label={`Restore ${reason.label}`}
+                      className="button-plain"
                       onClick={() => {
                         setActive(reason, true);
                       }}

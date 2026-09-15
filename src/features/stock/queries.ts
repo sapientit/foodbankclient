@@ -83,7 +83,7 @@ export function useStockLevels() {
 
 export function useStockTakeGroupings() {
   return useQuery({
-    queryKey: [...stockKeys.all, 'groupings'] as const,
+    queryKey: stockKeys.groupings(),
     queryFn: async (): Promise<StockTakeGrouping[]> => {
       const { items } = await unwrap(api.GET('/api/v1/stock/groupings'));
       return [...items];
@@ -93,7 +93,7 @@ export function useStockTakeGroupings() {
 
 export function useCrates() {
   return useQuery({
-    queryKey: [...stockKeys.all, 'crates'] as const,
+    queryKey: stockKeys.crates(),
     queryFn: async (): Promise<Crate[]> => {
       const { items } = await unwrap(api.GET('/api/v1/stock/crates'));
       return [...items];
@@ -103,7 +103,7 @@ export function useCrates() {
 
 export function useStockValidation() {
   return useQuery({
-    queryKey: [...stockKeys.all, 'validation'] as const,
+    queryKey: stockKeys.validation(),
     queryFn: fetchStockValidation,
   });
 }
@@ -117,7 +117,7 @@ async function fetchStockValidation(): Promise<StockValidationIssue[]> {
 function refreshValidation(queryClient: ReturnType<typeof useQueryClient>): void {
   void queryClient
     .fetchQuery({
-      queryKey: [...stockKeys.all, 'validation'] as const,
+      queryKey: stockKeys.validation(),
       queryFn: fetchStockValidation,
     })
     .catch(() => undefined);

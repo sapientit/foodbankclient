@@ -90,7 +90,10 @@ better, but **do not expect a third or fourth state.**
 - **Confirming the session is what ends that**, and it is the tap in this app that cannot be taken
   back. After `POST /sessions/{id}/confirm` a change is a `409`, so the controls are hidden once the
   session reads `confirmed` rather than left to fail. **Put the weight of the confirmation on the
-  session, not on each household.**
+  session, not on each household.** That is about _where_ the weight sits, not a dialogue on the
+  button itself: Pete confirmed on 2026-09-14 that `Complete Session` needs no "are you sure" step of
+  its own. The gate — disabled until every parcel has an outcome, per `allOutcomesRecorded` — is the
+  confirmation; do not add a `ConfirmDialog` here.
 - **`POST /sessions/{id}/confirm` refuses while anyone is unmarked** and returns
   `details.pendingPickNumbers`. **Show those numbers** — the team lead needs to know who is missing,
   not that something went wrong. There is no override.

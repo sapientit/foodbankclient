@@ -377,6 +377,32 @@ spec says a stock take should behave that way, and a warehouse that expected the
 count sheet to match the shelf labels exactly would find the extra row
 surprising.
 
+**Recording attendance does not invalidate stock queries.** `useRecordAttendance`
+(`src/features/pick-lists/queries.ts`) invalidates `pickListKeys.all` and
+`sessionKeys.all` but not `stockKeys`, though `attended` decrements stock
+server-side. With the app's real 60s `staleTime`, the stock levels screen, the
+crates screen, the stock-take screen, the shopping buy-list and the dashboard's
+low-stock alert can show pre-attendance figures for up to a minute after a team
+lead marks a household attended. Pete decided on 2026-09-14 this is fine as it
+stands — a delay that self-corrects within a minute is not worth an added
+invalidation. Not a gap to fix; noted so a future review does not re-raise it.
+The run-session screen's own stock-check panel is unaffected — it is a
+separate, always-fresh endpoint.
+
+**Amending a referral's address or phone number does not invalidate the
+session's referral-details sheet.** `useAmendReferral`
+(`src/features/referrals/queries.ts`) invalidates `referralKeys` and
+`sessionKeys` but never `pickListKeys`, unlike its siblings
+`useReviewReferral`, `useCancelReferral` and `useCopyReferral`, which all do.
+`useSessionReferralDetails` sits on the default 60s `staleTime`, so a team
+lead's already-open referral-details screen (the one that exists so they can
+"find a door, ring a household that has not arrived") can carry a just-changed
+address or phone number for up to a minute. Pete decided on 2026-09-14 this is
+an acceptable risk — the two things (an admin correcting a detail, and a team
+lead needing that exact detail inside the same minute) coinciding is remote
+enough to live with. Not a gap to fix; noted so a future review does not
+re-raise it.
+
 **A negative stock level is shown as a plain number with nothing said about
 it.** It is a real state after a correction, so it is not an error and is not
 styled as one — but a warehouse seeing `-45` on a shelf gets no hint from this

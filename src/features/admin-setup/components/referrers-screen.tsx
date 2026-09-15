@@ -126,7 +126,7 @@ export function ReferrersScreen() {
                   <td className={styles.actions}>
                     <Link
                       aria-label={`Amend ${displayMatchValue(row)}`}
-                      className="button-link"
+                      className="button-link button-plain"
                       to={`/referrers/${row.id}`}
                       title={`Amend ${displayMatchValue(row)}`}
                     >
@@ -137,6 +137,7 @@ export function ReferrersScreen() {
                     {row.isActive ? (
                       <button
                         aria-label={`Deactivate ${displayMatchValue(row)}`}
+                        className="button-danger button-plain"
                         onClick={() => {
                           setDeactivating(row);
                         }}
@@ -148,6 +149,7 @@ export function ReferrersScreen() {
                     ) : (
                       <button
                         aria-label={`Reactivate ${displayMatchValue(row)}`}
+                        className="button-plain"
                         onClick={() => {
                           setActive(row, true);
                         }}

@@ -187,6 +187,20 @@ function ReferralDetail({ referral }: { referral: Referral }) {
     if (fromCopy) copiedNotice.current?.focus();
   }, [fromCopy]);
 
+  /**
+   * `ReviewPanel` unmounts the instant its decision lands — `referral` refetches
+   * with a new `status`, and `needsReferrerApproval` below goes false — so a
+   * state and a focus target held inside it would vanish with it. Held here
+   * instead, the same reasoning as `copiedNotice` above: a screen-reader user
+   * who rejects or approves a referral needs to hear what happened and land
+   * somewhere real, not on the button that just left the page.
+   */
+  const [decidedNotice, setDecidedNotice] = useState<string | null>(null);
+  const decidedNoticeRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (decidedNotice !== null) decidedNoticeRef.current?.focus();
+  }, [decidedNotice]);
+
   useEffect(() => {
     if (!firstTimeReviewNeeded || firstTimeMatches.isPending || firstTimeMatches.isError) return;
     if (firstTimeMatches.data.count > 0) {
@@ -217,6 +231,12 @@ function ReferralDetail({ referral }: { referral: Referral }) {
         <p className={styles.copiedNotice} ref={copiedNotice} role="status" tabIndex={-1}>
           This is a new referral, copied from the one you were reading. It holds a place on the
           session you chose, and the referral you copied is unchanged.
+        </p>
+      )}
+
+      {decidedNotice !== null && (
+        <p className={styles.copiedNotice} ref={decidedNoticeRef} role="status" tabIndex={-1}>
+          {decidedNotice}
         </p>
       )}
 
@@ -324,7 +344,9 @@ function ReferralDetail({ referral }: { referral: Referral }) {
       {!purged && (
         <section className={styles.section}>
           <h2>Referral actions</h2>
-          {isAdminView && needsReferrerApproval(referral) && <ReviewPanel referral={referral} />}
+          {isAdminView && needsReferrerApproval(referral) && (
+            <ReviewPanel onDecided={setDecidedNotice} referral={referral} />
+          )}
           <ReferralActionsPanel
             canCopy={isAdminView && canCopyReferral(referral)}
             canMarkReviewed={isAdminView && referral.status === 'active'}
@@ -614,11 +636,26 @@ function PreviousReferralsTable({ matches }: { matches: readonly RepeatReferralM
  * referrer's exact email address. The latter asks the administrator for the
  * organisation name rather than copying the free text from the referral — the
  * authorised list is used for reporting and needs the name the charity trusts.
+ *
+ * **Approving asks no confirming question — Pete settled this on 2026-09-14,
+ * now in `screenDetails.md`'s "Referrals awaiting a decision".** It is the
+ * ordinary outcome and typing something (or dismissing a dialog) to get there
+ * is work for nothing. "Approve and authorise referrer" still opens a dialog,
+ * but only to collect the organisation name — it is a data-entry step, not a
+ * confirmation, and is worded as one. Rejecting keeps its "are you sure",
+ * because `#Buttons and other controls` already names rejecting a referral as
+ * a destructive action.
  */
-function ReviewPanel({ referral }: { referral: Referral }) {
+function ReviewPanel({
+  onDecided,
+  referral,
+}: {
+  onDecided: (message: string) => void;
+  referral: Referral;
+}) {
   const review = useReviewReferral();
   const [comment, setComment] = useState('');
-  const [confirming, setConfirming] = useState<ReviewDecision | 'authorise' | null>(null);
+  const [confirming, setConfirming] = useState<'authorise' | 'reject' | null>(null);
   const [organisationName, setOrganisationName] = useState('');
   const [organisationNameError, setOrganisationNameError] = useState<string | null>(null);
   const commentId = useId();
@@ -643,6 +680,13 @@ function ReviewPanel({ referral }: { referral: Referral }) {
         comment: decision === 'reject' ? comment : '',
         ...(authoriseReferrer === undefined ? {} : { authoriseReferrer }),
       });
+      onDecided(
+        decision === 'reject'
+          ? 'Referral rejected.'
+          : decision === 'authorise'
+            ? 'Referral approved and referrer authorised.'
+            : 'Referral approved.',
+      );
     } catch {
       // Rendered by `ErrorNotice` below — a 409 here means another
       // administrator reviewed it first, and its message says so.
@@ -667,9 +711,7 @@ function ReviewPanel({ referral }: { referral: Referral }) {
       <div className={styles.actions}>
         <button
           aria-disabled={review.isPending}
-          onClick={() => {
-            setConfirming('accept');
-          }}
+          onClick={() => void decide('accept')}
           type="button"
         >
           Approve this referral
@@ -702,24 +744,14 @@ function ReviewPanel({ referral }: { referral: Referral }) {
         <ConfirmDialog
           busy={review.isPending}
           confirmLabel={
-            confirming === 'reject'
-              ? 'Reject referral'
-              : confirming === 'authorise'
-                ? 'Approve and authorise referrer'
-                : 'Approve referral'
+            confirming === 'reject' ? 'Reject referral' : 'Approve and authorise referrer'
           }
           destructive={confirming === 'reject'}
           onCancel={() => {
             setConfirming(null);
           }}
           onConfirm={() => void decide(confirming)}
-          title={
-            confirming === 'reject'
-              ? 'Reject this referral?'
-              : confirming === 'authorise'
-                ? 'Approve this referral and authorise the referrer?'
-                : 'Approve this referral?'
-          }
+          title={confirming === 'reject' ? 'Reject this referral?' : 'Authorise this referrer'}
         >
           <p>
             {confirming === 'reject'

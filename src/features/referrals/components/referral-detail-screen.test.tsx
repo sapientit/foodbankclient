@@ -940,7 +940,7 @@ describe('the admin referral detail screen', () => {
     expect(screen.queryByRole('button', { name: 'Reject this referral' })).toBeNull();
   });
 
-  it('approves a referral without asking for a reason', async () => {
+  it('approves a referral directly, with no confirming question', async () => {
     let body: unknown = null;
     server.use(
       http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
@@ -960,20 +960,20 @@ describe('the admin referral detail screen', () => {
       }),
     ).toBeInTheDocument();
 
+    // Approving an unrecognised referrer is the ordinary outcome: no dialog,
+    // nowhere to type a reason, nothing sent but the decision itself.
     await user.click(screen.getByRole('button', { name: 'Approve this referral' }));
-    const dialog = within(screen.getByRole('dialog', { name: 'Approve this referral?' }));
-    // Approving an unrecognised referrer is the ordinary outcome: nowhere to
-    // type a reason, and nothing sent.
-    expect(dialog.queryByLabelText(/Reason/)).toBeNull();
-    await user.click(dialog.getByRole('button', { name: 'Approve referral' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
 
     await waitFor(() => {
       expect(body).toEqual({});
     });
-    // The panel goes once there is nothing left to decide.
+    // The panel goes once there is nothing left to decide, and a
+    // screen-reader user is told what happened and given somewhere to land.
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Approve this referral' })).toBeNull();
     });
+    expect(screen.getByText('Referral approved.')).toBeInTheDocument();
   });
 
   it('does not offer authorising a referrer when the referral has no email address', async () => {
@@ -1005,9 +1005,7 @@ describe('the admin referral detail screen', () => {
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     await user.click(screen.getByRole('button', { name: 'Approve and authorise referrer' }));
-    const dialog = within(
-      screen.getByRole('dialog', { name: 'Approve this referral and authorise the referrer?' }),
-    );
+    const dialog = within(screen.getByRole('dialog', { name: 'Authorise this referrer' }));
     expect(dialog.getByText(/referrer@riverside\.org only/)).toBeInTheDocument();
     expect(dialog.getByText(/not everyone at that organisation’s domain/)).toBeInTheDocument();
     const organisation = dialog.getByLabelText('Organisation');
@@ -1035,9 +1033,7 @@ describe('the admin referral detail screen', () => {
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     await user.click(screen.getByRole('button', { name: 'Approve and authorise referrer' }));
-    const dialog = within(
-      screen.getByRole('dialog', { name: 'Approve this referral and authorise the referrer?' }),
-    );
+    const dialog = within(screen.getByRole('dialog', { name: 'Authorise this referrer' }));
     await user.click(dialog.getByRole('button', { name: 'Approve and authorise referrer' }));
 
     expect(await dialog.findByRole('alert')).toHaveTextContent(
@@ -1068,9 +1064,7 @@ describe('the admin referral detail screen', () => {
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     await user.click(screen.getByRole('button', { name: 'Approve and authorise referrer' }));
-    const dialog = within(
-      screen.getByRole('dialog', { name: 'Approve this referral and authorise the referrer?' }),
-    );
+    const dialog = within(screen.getByRole('dialog', { name: 'Authorise this referrer' }));
     await user.type(dialog.getByLabelText('Organisation'), 'Riverside Community Church');
     await user.click(dialog.getByRole('button', { name: 'Approve and authorise referrer' }));
 
@@ -1105,6 +1099,9 @@ describe('the admin referral detail screen', () => {
     await waitFor(() => {
       expect(body).toEqual({ comment: 'Rang the school, they had not heard of them.' });
     });
+    // The panel's own controls just left the page with it — a screen-reader
+    // user needs telling what happened and somewhere real to land.
+    expect(await screen.findByText('Referral rejected.')).toBeInTheDocument();
   });
 
   it('rejects without a comment rather than sending an empty one', async () => {
@@ -1154,13 +1151,15 @@ describe('the admin referral detail screen', () => {
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     await user.click(screen.getByRole('button', { name: 'Approve this referral' }));
-    const dialog = within(screen.getByRole('dialog', { name: 'Approve this referral?' }));
-    await user.click(dialog.getByRole('button', { name: 'Approve referral' }));
 
     // A 409 carries the one useful sentence; a generic apology throws it away.
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'That referral is not awaiting review.',
     );
+    // The panel stays — nothing was decided — so plain approval is still there
+    // to try again, and no "Referral approved." announcement was made.
+    expect(screen.getByRole('button', { name: 'Approve this referral' })).toBeInTheDocument();
+    expect(screen.queryByText('Referral approved.')).toBeNull();
   });
 
   it('offers the way back to the search results only when that is where it was opened from', async () => {
