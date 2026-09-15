@@ -4,6 +4,7 @@ import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
 import * as z from 'zod';
 import { ErrorNotice } from '../../../components/error-notice';
+import { BoxIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
 import { useStockItems } from '../../stock/queries';
@@ -104,7 +105,13 @@ export function CreateModelParcelScreen() {
 
   return (
     <>
-      <PageHeader title="Add a model parcel" />
+      <PageHeader
+        description={
+          <p>This cannot be changed once saved — it is what the household grid points at.</p>
+        }
+        icon={<BoxIcon />}
+        title="Add a model parcel"
+      />
 
       {create.error !== null && !isFieldFailure(create.error) && (
         <ErrorNotice error={create.error} />

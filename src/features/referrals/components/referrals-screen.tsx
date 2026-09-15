@@ -2,8 +2,8 @@ import { Link, useLocation, useSearchParams } from 'react-router';
 import type { RefObject } from 'react';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
-import { FeatureHero } from '../../../components/feature-hero';
-import { UsersIcon } from '../../../components/icons';
+import { ClipboardCheckIcon } from '../../../components/icons';
+import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatLondonDateTime, formatSessionDate } from '../../../lib/london-time';
 import { listPathFor, listReturnContext, useReturnedListItem } from '../../../lib/list-return';
@@ -80,11 +80,15 @@ export function ReferralsScreen() {
 
   return (
     <>
-      <FeatureHero eyebrow="Referral management" icon={<UsersIcon />} title="Referrals">
-        <p>
-          See who has been referred, the session they are booked into, and their current status.
-        </p>
-      </FeatureHero>
+      <PageHeader
+        description={
+          <p>
+            See who has been referred, the session they are booked into, and their current status.
+          </p>
+        }
+        icon={<ClipboardCheckIcon />}
+        title="Check referrals"
+      />
 
       <section aria-labelledby="referral-filters-heading" className={styles.filtersPanel}>
         <div className={styles.sectionHeading}>

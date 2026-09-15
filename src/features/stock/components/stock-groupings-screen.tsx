@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { ErrorNotice } from '../../../components/error-notice';
+import { BoxesIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import {
@@ -22,14 +23,14 @@ export function StockGroupingsScreen() {
   if (groupings.isPending)
     return (
       <>
-        <PageHeader title="Stock-take groupings" />
+        <GroupingHeader />
         <Spinner label="Loading stock-take groupings…" />
       </>
     );
   if (groupings.isError)
     return (
       <>
-        <PageHeader title="Stock-take groupings" />
+        <GroupingHeader />
         <ErrorNotice error={groupings.error} onRetry={() => void groupings.refetch()} />
       </>
     );
@@ -51,11 +52,7 @@ export function StockGroupingsScreen() {
 
   return (
     <>
-      <PageHeader title="Stock-take groupings" />
-      <p className={styles.intro}>
-        A stock take is run one grouping at a time. Items not counted by a crate are assigned to one
-        of these groupings.
-      </p>
+      <GroupingHeader />
       {(create.error !== null || amend.error !== null) && (
         <ErrorNotice error={create.error ?? amend.error} />
       )}
@@ -89,6 +86,21 @@ export function StockGroupingsScreen() {
       </div>
       {newError !== null && <p role="alert">{newError}</p>}
     </>
+  );
+}
+
+function GroupingHeader() {
+  return (
+    <PageHeader
+      description={
+        <p>
+          A stock take is easier if similar items are counted together. Add or edit the groups to
+          match the way you work.
+        </p>
+      }
+      icon={<BoxesIcon />}
+      title="Stock-take groupings"
+    />
   );
 }
 

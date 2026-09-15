@@ -4,6 +4,7 @@ import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
 import * as z from 'zod';
 import { ErrorNotice } from '../../../components/error-notice';
+import { TargetIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
@@ -132,7 +133,11 @@ export function CreateTargetStockListScreen() {
 
   return (
     <>
-      <PageHeader title="Add a target stock list" />
+      <PageHeader
+        description={<p>Set how many of each item the food bank wants to hold.</p>}
+        icon={<TargetIcon />}
+        title="Add a target stock list"
+      />
 
       {create.error !== null && !isFieldFailure(create.error) && (
         <ErrorNotice error={create.error} />

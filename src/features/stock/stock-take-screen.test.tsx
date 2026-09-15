@@ -277,11 +277,15 @@ describe('saving a stock take page', () => {
     const user = userEvent.setup();
     await chooseGrouping(user);
 
-    expect((await screen.findAllByRole('rowheader')).map((header) => header.textContent)).toEqual([
+    const rowHeaders = await screen.findAllByRole('rowheader');
+    expect(rowHeaders.map((header) => header.textContent)).toEqual([
       expect.stringContaining('Cereal'),
       expect.stringContaining('Tinned mix'),
       expect.stringContaining('Pasta'),
     ]);
+    expect(rowHeaders[0]?.closest('tr')?.className).not.toMatch(/alternateRow/);
+    expect(rowHeaders[1]?.closest('tr')?.className).toMatch(/alternateRow/);
+    expect(rowHeaders[2]?.closest('tr')?.className).not.toMatch(/alternateRow/);
     const composition = screen.getByRole('list', { name: 'Crate composition' });
     expect(within(composition).getByText('Jam: 50%')).toBeInTheDocument();
     expect(within(composition).getByText('Marmite: 50%')).toBeInTheDocument();

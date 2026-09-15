@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ErrorNotice } from '../../../components/error-notice';
+import { KeyIcon, UsersIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { copyToClipboard } from '../../../lib/clipboard';
 import { formatLondonDateTime } from '../../../lib/london-time';
@@ -61,21 +62,30 @@ export function VolunteerCodeScreen() {
 
   return (
     <>
-      <PageHeader title="Volunteer counting code" />
-
-      <p className={styles.intro}>
-        Generate a code for whoever is counting the shelves this morning. They enter it on the
-        stock-take sign-in — no account needed — and it lets them onto the stock take and nothing
-        else. The expiry date and time come from the code you generate.
-      </p>
+      <PageHeader
+        description={
+          <p>
+            Generate a code for whoever is counting the shelves this morning. They enter it on the
+            stock-take sign-in — no account needed — and it lets them onto the stock take and
+            nothing else. The expiry date and time come from the code you generate.
+          </p>
+        }
+        icon={<UsersIcon />}
+        title="Volunteer counting code"
+      />
 
       {generate.isError && <ErrorNotice error={generate.error} />}
 
       {issued !== null && (
         <div className={styles.result}>
-          <h2 className={styles.resultHeading} ref={resultRef} tabIndex={-1}>
-            Read this out or write it down
-          </h2>
+          <div className={styles.resultTitle}>
+            <span className={styles.resultIcon}>
+              <KeyIcon />
+            </span>
+            <h2 className={styles.resultHeading} ref={resultRef} tabIndex={-1}>
+              Your volunteer code
+            </h2>
+          </div>
           <p className={styles.shareText}>This is the code to use for doing a stock take.</p>
           <p className={styles.code}>{issued.code}</p>
           <p className={styles.expiry}>Stops working at {expiryTime(issued.expiresAt)}.</p>

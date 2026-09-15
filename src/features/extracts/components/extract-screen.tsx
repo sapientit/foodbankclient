@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
-import { FeatureHero } from '../../../components/feature-hero';
+import { SpreadsheetIcon } from '../../../components/icons';
+import { PageHeader } from '../../../components/page-header';
 import { ShowableError } from '../../../lib/errors';
 import { preloadSheetsAccess, requestSheetsAccess } from '../google-auth';
 import { writeClaim } from '../google-sheets';
@@ -220,12 +221,16 @@ export function ExtractScreen() {
 
   return (
     <>
-      <FeatureHero eyebrow="Spreadsheet extract" title="Send to Sheets">
-        <p>
-          Send confirmed sessions to the food bank&rsquo;s Google spreadsheet. This sends household
-          details outside this system.
-        </p>
-      </FeatureHero>
+      <PageHeader
+        description={
+          <p>
+            Send confirmed sessions to the food bank&rsquo;s Google spreadsheet. This sends
+            household details outside this system.
+          </p>
+        }
+        icon={<SpreadsheetIcon />}
+        title="Send to Sheets"
+      />
       <section aria-labelledby="run-extract-heading" className={styles.runPanel}>
         <h2 id="run-extract-heading">Run spreadsheet extract</h2>
         <p className={styles.guidance}>

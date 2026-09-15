@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '../../../components/empty-state';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
-import { PencilIcon, TrashIcon } from '../../../components/icons';
+import { BoxIcon, PencilIcon, TrashIcon } from '../../../components/icons';
 import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
@@ -73,35 +73,35 @@ export function CratesScreen() {
   if (crates.isPending || items.isPending || groupings.isPending || levels.isPending)
     return (
       <>
-        <PageHeader title="Crates" />
+        <CratesHeader />
         <Spinner label="Loading crates…" />
       </>
     );
   if (crates.isError)
     return (
       <>
-        <PageHeader title="Crates" />
+        <CratesHeader />
         <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
       </>
     );
   if (items.isError)
     return (
       <>
-        <PageHeader title="Crates" />
+        <CratesHeader />
         <ErrorNotice error={items.error} onRetry={() => void items.refetch()} />
       </>
     );
   if (groupings.isError)
     return (
       <>
-        <PageHeader title="Crates" />
+        <CratesHeader />
         <ErrorNotice error={groupings.error} onRetry={() => void groupings.refetch()} />
       </>
     );
   if (levels.isError)
     return (
       <>
-        <PageHeader title="Crates" />
+        <CratesHeader />
         <ErrorNotice error={levels.error} onRetry={() => void levels.refetch()} />
       </>
     );
@@ -269,11 +269,7 @@ export function CratesScreen() {
 
   return (
     <>
-      <PageHeader title="Crates" />
-      <p>
-        A crate is an explicit set of items on one shelf. Its stock and shopping composition columns
-        must each total 100.
-      </p>
+      <CratesHeader />
       {crates.data.length === 0 ? (
         <EmptyState
           headline="No crates yet"
@@ -524,5 +520,20 @@ export function CratesScreen() {
         </ConfirmDialog>
       )}
     </>
+  );
+}
+
+function CratesHeader() {
+  return (
+    <PageHeader
+      description={
+        <p>
+          A crate is an explicit set of items on one shelf. Its stock and shopping composition
+          columns must each total 100.
+        </p>
+      }
+      icon={<BoxIcon />}
+      title="Crates"
+    />
   );
 }

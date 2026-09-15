@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
 import { listPathFor, listReturnContext, useReturnedListItem } from '../../../lib/list-return';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
-import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
+import { ArchiveIcon, BoxIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
 import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
@@ -35,28 +35,28 @@ export function StockItemsScreen() {
   if (items.isPending || groupings.isPending || crates.isPending)
     return (
       <>
-        <PageHeader title="Stock items" />
+        <StockItemsHeader />
         <Spinner label="Loading stock items…" />
       </>
     );
   if (items.isError)
     return (
       <>
-        <PageHeader title="Stock items" />
+        <StockItemsHeader />
         <ErrorNotice error={items.error} onRetry={() => void items.refetch()} />
       </>
     );
   if (groupings.isError)
     return (
       <>
-        <PageHeader title="Stock items" />
+        <StockItemsHeader />
         <ErrorNotice error={groupings.error} onRetry={() => void groupings.refetch()} />
       </>
     );
   if (crates.isError)
     return (
       <>
-        <PageHeader title="Stock items" />
+        <StockItemsHeader />
         <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
       </>
     );
@@ -82,18 +82,13 @@ export function StockItemsScreen() {
 
   return (
     <>
-      <PageHeader
-        title="Stock items"
+      <StockItemsHeader
         action={
           <Link className="button-link" to="/stock/items/new">
             Add an item
           </Link>
         }
       />
-      <p className={styles.intro}>
-        Maintain the names, categories, descriptions, shelf locations and counting arrangements used
-        throughout stock work and pick lists.
-      </p>
       {amend.error !== null && <ErrorNotice error={amend.error} />}
       <p>
         <label className={styles.toggle}>
@@ -216,6 +211,22 @@ export function StockItemsScreen() {
         </ConfirmDialog>
       )}
     </>
+  );
+}
+
+function StockItemsHeader({ action }: { readonly action?: ReactNode } = {}) {
+  return (
+    <PageHeader
+      action={action}
+      description={
+        <p>
+          Maintain the names, categories, descriptions, shelf locations and counting arrangements
+          used throughout stock work and pick lists.
+        </p>
+      }
+      icon={<BoxIcon />}
+      title="Stock items"
+    />
   );
 }
 

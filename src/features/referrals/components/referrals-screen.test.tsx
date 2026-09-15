@@ -80,7 +80,9 @@ describe('the referrals list', () => {
     const { router } = renderApp('/referrals?sessionId=s1&status=cancelled');
     const user = userEvent.setup();
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Referrals' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Check referrals' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Filter referrals' })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { level: 2, name: 'Referrals' })).toBeInTheDocument();
     expect(screen.getByLabelText('Session')).toHaveValue('s1');

@@ -170,7 +170,9 @@ describe('the admin referral detail screen', () => {
 
     await user.click(await screen.findByRole('link', { name: 'Back' }));
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Referrals' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Check referrals' }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 1, name: 'Potential matches' })).toBeNull();
   });
 

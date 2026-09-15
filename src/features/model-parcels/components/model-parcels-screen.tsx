@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
-import { PencilIcon, TrashIcon } from '../../../components/icons';
+import { BoxIcon, PencilIcon, TrashIcon } from '../../../components/icons';
 import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
@@ -35,7 +35,7 @@ export function ModelParcelsScreen() {
   if (parcels.isPending) {
     return (
       <>
-        <PageHeader title="Model parcels" />
+        <ModelParcelsHeader />
         <Spinner label="Loading model parcels…" />
       </>
     );
@@ -44,7 +44,7 @@ export function ModelParcelsScreen() {
   if (parcels.isError) {
     return (
       <>
-        <PageHeader title="Model parcels" />
+        <ModelParcelsHeader />
         <ErrorNotice error={parcels.error} onRetry={() => void parcels.refetch()} />
       </>
     );
@@ -68,8 +68,7 @@ export function ModelParcelsScreen() {
 
   return (
     <>
-      <PageHeader
-        title="Model parcels"
+      <ModelParcelsHeader
         action={
           <>
             <Link className="button-link" ref={addLinkRef} to="/model-parcels/new">
@@ -81,12 +80,6 @@ export function ModelParcelsScreen() {
           </>
         }
       />
-
-      <p className={styles.intro}>
-        A model parcel is a named list of stock items and quantities. The household grid decides
-        which model parcel a household of a given size receives; this list is what that grid can
-        point at.
-      </p>
 
       <p aria-live="polite" className={styles.visuallyHidden} role="status">
         {deletedName !== null && `Deleted ${deletedName}.`}
@@ -171,5 +164,22 @@ export function ModelParcelsScreen() {
         </ConfirmDialog>
       )}
     </>
+  );
+}
+
+function ModelParcelsHeader({ action }: { readonly action?: ReactNode } = {}) {
+  return (
+    <PageHeader
+      action={action}
+      description={
+        <p>
+          A model parcel is a named list of stock items and quantities. The household grid decides
+          which model parcel a household of a given size receives; this list is what that grid can
+          point at.
+        </p>
+      }
+      icon={<BoxIcon />}
+      title="Model parcels"
+    />
   );
 }

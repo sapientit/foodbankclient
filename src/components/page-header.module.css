@@ -1,16 +1,48 @@
 .header {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   margin-block-end: 1.5rem;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .title {
   margin: 0;
   font-size: 1.75rem;
   color: var(--category-action, inherit);
+}
+
+.description {
+  max-inline-size: 70ch;
+  margin-block-start: 0.2rem;
+}
+
+.description p {
+  margin: 0;
+}
+
+.icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 3.5rem;
+  block-size: 3.5rem;
+  border-radius: 50%;
+  background: var(--category-action-tint);
+  color: var(--category-action);
+}
+
+.icon svg {
+  inline-size: 1.9rem;
+  block-size: 1.9rem;
+  stroke-width: 2.1;
 }
 
 .action {

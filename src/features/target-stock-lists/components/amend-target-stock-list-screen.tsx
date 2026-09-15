@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import * as z from 'zod';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { TargetIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
@@ -45,7 +46,7 @@ export function AmendTargetStockListScreen() {
   if (target.isPending || stockItems.isPending || crates.isPending) {
     return (
       <>
-        <PageHeader title="Amend a target stock list" />
+        <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
         <Spinner label="Loading the target stock list…" />
       </>
     );
@@ -54,7 +55,7 @@ export function AmendTargetStockListScreen() {
   if (target.isError) {
     return (
       <>
-        <PageHeader title="Amend a target stock list" />
+        <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
         <ErrorNotice error={target.error} onRetry={() => void target.refetch()} />
       </>
     );
@@ -63,7 +64,7 @@ export function AmendTargetStockListScreen() {
   if (stockItems.isError) {
     return (
       <>
-        <PageHeader title="Amend a target stock list" />
+        <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
         <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
       </>
     );
@@ -71,7 +72,7 @@ export function AmendTargetStockListScreen() {
   if (crates.isError) {
     return (
       <>
-        <PageHeader title="Amend a target stock list" />
+        <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
         <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
       </>
     );
@@ -80,7 +81,7 @@ export function AmendTargetStockListScreen() {
   if (target.data === null) {
     return (
       <>
-        <PageHeader title="Amend a target stock list" />
+        <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
         <EmptyState
           action={<Link to="/stock/target-lists">Back to target stock lists</Link>}
           headline="That target stock list is not in the list"
@@ -223,7 +224,7 @@ function AmendForm({
 
   return (
     <>
-      <PageHeader title={`Amend ${list.name}`} />
+      <PageHeader icon={<TargetIcon />} title={`Amend ${list.name}`} />
 
       {amend.error !== null && !isFieldFailure(amend.error) && <ErrorNotice error={amend.error} />}
 

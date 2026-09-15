@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import * as z from 'zod';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { BoxIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
@@ -55,7 +56,7 @@ export function AmendModelParcelScreen() {
   if (target.isPending || stockItems.isPending) {
     return (
       <>
-        <PageHeader title="Amend a model parcel" />
+        <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
         <Spinner label="Loading the model parcel…" />
       </>
     );
@@ -64,7 +65,7 @@ export function AmendModelParcelScreen() {
   if (target.isError) {
     return (
       <>
-        <PageHeader title="Amend a model parcel" />
+        <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
         <ErrorNotice error={target.error} onRetry={() => void target.refetch()} />
       </>
     );
@@ -73,7 +74,7 @@ export function AmendModelParcelScreen() {
   if (stockItems.isError) {
     return (
       <>
-        <PageHeader title="Amend a model parcel" />
+        <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
         <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
       </>
     );
@@ -82,7 +83,7 @@ export function AmendModelParcelScreen() {
   if (target.data === null) {
     return (
       <>
-        <PageHeader title="Amend a model parcel" />
+        <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
         <EmptyState
           action={<Link to="/model-parcels">Back to model parcels</Link>}
           headline="That model parcel is not in the list"
@@ -156,7 +157,7 @@ function AmendModelParcelForm({
 
   return (
     <>
-      <PageHeader title={`Amend ${parcel.name}`} />
+      <PageHeader icon={<BoxIcon />} title={`Amend ${parcel.name}`} />
 
       {amend.error !== null && !isFieldFailure(amend.error) && <ErrorNotice error={amend.error} />}
 

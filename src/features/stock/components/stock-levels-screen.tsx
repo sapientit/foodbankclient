@@ -2,8 +2,7 @@ import { useRef, useState } from 'react';
 import { useAuth } from '../../../auth/auth-context';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
-import { PencilIcon } from '../../../components/icons';
-import { PageHeader } from '../../../components/page-header';
+import { BoxIcon, PencilIcon } from '../../../components/icons';
 import { Spinner } from '../../../components/spinner';
 import { ApiError } from '../../../lib/errors';
 import { useCorrectStockLevel, useStockLevels, type StockLevel } from '../queries';
@@ -31,23 +30,33 @@ export function StockLevelsScreen() {
   const [operation, setOperation] = useState<Operation>('set');
   const [quantity, setQuantity] = useState('');
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
+  const [shelf, setShelf] = useState('all');
+  const [levelFilter, setLevelFilter] = useState<'all' | 'low'>('all');
+  const [itemSearch, setItemSearch] = useState('');
 
   if (levels.isPending)
     return (
       <>
-        <PageHeader title="Stock" />
+        <StockLevelsHeading />
         <Spinner label="Loading stock levels…" />
       </>
     );
   if (levels.isError)
     return (
       <>
-        <PageHeader title="Stock" />
+        <StockLevelsHeading />
         <ErrorNotice error={levels.error} onRetry={() => void levels.refetch()} />
       </>
     );
 
-  const visible = levels.data.filter((level) => level.isActive);
+  const active = levels.data.filter((level) => level.isActive);
+  const shelves = [...new Set(active.map((level) => level.shelfNumber.slice(0, 1)))];
+  const visible = active.filter(
+    (level) =>
+      level.name.toLocaleLowerCase().includes(itemSearch.trim().toLocaleLowerCase()) &&
+      (shelf === 'all' || level.shelfNumber.startsWith(shelf)) &&
+      (levelFilter === 'all' || isLowStock(level) || level.quantityOnHand < 0),
+  );
   const canCorrect =
     state.status === 'signed-in' &&
     (state.user.role === 'admin' || state.user.role === 'team_lead');
@@ -105,14 +114,57 @@ export function StockLevelsScreen() {
 
   return (
     <>
-      <PageHeader title="Stock" />
-      <p className={styles.intro}>
-        What the system says is on each shelf, in the order you would walk them.
-      </p>
-      {visible.length === 0 ? (
+      <StockLevelsHeading />
+      <div className={styles.filters}>
+        <label>
+          Search items
+          <input
+            onChange={(event) => {
+              setItemSearch(event.target.value);
+            }}
+            placeholder="Search items"
+            type="search"
+            value={itemSearch}
+          />
+        </label>
+        <label>
+          Shelf filter
+          <select
+            onChange={(event) => {
+              setShelf(event.target.value);
+            }}
+            value={shelf}
+          >
+            <option value="all">All shelves</option>
+            {shelves.map((prefix) => (
+              <option key={prefix} value={prefix}>
+                Shelf {prefix}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Stock-level filter
+          <select
+            onChange={(event) => {
+              setLevelFilter(event.target.value as 'all' | 'low');
+            }}
+            value={levelFilter}
+          >
+            <option value="all">All stock levels</option>
+            <option value="low">Low stock</option>
+          </select>
+        </label>
+      </div>
+      {active.length === 0 ? (
         <EmptyState
           headline="No stock items yet"
           sentence="An administrator adds items to the list before anything can be counted or picked."
+        />
+      ) : visible.length === 0 ? (
+        <EmptyState
+          headline="No matching stock items"
+          sentence="Try a different item search, shelf or stock-level filter."
         />
       ) : (
         <table className={styles.table}>
@@ -171,6 +223,20 @@ export function StockLevelsScreen() {
         </table>
       )}
     </>
+  );
+}
+
+function StockLevelsHeading() {
+  return (
+    <header className={styles.heading}>
+      <span className={styles.headingIcon}>
+        <BoxIcon />
+      </span>
+      <div>
+        <h1>Stock</h1>
+        <p>What the system says is on each shelf, in the order you would walk them.</p>
+      </div>
+    </header>
   );
 }
 

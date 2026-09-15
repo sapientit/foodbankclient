@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
-import { PencilIcon, TrashIcon } from '../../../components/icons';
+import { PencilIcon, TargetIcon, TrashIcon } from '../../../components/icons';
 import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
@@ -35,7 +35,7 @@ export function TargetStockListsScreen() {
   if (lists.isPending) {
     return (
       <>
-        <PageHeader title="Target stock lists" />
+        <TargetListsHeader />
         <Spinner label="Loading target stock lists…" />
       </>
     );
@@ -44,7 +44,7 @@ export function TargetStockListsScreen() {
   if (lists.isError) {
     return (
       <>
-        <PageHeader title="Target stock lists" />
+        <TargetListsHeader />
         <ErrorNotice error={lists.error} onRetry={() => void lists.refetch()} />
       </>
     );
@@ -67,8 +67,7 @@ export function TargetStockListsScreen() {
 
   return (
     <>
-      <PageHeader
-        title="Target stock lists"
+      <TargetListsHeader
         action={
           <Link className="button-link" ref={addLinkRef} to="/stock/target-lists/new">
             Add a target stock list
@@ -78,12 +77,6 @@ export function TargetStockListsScreen() {
 
       <p aria-live="polite" className={styles.visuallyHidden} role="status">
         {deletedName !== null && `Deleted ${deletedName}.`}
-      </p>
-
-      <p className={styles.intro}>
-        A target stock list is how many of each item the food bank wants to hold. A team lead picks
-        one on the <Link to="/stock/shopping">Shopping</Link> screen and is told what to buy — the
-        target less what is on hand.
       </p>
 
       {remove.error !== null && <ErrorNotice error={remove.error} />}
@@ -161,5 +154,22 @@ export function TargetStockListsScreen() {
         </ConfirmDialog>
       )}
     </>
+  );
+}
+
+function TargetListsHeader({ action }: { readonly action?: ReactNode } = {}) {
+  return (
+    <PageHeader
+      action={action}
+      description={
+        <p>
+          A target stock list is how many of each item the food bank wants to hold. A team lead
+          picks one on the <Link to="/stock/shopping">Shopping</Link> screen and is told what to buy
+          — the target less what is on hand.
+        </p>
+      }
+      icon={<TargetIcon />}
+      title="Target stock lists"
+    />
   );
 }

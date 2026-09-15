@@ -57,6 +57,79 @@ export function BoxIcon({ className }: IconProps) {
   );
 }
 
+/** Three parcels together: the visual cue for a stock-take grouping. */
+export function BoxesIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="m3 8 4-2 4 2-4 2-4-2Z" />
+      <path d="M3 8v4l4 2 4-2V8" />
+      <path d="m13 6 4-2 4 2-4 2-4-2Z" />
+      <path d="M13 6v4l4 2 4-2V6" />
+      <path d="m8 15 4-2 4 2-4 2-4-2Z" />
+      <path d="M8 15v4l4 2 4-2v-4" />
+    </svg>
+  );
+}
+
+export function TargetIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function CartIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="M3 4h2l2.2 11h10.6l2.2-8H7" />
+      <circle cx="9" cy="19" r="1.25" />
+      <circle cx="17" cy="19" r="1.25" />
+    </svg>
+  );
+}
+
+export function KeyIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <circle cx="8" cy="15" r="4" />
+      <path d="m11 12 9-9" />
+      <path d="m16 5 3 3" />
+      <path d="m14 7 3 3" />
+    </svg>
+  );
+}
+
+export function SearchIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m16 16 4.5 4.5" />
+    </svg>
+  );
+}
+
+export function ClipboardCheckIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <rect x="5" y="5" width="14" height="16" rx="2" />
+      <path d="M9 5a3 3 0 0 1 6 0" />
+      <path d="m8.5 13 2.2 2.2 4.8-5" />
+    </svg>
+  );
+}
+
+export function SpreadsheetIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <rect x="4" y="3" width="16" height="18" rx="1.5" />
+      <path d="M8 8h8M8 12h8M8 16h8M12 8v8" />
+    </svg>
+  );
+}
+
 export function CalendarIcon({ className }: IconProps) {
   return (
     <svg {...shared} className={className}>
@@ -75,6 +148,20 @@ export function GridIcon({ className }: IconProps) {
       <rect x="14" y="3" width="7" height="7" rx="1" />
       <rect x="3" y="14" width="7" height="7" rx="1" />
       <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+  );
+}
+
+/** A short checklist: the visual cue for a stock take. */
+export function ListIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="M8 6h12" />
+      <path d="M8 12h12" />
+      <path d="M8 18h12" />
+      <path d="m3.5 6 1.2 1.2L6.5 5" />
+      <path d="m3.5 12 1.2 1.2L6.5 11" />
+      <path d="m3.5 18 1.2 1.2L6.5 17" />
     </svg>
   );
 }

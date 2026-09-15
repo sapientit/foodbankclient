@@ -1,6 +1,7 @@
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
+import { UsersIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { useStockItems, type StockItem } from '../../stock/queries';
@@ -53,7 +54,7 @@ export function HouseholdGridScreen() {
   if (grid.isPending || parcels.isPending) {
     return (
       <>
-        <PageHeader title="Household grid" />
+        <HouseholdGridHeader />
         <Spinner label="Loading the household grid…" />
       </>
     );
@@ -62,7 +63,7 @@ export function HouseholdGridScreen() {
   if (grid.isError) {
     return (
       <>
-        <PageHeader title="Household grid" />
+        <HouseholdGridHeader />
         <ErrorNotice error={grid.error} onRetry={() => void grid.refetch()} />
       </>
     );
@@ -71,7 +72,7 @@ export function HouseholdGridScreen() {
   if (parcels.isError) {
     return (
       <>
-        <PageHeader title="Household grid" />
+        <HouseholdGridHeader />
         <ErrorNotice error={parcels.error} onRetry={() => void parcels.refetch()} />
       </>
     );
@@ -113,13 +114,7 @@ function GridEditor({
 
   return (
     <>
-      <PageHeader title="Household grid" action={<Link to="/model-parcels">Model parcels</Link>} />
-
-      <p className={styles.intro}>
-        Every household size from 1 adult with no children up to 5 adults and 5 children needs a
-        model parcel to receive. A household larger than that in either direction is treated as 5 —
-        see the preview below.
-      </p>
+      <HouseholdGridHeader action={<Link to="/model-parcels">Model parcels</Link>} />
 
       {save.error !== null && <ErrorNotice error={save.error} />}
 
@@ -210,6 +205,23 @@ function GridEditor({
 
       <PreviewTool />
     </>
+  );
+}
+
+function HouseholdGridHeader({ action }: { readonly action?: ReactNode } = {}) {
+  return (
+    <PageHeader
+      action={action}
+      description={
+        <p>
+          Every household size from 1 adult with no children up to 5 adults and 5 children needs a
+          model parcel to receive. A household larger than that in either direction is treated as 5
+          — see the preview below.
+        </p>
+      }
+      icon={<UsersIcon />}
+      title="Household grid"
+    />
   );
 }
 

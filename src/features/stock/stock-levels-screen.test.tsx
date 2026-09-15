@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { server } from '../../../test/msw/server';
@@ -144,6 +145,52 @@ describe('stock levels', () => {
 
     expect(screen.queryByRole('checkbox', { name: /Show retired items/ })).toBeNull();
     expect(screen.queryByText(/weekly stock take resets/)).toBeNull();
+  });
+
+  it('filters to low stock, including a negative level without a watched threshold', async () => {
+    renderApp('/stock');
+    const user = userEvent.setup();
+
+    await user.selectOptions(await screen.findByLabelText('Stock-level filter'), 'low');
+
+    expect(screen.getByRole('row', { name: /Pasta/ })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Baked beans/ })).toBeInTheDocument();
+    expect(screen.queryByRole('row', { name: /Cereal/ })).toBeNull();
+  });
+
+  it('filters by the first shelf character without changing the server order', async () => {
+    const flour: StockLevel = {
+      ...BEANS,
+      id: 's5',
+      name: 'Flour',
+      shelfNumber: 'B1',
+      quantityOnHand: 12,
+    };
+    server.use(http.get(LEVELS, () => HttpResponse.json({ items: [CEREAL, PASTA, BEANS, flour] })));
+    renderApp('/stock');
+    const user = userEvent.setup();
+
+    await user.selectOptions(await screen.findByLabelText('Shelf filter'), 'B');
+
+    expect(screen.getByRole('row', { name: /Flour/ })).toBeInTheDocument();
+    expect(screen.queryByRole('row', { name: /Cereal/ })).toBeNull();
+    expect(screen.queryByRole('row', { name: /Baked beans/ })).toBeNull();
+  });
+
+  it('searches stock by item name without treating a shelf label as a match', async () => {
+    renderApp('/stock');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('searchbox', { name: 'Search items' }), 'a10');
+
+    expect(screen.getByText('No matching stock items')).toBeInTheDocument();
+    expect(screen.queryByRole('row', { name: /Pasta/ })).toBeNull();
+
+    await user.clear(screen.getByRole('searchbox', { name: 'Search items' }));
+    await user.type(screen.getByRole('searchbox', { name: 'Search items' }), 'pasta');
+
+    expect(screen.getByRole('row', { name: /Pasta/ })).toBeInTheDocument();
+    expect(screen.queryByRole('row', { name: /Cereal/ })).toBeNull();
   });
 
   it('offers an administrator a hand adjustment for each stock item', async () => {

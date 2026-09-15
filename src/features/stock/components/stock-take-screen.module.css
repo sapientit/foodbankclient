@@ -1,5 +1,36 @@
-.intro {
+.heading {
+  display: flex;
+  align-items: stretch;
+  gap: 0.85rem;
+  margin-block-end: 1.5rem;
+}
+
+.heading h1 {
+  margin: 0;
+  color: var(--category-action, #005a9c);
+  font-size: 1.75rem;
+}
+
+.heading p {
   max-inline-size: 70ch;
+  margin: 0.25rem 0 0;
+}
+
+.headingIcon {
+  display: inline-grid;
+  aspect-ratio: 1;
+  align-self: stretch;
+  place-items: center;
+  min-inline-size: 4.5rem;
+  border-radius: 50%;
+  background: var(--category-action, #005a9c);
+  color: #ffffff;
+}
+
+.headingIcon svg {
+  inline-size: 2rem;
+  block-size: 2rem;
+  stroke-width: 2.2;
 }
 
 .banner,
@@ -47,6 +78,13 @@
 
 .table thead th {
   border-block-end: 2px solid #1a1a1a;
+}
+
+/* The count field, not a row colour, is the thing that records a stock take.
+   These quiet alternating bands simply help a counter keep the row aligned. */
+.alternateRow th,
+.alternateRow td {
+  background: #edf6fc;
 }
 
 .numeric {

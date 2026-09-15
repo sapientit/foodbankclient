@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
-import { FeatureHero } from '../../../components/feature-hero';
-import { UsersIcon } from '../../../components/icons';
+import { SearchIcon } from '../../../components/icons';
+import { PageHeader } from '../../../components/page-header';
 import { formatSessionDate } from '../../../lib/london-time';
 import { useReferralReasons } from '../../admin-setup/queries';
 import { useReferralSearch, useReferralSearchMemory } from '../queries';
@@ -39,12 +39,16 @@ export function ReferralSearchScreen() {
 
   return (
     <>
-      <FeatureHero eyebrow="Referral management" icon={<UsersIcon />} title="Search referrals">
-        <p>
-          Search by date of birth, postcode and/or phone number. A surname start narrows those
-          results.
-        </p>
-      </FeatureHero>
+      <PageHeader
+        description={
+          <p>
+            Search by date of birth, postcode and/or phone number. A surname start narrows those
+            results.
+          </p>
+        }
+        icon={<SearchIcon />}
+        title="Search referrals"
+      />
       <form
         className={styles.formPanel}
         onSubmit={(event) => {

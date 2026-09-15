@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
-import { PageHeader } from '../../../components/page-header';
+import { ListIcon } from '../../../components/icons';
 import { Spinner } from '../../../components/spinner';
 import { ApiError } from '../../../lib/errors';
 import {
@@ -117,28 +117,28 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
   if (levels.isPending || groupings.isPending || crates.isPending)
     return (
       <>
-        <PageHeader title="Stock take" />
+        <StockTakeHeading />
         <Spinner label="Loading stock levels…" />
       </>
     );
   if (levels.isError)
     return (
       <>
-        <PageHeader title="Stock take" />
+        <StockTakeHeading />
         <ErrorNotice error={levels.error} onRetry={() => void levels.refetch()} />
       </>
     );
   if (groupings.isError)
     return (
       <>
-        <PageHeader title="Stock take" />
+        <StockTakeHeading />
         <ErrorNotice error={groupings.error} onRetry={() => void groupings.refetch()} />
       </>
     );
   if (crates.isError)
     return (
       <>
-        <PageHeader title="Stock take" />
+        <StockTakeHeading />
         <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
       </>
     );
@@ -262,11 +262,7 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
 
   return (
     <>
-      <PageHeader title="Stock take" />
-      <p className={styles.intro}>
-        Choose a grouping. Count direct items in their displayed unit, or count a crate as a whole.
-        Leave an unchanged row blank.
-      </p>
+      <StockTakeHeading />
       <p>
         <label htmlFor="stock-take-grouping">Grouping </label>
         <select
@@ -317,7 +313,8 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map((row) => {
+                {pageRows.map((row, index) => {
+                  const alternateRow = index % 2 === 1 ? styles.alternateRow : undefined;
                   if (row.kind === 'item') {
                     const level = row.level;
                     const key = `item-${level.id}`;
@@ -325,7 +322,7 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
                     const current = baselineFor(level.id, level.quantityOnHand);
                     const unitsPerPack = level.unitsPerPack;
                     return (
-                      <tr key={level.id}>
+                      <tr className={alternateRow} key={level.id}>
                         <th scope="row">{level.name}</th>
                         <td>{level.shelfNumber}</td>
                         <td className={styles.numeric}>{String(current)}</td>
@@ -395,7 +392,7 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
                       ? null
                       : parseOneDecimalQuantity(typed[key], 0);
                   return (
-                    <tr key={crate.id}>
+                    <tr className={alternateRow} key={crate.id}>
                       <th scope="row">
                         {crate.name}
                         <span className={styles.retired}> ({crate.members.length} items)</span>
@@ -494,6 +491,23 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
         </>
       )}
     </>
+  );
+}
+
+function StockTakeHeading() {
+  return (
+    <header className={styles.heading}>
+      <span className={styles.headingIcon}>
+        <ListIcon />
+      </span>
+      <div>
+        <h1>Stock take</h1>
+        <p>
+          Choose a grouping. Count direct items in their displayed unit, or count a crate as a
+          whole. Leave an unchanged row blank.
+        </p>
+      </div>
+    </header>
   );
 }
 

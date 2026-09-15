@@ -16,6 +16,27 @@
   font-size: 1rem;
 }
 
+.resultTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.resultIcon {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: 50%;
+  background: var(--category-action-tint);
+  color: var(--category-action);
+}
+
+.resultIcon svg {
+  inline-size: 1.35rem;
+  block-size: 1.35rem;
+}
+
 .code {
   margin-block: 0.25rem;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;

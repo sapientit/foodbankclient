@@ -2,6 +2,7 @@ import { useId, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useAuth } from '../../../auth/auth-context';
 import { ErrorNotice } from '../../../components/error-notice';
+import { CartIcon, ListIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { Toast } from '../../../components/toast';
@@ -120,7 +121,7 @@ export function ShoppingScreen() {
   if (lists.isPending || levels.isPending || crates.isPending) {
     return (
       <>
-        <PageHeader title="Shopping" />
+        <ShoppingHeader />
         <Spinner label="Loading target stock lists…" />
       </>
     );
@@ -129,7 +130,7 @@ export function ShoppingScreen() {
   if (lists.isError) {
     return (
       <>
-        <PageHeader title="Shopping" />
+        <ShoppingHeader />
         <ErrorNotice error={lists.error} onRetry={() => void lists.refetch()} />
       </>
     );
@@ -138,7 +139,7 @@ export function ShoppingScreen() {
   if (levels.isError) {
     return (
       <>
-        <PageHeader title="Shopping" />
+        <ShoppingHeader />
         <ErrorNotice error={levels.error} onRetry={() => void levels.refetch()} />
       </>
     );
@@ -146,7 +147,7 @@ export function ShoppingScreen() {
   if (crates.isError) {
     return (
       <>
-        <PageHeader title="Shopping" />
+        <ShoppingHeader />
         <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
       </>
     );
@@ -205,7 +206,7 @@ export function ShoppingScreen() {
   return (
     <>
       <div className={styles.screenOnly}>
-        <PageHeader title="Shopping" />
+        <ShoppingHeader />
 
         {lists.data.length === 0 ? (
           <p>
@@ -374,6 +375,7 @@ export function ShoppingScreen() {
       {shopping !== null && columns !== null && (
         <div className={styles.sheet}>
           <h2 className={styles.sheetHeading}>
+            <ListIcon />
             Shopping list — {selectedList?.name}
             {calculation === 'requirements' && ` — session requirements through Saturday ${upTo}`}
           </h2>
@@ -528,6 +530,16 @@ function attentionMessage(kind: 'retired' | 'missing' | 'crate-member' | 'missin
   if (kind === 'crate-member') return 'now counted by a crate; not bought separately';
   if (kind === 'missing-crate') return 'crate no longer exists; not bought';
   return 'no longer in the catalogue; not bought';
+}
+
+function ShoppingHeader() {
+  return (
+    <PageHeader
+      description={<p>Choose how to calculate the shopping list and select a target stock list.</p>}
+      icon={<CartIcon />}
+      title="Shopping"
+    />
+  );
 }
 
 /**
