@@ -3,18 +3,30 @@ import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { useStockItems } from '../../stock/queries';
 import { preferenceRuleConfig, validatePreferenceRules } from '../preference-rules';
+import styles from './preference-rule-health-screen.module.css';
 
 /** Admin maintenance check for the client-owned preference-rule configuration. */
 export function PreferenceRuleHealthScreen() {
   const stockItems = useStockItems();
-  if (stockItems.isPending) return <Spinner label="Checking preference rules…" />;
+  if (stockItems.isPending)
+    return (
+      <div className={styles.page}>
+        <Spinner label="Checking preference rules…" />
+      </div>
+    );
   if (stockItems.isError)
-    return <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />;
+    return (
+      <div className={styles.page}>
+        <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
+      </div>
+    );
 
   const health = validatePreferenceRules(stockItems.data);
   return (
-    <>
-      <PageHeader title="Preference rule check" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Preference rule check" />
+      </div>
       <p>
         {preferenceRuleConfig.rules.length} rule{preferenceRuleConfig.rules.length === 1 ? '' : 's'}{' '}
         checked against the current questionnaire and active stock items.
@@ -31,6 +43,6 @@ export function PreferenceRuleHealthScreen() {
           </ul>
         </div>
       )}
-    </>
+    </div>
   );
 }

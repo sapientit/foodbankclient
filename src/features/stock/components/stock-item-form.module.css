@@ -2,6 +2,63 @@
   max-inline-size: 34rem;
 }
 
+/* Shared by every screen that imports this module — `crates-screen.tsx`,
+   `amend-stock-item-screen.tsx` and `create-stock-item-screen.tsx` — each
+   painting its own white page and carrying the category tint in its cards
+   instead. Only `crates-screen.tsx` has a `.results` card to tint; the two
+   form screens use `.field`/`.input` below, which were never white. */
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+  vertical-align: top;
+}
+
+/* The card that presents the crates results table as one contained panel —
+   white, rounded, bordered — matching the treatment agreed for the Stock
+   table. Scoped to `.table` nested here so the plain "Add a crate" form and
+   its own member-composition table underneath are left alone. */
+.results {
+  overflow-x: auto;
+  margin-block-end: 1.5rem;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
+}
+
+.results .table th,
+.results .table td {
+  padding: 0.35rem 0.75rem;
+  border-block-end: 1px solid #b3cee0;
+  font-size: 0.9rem;
+}
+
+.results .table thead th {
+  border-block-end: 1px solid #a8c6da;
+  background: #e8f3f9;
+  color: #17324d;
+  font-size: 0.8rem;
+}
+
 .field {
   display: grid;
   gap: 0.375rem;

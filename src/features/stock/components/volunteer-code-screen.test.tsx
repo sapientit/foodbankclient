@@ -148,9 +148,11 @@ describe('the volunteer code screen', () => {
     await user.click(await screen.findByRole('button', { name: 'Generate a code' }));
     await screen.findByText(CODE);
 
-    await user.click(screen.getByRole('button', { name: 'Copy message' }));
+    await user.click(screen.getByRole('button', { name: 'Copy code and message' }));
 
-    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Code and message copied' }),
+    ).toBeInTheDocument();
     expect(writeText).toHaveBeenCalledWith(
       `This is the code to use for doing a stock take.\n\n${CODE}\n\nIt stops working at ${formatLondonDateTime(new Date(EXPIRES_AT * 1000).toISOString())} UK time.`,
     );
@@ -165,7 +167,7 @@ describe('the volunteer code screen', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
 
     await user.click(await screen.findByRole('button', { name: 'Generate a code' }));
-    await user.click(screen.getByRole('button', { name: 'Copy message' }));
+    await user.click(screen.getByRole('button', { name: 'Copy code and message' }));
 
     expect(
       await screen.findByText(/Select the message, code and expiry above/),

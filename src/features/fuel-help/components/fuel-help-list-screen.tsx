@@ -21,34 +21,42 @@ export function FuelHelpListScreen() {
 
   if (list.isPending || reasons.isPending) {
     return (
-      <>
-        <PageHeader title="Fuel help list" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Fuel help list" />
+        </div>
         <Spinner label="Loading the fuel help list…" />
-      </>
+      </div>
     );
   }
 
   if (list.isError) {
     return (
-      <>
-        <PageHeader title="Fuel help list" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Fuel help list" />
+        </div>
         <ErrorNotice error={list.error} onRetry={() => void list.refetch()} />
-      </>
+      </div>
     );
   }
 
   if (reasons.isError) {
     return (
-      <>
-        <PageHeader title="Fuel help list" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Fuel help list" />
+        </div>
         <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <PageHeader title="Fuel help list" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Fuel help list" />
+      </div>
       <p className={styles.intro}>Copy this table into Excel to work through it.</p>
 
       {list.data.households.length === 0 ? (
@@ -94,6 +102,6 @@ export function FuelHelpListScreen() {
           </table>
         </div>
       )}
-    </>
+    </div>
   );
 }

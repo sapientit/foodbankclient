@@ -4,7 +4,7 @@ import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
 import * as z from 'zod';
 import { ErrorNotice } from '../../../components/error-notice';
-import { TargetIcon } from '../../../components/icons';
+import { BoxesIcon, PencilIcon, TargetIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
@@ -132,81 +132,105 @@ export function CreateTargetStockListScreen() {
   const refused = duplicate !== undefined;
 
   return (
-    <>
-      <PageHeader
-        description={<p>Set how many of each item the food bank wants to hold.</p>}
-        icon={<TargetIcon />}
-        title="Add a target stock list"
-      />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          description={<p>Set how many of each item the food bank wants to hold.</p>}
+          icon={<TargetIcon />}
+          title="Add a target stock list"
+        />
+      </div>
 
       {create.error !== null && !isFieldFailure(create.error) && (
         <ErrorNotice error={create.error} />
       )}
 
       <form className={styles.form} noValidate onSubmit={(event) => void submit(event)}>
-        <div className={styles.field}>
-          <label htmlFor={nameId}>Name</label>
-          <p className={styles.help} id={`${nameId}-help`}>
-            What the team calls this set of targets — “Standard week”, “Christmas”.
-          </p>
-          <input
-            {...register('name')}
-            aria-describedby={
-              [
-                `${nameId}-help`,
-                nameError === undefined ? null : nameErrorId,
-                refused ? duplicateId : null,
-              ]
-                .filter((id) => id !== null)
-                .join(' ') || undefined
-            }
-            aria-invalid={nameError === undefined ? undefined : true}
-            autoComplete="off"
-            className={styles.input}
-            id={nameId}
-            type="text"
-          />
-          {nameError !== undefined && (
-            <p className={styles.fieldError} id={nameErrorId}>
-              {nameError}
+        <div className={styles.card}>
+          <h2 className={styles.cardHeading}>
+            <span className={styles.cardHeadingIcon}>
+              <PencilIcon />
+            </span>
+            Name
+          </h2>
+          <div className={styles.field}>
+            <label htmlFor={nameId}>Name</label>
+            <p className={styles.help} id={`${nameId}-help`}>
+              What the team calls this set of targets — “Standard week”, “Christmas”.
             </p>
+            <input
+              {...register('name')}
+              aria-describedby={
+                [
+                  `${nameId}-help`,
+                  nameError === undefined ? null : nameErrorId,
+                  refused ? duplicateId : null,
+                ]
+                  .filter((id) => id !== null)
+                  .join(' ') || undefined
+              }
+              aria-invalid={nameError === undefined ? undefined : true}
+              autoComplete="off"
+              className={styles.input}
+              id={nameId}
+              type="text"
+            />
+            {nameError !== undefined && (
+              <p className={styles.fieldError} id={nameErrorId}>
+                {nameError}
+              </p>
+            )}
+            {duplicate !== undefined && (
+              <p className={styles.refusal} id={duplicateId}>
+                “{duplicate.name}” already exists.{' '}
+                <Link to={`/stock/target-lists/${duplicate.id}`}>Amend that list</Link> instead.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className={styles.card}>
+          <h2 className={styles.cardHeading}>
+            <span className={styles.cardHeadingIcon}>
+              <TargetIcon />
+            </span>
+            Targets
+          </h2>
+          {(stockItems.isPending || crates.isPending) && <Spinner label="Loading targets…" />}
+          {stockItems.isError && (
+            <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
           )}
-          {duplicate !== undefined && (
-            <p className={styles.refusal} id={duplicateId}>
-              “{duplicate.name}” already exists.{' '}
-              <Link to={`/stock/target-lists/${duplicate.id}`}>Amend that list</Link> instead.
-            </p>
+          {currentRows !== null && (
+            <TargetStockListEditor
+              attention={[]}
+              focusRow={focusRow}
+              onRemoveAttention={() => undefined}
+              onRowsChange={setRows}
+              rows={currentRows}
+            />
           )}
         </div>
 
-        <h2>Targets</h2>
-        {(stockItems.isPending || crates.isPending) && <Spinner label="Loading stock items…" />}
-        {stockItems.isError && (
-          <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
-        )}
-        {crates.isError && (
-          <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
-        )}
-        {currentRows !== null && (
-          <TargetStockListEditor
-            attention={[]}
-            focusRow={focusRow}
-            onRemoveAttention={() => undefined}
-            onRowsChange={setRows}
-            rows={currentRows}
-          />
-        )}
-        {currentCrateRows !== null && (
-          <>
-            <h3>Crate targets</h3>
+        <div className={styles.card}>
+          <h2 className={styles.cardHeading}>
+            <span className={styles.cardHeadingIcon}>
+              <BoxesIcon />
+            </span>
+            Crate targets
+          </h2>
+          {crates.isPending && <Spinner label="Loading crates…" />}
+          {crates.isError && (
+            <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
+          )}
+          {currentCrateRows !== null && (
             <CrateTargetEditor
               errorCrateId={errorCrateId}
               focusCrate={focusCrate}
               onRowsChange={setCrateRows}
               rows={currentCrateRows}
             />
-          </>
-        )}
+          )}
+        </div>
         {linesError !== null && (
           <p
             className={styles.fieldError}
@@ -235,7 +259,7 @@ export function CreateTargetStockListScreen() {
           <Link to="/stock/target-lists">Cancel</Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

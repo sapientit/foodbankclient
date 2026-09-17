@@ -51,32 +51,38 @@ export function AmendReferrerScreen() {
 
   if (target.isPending) {
     return (
-      <>
-        <PageHeader title="Amend a referrer" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a referrer" />
+        </div>
         <Spinner label="Loading the referrer…" />
-      </>
+      </div>
     );
   }
 
   if (target.isError) {
     return (
-      <>
-        <PageHeader title="Amend a referrer" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a referrer" />
+        </div>
         <ErrorNotice error={target.error} onRetry={() => void target.refetch()} />
-      </>
+      </div>
     );
   }
 
   if (target.data === null) {
     return (
-      <>
-        <PageHeader title="Amend a referrer" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a referrer" />
+        </div>
         <EmptyState
           action={<Link to="/referrers">Back to authorised referrers</Link>}
           headline="That referrer is not in the list"
           sentence="The link may be out of date."
         />
-      </>
+      </div>
     );
   }
 
@@ -120,8 +126,10 @@ function AmendReferrerForm({ referrer }: { referrer: AuthorisedReferrer }) {
   const organisationError = errors.organisationName?.message;
 
   return (
-    <>
-      <PageHeader title={`Amend ${referrer.organisationName}`} />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title={`Amend ${referrer.organisationName}`} />
+      </div>
 
       {amend.error !== null && !isFieldFailure(amend.error) && <ErrorNotice error={amend.error} />}
 
@@ -171,7 +179,7 @@ function AmendReferrerForm({ referrer }: { referrer: AuthorisedReferrer }) {
           </Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

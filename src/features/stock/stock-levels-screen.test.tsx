@@ -80,6 +80,20 @@ beforeEach(() => {
 });
 
 describe('stock levels', () => {
+  it('groups the stock list in a labelled results panel while keeping compact filters accessible', async () => {
+    renderApp('/stock');
+
+    await screen.findByRole('row', { name: /Cereal/ });
+
+    expect(screen.getByRole('heading', { name: 'Stock' })).toBeVisible();
+    expect(screen.getByRole('searchbox', { name: 'Search items' })).toBeVisible();
+    expect(screen.getByLabelText('Shelf filter')).toBeVisible();
+    expect(screen.getByLabelText('Stock-level filter')).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Stock results' })).toContainElement(
+      screen.getByRole('table'),
+    );
+  });
+
   it('renders shelves in the order the server sent and never re-sorts them', async () => {
     renderApp('/stock');
 
@@ -133,8 +147,8 @@ describe('stock levels', () => {
 
     const beans = screen.getByRole('row', { name: /Baked beans/ });
     const cells = within(beans).getAllByRole('cell');
-    expect(cells[3]).toBeEmptyDOMElement();
-    expect(cells[4]).toBeEmptyDOMElement();
+    expect(cells[3]).toHaveTextContent('-');
+    expect(cells[4]).toHaveTextContent('-');
   });
 
   it('shows active stock only, without a retired-items control', async () => {

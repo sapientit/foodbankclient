@@ -120,36 +120,36 @@ export function ShoppingScreen() {
 
   if (lists.isPending || levels.isPending || crates.isPending) {
     return (
-      <>
+      <div className={styles.page}>
         <ShoppingHeader />
         <Spinner label="Loading target stock lists…" />
-      </>
+      </div>
     );
   }
 
   if (lists.isError) {
     return (
-      <>
+      <div className={styles.page}>
         <ShoppingHeader />
         <ErrorNotice error={lists.error} onRetry={() => void lists.refetch()} />
-      </>
+      </div>
     );
   }
 
   if (levels.isError) {
     return (
-      <>
+      <div className={styles.page}>
         <ShoppingHeader />
         <ErrorNotice error={levels.error} onRetry={() => void levels.refetch()} />
-      </>
+      </div>
     );
   }
   if (crates.isError) {
     return (
-      <>
+      <div className={styles.page}>
         <ShoppingHeader />
         <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
-      </>
+      </div>
     );
   }
 
@@ -204,7 +204,7 @@ export function ShoppingScreen() {
   };
 
   return (
-    <>
+    <div className={styles.page}>
       <div className={styles.screenOnly}>
         <ShoppingHeader />
 
@@ -454,7 +454,7 @@ export function ShoppingScreen() {
       )}
 
       <Toast message={toastMessage} />
-    </>
+    </div>
   );
 }
 
@@ -534,11 +534,15 @@ function attentionMessage(kind: 'retired' | 'missing' | 'crate-member' | 'missin
 
 function ShoppingHeader() {
   return (
-    <PageHeader
-      description={<p>Choose how to calculate the shopping list and select a target stock list.</p>}
-      icon={<CartIcon />}
-      title="Shopping"
-    />
+    <div className={styles.headerCard}>
+      <PageHeader
+        description={
+          <p>Choose how to calculate the shopping list and select a target stock list.</p>
+        }
+        icon={<CartIcon />}
+        title="Shopping"
+      />
+    </div>
   );
 }
 

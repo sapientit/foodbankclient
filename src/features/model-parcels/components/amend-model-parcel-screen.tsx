@@ -55,41 +55,49 @@ export function AmendModelParcelScreen() {
 
   if (target.isPending || stockItems.isPending) {
     return (
-      <>
-        <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
+        </div>
         <Spinner label="Loading the model parcel…" />
-      </>
+      </div>
     );
   }
 
   if (target.isError) {
     return (
-      <>
-        <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
+        </div>
         <ErrorNotice error={target.error} onRetry={() => void target.refetch()} />
-      </>
+      </div>
     );
   }
 
   if (stockItems.isError) {
     return (
-      <>
-        <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
+        </div>
         <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
-      </>
+      </div>
     );
   }
 
   if (target.data === null) {
     return (
-      <>
-        <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<BoxIcon />} title="Amend a model parcel" />
+        </div>
         <EmptyState
           action={<Link to="/model-parcels">Back to model parcels</Link>}
           headline="That model parcel is not in the list"
           sentence="The link may be out of date, or it has been deleted."
         />
-      </>
+      </div>
     );
   }
 
@@ -156,8 +164,10 @@ function AmendModelParcelForm({
   const descriptionError = errors.description?.message;
 
   return (
-    <>
-      <PageHeader icon={<BoxIcon />} title={`Amend ${parcel.name}`} />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader icon={<BoxIcon />} title={`Amend ${parcel.name}`} />
+      </div>
 
       {amend.error !== null && !isFieldFailure(amend.error) && <ErrorNotice error={amend.error} />}
 
@@ -211,7 +221,7 @@ function AmendModelParcelForm({
           <Link to="/model-parcels">Cancel</Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

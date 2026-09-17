@@ -3,6 +3,7 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { BoxesIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
+import { classNames } from '../../../lib/class-names';
 import {
   useAmendStockTakeGrouping,
   useCreateStockTakeGrouping,
@@ -22,17 +23,17 @@ export function StockGroupingsScreen() {
 
   if (groupings.isPending)
     return (
-      <>
+      <div className={styles.page}>
         <GroupingHeader />
         <Spinner label="Loading stock-take groupings…" />
-      </>
+      </div>
     );
   if (groupings.isError)
     return (
-      <>
+      <div className={styles.page}>
         <GroupingHeader />
         <ErrorNotice error={groupings.error} onRetry={() => void groupings.refetch()} />
-      </>
+      </div>
     );
 
   const add = async () => {
@@ -51,24 +52,29 @@ export function StockGroupingsScreen() {
   };
 
   return (
-    <>
+    <div className={styles.page}>
       <GroupingHeader />
       {(create.error !== null || amend.error !== null) && (
         <ErrorNotice error={create.error ?? amend.error} />
       )}
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {groupings.data.map((grouping) => (
-            <GroupingRow grouping={grouping} key={grouping.id} />
-          ))}
-        </tbody>
-      </table>
+      <section
+        aria-label="Stock-take groupings results"
+        className={classNames(styles.results, styles.groupingsResults)}
+      >
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groupings.data.map((grouping) => (
+              <GroupingRow grouping={grouping} key={grouping.id} />
+            ))}
+          </tbody>
+        </table>
+      </section>
       <div className={styles.groupingActions}>
         <label htmlFor={inputId}>New grouping name</label>
         <input
@@ -85,22 +91,24 @@ export function StockGroupingsScreen() {
         </button>
       </div>
       {newError !== null && <p role="alert">{newError}</p>}
-    </>
+    </div>
   );
 }
 
 function GroupingHeader() {
   return (
-    <PageHeader
-      description={
-        <p>
-          A stock take is easier if similar items are counted together. Add or edit the groups to
-          match the way you work.
-        </p>
-      }
-      icon={<BoxesIcon />}
-      title="Stock-take groupings"
-    />
+    <div className={styles.headerCard}>
+      <PageHeader
+        description={
+          <p>
+            A stock take is easier if similar items are counted together. Add or edit the groups to
+            match the way you work.
+          </p>
+        }
+        icon={<BoxesIcon />}
+        title="Stock-take groupings"
+      />
+    </div>
   );
 }
 

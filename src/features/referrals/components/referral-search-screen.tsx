@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
-import { SearchIcon } from '../../../components/icons';
+import { CalendarIcon, MapPinIcon, PhoneIcon, SearchIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { formatSessionDate } from '../../../lib/london-time';
 import { useReferralReasons } from '../../admin-setup/queries';
@@ -38,17 +38,19 @@ export function ReferralSearchScreen() {
   }
 
   return (
-    <>
-      <PageHeader
-        description={
-          <p>
-            Search by date of birth, postcode and/or phone number. A surname start narrows those
-            results.
-          </p>
-        }
-        icon={<SearchIcon />}
-        title="Search referrals"
-      />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          description={
+            <p>
+              Search by date of birth, postcode and/or phone number. A surname start narrows those
+              results.
+            </p>
+          }
+          icon={<SearchIcon />}
+          title="Search referrals"
+        />
+      </div>
       <form
         className={styles.formPanel}
         onSubmit={(event) => {
@@ -72,31 +74,42 @@ export function ReferralSearchScreen() {
         <div className={styles.fieldGrid}>
           <label className={styles.field}>
             <span>Date of birth</span>
-            <input
-              type="date"
-              value={dateOfBirth}
-              onChange={(event) => {
-                setDateOfBirth(event.target.value);
-              }}
-            />
+            <span className={styles.inputWithIcon}>
+              <CalendarIcon className={styles.fieldIcon} />
+              <input
+                type="date"
+                value={dateOfBirth}
+                onChange={(event) => {
+                  setDateOfBirth(event.target.value);
+                }}
+              />
+            </span>
           </label>
           <label className={styles.field}>
             <span>Postcode</span>
-            <input
-              value={postcode}
-              onChange={(event) => {
-                setPostcode(event.target.value);
-              }}
-            />
+            <span className={styles.inputWithIcon}>
+              <MapPinIcon className={styles.fieldIcon} />
+              <input
+                placeholder="Enter postcode"
+                value={postcode}
+                onChange={(event) => {
+                  setPostcode(event.target.value);
+                }}
+              />
+            </span>
           </label>
           <label className={styles.field}>
             <span>Phone number</span>
-            <input
-              value={phone}
-              onChange={(event) => {
-                setPhone(event.target.value);
-              }}
-            />
+            <span className={styles.inputWithIcon}>
+              <PhoneIcon className={styles.fieldIcon} />
+              <input
+                placeholder="Enter phone number"
+                value={phone}
+                onChange={(event) => {
+                  setPhone(event.target.value);
+                }}
+              />
+            </span>
           </label>
           <label className={styles.field}>
             <span>Start of surname</span>
@@ -199,7 +212,7 @@ export function ReferralSearchScreen() {
           )}
         </section>
       )}
-    </>
+    </div>
   );
 }
 

@@ -5,6 +5,27 @@
  * page 18cm wide once the shell's 1.5cm margins are taken off.
  */
 
+/* This screen renders inside `RunSessionLayout`'s shared tab strip
+   (`run-session-layout.tsx`, out of this file's scope), so unlike a screen
+   that owns the whole route it does not reach for `.main`'s own edges —
+   that negative-margin trick would pull the white area up over the tab
+   strip's bottom border. Painted white in place instead. */
+.page {
+  background: #ffffff;
+}
+
+/* The name banner as its own card, carrying the sessions tint. Neutralised
+   under print below: the sheet already prints today with this title showing
+   (only the button is hidden, by `src/index.css`), and a coloured fill
+   behind it would be a real change to what comes off the printer, not
+   merely to the screen. */
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1faf5);
+}
+
 /* On screen the table sizes itself and scrolls sideways in its own frame, the
    same treatment as the session client list: a volunteer opens this on a phone,
    and a layout cut to the width of a sheet of paper squeezes a postcode into
@@ -127,5 +148,11 @@
   .table th,
   .table td {
     border-color: #000000;
+  }
+
+  /* See the comment on `.headerCard` above: the title already prints, its
+     new background must not. */
+  .headerCard {
+    background: none;
   }
 }

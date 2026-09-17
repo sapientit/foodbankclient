@@ -4,6 +4,9 @@
   align-items: center;
   gap: 0.75rem 1.5rem;
   margin-block-end: 1.5rem;
+  padding: 1rem;
+  border-radius: 0.65rem;
+  background: #e8f5ed;
 }
 
 /* The grouping is for a screen reader; visually the two boxes sit in the row
@@ -25,6 +28,13 @@
 
 .field {
   margin: 0;
+}
+
+.field input[type='date'] {
+  min-block-size: 2.5rem;
+  padding-inline: 0.5rem;
+  font: inherit;
+  font-size: 1.1rem;
 }
 
 @media print {

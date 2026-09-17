@@ -1,9 +1,22 @@
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #fdf3f3);
+}
+
 .runPanel {
   max-inline-size: 52rem;
   padding: clamp(1.25rem, 3vw, 2rem);
   border: 1px solid #e6c9c9;
   border-radius: 0.5rem;
-  background: #ffffff;
+  background: var(--category-tint, #fdf3f3);
   box-shadow: 0 0.2rem 0.7rem rgb(94 25 25 / 7%);
 }
 
@@ -28,4 +41,40 @@
 
 .runPanel button + button {
   margin-inline-start: var(--space-3);
+}
+
+/* A subtle cloud-and-spreadsheet pairing on the right of the banner, matching
+   the reference's decoration. Hidden below the width the banner's own
+   heading and description need most, since it is decoration and nothing
+   here depends on it being seen. */
+.decoration {
+  position: relative;
+  display: none;
+  flex: none;
+  inline-size: 5rem;
+  block-size: 3.75rem;
+}
+
+@media (min-width: 40rem) {
+  .decoration {
+    display: block;
+  }
+}
+
+.decorationCloud {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  inline-size: 3.5rem;
+  block-size: 3.5rem;
+  color: #e6c9c9;
+}
+
+.decorationSheet {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-start: 0;
+  inline-size: 2rem;
+  block-size: 2rem;
+  color: var(--category-action, #c62828);
 }

@@ -53,28 +53,28 @@ export function HouseholdGridScreen() {
 
   if (grid.isPending || parcels.isPending) {
     return (
-      <>
+      <div className={styles.page}>
         <HouseholdGridHeader />
         <Spinner label="Loading the household grid…" />
-      </>
+      </div>
     );
   }
 
   if (grid.isError) {
     return (
-      <>
+      <div className={styles.page}>
         <HouseholdGridHeader />
         <ErrorNotice error={grid.error} onRetry={() => void grid.refetch()} />
-      </>
+      </div>
     );
   }
 
   if (parcels.isError) {
     return (
-      <>
+      <div className={styles.page}>
         <HouseholdGridHeader />
         <ErrorNotice error={parcels.error} onRetry={() => void parcels.refetch()} />
-      </>
+      </div>
     );
   }
 
@@ -113,7 +113,7 @@ function GridEditor({
   };
 
   return (
-    <>
+    <div className={styles.page}>
       <HouseholdGridHeader action={<Link to="/model-parcels">Model parcels</Link>} />
 
       {save.error !== null && <ErrorNotice error={save.error} />}
@@ -204,24 +204,26 @@ function GridEditor({
       </div>
 
       <PreviewTool />
-    </>
+    </div>
   );
 }
 
 function HouseholdGridHeader({ action }: { readonly action?: ReactNode } = {}) {
   return (
-    <PageHeader
-      action={action}
-      description={
-        <p>
-          Every household size from 1 adult with no children up to 5 adults and 5 children needs a
-          model parcel to receive. A household larger than that in either direction is treated as 5
-          — see the preview below.
-        </p>
-      }
-      icon={<UsersIcon />}
-      title="Household grid"
-    />
+    <div className={styles.headerCard}>
+      <PageHeader
+        action={action}
+        description={
+          <p>
+            Every household size from 1 adult with no children up to 5 adults and 5 children needs a
+            model parcel to receive. A household larger than that in either direction is treated as
+            5 — see the preview below.
+          </p>
+        }
+        icon={<UsersIcon />}
+        title="Household grid"
+      />
+    </div>
   );
 }
 

@@ -1,10 +1,23 @@
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #fdf3f3);
+}
+
 .formPanel,
 .resultsPanel {
   padding: var(--space-5);
   margin-block-end: var(--space-5);
   border: 1px solid #e6c9c9;
   border-radius: 0.5rem;
-  background: #ffffff;
+  background: var(--category-tint, #fdf3f3);
   box-shadow: 0 0.2rem 0.7rem rgb(94 25 25 / 7%);
 }
 
@@ -32,6 +45,27 @@
   font: inherit;
 }
 
+/* An icon sits inside the field's own border rather than beside it, so the
+   label's `for`-less association (a wrapping `<label>`) still covers one
+   control, not two. */
+.inputWithIcon {
+  position: relative;
+  display: block;
+}
+
+.inputWithIcon input {
+  padding-inline-start: 2.5rem;
+}
+
+.fieldIcon {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 0.75rem;
+  transform: translateY(-50%);
+  color: #6b7f9c;
+  pointer-events: none;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -56,10 +90,11 @@
 
 .table th,
 .table td {
-  padding: 0.5rem 0.75rem;
+  padding: 0.35rem 0.75rem;
   text-align: start;
   vertical-align: top;
-  border-block-end: 1px solid #d4d4d4;
+  border-block-end: 1px solid #e9c2c2;
+  font-size: 0.9rem;
   white-space: nowrap;
 }
 
@@ -69,9 +104,10 @@
 }
 
 .table thead th {
-  color: #1c365f;
-  border-block-end: 2px solid #9db5d4;
-  background: #f3f7fc;
+  color: #4a1717;
+  border-block-end: 1px solid #ddaaa8;
+  background: #fdf3f3;
+  font-size: 0.8rem;
 }
 
 .resultsPanel h2 {

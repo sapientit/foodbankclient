@@ -34,31 +34,31 @@ export function StockItemsScreen() {
 
   if (items.isPending || groupings.isPending || crates.isPending)
     return (
-      <>
+      <div className={styles.page}>
         <StockItemsHeader />
         <Spinner label="Loading stock items…" />
-      </>
+      </div>
     );
   if (items.isError)
     return (
-      <>
+      <div className={styles.page}>
         <StockItemsHeader />
         <ErrorNotice error={items.error} onRetry={() => void items.refetch()} />
-      </>
+      </div>
     );
   if (groupings.isError)
     return (
-      <>
+      <div className={styles.page}>
         <StockItemsHeader />
         <ErrorNotice error={groupings.error} onRetry={() => void groupings.refetch()} />
-      </>
+      </div>
     );
   if (crates.isError)
     return (
-      <>
+      <div className={styles.page}>
         <StockItemsHeader />
         <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
-      </>
+      </div>
     );
 
   const showRetired = searchParams.get(RETIRED_PARAM) === '1';
@@ -81,7 +81,7 @@ export function StockItemsScreen() {
   };
 
   return (
-    <>
+    <div className={styles.page}>
       <StockItemsHeader
         action={
           <Link className="button-link" to="/stock/items/new">
@@ -121,77 +121,79 @@ export function StockItemsScreen() {
           }
         />
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Category</th>
-              <th scope="col">Description</th>
-              <th scope="col">Shelf</th>
-              <th scope="col">Stock-take grouping</th>
-              <th scope="col">Packing unit</th>
-              <th scope="col">Low-stock threshold</th>
-              <th scope="col">Status</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((item) => (
-              <tr key={item.id}>
-                <th scope="row">{item.name}</th>
-                <td>{item.category}</td>
-                <td>{item.description ?? ''}</td>
-                <td>{item.shelfNumber}</td>
-                <td>{groupingNameFor(item, groupingNames, crateMemberIds)}</td>
-                <td>{packingUnitFor(item)}</td>
-                <td>{item.lowStockThreshold ?? 'Not watched'}</td>
-                <td>{item.isActive ? 'Active' : 'Retired'}</td>
-                <td className={styles.actions}>
-                  <Link
-                    aria-label={`Amend ${item.name}`}
-                    className="button-link button-plain"
-                    ref={item.id === returnedItemId ? returnedItemRef : undefined}
-                    state={listReturnContext(
-                      listPathFor(location.pathname, location.search),
-                      item.id,
-                    )}
-                    to={`/stock/items/${item.id}`}
-                    title={`Amend ${item.name}`}
-                  >
-                    <ResponsiveIconLabel label="Edit">
-                      <PencilIcon />
-                    </ResponsiveIconLabel>
-                  </Link>
-                  {item.isActive ? (
-                    <button
-                      aria-label={`Retire ${item.name}`}
-                      className="button-danger button-plain"
-                      onClick={() => {
-                        setRetiring(item);
-                      }}
-                      title={`Retire ${item.name}`}
-                      type="button"
-                    >
-                      <ArchiveIcon />
-                    </button>
-                  ) : (
-                    <button
-                      aria-label={`Reactivate ${item.name}`}
-                      className="button-plain"
-                      onClick={() => {
-                        setActive(item, true);
-                      }}
-                      title={`Reactivate ${item.name}`}
-                      type="button"
-                    >
-                      <RestoreIcon />
-                    </button>
-                  )}
-                </td>
+        <section aria-label="Stock items results" className={styles.results}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Category</th>
+                <th scope="col">Description</th>
+                <th scope="col">Shelf</th>
+                <th scope="col">Stock-take grouping</th>
+                <th scope="col">Packing unit</th>
+                <th scope="col">Low-stock threshold</th>
+                <th scope="col">Status</th>
+                <th scope="col">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {visible.map((item) => (
+                <tr key={item.id}>
+                  <th scope="row">{item.name}</th>
+                  <td>{item.category}</td>
+                  <td>{item.description ?? ''}</td>
+                  <td>{item.shelfNumber}</td>
+                  <td>{groupingNameFor(item, groupingNames, crateMemberIds)}</td>
+                  <td>{packingUnitFor(item)}</td>
+                  <td>{item.lowStockThreshold ?? 'Not watched'}</td>
+                  <td>{item.isActive ? 'Active' : 'Retired'}</td>
+                  <td className={styles.actions}>
+                    <Link
+                      aria-label={`Amend ${item.name}`}
+                      className="button-link button-plain"
+                      ref={item.id === returnedItemId ? returnedItemRef : undefined}
+                      state={listReturnContext(
+                        listPathFor(location.pathname, location.search),
+                        item.id,
+                      )}
+                      to={`/stock/items/${item.id}`}
+                      title={`Amend ${item.name}`}
+                    >
+                      <ResponsiveIconLabel label="Edit">
+                        <PencilIcon />
+                      </ResponsiveIconLabel>
+                    </Link>
+                    {item.isActive ? (
+                      <button
+                        aria-label={`Retire ${item.name}`}
+                        className="button-danger button-plain"
+                        onClick={() => {
+                          setRetiring(item);
+                        }}
+                        title={`Retire ${item.name}`}
+                        type="button"
+                      >
+                        <ArchiveIcon />
+                      </button>
+                    ) : (
+                      <button
+                        aria-label={`Reactivate ${item.name}`}
+                        className="button-plain"
+                        onClick={() => {
+                          setActive(item, true);
+                        }}
+                        title={`Reactivate ${item.name}`}
+                        type="button"
+                      >
+                        <RestoreIcon />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
       {retiring !== null && (
         <ConfirmDialog
@@ -210,23 +212,25 @@ export function StockItemsScreen() {
           </p>
         </ConfirmDialog>
       )}
-    </>
+    </div>
   );
 }
 
 function StockItemsHeader({ action }: { readonly action?: ReactNode } = {}) {
   return (
-    <PageHeader
-      action={action}
-      description={
-        <p>
-          Maintain the names, categories, descriptions, shelf locations and counting arrangements
-          used throughout stock work and pick lists.
-        </p>
-      }
-      icon={<BoxIcon />}
-      title="Stock items"
-    />
+    <div className={styles.headerCard}>
+      <PageHeader
+        action={action}
+        description={
+          <p>
+            Maintain the names, categories, descriptions, shelf locations and counting arrangements
+            used throughout stock work and pick lists.
+          </p>
+        }
+        icon={<BoxIcon />}
+        title="Stock items"
+      />
+    </div>
   );
 }
 

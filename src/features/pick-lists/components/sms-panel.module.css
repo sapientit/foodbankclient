@@ -1,3 +1,28 @@
+/* Every screen this file renders (`RunSessionMessagesScreen` and the three
+   `/sms/*` inbox screens) sits inside a shared tab strip —
+   `RunSessionLayout`/`SmsInboxLayout`, both out of this file's scope — so
+   none of them reaches for `.main`'s own edges the way a screen that owns
+   the whole route does: that negative-margin trick would pull the white
+   area up over the tab strip's bottom border. Painted white in place
+   instead. `SmsInboxLayout` itself, which renders only the tab strip, is
+   deliberately left unwrapped. */
+.page {
+  background: #ffffff;
+}
+
+/* The name banner as its own card. `RunSessionMessagesScreen` mounts under
+   the sessions category (green); the three `/sms/*` screens mount under
+   referrals (pink) — `categoryForPath` in `src/auth/menu.ts` — and
+   `--category-tint`/`--category-action` already carry the right colour for
+   whichever ancestor `.main[data-category]` set them, so this needs no
+   colour switch of its own beyond the fallback. */
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1faf5);
+}
+
 .households,
 .thread {
   padding-inline-start: 1.25rem;
@@ -85,7 +110,7 @@ textarea {
   padding: 0.5rem 0.75rem;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
-  background: #ffffff;
+  background: var(--category-tint, #f1faf5);
 }
 
 /* Everything that acts on an opened thread — phone/session context and the

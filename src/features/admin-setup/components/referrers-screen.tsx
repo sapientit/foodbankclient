@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
-import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
+import { ArchiveIcon, PencilIcon, RestoreIcon, UsersIcon } from '../../../components/icons';
 import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
@@ -37,19 +37,23 @@ export function ReferrersScreen() {
 
   if (referrers.isPending) {
     return (
-      <>
-        <PageHeader title="Authorised referrers" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Authorised referrers" />
+        </div>
         <Spinner label="Loading authorised referrers…" />
-      </>
+      </div>
     );
   }
 
   if (referrers.isError) {
     return (
-      <>
-        <PageHeader title="Authorised referrers" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Authorised referrers" />
+        </div>
         <ErrorNotice error={referrers.error} onRetry={() => void referrers.refetch()} />
-      </>
+      </div>
     );
   }
 
@@ -65,22 +69,26 @@ export function ReferrersScreen() {
   };
 
   return (
-    <>
-      <PageHeader
-        title="Authorised referrers"
-        action={
-          <Link className="button-link" to="/referrers/new">
-            Authorise a referrer
-          </Link>
-        }
-      />
-
-      <p className={styles.intro}>
-        Whoever submits a referral must give an email address on this list — either their exact
-        address, or any address at an authorised domain. An exact address always overrides a domain,
-        in both directions: deactivating one address blocks that person even while their domain
-        stays authorised for everyone else.
-      </p>
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          title="Authorised referrers"
+          icon={<UsersIcon />}
+          description={
+            <p>
+              Whoever submits a referral must give an email address on this list, either their exact
+              address or an address at an authorised domain. An exact address always overrides a
+              domain, in both directions: deactivating one address blocks that person even while
+              their domain stays authorised for everyone else.
+            </p>
+          }
+          action={
+            <Link className="button-link" to="/referrers/new">
+              Authorise a referrer
+            </Link>
+          }
+        />
+      </div>
 
       {amend.error !== null && <ErrorNotice error={amend.error} />}
 
@@ -95,76 +103,78 @@ export function ReferrersScreen() {
           sentence="Nobody can submit a referral until at least one address or domain is authorised."
         />
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Organisation</th>
-              <th scope="col">Authorises</th>
-              <th scope="col">Status</th>
-              <th scope="col">Notes</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {referrers.data.map((row) => {
-              const blockedDomain = blockedActiveDomain(referrers.data, row);
+        <section aria-label="Authorised referrers" className={styles.results}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Organisation</th>
+                <th scope="col">Authorises</th>
+                <th scope="col">Status</th>
+                <th scope="col">Notes</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {referrers.data.map((row) => {
+                const blockedDomain = blockedActiveDomain(referrers.data, row);
 
-              return (
-                <tr key={row.id}>
-                  <th scope="row">{row.organisationName}</th>
-                  <td>
-                    {displayMatchValue(row)}
-                    {blockedDomain !== null && (
-                      <span className={styles.blocks}>
-                        Blocks only this address — *@{blockedDomain} is still authorised for
-                        everyone else.
-                      </span>
-                    )}
-                  </td>
-                  <td>{row.isActive ? 'Active' : 'Inactive'}</td>
-                  <td className={styles.notes}>{row.notes ?? ''}</td>
-                  <td className={styles.actions}>
-                    <Link
-                      aria-label={`Amend ${displayMatchValue(row)}`}
-                      className="button-link button-plain"
-                      to={`/referrers/${row.id}`}
-                      title={`Amend ${displayMatchValue(row)}`}
-                    >
-                      <ResponsiveIconLabel label="Edit">
-                        <PencilIcon />
-                      </ResponsiveIconLabel>
-                    </Link>
-                    {row.isActive ? (
-                      <button
-                        aria-label={`Deactivate ${displayMatchValue(row)}`}
-                        className="button-danger button-plain"
-                        onClick={() => {
-                          setDeactivating(row);
-                        }}
-                        title={`Deactivate ${displayMatchValue(row)}`}
-                        type="button"
+                return (
+                  <tr key={row.id}>
+                    <th scope="row">{row.organisationName}</th>
+                    <td>
+                      {displayMatchValue(row)}
+                      {blockedDomain !== null && (
+                        <span className={styles.blocks}>
+                          Blocks only this address — *@{blockedDomain} is still authorised for
+                          everyone else.
+                        </span>
+                      )}
+                    </td>
+                    <td>{row.isActive ? 'Active' : 'Inactive'}</td>
+                    <td className={styles.notes}>{row.notes ?? ''}</td>
+                    <td className={styles.actions}>
+                      <Link
+                        aria-label={`Amend ${displayMatchValue(row)}`}
+                        className="button-link button-plain"
+                        to={`/referrers/${row.id}`}
+                        title={`Amend ${displayMatchValue(row)}`}
                       >
-                        <ArchiveIcon />
-                      </button>
-                    ) : (
-                      <button
-                        aria-label={`Reactivate ${displayMatchValue(row)}`}
-                        className="button-plain"
-                        onClick={() => {
-                          setActive(row, true);
-                        }}
-                        title={`Reactivate ${displayMatchValue(row)}`}
-                        type="button"
-                      >
-                        <RestoreIcon />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                        <ResponsiveIconLabel label="Edit">
+                          <PencilIcon />
+                        </ResponsiveIconLabel>
+                      </Link>
+                      {row.isActive ? (
+                        <button
+                          aria-label={`Deactivate ${displayMatchValue(row)}`}
+                          className="button-danger button-plain"
+                          onClick={() => {
+                            setDeactivating(row);
+                          }}
+                          title={`Deactivate ${displayMatchValue(row)}`}
+                          type="button"
+                        >
+                          <ArchiveIcon />
+                        </button>
+                      ) : (
+                        <button
+                          aria-label={`Reactivate ${displayMatchValue(row)}`}
+                          className="button-plain"
+                          onClick={() => {
+                            setActive(row, true);
+                          }}
+                          title={`Reactivate ${displayMatchValue(row)}`}
+                          type="button"
+                        >
+                          <RestoreIcon />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
       )}
 
       {deactivating !== null && (
@@ -192,6 +202,6 @@ export function ReferrersScreen() {
           )}
         </ConfirmDialog>
       )}
-    </>
+    </div>
   );
 }

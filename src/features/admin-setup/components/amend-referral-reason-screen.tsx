@@ -45,32 +45,38 @@ export function AmendReferralReasonScreen() {
 
   if (target.isPending) {
     return (
-      <>
-        <PageHeader title="Amend a reason for referral" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a reason for referral" />
+        </div>
         <Spinner label="Loading the reason…" />
-      </>
+      </div>
     );
   }
 
   if (target.isError) {
     return (
-      <>
-        <PageHeader title="Amend a reason for referral" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a reason for referral" />
+        </div>
         <ErrorNotice error={target.error} onRetry={() => void target.refetch()} />
-      </>
+      </div>
     );
   }
 
   if (target.data === null) {
     return (
-      <>
-        <PageHeader title="Amend a reason for referral" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a reason for referral" />
+        </div>
         <EmptyState
           action={<Link to="/referral-reasons">Back to reasons for referral</Link>}
           headline="That reason is not in the list"
           sentence="The link may be out of date. Nothing has been deleted — reasons are only ever retired."
         />
-      </>
+      </div>
     );
   }
 
@@ -116,8 +122,10 @@ function AmendReasonForm({ reason }: { reason: AdminReferralReason }) {
   const displayOrderError = errors.displayOrder?.message;
 
   return (
-    <>
-      <PageHeader title={`Amend ${reason.label}`} />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title={`Amend ${reason.label}`} />
+      </div>
 
       {amend.error !== null && !isFieldFailure(amend.error) && <ErrorNotice error={amend.error} />}
 
@@ -180,7 +188,7 @@ function AmendReasonForm({ reason }: { reason: AdminReferralReason }) {
           </Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

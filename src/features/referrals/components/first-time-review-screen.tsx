@@ -39,18 +39,36 @@ export function FirstTimeReviewScreen() {
   const [surnameStartsWith, setSurnameStartsWith] = useState('');
 
   if (referral.isPending || matches.isPending)
-    return <Spinner label="Loading potential matches…" />;
+    return (
+      <div className={styles.page}>
+        <Spinner label="Loading potential matches…" />
+      </div>
+    );
   if (referral.isError)
-    return <ErrorNotice error={referral.error} onRetry={() => void referral.refetch()} />;
+    return (
+      <div className={styles.page}>
+        <ErrorNotice error={referral.error} onRetry={() => void referral.refetch()} />
+      </div>
+    );
   if (matches.isError)
-    return <ErrorNotice error={matches.error} onRetry={() => void matches.refetch()} />;
+    return (
+      <div className={styles.page}>
+        <ErrorNotice error={matches.error} onRetry={() => void matches.refetch()} />
+      </div>
+    );
   const review = referral.data.firstTimeReview;
   if (review === undefined)
-    return <p role="alert">First-time review is available to administrators only.</p>;
+    return (
+      <div className={styles.page}>
+        <p role="alert">First-time review is available to administrators only.</p>
+      </div>
+    );
   if (review.status !== 'unreviewed')
     return (
-      <main>
-        <PageHeader title="Potential matches" />
+      <main className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Potential matches" />
+        </div>
         <p>This referral’s previous-attendance decision has already been recorded.</p>
         <Link className="button-link button-secondary" to={`/referrals/${referralId}`}>
           Back to referral
@@ -66,11 +84,13 @@ export function FirstTimeReviewScreen() {
   const selectedMatch = matches.data.matches.find((match) => match.referralId === choice);
 
   return (
-    <main>
-      <PageHeader title="Potential matches" />
+    <main className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Potential matches" />
+      </div>
       <div className={styles.layout}>
         <div className={styles.content}>
-          <section aria-labelledby="referral-being-submitted">
+          <section aria-labelledby="referral-being-submitted" className={styles.card}>
             <h2 id="referral-being-submitted">Referral being submitted</h2>
             <dl className={styles.referralSummary}>
               <SummaryField label="Name" value={refereeName(referral.data) ?? '—'} />
@@ -88,7 +108,7 @@ export function FirstTimeReviewScreen() {
             </dl>
           </section>
 
-          <section aria-labelledby="potential-matches-heading" className={styles.matches}>
+          <section aria-labelledby="potential-matches-heading" className={styles.card}>
             <h2 id="potential-matches-heading">Potential matches</h2>
             <p>Select a previous referral to confirm the client and last attended session.</p>
             <form

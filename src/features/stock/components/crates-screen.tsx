@@ -72,38 +72,38 @@ export function CratesScreen() {
 
   if (crates.isPending || items.isPending || groupings.isPending || levels.isPending)
     return (
-      <>
+      <div className={styles.page}>
         <CratesHeader />
         <Spinner label="Loading crates…" />
-      </>
+      </div>
     );
   if (crates.isError)
     return (
-      <>
+      <div className={styles.page}>
         <CratesHeader />
         <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
-      </>
+      </div>
     );
   if (items.isError)
     return (
-      <>
+      <div className={styles.page}>
         <CratesHeader />
         <ErrorNotice error={items.error} onRetry={() => void items.refetch()} />
-      </>
+      </div>
     );
   if (groupings.isError)
     return (
-      <>
+      <div className={styles.page}>
         <CratesHeader />
         <ErrorNotice error={groupings.error} onRetry={() => void groupings.refetch()} />
-      </>
+      </div>
     );
   if (levels.isError)
     return (
-      <>
+      <div className={styles.page}>
         <CratesHeader />
         <ErrorNotice error={levels.error} onRetry={() => void levels.refetch()} />
-      </>
+      </div>
     );
 
   const reset = () => {
@@ -268,7 +268,7 @@ export function CratesScreen() {
     .reduce((total, member) => total + (Number(member.shoppingCompositionPercent) || 0), 0);
 
   return (
-    <>
+    <div className={styles.page}>
       <CratesHeader />
       {crates.data.length === 0 ? (
         <EmptyState
@@ -276,61 +276,63 @@ export function CratesScreen() {
           sentence="Add a crate below for a shelf with more than one item."
         />
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Crate</th>
-              <th scope="col">Shelf</th>
-              <th scope="col">Grouping</th>
-              <th scope="col">Size</th>
-              <th scope="col">Members</th>
-              <th scope="col">Current crates</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {crates.data.map((crate) => (
-              <tr key={crate.id}>
-                <th scope="row">{crate.name}</th>
-                <td>{crate.shelfKey}</td>
-                <td>
-                  {groupings.data.find((grouping) => grouping.id === crate.groupingId)?.name ??
-                    'Unknown grouping'}
-                </td>
-                <td>{crate.sizePerCrate}</td>
-                <td>{crate.members.length}</td>
-                <td>{computeCrateReferenceCount(crate, levels.data).toFixed(1)}</td>
-                <td className={styles.tableActions}>
-                  <button
-                    aria-label={`Edit ${crate.name}`}
-                    className="button-plain"
-                    onClick={() => {
-                      beginEdit(crate);
-                    }}
-                    title={`Edit ${crate.name}`}
-                    type="button"
-                  >
-                    <ResponsiveIconLabel label="Edit">
-                      <PencilIcon />
-                    </ResponsiveIconLabel>
-                  </button>
-                  <button
-                    aria-label={`Delete ${crate.name}`}
-                    className="button-danger button-plain"
-                    disabled={remove.isPending}
-                    onClick={() => {
-                      setDeleteCandidate(crate);
-                    }}
-                    title={`Delete ${crate.name}`}
-                    type="button"
-                  >
-                    <TrashIcon />
-                  </button>
-                </td>
+        <section aria-label="Crates results" className={styles.results}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Crate</th>
+                <th scope="col">Shelf</th>
+                <th scope="col">Grouping</th>
+                <th scope="col">Size</th>
+                <th scope="col">Members</th>
+                <th scope="col">Current crates</th>
+                <th scope="col">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {crates.data.map((crate) => (
+                <tr key={crate.id}>
+                  <th scope="row">{crate.name}</th>
+                  <td>{crate.shelfKey}</td>
+                  <td>
+                    {groupings.data.find((grouping) => grouping.id === crate.groupingId)?.name ??
+                      'Unknown grouping'}
+                  </td>
+                  <td>{crate.sizePerCrate}</td>
+                  <td>{crate.members.length}</td>
+                  <td>{computeCrateReferenceCount(crate, levels.data).toFixed(1)}</td>
+                  <td className={styles.tableActions}>
+                    <button
+                      aria-label={`Edit ${crate.name}`}
+                      className="button-plain"
+                      onClick={() => {
+                        beginEdit(crate);
+                      }}
+                      title={`Edit ${crate.name}`}
+                      type="button"
+                    >
+                      <ResponsiveIconLabel label="Edit">
+                        <PencilIcon />
+                      </ResponsiveIconLabel>
+                    </button>
+                    <button
+                      aria-label={`Delete ${crate.name}`}
+                      className="button-danger button-plain"
+                      disabled={remove.isPending}
+                      onClick={() => {
+                        setDeleteCandidate(crate);
+                      }}
+                      title={`Delete ${crate.name}`}
+                      type="button"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
       <section className={styles.form}>
         <h2>{editing === null ? 'Add a crate' : `Amend ${editing.name}`}</h2>
@@ -519,21 +521,23 @@ export function CratesScreen() {
           attention.
         </ConfirmDialog>
       )}
-    </>
+    </div>
   );
 }
 
 function CratesHeader() {
   return (
-    <PageHeader
-      description={
-        <p>
-          A crate is an explicit set of items on one shelf. Its stock and shopping composition
-          columns must each total 100.
-        </p>
-      }
-      icon={<BoxIcon />}
-      title="Crates"
-    />
+    <div className={styles.headerCard}>
+      <PageHeader
+        description={
+          <p>
+            A crate is an explicit set of items on one shelf. Its stock and shopping composition
+            columns must each total 100.
+          </p>
+        }
+        icon={<BoxIcon />}
+        title="Crates"
+      />
+    </div>
   );
 }

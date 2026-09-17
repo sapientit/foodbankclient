@@ -1,3 +1,24 @@
+/* Shared by CreateReferrerScreen and AmendReferrerScreen. This screen paints
+   its own white page and carries the master-data blue in its header card —
+   there is no `--category-tint` for this route (`app-shell.module.css` has
+   no `'master-data'` entry), so the fill is the literal hex the rest of this
+   feature's accent already uses. The negative margin cancels `.main`'s own
+   padding (`app-shell.module.css`, `padding: 1.5rem 1rem`) so the white
+   reaches the shell's edges. Neither form has a white card of its own to
+   retint — the form sits directly on the page. */
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: #e8f3f9;
+}
+
 .form {
   max-inline-size: 40rem;
 }

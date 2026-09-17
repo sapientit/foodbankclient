@@ -1,14 +1,32 @@
+/* The page paints its own white background and carries the category tint in
+   its cards instead — the negative margin cancels `.main`'s own padding
+   (`app-shell.module.css`, `padding: 1.5rem 1rem`) so the white reaches the
+   shell's edges. */
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+/* The heading banner is a card like the others below it, not the page's own
+   background, so the tint moved from `.heading` onto this wrapper. */
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+}
+
 .heading {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 0.85rem;
-  margin-block-end: 1.5rem;
 }
 
 .heading h1 {
   margin: 0;
-  color: var(--category-action, #005a9c);
-  font-size: 1.75rem;
+  color: #17324d;
+  font-size: 1.5rem;
 }
 
 .heading p {
@@ -19,35 +37,60 @@
 .headingIcon {
   display: inline-grid;
   aspect-ratio: 1;
-  align-self: stretch;
   place-items: center;
-  min-inline-size: 4.5rem;
+  inline-size: 3.5rem;
   border-radius: 50%;
-  background: var(--category-action, #005a9c);
-  color: #ffffff;
+  background: #d7eef9;
+  color: var(--category-action, #005a9c);
 }
 
 .headingIcon svg {
-  inline-size: 2rem;
-  block-size: 2rem;
+  inline-size: 1.8rem;
+  block-size: 1.8rem;
   stroke-width: 2.2;
 }
 
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem 1rem;
-  margin-block-end: 1rem;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block-end: 2.5rem;
+  padding: 0.75rem;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
 }
 
-.filters label {
-  display: grid;
-  gap: 0.25rem;
-  font-weight: 700;
+.search,
+.filter select {
+  min-block-size: 2.75rem;
+  padding-inline: 0.75rem;
+  font: inherit;
+  font-size: 1.05rem;
 }
 
-.filters select {
-  min-inline-size: 11rem;
+.search {
+  flex: 1 1 18rem;
+  max-inline-size: none;
+}
+
+.filter {
+  display: inline-flex;
+  align-items: center;
+}
+
+.filter select {
+  min-inline-size: 12rem;
+}
+
+.results {
+  overflow: hidden;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
 }
 
 .toggle {
@@ -63,14 +106,19 @@
 
 .table th,
 .table td {
-  padding: 0.5rem 0.75rem;
+  background: var(--category-tint, #f1fafd);
+  padding: 0.35rem 0.75rem;
   text-align: start;
   vertical-align: top;
-  border-block-end: 1px solid #d4d4d4;
+  border-block-end: 1px solid #b3cee0;
+  font-size: 0.9rem;
 }
 
 .table thead th {
-  border-block-end: 2px solid #1a1a1a;
+  border-block-end: 1px solid #a8c6da;
+  background: #e8f3f9;
+  color: #17324d;
+  font-size: 0.8rem;
 }
 
 /* Quantities line up on their last digit so a column of them can be scanned,
@@ -125,13 +173,8 @@
   color: #595959;
 }
 
-/* The label identifies the state without relying on the pale row treatment;
-   the row colour then makes watched items quick to find while scanning shelves. */
-.lowStockRow th,
-.lowStockRow td {
-  background: #fff3f1;
-}
-
+/* The label identifies the state without relying on colour; stock rows remain
+   white so the blue table heading, not a warning-row tint, carries the list structure. */
 .lowStock {
   display: inline-block;
   margin-inline-start: 0.5rem;
@@ -159,6 +202,13 @@
 }
 
 @media (max-width: 50rem) {
+  .results {
+    overflow: visible;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
   .table,
   .table tbody,
   .table tr,

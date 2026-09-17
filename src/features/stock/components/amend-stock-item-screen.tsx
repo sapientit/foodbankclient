@@ -82,28 +82,34 @@ export function AmendStockItemScreen() {
 
   if (item.isPending)
     return (
-      <>
-        <PageHeader title="Amend a stock item" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a stock item" />
+        </div>
         <Spinner label="Loading the item…" />
-      </>
+      </div>
     );
   if (item.isError)
     return (
-      <>
-        <PageHeader title="Amend a stock item" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a stock item" />
+        </div>
         <ErrorNotice error={item.error} onRetry={() => void item.refetch()} />
-      </>
+      </div>
     );
   if (item.data === null) {
     return (
-      <>
-        <PageHeader title="Amend a stock item" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a stock item" />
+        </div>
         <EmptyState
           action={<Link to="/stock/items">Back to stock items</Link>}
           headline="That item is not in the list"
           sentence="The link may be out of date."
         />
-      </>
+      </div>
     );
   }
 
@@ -201,8 +207,10 @@ function AmendStockItemForm({ item }: { item: StockItem }) {
   const refused = duplicate !== undefined;
 
   return (
-    <>
-      <PageHeader title={`Amend ${item.name}`} />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title={`Amend ${item.name}`} />
+      </div>
       {amend.error !== null && !isFieldFailure(amend.error) && <ErrorNotice error={amend.error} />}
       <form className={styles.form} noValidate onSubmit={(event) => void submit(event)}>
         <div className={styles.field}>
@@ -369,7 +377,7 @@ function AmendStockItemForm({ item }: { item: StockItem }) {
           </Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

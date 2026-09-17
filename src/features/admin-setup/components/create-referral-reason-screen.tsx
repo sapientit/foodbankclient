@@ -98,8 +98,10 @@ export function CreateReferralReasonScreen() {
   const refused = duplicate !== undefined;
 
   return (
-    <>
-      <PageHeader title="Add a reason for referral" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Add a reason for referral" />
+      </div>
 
       {create.error !== null && !isFieldFailure(create.error) && (
         <ErrorNotice error={create.error} />
@@ -199,7 +201,7 @@ export function CreateReferralReasonScreen() {
           </Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { ErrorNotice } from '../../../components/error-notice';
-import { KeyIcon, UsersIcon } from '../../../components/icons';
+import {
+  ClipboardCheckIcon,
+  ClockIcon,
+  CopyIcon,
+  KeyIcon,
+  RefreshIcon,
+  UsersIcon,
+} from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
+import { classNames } from '../../../lib/class-names';
 import { copyToClipboard } from '../../../lib/clipboard';
 import { formatLondonDateTime } from '../../../lib/london-time';
 import { useGenerateVolunteerCode, type VolunteerCode } from '../queries';
@@ -61,18 +69,20 @@ export function VolunteerCodeScreen() {
   const busy = generate.isPending;
 
   return (
-    <>
-      <PageHeader
-        description={
-          <p>
-            Generate a code for whoever is counting the shelves this morning. They enter it on the
-            stock-take sign-in — no account needed — and it lets them onto the stock take and
-            nothing else. The expiry date and time come from the code you generate.
-          </p>
-        }
-        icon={<UsersIcon />}
-        title="Volunteer counting code"
-      />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          description={
+            <p>
+              Generate a code for whoever is counting the shelves this morning. They enter it on the
+              stock-take sign-in — no account needed — and it lets them onto the stock take and
+              nothing else. The expiry date and time come from the code you generate.
+            </p>
+          }
+          icon={<UsersIcon />}
+          title="Volunteer counting code"
+        />
+      </div>
 
       {generate.isError && <ErrorNotice error={generate.error} />}
 
@@ -87,23 +97,31 @@ export function VolunteerCodeScreen() {
             </h2>
           </div>
           <p className={styles.shareText}>This is the code to use for doing a stock take.</p>
-          <p className={styles.code}>{issued.code}</p>
-          <p className={styles.expiry}>Stops working at {expiryTime(issued.expiresAt)}.</p>
+          <div className={styles.codeBox}>
+            <p className={styles.code}>{issued.code}</p>
+            <button
+              aria-label={
+                copyState === 'copied' ? 'Code and message copied' : 'Copy code and message'
+              }
+              className={classNames('button-plain', styles.copyButton)}
+              onClick={() => {
+                void copyToClipboard(volunteerCodeMessage(issued)).then((ok) => {
+                  setCopyState(ok ? 'copied' : 'failed');
+                });
+              }}
+              type="button"
+            >
+              {copyState === 'copied' ? <ClipboardCheckIcon /> : <CopyIcon />}
+            </button>
+          </div>
+          <p className={styles.expiry}>
+            <ClockIcon className={styles.expiryIcon} />
+            Stops working at {expiryTime(issued.expiresAt)}.
+          </p>
           <p className={styles.once}>
             It will not be shown again. If it is lost, generate another and this one will lapse on
             its own.
           </p>
-          <button
-            className="button-secondary"
-            onClick={() => {
-              void copyToClipboard(volunteerCodeMessage(issued)).then((ok) => {
-                setCopyState(ok ? 'copied' : 'failed');
-              });
-            }}
-            type="button"
-          >
-            {copyState === 'copied' ? 'Copied' : 'Copy message'}
-          </button>
           {copyState === 'failed' && (
             <p className={styles.copyError}>
               Copy did not work on this device. Select the message, code and expiry above and copy
@@ -124,14 +142,15 @@ export function VolunteerCodeScreen() {
         <button
           aria-busy={busy}
           aria-disabled={busy}
-          className={issued === null ? styles.generate : 'button-secondary'}
+          className={styles.generate}
           onClick={run}
           type="button"
         >
+          {issued !== null && !busy && <RefreshIcon className={styles.generateIcon} />}
           {busy ? 'Generating…' : issued === null ? 'Generate a code' : 'Generate another code'}
         </button>
       </div>
-    </>
+    </div>
   );
 }
 

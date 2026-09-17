@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useAuth } from '../../../auth/auth-context';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
-import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
+import { ArchiveIcon, PencilIcon, RestoreIcon, UsersIcon } from '../../../components/icons';
 import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
@@ -41,24 +41,28 @@ export function UsersScreen() {
 
   if (users.isPending) {
     return (
-      <>
-        <PageHeader title="Users" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Users" />
+        </div>
         <Spinner label="Loading users…" />
-      </>
+      </div>
     );
   }
 
   if (users.isError) {
     return (
-      <>
-        <PageHeader title="Users" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Users" />
+        </div>
         <ErrorNotice
           error={users.error}
           onRetry={() => {
             void users.refetch();
           }}
         />
-      </>
+      </div>
     );
   }
 
@@ -86,21 +90,25 @@ export function UsersScreen() {
   };
 
   return (
-    <>
-      <PageHeader
-        title="Users"
-        action={
-          <Link className="button-link" to="/users/new">
-            Add a user
-          </Link>
-        }
-      />
-
-      <p className={styles.intro}>
-        Adding an account here is the only way somebody can sign in. There is no way to delete one:
-        retiring an account stops it working while keeping the person named on the stock, attendance
-        and audit records they are part of.
-      </p>
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          title="Users"
+          icon={<UsersIcon />}
+          description={
+            <p>
+              Adding an account here is the only way somebody can sign in. Retiring an account stops
+              it working while keeping the person named on the stock, attendance and audit records
+              they are part of.
+            </p>
+          }
+          action={
+            <Link className="button-link" to="/users/new">
+              Add a user
+            </Link>
+          }
+        />
+      </div>
 
       {amend.error !== null && <ErrorNotice error={amend.error} />}
 
@@ -128,111 +136,113 @@ export function UsersScreen() {
         </label>
       </p>
 
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Email</th>
-            <th scope="col">Role</th>
-            <th scope="col">Status</th>
-            <th scope="col">Last signed in</th>
-            <th scope="col">Added</th>
-            <th scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((row) => {
-            const refusal = refuseLockout({
-              users: users.data,
-              actorId,
-              target: row,
-              change: { kind: 'deactivate' },
-            });
-            const reasonId = `${reasonBaseId}-${row.id}`;
+      <section aria-label="Users" className={styles.results}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Email</th>
+              <th scope="col">Role</th>
+              <th scope="col">Status</th>
+              <th scope="col">Last signed in</th>
+              <th scope="col">Added</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((row) => {
+              const refusal = refuseLockout({
+                users: users.data,
+                actorId,
+                target: row,
+                change: { kind: 'deactivate' },
+              });
+              const reasonId = `${reasonBaseId}-${row.id}`;
 
-            return (
-              <tr key={row.id}>
-                <th scope="row">
-                  {row.displayName}
-                  {row.id === actorId && <span className={styles.you}> (you)</span>}
-                </th>
-                {/* Plain text, not a mailto: this is a login identity, and one
+              return (
+                <tr key={row.id}>
+                  <th scope="row">
+                    {row.displayName}
+                    {row.id === actorId && <span className={styles.you}> (you)</span>}
+                  </th>
+                  {/* Plain text, not a mailto: this is a login identity, and one
                     mis-tap in a hall opening a mail client is no help to anyone. */}
-                <td>{row.email}</td>
-                <td>{ROLE_LABELS[row.role]}</td>
-                {/* In words. Colour alone would say nothing to a colour-blind
+                  <td>{row.email}</td>
+                  <td>{ROLE_LABELS[row.role]}</td>
+                  {/* In words. Colour alone would say nothing to a colour-blind
                     volunteer, and a strikethrough would say "deleted" — the
                     person is still named on everything they did. */}
-                <td>{row.isActive ? 'Active' : 'Retired'}</td>
-                <td>
-                  {row.lastLoginAt === null ? (
-                    /* Never blank. An account nobody has ever signed in with is
+                  <td>{row.isActive ? 'Active' : 'Retired'}</td>
+                  <td>
+                    {row.lastLoginAt === null ? (
+                      /* Never blank. An account nobody has ever signed in with is
                        usually one created with a typo in the address, and this
                        column plus "Added" is how that gets spotted. It means
                        last fresh sign-in, not last active — a refresh does not
                        touch it — so no copy here may imply presence. */
-                    <span className={styles.never}>Never signed in</span>
-                  ) : (
-                    formatLondonDateTime(row.lastLoginAt)
-                  )}
-                </td>
-                <td>{formatLondonDate(row.createdAt)}</td>
-                <td className={styles.actions}>
-                  <Link
-                    aria-label={`Amend ${row.displayName}`}
-                    className="button-link button-plain"
-                    to={`/users/${row.id}`}
-                    title={`Amend ${row.displayName}`}
-                  >
-                    <ResponsiveIconLabel label="Edit">
-                      <PencilIcon />
-                    </ResponsiveIconLabel>
-                  </Link>
+                      <span className={styles.never}>Never signed in</span>
+                    ) : (
+                      formatLondonDateTime(row.lastLoginAt)
+                    )}
+                  </td>
+                  <td>{formatLondonDate(row.createdAt)}</td>
+                  <td className={styles.actions}>
+                    <Link
+                      aria-label={`Amend ${row.displayName}`}
+                      className="button-link button-plain"
+                      to={`/users/${row.id}`}
+                      title={`Amend ${row.displayName}`}
+                    >
+                      <ResponsiveIconLabel label="Edit">
+                        <PencilIcon />
+                      </ResponsiveIconLabel>
+                    </Link>
 
-                  {row.isActive ? (
-                    <>
-                      {/* aria-disabled on a real focusable button, never a
+                    {row.isActive ? (
+                      <>
+                        {/* aria-disabled on a real focusable button, never a
                           removed control: somebody looking for Deactivate has to
                           be able to find it and be told why not. */}
+                        <button
+                          aria-label={`Deactivate ${row.displayName}`}
+                          aria-describedby={refusal === null ? undefined : reasonId}
+                          aria-disabled={refusal !== null}
+                          className="button-danger button-plain"
+                          onClick={() => {
+                            if (refusal !== null) return;
+                            setDeactivating(row);
+                          }}
+                          title={`Deactivate ${row.displayName}`}
+                          type="button"
+                        >
+                          <ArchiveIcon />
+                        </button>
+                        {refusal !== null && (
+                          <p className={styles.reason} id={reasonId}>
+                            {refusal.reason}
+                          </p>
+                        )}
+                      </>
+                    ) : (
                       <button
-                        aria-label={`Deactivate ${row.displayName}`}
-                        aria-describedby={refusal === null ? undefined : reasonId}
-                        aria-disabled={refusal !== null}
-                        className="button-danger button-plain"
+                        aria-label={`Reactivate ${row.displayName}`}
+                        className="button-plain"
                         onClick={() => {
-                          if (refusal !== null) return;
-                          setDeactivating(row);
+                          change(row, true);
                         }}
-                        title={`Deactivate ${row.displayName}`}
+                        title={`Reactivate ${row.displayName}`}
                         type="button"
                       >
-                        <ArchiveIcon />
+                        <RestoreIcon />
                       </button>
-                      {refusal !== null && (
-                        <p className={styles.reason} id={reasonId}>
-                          {refusal.reason}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <button
-                      aria-label={`Reactivate ${row.displayName}`}
-                      className="button-plain"
-                      onClick={() => {
-                        change(row, true);
-                      }}
-                      title={`Reactivate ${row.displayName}`}
-                      type="button"
-                    >
-                      <RestoreIcon />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </section>
 
       {deactivating !== null && (
         <ConfirmDialog
@@ -263,6 +273,6 @@ export function UsersScreen() {
           </p>
         </ConfirmDialog>
       )}
-    </>
+    </div>
   );
 }

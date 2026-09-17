@@ -4,6 +4,7 @@ import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
 import * as z from 'zod';
 import { ErrorNotice } from '../../../components/error-notice';
+import { CalendarIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
 import { useCreateRecurringSession } from '../queries';
@@ -229,8 +230,10 @@ export function CreateRecurringSessionScreen() {
   });
 
   return (
-    <>
-      <PageHeader title="Add a weekly session" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader icon={<CalendarIcon />} title="Add a weekly session" />
+      </div>
 
       {/*
        * Said here because this is where the wrong expectation forms. Saving this
@@ -523,7 +526,7 @@ export function CreateRecurringSessionScreen() {
           <Link to="/sessions/recurring">Cancel</Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

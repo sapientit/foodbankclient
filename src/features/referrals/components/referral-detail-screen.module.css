@@ -1,3 +1,42 @@
+/* This screen paints its own white page and carries the pink in its cards
+   instead of the category-tint app-shell washes every other referrals route
+   in. The negative margin cancels `.main`'s own padding
+   (`app-shell.module.css`, `padding: 1.5rem 1rem`) so the white reaches the
+   shell's edges rather than leaving the ambient pink as a border round it. */
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+/* The name banner is a card like the others below it, not the page's own
+   background — `PageHeader` itself stays transparent everywhere else in the
+   app, so the tint is added here rather than on the shared component. */
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #fdf3f3);
+}
+
+/* The vertical rhythm between every card and card-pair on the screen — kept
+   in one place so a card never has to know what sits above or below it. */
+.stack {
+  display: grid;
+  gap: 1.5rem;
+  margin-block-start: 1.5rem;
+}
+
+/* A pair of cards that sit side by side where the page is wide enough, and
+   stack where it is not. `auto-fit` means a pair with only one card present
+   (an amend-locked or purged referral, say) still fills the row rather than
+   leaving half of it empty. */
+.pairGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1.5rem;
+}
+
 .static {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -122,14 +161,30 @@
   color: #595959;
 }
 
-.section {
-  margin-block-start: 2rem;
-  padding-block-start: 1.5rem;
-  border-block-start: 1px solid #d4d4d4;
+/* Every named section of the screen — Administrator notes, Referral summary,
+   Referral actions, Previous referrals, Referral details, Household
+   composition, Answers from the referral form — is one of these: a pale pink
+   card on the screen's white page (`.page` above), with a clear white gap
+   — `.stack` and `.pairGrid`'s own `gap` — between every one of them. */
+.section,
+.adminInfo {
+  margin: 0;
+  padding: 1.5rem;
+  border: 1px solid #e6c9c9;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #fdf3f3);
+  box-shadow: 0 0.2rem 0.7rem rgb(94 25 25 / 7%);
+}
+
+.section h2,
+.adminInfo h2 {
+  margin-block-start: 0;
+  color: var(--category-action, #c62828);
+  font-size: 1.25rem;
 }
 
 .householdComposition {
-  margin-block: 1rem 1.5rem;
+  margin-block: 1rem 0;
 }
 
 .tableWrap {
@@ -155,17 +210,6 @@
   display: grid;
   gap: 0.375rem;
   margin-block-end: 1.5rem;
-}
-
-.adminInfo {
-  margin-block: 1rem 1.5rem;
-  padding: 1rem;
-  border: 1px solid #d4d4d4;
-  border-radius: 0.25rem;
-}
-
-.adminInfo h2 {
-  margin-block-start: 0;
 }
 
 .editButton {

@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { CloudIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatCalendarDate } from '../../../lib/london-time';
@@ -75,45 +76,52 @@ export function PlatformUsageScreen() {
   const toId = useId();
   const errorId = useId();
   return (
-    <main>
-      <PageHeader title="Cloudflare statistics" />
-      <p>Daily Worker and D1 usage against the current Cloudflare thresholds.</p>
-      <fieldset className={styles.range}>
-        <legend>Date range</legend>
-        <label className={styles.field} htmlFor={fromId}>
-          From
-          <input
-            aria-describedby={error === null ? undefined : errorId}
-            id={fromId}
-            max={range.to}
-            onChange={(event) => {
-              setRange((current) => ({ ...current, from: event.target.value }));
-            }}
-            type="date"
-            value={range.from}
+    <div className={styles.page}>
+      <main>
+        <div className={styles.headerCard}>
+          <PageHeader
+            description="Daily Worker and D1 usage against the current Cloudflare thresholds."
+            icon={<CloudIcon />}
+            title="Cloudflare statistics"
           />
-        </label>
-        <label className={styles.field} htmlFor={toId}>
-          To
-          <input
-            aria-describedby={error === null ? undefined : errorId}
-            id={toId}
-            min={range.from}
-            onChange={(event) => {
-              setRange((current) => ({ ...current, to: event.target.value }));
-            }}
-            type="date"
-            value={range.to}
-          />
-        </label>
-        {error !== null && (
-          <p className={styles.error} id={errorId} role="alert">
-            {error}
-          </p>
-        )}
-      </fieldset>
-      {error === null && <UsageResults from={range.from} to={range.to} usage={usage} />}
-    </main>
+        </div>
+        <fieldset className={styles.range}>
+          <legend>Date range</legend>
+          <label className={styles.field} htmlFor={fromId}>
+            From
+            <input
+              aria-describedby={error === null ? undefined : errorId}
+              id={fromId}
+              max={range.to}
+              onChange={(event) => {
+                setRange((current) => ({ ...current, from: event.target.value }));
+              }}
+              type="date"
+              value={range.from}
+            />
+          </label>
+          <label className={styles.field} htmlFor={toId}>
+            To
+            <input
+              aria-describedby={error === null ? undefined : errorId}
+              id={toId}
+              min={range.from}
+              onChange={(event) => {
+                setRange((current) => ({ ...current, to: event.target.value }));
+              }}
+              type="date"
+              value={range.to}
+            />
+          </label>
+          {error !== null && (
+            <p className={styles.error} id={errorId} role="alert">
+              {error}
+            </p>
+          )}
+        </fieldset>
+        {error === null && <UsageResults from={range.from} to={range.to} usage={usage} />}
+      </main>
+    </div>
   );
 }
 

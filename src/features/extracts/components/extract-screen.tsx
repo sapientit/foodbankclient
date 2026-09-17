@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
-import { SpreadsheetIcon } from '../../../components/icons';
+import { CloudIcon, SpreadsheetIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { ShowableError } from '../../../lib/errors';
 import { preloadSheetsAccess, requestSheetsAccess } from '../google-auth';
@@ -220,17 +220,28 @@ export function ExtractScreen() {
   }
 
   return (
-    <>
-      <PageHeader
-        description={
-          <p>
-            Send confirmed sessions to the food bank&rsquo;s Google spreadsheet. This sends
-            household details outside this system.
-          </p>
-        }
-        icon={<SpreadsheetIcon />}
-        title="Send to Sheets"
-      />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          action={
+            // Purely decorative — a cloud-and-spreadsheet pairing echoing the
+            // reference banner's illustration. Not a control: no link, no
+            // button, and both icons are already aria-hidden.
+            <span aria-hidden="true" className={styles.decoration}>
+              <CloudIcon className={styles.decorationCloud} />
+              <SpreadsheetIcon className={styles.decorationSheet} />
+            </span>
+          }
+          description={
+            <p>
+              Send confirmed sessions to the food bank&rsquo;s Google spreadsheet. This sends
+              household details outside this system.
+            </p>
+          }
+          icon={<SpreadsheetIcon />}
+          title="Send to Sheets"
+        />
+      </div>
       <section aria-labelledby="run-extract-heading" className={styles.runPanel}>
         <h2 id="run-extract-heading">Run spreadsheet extract</h2>
         <p className={styles.guidance}>
@@ -328,6 +339,6 @@ export function ExtractScreen() {
           </p>
         </ConfirmDialog>
       )}
-    </>
+    </div>
   );
 }

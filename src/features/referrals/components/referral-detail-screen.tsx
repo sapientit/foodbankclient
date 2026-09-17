@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
 import { HouseholdCompositionGrid } from '../../../components/household-composition-grid';
+import { ClipboardCheckIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { classNames } from '../../../lib/class-names';
@@ -98,24 +99,28 @@ export function ReferralDetailScreen() {
 
   if (referral.isPending) {
     return (
-      <>
-        <PageHeader title="Referral" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Referral" />
+        </div>
         <Spinner label="Loading the referral…" />
-      </>
+      </div>
     );
   }
 
   if (referral.isError) {
     return (
-      <>
-        <PageHeader title="Referral" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Referral" />
+        </div>
         <ErrorNotice
           error={referral.error}
           onRetry={() => {
             void referral.refetch();
           }}
         />
-      </>
+      </div>
     );
   }
 
@@ -221,11 +226,16 @@ function ReferralDetail({ referral }: { referral: Referral }) {
   ]);
 
   return (
-    <>
-      <PageHeader
-        action={fromSearch ? <Link to="/referrals/search">Back to search results</Link> : undefined}
-        title={title}
-      />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          action={
+            fromSearch ? <Link to="/referrals/search">Back to search results</Link> : undefined
+          }
+          icon={<ClipboardCheckIcon />}
+          title={title}
+        />
+      </div>
 
       {fromCopy && (
         <p className={styles.copiedNotice} ref={copiedNotice} role="status" tabIndex={-1}>
@@ -240,168 +250,182 @@ function ReferralDetail({ referral }: { referral: Referral }) {
         </p>
       )}
 
-      {isAdminView && !purged && (
-        <AdminInfoPanel locked={locked} lockedId={lockedId} referral={referral} />
-      )}
-
-      <dl className={styles.static}>
-        <dt>Status</dt>
-        <dd>
-          <span className={styles.status} data-status={referral.status}>
-            {REFERRAL_STATUS_LABELS[referral.status]}
-          </span>
-        </dd>
-        {/* What became of the *household*, which the status does not say: a
-            referral can read Reviewed whether they collected their parcel or
-            never turned up. Shown only where it adds something — a cancelled or
-            rejected referral reads `outcome: "booked"`, correctly (nothing
-            happened on the day), and "Still booked" beside "Cancelled" reads as
-            a household who is coming after all. See `displayedOutcome`. */}
-        {outcome !== null && (
-          <>
-            <dt>Outcome</dt>
-            <dd>
-              <span className={styles.outcome} data-outcome={outcome}>
-                {REFERRAL_OUTCOME_LABELS[outcome]}
-              </span>
-            </dd>
-          </>
+      <div className={styles.stack}>
+        {isAdminView && !purged && (
+          <AdminInfoPanel locked={locked} lockedId={lockedId} referral={referral} />
         )}
-        <dt>Referred</dt>
-        <dd>{formatLondonDateTime(referral.referredAt)}</dd>
-        <dt>Session</dt>
-        <dd>
-          {session === undefined ? (
-            'Not in the current session list'
-          ) : (
-            <Link to={`/sessions/${referral.sessionId}`}>
-              {describeSessionChoice(
-                `${formatSessionDate(session.sessionDate)}, ${session.startTime}`,
-                standingFromCapacity(session.deliveryCapacity),
+
+        {/* Referral summary and Referral actions sit side by side — the record
+            of the referral beside the decision to take about it. Mark
+            reviewed, cancel and move now sit together, so all three follow
+            cancel's rule and none is offered on a purged referral — where
+            moving and marking reviewed once were, having sections of their
+            own. Booking a household whose details are gone into a future
+            session would put a nameless parcel on a pick list, and there is
+            nothing left to read through; but nobody has actually decided
+            either, so both are recorded as guesses in
+            `../foodbankserver/OPEN-QUESTIONS.md` Q35. */}
+        <div className={styles.pairGrid}>
+          <section aria-labelledby="referral-summary-heading" className={styles.section}>
+            <h2 id="referral-summary-heading">Referral summary</h2>
+            <dl className={styles.static}>
+              <dt>Status</dt>
+              <dd>
+                <span className={styles.status} data-status={referral.status}>
+                  {REFERRAL_STATUS_LABELS[referral.status]}
+                </span>
+              </dd>
+              {/* What became of the *household*, which the status does not say: a
+                  referral can read Reviewed whether they collected their parcel or
+                  never turned up. Shown only where it adds something — a cancelled or
+                  rejected referral reads `outcome: "booked"`, correctly (nothing
+                  happened on the day), and "Still booked" beside "Cancelled" reads as
+                  a household who is coming after all. See `displayedOutcome`. */}
+              {outcome !== null && (
+                <>
+                  <dt>Outcome</dt>
+                  <dd>
+                    <span className={styles.outcome} data-outcome={outcome}>
+                      {REFERRAL_OUTCOME_LABELS[outcome]}
+                    </span>
+                  </dd>
+                </>
               )}
-            </Link>
+              <dt>Referred</dt>
+              <dd>{formatLondonDateTime(referral.referredAt)}</dd>
+              <dt>Session</dt>
+              <dd>
+                {session === undefined ? (
+                  'Not in the current session list'
+                ) : (
+                  <Link to={`/sessions/${referral.sessionId}`}>
+                    {describeSessionChoice(
+                      `${formatSessionDate(session.sessionDate)}, ${session.startTime}`,
+                      standingFromCapacity(session.deliveryCapacity),
+                    )}
+                  </Link>
+                )}
+              </dd>
+              <dt>Date of birth</dt>
+              <dd>
+                {referral.refereeDateOfBirth === null
+                  ? '—'
+                  : formatCalendarDate(referral.refereeDateOfBirth)}
+              </dd>
+              <dt>Referring organisation</dt>
+              <dd>{referral.referrerOrganisation}</dd>
+              <dt>Referrer</dt>
+              <dd>{referral.referrerName ?? '—'}</dd>
+              {/* Admin only, and not amendable here — the email is the referrer's
+                  identity, the same reasoning `API.md` gives for a user's login
+                  email never being amendable on the users screens. */}
+              {isAdminView && (
+                <>
+                  <dt>Referrer email</dt>
+                  <dd>{referral.referrerEmail ?? '—'}</dd>
+                </>
+              )}
+              {/* Admin only, for the same reason as the email: it can name a referrer
+                  or record a suspicion. Shown whenever there is one — a rejected
+                  referral's reason is the thing somebody asks about six months
+                  later, and there is no review history to look it up in. */}
+              {isAdminView && referral.reviewComment !== null && (
+                <>
+                  <dt>Review comment</dt>
+                  <dd>{referral.reviewComment}</dd>
+                </>
+              )}
+            </dl>
+          </section>
+
+          {!purged && (
+            <section className={styles.section}>
+              <h2>Referral actions</h2>
+              {isAdminView && needsReferrerApproval(referral) && (
+                <ReviewPanel onDecided={setDecidedNotice} referral={referral} />
+              )}
+              <ReferralActionsPanel
+                canCopy={isAdminView && canCopyReferral(referral)}
+                canMarkReviewed={isAdminView && referral.status === 'active'}
+                locked={locked}
+                lockedId={lockedId}
+                referral={referral}
+                sessions={sessions.data ?? []}
+              />
+            </section>
           )}
-        </dd>
-        <dt>Date of birth</dt>
-        <dd>
-          {referral.refereeDateOfBirth === null
-            ? '—'
-            : formatCalendarDate(referral.refereeDateOfBirth)}
-        </dd>
-        <dt>Referring organisation</dt>
-        <dd>{referral.referrerOrganisation}</dd>
-        <dt>Referrer</dt>
-        <dd>{referral.referrerName ?? '—'}</dd>
-        {/* Admin only, and not amendable here — the email is the referrer's
-            identity, the same reasoning `API.md` gives for a user's login
-            email never being amendable on the users screens. */}
-        {isAdminView && (
-          <>
-            <dt>Referrer email</dt>
-            <dd>{referral.referrerEmail ?? '—'}</dd>
-          </>
+        </div>
+
+        {purged && (
+          <p className={styles.purgedNotice}>
+            This household&rsquo;s personal details were removed by the retention process
+            {referral.piiPurgedAt !== null && ` on ${formatLondonDateTime(referral.piiPurgedAt)}`}.
+            There is nothing here to amend.
+          </p>
         )}
-        {/* Admin only, for the same reason as the email: it can name a referrer
-            or record a suspicion. Shown whenever there is one — a rejected
-            referral's reason is the thing somebody asks about six months
-            later, and there is no review history to look it up in. */}
-        {isAdminView && referral.reviewComment !== null && (
-          <>
-            <dt>Review comment</dt>
-            <dd>{referral.reviewComment}</dd>
-          </>
+
+        {locked !== null && (
+          <p className={styles.refusal} id={lockedId}>
+            {locked}
+          </p>
         )}
-      </dl>
 
-      {purged && (
-        <p className={styles.purgedNotice}>
-          This household&rsquo;s personal details were removed by the retention process
-          {referral.piiPurgedAt !== null && ` on ${formatLondonDateTime(referral.piiPurgedAt)}`}.
-          There is nothing here to amend.
-        </p>
-      )}
+        {hasRepeatReferralSummary(referral) && <PreviousReferralsPanel referral={referral} />}
 
-      {locked !== null && (
-        <p className={styles.refusal} id={lockedId}>
-          {locked}
-        </p>
-      )}
+        {firstTimeMatches.isError && <ErrorNotice error={firstTimeMatches.error} />}
+        {saveFirstTimeReview.error !== null && <ErrorNotice error={saveFirstTimeReview.error} />}
 
-      {hasRepeatReferralSummary(referral) && <PreviousReferralsPanel referral={referral} />}
+        {/* Referral details and Household composition sit side by side — the
+            same household, read two ways. `DetailsForm` renders either both
+            cards or, while editing, the one editor card in their place; the
+            grid's `auto-fit` tracks make either shape fill the row. */}
+        {!purged &&
+          (isAdminView && reasons.isPending ? (
+            <Spinner label="Loading reasons for referral…" />
+          ) : isAdminView && reasons.isError ? (
+            <ErrorNotice
+              error={reasons.error}
+              onRetry={() => {
+                void reasons.refetch();
+              }}
+            />
+          ) : (
+            <div className={styles.pairGrid}>
+              <DetailsForm
+                isAdminView={isAdminView}
+                locked={locked}
+                lockedId={lockedId}
+                reasons={isAdminView ? (reasons.data ?? []) : []}
+                referral={referral}
+              />
+            </div>
+          ))}
 
-      {firstTimeMatches.isError && <ErrorNotice error={firstTimeMatches.error} />}
-      {saveFirstTimeReview.error !== null && <ErrorNotice error={saveFirstTimeReview.error} />}
-
-      {/* A decision about whether the household is coming belongs near the
-          matching-referral context, before the editable household details. */}
-      {/* Mark reviewed, cancel and move now sit together, so all three follow
-          cancel's rule and none is offered on a purged referral — where moving
-          and marking reviewed once were, having sections of their own. Booking a
-          household whose details are gone into a future session would put a
-          nameless parcel on a pick list, and there is nothing left to read
-          through; but nobody has actually decided either, so both are recorded
-          as guesses in `../foodbankserver/OPEN-QUESTIONS.md` Q35. */}
-      {!purged && (
+        {/* Every answer, not only the preferences — this is the referral, and an
+            administrator taking a correction by phone needs all of it. The
+            preferences-only view is the pick-list screen's job. */}
         <section className={styles.section}>
-          <h2>Referral actions</h2>
-          {isAdminView && needsReferrerApproval(referral) && (
-            <ReviewPanel onDecided={setDecidedNotice} referral={referral} />
+          <h2>Answers from the referral form</h2>
+          {/* Held until the lookup lands: an answer chosen from it is an id until
+              then, and an id is not something anybody may be shown. Only where
+              there are answers to resolve — a purged referral says so at once. */}
+          {answers.kind !== 'answers' ? (
+            <AnswersList display={answers} />
+          ) : answerLookupPending ? (
+            <Spinner label="Loading reasons for referral…" />
+          ) : answerLookupError !== null ? (
+            <ErrorNotice
+              error={answerLookupError}
+              onRetry={() => {
+                void (isAdminView ? reasons.refetch() : publicReasons.refetch());
+              }}
+            />
+          ) : (
+            <AnswersList display={answers} />
           )}
-          <ReferralActionsPanel
-            canCopy={isAdminView && canCopyReferral(referral)}
-            canMarkReviewed={isAdminView && referral.status === 'active'}
-            locked={locked}
-            lockedId={lockedId}
-            referral={referral}
-            sessions={sessions.data ?? []}
-          />
         </section>
-      )}
-
-      {!purged &&
-        (isAdminView && reasons.isPending ? (
-          <Spinner label="Loading reasons for referral…" />
-        ) : isAdminView && reasons.isError ? (
-          <ErrorNotice
-            error={reasons.error}
-            onRetry={() => {
-              void reasons.refetch();
-            }}
-          />
-        ) : (
-          <DetailsForm
-            isAdminView={isAdminView}
-            locked={locked}
-            lockedId={lockedId}
-            reasons={isAdminView ? (reasons.data ?? []) : []}
-            referral={referral}
-          />
-        ))}
-
-      {/* Every answer, not only the preferences — this is the referral, and an
-          administrator taking a correction by phone needs all of it. The
-          preferences-only view is the pick-list screen's job. */}
-      <section className={styles.section}>
-        <h2>Answers from the referral form</h2>
-        {/* Held until the lookup lands: an answer chosen from it is an id until
-            then, and an id is not something anybody may be shown. Only where
-            there are answers to resolve — a purged referral says so at once. */}
-        {answers.kind !== 'answers' ? (
-          <AnswersList display={answers} />
-        ) : answerLookupPending ? (
-          <Spinner label="Loading reasons for referral…" />
-        ) : answerLookupError !== null ? (
-          <ErrorNotice
-            error={answerLookupError}
-            onRetry={() => {
-              void (isAdminView ? reasons.refetch() : publicReasons.refetch());
-            }}
-          />
-        ) : (
-          <AnswersList display={answers} />
-        )}
-      </section>
-    </>
+      </div>
+    </div>
   );
 }
 
@@ -1157,88 +1181,97 @@ function DetailsForm({
   const reason = reasons.find((candidate) => candidate.id === referral.reasonId);
   const householdComposition = referral.answers[HOUSEHOLD_COMPONENTS_KEY];
   return (
-    <section className={styles.section}>
-      <h2>Referral details</h2>
-      <dl className={styles.static}>
-        <dt>Name</dt>
-        <dd>{refereeName(referral) ?? '—'}</dd>
-        <dt>Date of birth</dt>
-        <dd>
-          {referral.refereeDateOfBirth === null
-            ? '—'
-            : formatCalendarDate(referral.refereeDateOfBirth)}
-        </dd>
-        <dt>Address</dt>
-        <dd>{referral.refereeAddress ?? '—'}</dd>
-        <dt>Postcode</dt>
-        <dd>{referral.refereePostcode ?? '—'}</dd>
-        <dt>Phone</dt>
-        <dd>{referral.refereePhone ?? '—'}</dd>
-        {/* Labelled with their real bounds, because "Adults: 6" for a household
+    <>
+      <section className={styles.section}>
+        <h2>Referral details</h2>
+        <dl className={styles.static}>
+          <dt>Name</dt>
+          <dd>{refereeName(referral) ?? '—'}</dd>
+          <dt>Date of birth</dt>
+          <dd>
+            {referral.refereeDateOfBirth === null
+              ? '—'
+              : formatCalendarDate(referral.refereeDateOfBirth)}
+          </dd>
+          <dt>Address</dt>
+          <dd>{referral.refereeAddress ?? '—'}</dd>
+          <dt>Postcode</dt>
+          <dd>{referral.refereePostcode ?? '—'}</dd>
+          <dt>Phone</dt>
+          <dd>{referral.refereePhone ?? '—'}</dd>
+          {/* Labelled with their real bounds, because "Adults: 6" for a household
             of ten is only wrong to somebody who does not know these are the
             grid's axes.  An admin corrects them, so an admin has to know what
             they are counting.  A team lead reads the composition grid below
             instead — the same household, without a definition to learn. */}
+          {isAdminView && (
+            <>
+              <dt>Adults (&gt;11)</dt>
+              <dd>{referral.adults}</dd>
+              <dt>Children (5-11)</dt>
+              <dd>{referral.children}</dd>
+            </>
+          )}
+          <dt>Collection method</dt>
+          <dd>{describeCollectionMethod(referral.collectionMethod)}</dd>
+          <dt>Fuel help</dt>
+          <dd>{referral.needsFuelHelp ? 'Yes' : 'No'}</dd>
+          {isAdminView && (
+            <>
+              <dt>Reason for referral</dt>
+              <dd>{reason?.label ?? '—'}</dd>
+              <dt>Referrer phone</dt>
+              <dd>{referral.referrerPhone ?? '—'}</dd>
+            </>
+          )}
+        </dl>
         {isAdminView && (
-          <>
-            <dt>Adults (&gt;11)</dt>
-            <dd>{referral.adults}</dd>
-            <dt>Children (5-11)</dt>
-            <dd>{referral.children}</dd>
-          </>
+          <button
+            aria-describedby={locked === null ? undefined : lockedId}
+            aria-disabled={locked !== null}
+            className={styles.submit}
+            onClick={() => {
+              if (locked === null) setShowEditMenu(true);
+            }}
+            type="button"
+          >
+            Edit
+          </button>
         )}
-        <dt>Collection method</dt>
-        <dd>{describeCollectionMethod(referral.collectionMethod)}</dd>
-        <dt>Fuel help</dt>
-        <dd>{referral.needsFuelHelp ? 'Yes' : 'No'}</dd>
-        {isAdminView && (
-          <>
-            <dt>Reason for referral</dt>
-            <dd>{reason?.label ?? '—'}</dd>
-            <dt>Referrer phone</dt>
-            <dd>{referral.referrerPhone ?? '—'}</dd>
-          </>
+        {isAdminView && showEditMenu && (
+          <div className={styles.editMenu}>
+            {referralFormDefinition.pages.map((page, index) => (
+              <button
+                className="button-plain"
+                key={page.pageNum}
+                onClick={() => {
+                  setEditing(index);
+                }}
+                type="button"
+              >
+                {page.pageTitle}
+              </button>
+            ))}
+          </div>
         )}
-      </dl>
+      </section>
+
       {/* Not gated on the role: the grid is how a team lead knows the shape of
           the household they are packing for, and they already read it on the
-          pick-list screens.  It is what they get here in place of the two
-          operational counts above. */}
+          pick-list screens. It is what they get here in place of the two
+          operational counts above. Its own card, beside Referral details —
+          the same household read two ways. There is no edit control of its
+          own: the shared editor in the Referral details card beside it covers
+          every page, composition included. */}
       {isHouseholdComposition(householdComposition) && (
-        <section aria-label="Household composition" className={styles.householdComposition}>
-          <HouseholdCompositionGrid composition={householdComposition} />
+        <section className={styles.section}>
+          <h2>Household composition</h2>
+          <div className={styles.householdComposition}>
+            <HouseholdCompositionGrid composition={householdComposition} />
+          </div>
         </section>
       )}
-      {isAdminView && (
-        <button
-          aria-describedby={locked === null ? undefined : lockedId}
-          aria-disabled={locked !== null}
-          className={styles.submit}
-          onClick={() => {
-            if (locked === null) setShowEditMenu(true);
-          }}
-          type="button"
-        >
-          Edit
-        </button>
-      )}
-      {isAdminView && showEditMenu && (
-        <div className={styles.editMenu}>
-          {referralFormDefinition.pages.map((page, index) => (
-            <button
-              className="button-plain"
-              key={page.pageNum}
-              onClick={() => {
-                setEditing(index);
-              }}
-              type="button"
-            >
-              {page.pageTitle}
-            </button>
-          ))}
-        </div>
-      )}
-    </section>
+    </>
   );
 }
 

@@ -63,16 +63,20 @@ export function ListenerSheetScreen() {
 
   if (sheet.isPending)
     return (
-      <>
-        <PageHeader title="Listener sheet" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Listener sheet" />
+        </div>
         <Spinner label="Loading the listener sheet…" />
-      </>
+      </div>
     );
   if (sheet.isError) {
     if (isNewClientsAssigned(sheet.error))
       return (
-        <>
-          <PageHeader title="Listener sheet" />
+        <div className={styles.page}>
+          <div className={styles.headerCard}>
+            <PageHeader title="Listener sheet" />
+          </div>
           <section className={styles.newClientsAssigned} role="alert">
             <h2>New clients assigned</h2>
             <p>{sheet.error.message}</p>
@@ -92,47 +96,55 @@ export function ListenerSheetScreen() {
               <ErrorNotice error={rebuildError} onRetry={() => void acknowledgeNewClients()} />
             )}
           </section>
-        </>
+        </div>
       );
     return (
-      <>
-        <PageHeader title="Listener sheet" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Listener sheet" />
+        </div>
         <ErrorNotice error={sheet.error} onRetry={() => void sheet.refetch()} />
-      </>
+      </div>
     );
   }
   if (reasons.isPending)
     return (
-      <>
-        <PageHeader title="Listener sheet" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Listener sheet" />
+        </div>
         <Spinner label="Loading the listener sheet…" />
-      </>
+      </div>
     );
   // Held back rather than printed with an identifier where a cause of crisis
   // should be: a listener reads this sheet aloud to a household.
   if (reasons.isError)
     return (
-      <>
-        <PageHeader title="Listener sheet" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Listener sheet" />
+        </div>
         <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />
-      </>
+      </div>
     );
 
   return (
-    <>
-      <PageHeader
-        title="Listener sheet"
-        action={
-          <button
-            onClick={() => {
-              window.print();
-            }}
-            type="button"
-          >
-            Print listener sheet
-          </button>
-        }
-      />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          title="Listener sheet"
+          action={
+            <button
+              onClick={() => {
+                window.print();
+              }}
+              type="button"
+            >
+              Print listener sheet
+            </button>
+          }
+        />
+      </div>
       <p className={styles.screenOnly}>
         This sensitive sheet is for the selected listeners only. It lists non-delivery households on
         this session.
@@ -174,6 +186,6 @@ export function ListenerSheetScreen() {
           </tbody>
         </table>
       )}
-    </>
+    </div>
   );
 }

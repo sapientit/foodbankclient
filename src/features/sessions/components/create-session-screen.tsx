@@ -4,6 +4,7 @@ import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
 import * as z from 'zod';
 import { ErrorNotice } from '../../../components/error-notice';
+import { CalendarIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
 import { useCreateSession } from '../queries';
@@ -219,8 +220,10 @@ export function CreateSessionScreen() {
   });
 
   return (
-    <>
-      <PageHeader title="Add a session" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader icon={<CalendarIcon />} title="Add a session" />
+      </div>
 
       {create.error !== null && !isFieldFailure(create.error) && (
         <ErrorNotice error={create.error} />
@@ -437,7 +440,7 @@ export function CreateSessionScreen() {
           <Link to="/sessions">Cancel</Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

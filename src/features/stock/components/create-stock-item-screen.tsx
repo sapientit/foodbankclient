@@ -147,8 +147,10 @@ export function CreateStockItemScreen() {
   const refused = duplicate !== undefined;
 
   return (
-    <>
-      <PageHeader title="Add a stock item" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Add a stock item" />
+      </div>
       {create.error !== null && !isFieldFailure(create.error) && (
         <ErrorNotice error={create.error} />
       )}
@@ -325,7 +327,7 @@ export function CreateStockItemScreen() {
           </Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

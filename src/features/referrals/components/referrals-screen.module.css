@@ -1,10 +1,23 @@
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #fdf3f3);
+}
+
 .filtersPanel,
 .resultsPanel {
   padding: var(--space-5);
   margin-block-end: var(--space-5);
   border: 1px solid #e6c9c9;
   border-radius: 0.5rem;
-  background: #ffffff;
+  background: var(--category-tint, #fdf3f3);
   box-shadow: 0 0.2rem 0.7rem rgb(94 25 25 / 7%);
 }
 
@@ -74,10 +87,11 @@
 
 .table th,
 .table td {
-  padding: 0.5rem 0.75rem;
+  padding: 0.35rem 0.75rem;
   text-align: start;
   vertical-align: top;
-  border-block-end: 1px solid #d4d4d4;
+  border-block-end: 1px solid #e9c2c2;
+  font-size: 0.9rem;
 }
 
 .table a {
@@ -89,8 +103,14 @@
 
 .table thead th {
   color: #4a1717;
-  border-block-end: 2px solid #9e3b3b;
+  border-block-end: 1px solid #ddaaa8;
   background: #fdf3f3;
+  font-size: 0.8rem;
+}
+
+.action {
+  text-align: end;
+  white-space: nowrap;
 }
 
 .pendingReview th,
@@ -159,6 +179,25 @@
   color: #7a4b00;
   background: #fff4e0;
   border-color: #7a4b00;
+}
+
+/* `active` is labelled "Pending review" (`REFERRAL_STATUS_LABELS`) — it is the
+   read-through pass still to be done, and the pill that was previously
+   unstyled because this selector's value did not match the status the label
+   actually belongs to. Same amber as "Approve referrer": both are work still
+   waiting on somebody. */
+.status[data-status='active'] {
+  color: #7a4b00;
+  background: #fff4e0;
+  border-color: #7a4b00;
+}
+
+/* The shade session-table.module.css's `.status` uses for an open session,
+   matched here rather than imported — each module keeps its own colours. */
+.status[data-status='reviewed'] {
+  color: #0f7a44;
+  background: #edf7f0;
+  border-color: #a8cfb4;
 }
 
 .status[data-status='rejected'] {

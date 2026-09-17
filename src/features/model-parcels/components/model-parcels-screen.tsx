@@ -34,19 +34,19 @@ export function ModelParcelsScreen() {
 
   if (parcels.isPending) {
     return (
-      <>
+      <div className={styles.page}>
         <ModelParcelsHeader />
         <Spinner label="Loading model parcels…" />
-      </>
+      </div>
     );
   }
 
   if (parcels.isError) {
     return (
-      <>
+      <div className={styles.page}>
         <ModelParcelsHeader />
         <ErrorNotice error={parcels.error} onRetry={() => void parcels.refetch()} />
-      </>
+      </div>
     );
   }
 
@@ -67,7 +67,7 @@ export function ModelParcelsScreen() {
   };
 
   return (
-    <>
+    <div className={styles.page}>
       <ModelParcelsHeader
         action={
           <>
@@ -98,48 +98,50 @@ export function ModelParcelsScreen() {
           sentence="Add the first one, then use it on the household grid."
         />
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Description</th>
-              <th scope="col">Items</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {parcels.data.map((parcel) => (
-              <tr key={parcel.id}>
-                <th scope="row">{parcel.name}</th>
-                <td className={styles.description}>{parcel.description ?? ''}</td>
-                <td>{parcel.contents.length}</td>
-                <td className={styles.actions}>
-                  <Link
-                    aria-label={`Amend ${parcel.name}`}
-                    className="button-link button-plain"
-                    to={`/model-parcels/${parcel.id}`}
-                    title={`Amend ${parcel.name}`}
-                  >
-                    <ResponsiveIconLabel label="Edit">
-                      <PencilIcon />
-                    </ResponsiveIconLabel>
-                  </Link>
-                  <button
-                    aria-label={`Delete ${parcel.name}`}
-                    className="button-danger button-plain"
-                    onClick={() => {
-                      setDeleting(parcel);
-                    }}
-                    title={`Delete ${parcel.name}`}
-                    type="button"
-                  >
-                    <TrashIcon />
-                  </button>
-                </td>
+        <section aria-label="Model parcels" className={styles.results}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Description</th>
+                <th scope="col">Items</th>
+                <th scope="col">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {parcels.data.map((parcel) => (
+                <tr key={parcel.id}>
+                  <th scope="row">{parcel.name}</th>
+                  <td className={styles.description}>{parcel.description ?? ''}</td>
+                  <td>{parcel.contents.length}</td>
+                  <td className={styles.actions}>
+                    <Link
+                      aria-label={`Amend ${parcel.name}`}
+                      className="button-link button-plain"
+                      to={`/model-parcels/${parcel.id}`}
+                      title={`Amend ${parcel.name}`}
+                    >
+                      <ResponsiveIconLabel label="Edit">
+                        <PencilIcon />
+                      </ResponsiveIconLabel>
+                    </Link>
+                    <button
+                      aria-label={`Delete ${parcel.name}`}
+                      className="button-danger button-plain"
+                      onClick={() => {
+                        setDeleting(parcel);
+                      }}
+                      title={`Delete ${parcel.name}`}
+                      type="button"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
 
       {deleting !== null && (
@@ -163,23 +165,25 @@ export function ModelParcelsScreen() {
           </p>
         </ConfirmDialog>
       )}
-    </>
+    </div>
   );
 }
 
 function ModelParcelsHeader({ action }: { readonly action?: ReactNode } = {}) {
   return (
-    <PageHeader
-      action={action}
-      description={
-        <p>
-          A model parcel is a named list of stock items and quantities. The household grid decides
-          which model parcel a household of a given size receives; this list is what that grid can
-          point at.
-        </p>
-      }
-      icon={<BoxIcon />}
-      title="Model parcels"
-    />
+    <div className={styles.headerCard}>
+      <PageHeader
+        action={action}
+        description={
+          <p>
+            A model parcel is a named list of stock items and quantities. The household grid decides
+            which model parcel a household of a given size receives; this list is what that grid can
+            point at.
+          </p>
+        }
+        icon={<BoxIcon />}
+        title="Model parcels"
+      />
+    </div>
   );
 }

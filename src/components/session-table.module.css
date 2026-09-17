@@ -20,6 +20,12 @@
   font-weight: 600;
 }
 
+.openCaption {
+  background: #ffffff;
+  color: #007a46;
+  font-weight: 700;
+}
+
 .visuallyHidden {
   position: absolute;
   inline-size: 1px;

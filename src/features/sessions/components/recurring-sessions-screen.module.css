@@ -1,3 +1,20 @@
+/* This screen paints its own white page and carries the tint in its header
+   card and its results table instead of the category-tint app-shell washes
+   the route in. See `referral-detail-screen.module.css` for the worked
+   example this follows. */
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1faf5);
+}
+
 /* Two links share the header's single action slot. Wrapping rather than
    shrinking keeps both readable on a phone, where they stack under the title
    instead of competing with it for the same line. */
@@ -43,6 +60,14 @@ button.generate:disabled {
   margin: 0;
 }
 
+.results {
+  overflow: hidden;
+  border: 1px solid #bdcfc3;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1faf5);
+  box-shadow: 0 0.1rem 0.35rem rgb(15 122 68 / 7%);
+}
+
 .table {
   inline-size: 100%;
   border-collapse: collapse;
@@ -50,14 +75,19 @@ button.generate:disabled {
 
 .table th,
 .table td {
-  padding: 0.5rem 0.75rem;
+  background: var(--category-tint, #f1faf5);
+  padding: 0.35rem 0.75rem;
   text-align: start;
   vertical-align: top;
-  border-block-end: 1px solid #d4d4d4;
+  border-block-end: 1px solid #bfdcc7;
+  font-size: 0.9rem;
 }
 
 .table thead th {
-  border-block-end: 2px solid #1a1a1a;
+  border-block-end: 1px solid #bdcfc3;
+  background: #f4f8f5;
+  color: #365044;
+  font-size: 0.8rem;
 }
 
 .numeric {

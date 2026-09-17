@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import * as z from 'zod';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
+import { CalendarIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { classNames } from '../../../lib/class-names';
@@ -143,24 +144,36 @@ export function SessionDetailScreen() {
 
   if (session.isPending) {
     return (
-      <>
-        <PageHeader action={<Link to="/sessions">Back to sessions</Link>} title="Session" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader
+            action={<Link to="/sessions">Back to sessions</Link>}
+            icon={<CalendarIcon />}
+            title="Session"
+          />
+        </div>
         <Spinner label="Loading the session…" />
-      </>
+      </div>
     );
   }
 
   if (session.isError) {
     return (
-      <>
-        <PageHeader action={<Link to="/sessions">Back to sessions</Link>} title="Session" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader
+            action={<Link to="/sessions">Back to sessions</Link>}
+            icon={<CalendarIcon />}
+            title="Session"
+          />
+        </div>
         <ErrorNotice
           error={session.error}
           onRetry={() => {
             void session.refetch();
           }}
         />
-      </>
+      </div>
     );
   }
 
@@ -274,11 +287,14 @@ function SessionDetailForm({ session }: { session: Session }) {
   };
 
   return (
-    <>
-      <PageHeader
-        action={<Link to="/sessions">Back to sessions</Link>}
-        title={`Session on ${formatSessionDate(session.sessionDate)}`}
-      />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          action={<Link to="/sessions">Back to sessions</Link>}
+          icon={<CalendarIcon />}
+          title={`Session on ${formatSessionDate(session.sessionDate)}`}
+        />
+      </div>
 
       <dl className={styles.static}>
         <dt>Status</dt>
@@ -560,7 +576,7 @@ function SessionDetailForm({ session }: { session: Session }) {
           </div>
         </ConfirmDialog>
       )}
-    </>
+    </div>
   );
 }
 

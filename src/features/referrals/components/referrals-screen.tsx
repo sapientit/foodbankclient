@@ -2,7 +2,7 @@ import { Link, useLocation, useSearchParams } from 'react-router';
 import type { RefObject } from 'react';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
-import { ClipboardCheckIcon } from '../../../components/icons';
+import { ChevronRightIcon, ClipboardCheckIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatLondonDateTime, formatSessionDate } from '../../../lib/london-time';
@@ -79,35 +79,20 @@ export function ReferralsScreen() {
   };
 
   return (
-    <>
-      <PageHeader
-        description={
-          <p>
-            See who has been referred, the session they are booked into, and their current status.
-          </p>
-        }
-        icon={<ClipboardCheckIcon />}
-        title="Check referrals"
-      />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          description={
+            <p>
+              See who has been referred, the session they are booked into, and their current status.
+            </p>
+          }
+          icon={<ClipboardCheckIcon />}
+          title="Check referrals"
+        />
+      </div>
 
-      <section aria-labelledby="referral-filters-heading" className={styles.filtersPanel}>
-        <div className={styles.sectionHeading}>
-          <div>
-            <h2 id="referral-filters-heading">Filter referrals</h2>
-            <p>Choose a session or status to narrow this list.</p>
-          </div>
-          {(sessionId !== '' || status !== undefined) && (
-            <button
-              className="button-secondary"
-              onClick={() => {
-                setSearchParams(new URLSearchParams(), { replace: true });
-              }}
-              type="button"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
+      <section aria-label="Filter referrals" className={styles.filtersPanel}>
         <div className={styles.filters}>
           <label className={styles.filterField}>
             <span>Session</span>
@@ -142,6 +127,18 @@ export function ReferralsScreen() {
               ))}
             </select>
           </label>
+
+          {(sessionId !== '' || status !== undefined) && (
+            <button
+              className="button-secondary"
+              onClick={() => {
+                setSearchParams(new URLSearchParams(), { replace: true });
+              }}
+              type="button"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       </section>
 
@@ -189,6 +186,7 @@ export function ReferralsScreen() {
                     <th scope="col">Session</th>
                     <th scope="col">Referred</th>
                     <th scope="col">Status</th>
+                    <th scope="col">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -208,7 +206,7 @@ export function ReferralsScreen() {
           )}
         </section>
       )}
-    </>
+    </div>
   );
 }
 
@@ -227,6 +225,7 @@ function ReferralRow({
 }) {
   const session = sessions.find((candidate) => candidate.id === referral.sessionId);
   const purged = isPurged(referral);
+  const displayName = purged ? 'Details removed' : (refereeNameForList(referral) ?? '—');
 
   return (
     <tr
@@ -246,7 +245,7 @@ function ReferralRow({
           state={listReturnContext(returnPath, referral.id)}
           to={`/referrals/${referral.id}`}
         >
-          {purged ? 'Details removed' : (refereeNameForList(referral) ?? '—')}
+          {displayName}
         </Link>
       </th>
       <td>{describeHousehold(referral)}</td>
@@ -262,6 +261,16 @@ function ReferralRow({
           {REFERRAL_STATUS_LABELS[referral.status]}
         </span>
         {referral.isDelivery && <span className={styles.deliveryTag}>Delivery</span>}
+      </td>
+      <td className={styles.action}>
+        <Link
+          aria-label={`View ${displayName}`}
+          className="button-link button-plain"
+          state={listReturnContext(returnPath, referral.id)}
+          to={`/referrals/${referral.id}`}
+        >
+          <ChevronRightIcon />
+        </Link>
       </td>
     </tr>
   );

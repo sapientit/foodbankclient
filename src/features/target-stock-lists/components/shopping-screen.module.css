@@ -1,8 +1,25 @@
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+}
+
 .field {
   display: grid;
   gap: 0.375rem;
   margin-block-end: 1.5rem;
-  max-inline-size: 24rem;
+  max-inline-size: 30rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 2px 10px rgb(15 111 153 / 12%);
 }
 
 .calculation {
@@ -11,8 +28,9 @@
   margin: 0 0 1rem;
   padding: 0.75rem 1rem;
   max-inline-size: 32rem;
-  border: 1px solid currentcolor;
-  border-radius: 0.25rem;
+  border: 1px solid #bfd7e8;
+  border-radius: 0.75rem;
+  background: var(--category-tint, #f1fafd);
 }
 
 .calculation label {
@@ -63,8 +81,15 @@
   padding: 0.55rem 1.1rem;
 }
 
+/* This is the sheet a team lead prints or copies to shop from, not only an
+   on-screen card. The `@media print` rule below keeps it white when it is
+   actually printed or copied — only the screen view gets the tint. */
 .sheet {
   max-inline-size: 60rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 2px 10px rgb(15 111 153 / 12%);
 }
 
 .sheetHeading {
@@ -200,6 +225,7 @@
 
   .sheet {
     max-inline-size: none;
+    background: #ffffff;
   }
 
   .columns {

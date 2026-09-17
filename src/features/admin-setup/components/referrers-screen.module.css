@@ -1,5 +1,33 @@
+/* This screen paints its own white page and carries the master-data blue in
+   its cards instead of relying on an ambient category tint — there is no
+   `--category-tint` for this route (`app-shell.module.css` has no
+   `'master-data'` entry), so the fill is the literal hex the rest of this
+   feature's accent already uses. The negative margin cancels `.main`'s own
+   padding (`app-shell.module.css`, `padding: 1.5rem 1rem`) so the white
+   reaches the shell's edges. */
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: #e8f3f9;
+}
+
 .intro {
   max-inline-size: 70ch;
+}
+
+.results {
+  overflow: hidden;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: #e8f3f9;
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
 }
 
 .table {
@@ -9,14 +37,19 @@
 
 .table th,
 .table td {
-  padding: 0.5rem 0.75rem;
+  background: #e8f3f9;
+  padding: 0.35rem 0.75rem;
   text-align: start;
   vertical-align: top;
-  border-block-end: 1px solid #d4d4d4;
+  border-block-end: 1px solid #b3cee0;
+  font-size: 0.9rem;
 }
 
 .table thead th {
-  border-block-end: 2px solid #1a1a1a;
+  border-block-end: 1px solid #a8c6da;
+  background: #e8f3f9;
+  color: #17324d;
+  font-size: 0.8rem;
 }
 
 .notes {

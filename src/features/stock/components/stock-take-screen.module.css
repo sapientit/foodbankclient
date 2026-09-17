@@ -1,8 +1,26 @@
+/* The page paints its own white background and carries the category tint in
+   its cards instead — the negative margin cancels `.main`'s own padding
+   (`app-shell.module.css`, `padding: 1.5rem 1rem`) so the white reaches the
+   shell's edges. */
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+/* The heading banner is a card like the others below it, not the page's own
+   background. */
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+}
+
 .heading {
   display: flex;
   align-items: stretch;
   gap: 0.85rem;
-  margin-block-end: 1.5rem;
 }
 
 .heading h1 {
@@ -31,6 +49,18 @@
   inline-size: 2rem;
   block-size: 2rem;
   stroke-width: 2.2;
+}
+
+/* The grouping selector and count table live in one tinted rounded card,
+   rather than sitting directly on the page background — the standalone
+   action-panel pattern this area's screens share. */
+.panel {
+  padding: 1.25rem 1.5rem;
+  margin-block-end: 1.5rem;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
 }
 
 .banner,

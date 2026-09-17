@@ -168,9 +168,18 @@ export function RunSessionMessagesScreen() {
   const session = useSession(sessionId);
   const pickList = useSessionPickList(sessionId);
 
-  if (session.isPending || pickList.isPending) return <Spinner label="Loading messages…" />;
+  if (session.isPending || pickList.isPending)
+    return (
+      <div className={styles.page}>
+        <Spinner label="Loading messages…" />
+      </div>
+    );
   if (session.isError)
-    return <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />;
+    return (
+      <div className={styles.page}>
+        <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />
+      </div>
+    );
   /*
    * A session nobody has opened yet has no pick list — reconciliation only
    * runs from the Clients tab — and reaching this tab first (a bookmark, a
@@ -182,29 +191,37 @@ export function RunSessionMessagesScreen() {
    */
   if (pickList.isError && isNotFound(pickList.error))
     return (
-      <>
-        <PageHeader title="Text messages" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Text messages" />
+        </div>
         <p>
           This session's pick lists have not been prepared yet.{' '}
           <Link to={`/run-sessions/${sessionId}`}>Open the Clients tab</Link> first, which prepares
           them.
         </p>
-      </>
+      </div>
     );
   if (pickList.isError)
-    return <ErrorNotice error={pickList.error} onRetry={() => void pickList.refetch()} />;
+    return (
+      <div className={styles.page}>
+        <ErrorNotice error={pickList.error} onRetry={() => void pickList.refetch()} />
+      </div>
+    );
 
   const currentParcels = pickList.data.parcels.filter(isCurrentParcel);
 
   return (
-    <>
-      <PageHeader title="Text messages" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Text messages" />
+      </div>
       <SessionSmsPanel
         parcels={currentParcels}
         readOnly={isSessionReadOnly(session.data.status)}
         sessionId={sessionId}
       />
-    </>
+    </div>
   );
 }
 
@@ -409,8 +426,10 @@ export function SmsSessionMessagesScreen() {
     (inbox.data?.messages ?? []).filter((message) => message.location === 'closed_session'),
   );
   return (
-    <>
-      <PageHeader title="Session messages" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Session messages" />
+      </div>
       <p>
         Every message tied to a referral, from a session still to run or one already closed. Closing
         a session does not detach its messages from the referral — they stay marked with that
@@ -441,7 +460,7 @@ export function SmsSessionMessagesScreen() {
             />
           </>
         ))}
-    </>
+    </div>
   );
 }
 
@@ -453,8 +472,10 @@ export function SmsLooseMessagesScreen() {
     ),
   );
   return (
-    <>
-      <PageHeader title="Loose messages" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Loose messages" />
+      </div>
       <p>
         A reply with no referral behind it at all — a wrong number, or somebody the food bank has
         never heard of. The phone number is the only way to act on one of these.
@@ -474,7 +495,7 @@ export function SmsLooseMessagesScreen() {
             ))}
           </ul>
         ))}
-    </>
+    </div>
   );
 }
 
@@ -491,8 +512,10 @@ export function SmsReferrerMessagesScreen() {
     (inbox.data?.messages ?? []).filter((message) => message.kind === 'referrer_reply'),
   );
   return (
-    <>
-      <PageHeader title="Referrer messages" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Referrer messages" />
+      </div>
       <p>
         Replies from referrers collecting parcels for someone else. Each reply shows every open
         parcel it could concern; choose the relevant referral yourself.
@@ -512,7 +535,7 @@ export function SmsReferrerMessagesScreen() {
             ))}
           </ul>
         ))}
-    </>
+    </div>
   );
 }
 

@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import * as z from 'zod';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
+import { CalendarIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
@@ -148,37 +149,43 @@ export function AmendRecurringSessionScreen() {
 
   if (target.isPending) {
     return (
-      <>
-        <PageHeader title="Amend a weekly session" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Amend a weekly session" />
+        </div>
         <Spinner label="Loading the weekly session…" />
-      </>
+      </div>
     );
   }
 
   if (target.isError) {
     return (
-      <>
-        <PageHeader title="Amend a weekly session" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Amend a weekly session" />
+        </div>
         <ErrorNotice
           error={target.error}
           onRetry={() => {
             void target.refetch();
           }}
         />
-      </>
+      </div>
     );
   }
 
   if (target.data === null) {
     return (
-      <>
-        <PageHeader title="Amend a weekly session" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Amend a weekly session" />
+        </div>
         <EmptyState
           action={<Link to="/sessions/recurring">Back to weekly sessions</Link>}
           headline="That weekly session is not in the list"
           sentence="The link may be out of date."
         />
-      </>
+      </div>
     );
   }
 
@@ -280,8 +287,10 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
   });
 
   return (
-    <>
-      <PageHeader title={`Amend ${row.name}`} />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader icon={<CalendarIcon />} title={`Amend ${row.name}`} />
+      </div>
 
       {amend.error !== null && !isFieldFailure(amend.error) && <ErrorNotice error={amend.error} />}
 
@@ -549,7 +558,7 @@ function AmendRecurringSessionForm({ row }: { row: RecurringSession }) {
           <Link to="/sessions/recurring">Cancel</Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

@@ -1,3 +1,22 @@
+/* Master Data has no shared `--category-tint`/`--category-action` (see
+   `app-shell.module.css` — there is no `.main[data-category='master-data']`
+   rule), so this screen paints its own white page and carries the blue this
+   category already uses in its cards, the same literal `#e8f3f9` the table
+   header row below already draws with. The negative margin cancels `.main`'s
+   own padding so the white reaches the shell's edges. */
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: #e8f3f9;
+}
+
 .intro {
   max-inline-size: 70ch;
 }
@@ -8,6 +27,14 @@
   gap: 0.5rem;
 }
 
+.results {
+  overflow: hidden;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: #e8f3f9;
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
+}
+
 .table {
   inline-size: 100%;
   border-collapse: collapse;
@@ -15,14 +42,19 @@
 
 .table th,
 .table td {
-  padding: 0.5rem 0.75rem;
+  background: #e8f3f9;
+  padding: 0.35rem 0.75rem;
   text-align: start;
   vertical-align: top;
-  border-block-end: 1px solid #d4d4d4;
+  border-block-end: 1px solid #b3cee0;
+  font-size: 0.9rem;
 }
 
 .table thead th {
-  border-block-end: 2px solid #1a1a1a;
+  border-block-end: 1px solid #a8c6da;
+  background: #e8f3f9;
+  color: #17324d;
+  font-size: 0.8rem;
 }
 
 .you {
@@ -30,7 +62,8 @@
 }
 
 .never {
-  /* #595959 on white is 7:1. Quieter than a real date, still readable. */
+  /* #595959 on the table's #e8f3f9 fill is still ~6.2:1. Quieter than a real
+     date, still readable. */
   color: #595959;
 }
 

@@ -5,6 +5,7 @@ import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { HouseholdCompositionGrid } from '../../../components/household-composition-grid';
+import { BoxIcon, CalendarIcon, ClipboardCheckIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { SessionListFilters } from '../../../components/session-list-filters';
 import { SessionTable } from '../../../components/session-table';
@@ -93,8 +94,10 @@ export function RunSessionsScreen() {
   const shown = filterSessionsByStatus(sessions.data ?? [], selection.showCompleted);
 
   return (
-    <>
-      <PageHeader title="Run a session" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader icon={<CalendarIcon />} title="Run a session" />
+      </div>
       <p>
         Select the session you are running. Pick lists are prepared when you open it. A completed
         session opens as a record of what happened and cannot be changed.
@@ -119,13 +122,14 @@ export function RunSessionsScreen() {
             caption={
               selection.showCompleted
                 ? 'Sessions in this date range, completed ones included'
-                : 'Sessions still to run in this date range'
+                : 'Open sessions in this date range'
             }
+            emphasiseCaption={!selection.showCompleted}
             hrefFor={(session) => `/run-sessions/${session.id}`}
             sessions={shown}
           />
         ))}
-    </>
+    </div>
   );
 }
 
@@ -378,7 +382,7 @@ export function PickListPrintScreen() {
   if (!readyToPrint)
     return (
       <>
-        <PageHeader title="Pick lists" />
+        <PageHeader icon={<ClipboardCheckIcon />} title="Pick lists" />
         <p role="alert">Review every pick list before printing.</p>
       </>
     );
@@ -389,6 +393,7 @@ export function PickListPrintScreen() {
     <>
       <div className={styles.screenOnly}>
         <PageHeader
+          icon={<ClipboardCheckIcon />}
           title="Pick lists"
           action={
             <button
@@ -608,32 +613,40 @@ export function RunSessionDetailScreen() {
     (readOnly === true && pickList.isPending)
   ) {
     return (
-      <>
-        <PageHeader title="Run a session" />
+      <div className={styles.tabPage}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+        </div>
         <Spinner label={readOnly === true ? 'Loading the session…' : 'Preparing pick lists…'} />
-      </>
+      </div>
     );
   }
   if (session.isError)
     return (
-      <>
-        <PageHeader title="Run a session" />
+      <div className={styles.tabPage}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+        </div>
         <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />
-      </>
+      </div>
     );
   if (preparing && referrals.isError)
     return (
-      <>
-        <PageHeader title="Run a session" />
+      <div className={styles.tabPage}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+        </div>
         <ErrorNotice error={referrals.error} onRetry={() => void referrals.refetch()} />
-      </>
+      </div>
     );
   if (preparing && stockItems.isError)
     return (
-      <>
-        <PageHeader title="Run a session" />
+      <div className={styles.tabPage}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+        </div>
         <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
-      </>
+      </div>
     );
   /* Only reachable while a pick-list question chooses from the reason lookup,
      and then the pick lists must wait: their notes are saved on the parcel, so
@@ -641,15 +654,19 @@ export function RunSessionDetailScreen() {
      sheet for good. */
   if (preparing && reasons.isError)
     return (
-      <>
-        <PageHeader title="Run a session" />
+      <div className={styles.tabPage}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+        </div>
         <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />
-      </>
+      </div>
     );
   if (preparing && preferenceRuleHealth !== null && preferenceRuleHealth.errors.length > 0)
     return (
-      <>
-        <PageHeader title="Run a session" />
+      <div className={styles.tabPage}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+        </div>
         <div role="alert">
           <h2>Pick-list rules need attention</h2>
           <p>Ask an administrator to fix these rules before preparing the pick lists:</p>
@@ -659,14 +676,16 @@ export function RunSessionDetailScreen() {
             ))}
           </ul>
         </div>
-      </>
+      </div>
     );
   if (preparing && reconcile.isError)
     return (
-      <>
-        <PageHeader title="Run a session" />
+      <div className={styles.tabPage}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+        </div>
         <ErrorNotice error={reconcile.error} />
-      </>
+      </div>
     );
   /*
    * A session that never had a pick list — cancelled before anybody opened it —
@@ -677,12 +696,14 @@ export function RunSessionDetailScreen() {
   const noPickList = readOnly === true && pickList.isError && isNotFound(pickList.error);
   if (pickList.isError && !noPickList)
     return (
-      <>
-        <PageHeader title="Run a session" />
+      <div className={styles.tabPage}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+        </div>
         {/* Why the session cannot be changed is said once, on the tab strip's
             shared chrome (`RunSessionLayout`) — not repeated here. */}
         <ErrorNotice error={pickList.error} onRetry={() => void pickList.refetch()} />
-      </>
+      </div>
     );
   /*
    * **Never render one session's households under another session's heading.**
@@ -713,8 +734,10 @@ export function RunSessionDetailScreen() {
   const stockCheckOnScreen = stockCheckOpen && readOnly === false && readyToPrint;
 
   return (
-    <>
-      <PageHeader title="Run a session" />
+    <div className={styles.tabPage}>
+      <div className={styles.headerCard}>
+        <PageHeader icon={<CalendarIcon />} title="Run a session" />
+      </div>
       {reconcile.data !== undefined &&
         pickList.data !== undefined &&
         (reconcile.data.parcelsCreated ?? 0) > 0 && (
@@ -787,7 +810,7 @@ export function RunSessionDetailScreen() {
           </table>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -893,7 +916,9 @@ function ClientRow({
       </td>
       <td>
         {parcel.firstTimeMarker !== null && (
-          <span className={styles.status}>{FIRST_TIME_MARKER[parcel.firstTimeMarker]}</span>
+          <span className={styles.status} data-status={parcel.firstTimeMarker}>
+            {FIRST_TIME_MARKER[parcel.firstTimeMarker]}
+          </span>
         )}
       </td>
       <td>
@@ -998,16 +1023,33 @@ export function RunSessionClientScreen() {
 
   const pickList = useSessionPickList(sessionId);
 
-  if (session.isPending || pickList.isPending) return <Spinner label="Loading client…" />;
+  if (session.isPending || pickList.isPending)
+    return (
+      <div className={styles.page}>
+        <Spinner label="Loading client…" />
+      </div>
+    );
   if (session.isError)
-    return <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />;
+    return (
+      <div className={styles.page}>
+        <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />
+      </div>
+    );
   if (pickList.isError)
-    return <ErrorNotice error={pickList.error} onRetry={() => void pickList.refetch()} />;
+    return (
+      <div className={styles.page}>
+        <ErrorNotice error={pickList.error} onRetry={() => void pickList.refetch()} />
+      </div>
+    );
   const parcel = pickList.data.parcels.find(
     (candidate) => candidate.id === parcelId && isCurrentParcel(candidate),
   );
   if (parcel === undefined)
-    return <EmptyState headline="Client not found" sentence="Return to the session client list." />;
+    return (
+      <div className={styles.page}>
+        <EmptyState headline="Client not found" sentence="Return to the session client list." />
+      </div>
+    );
 
   const runAction = (action: () => void) => {
     if (hasUnsavedChanges) setPendingAction(() => action);
@@ -1021,7 +1063,7 @@ export function RunSessionClientScreen() {
     });
   };
   return (
-    <>
+    <div className={styles.page}>
       {/* The pick number and the household, first thing on the screen and only
           once. A team lead arrives here from the client list holding a bag, and
           this is the line that says which one — so the panel below no longer
@@ -1037,7 +1079,12 @@ export function RunSessionClientScreen() {
           client list is where it lives. Offering it here put the one control
           that commits every sheet to paper next to the one household this
           screen is about. */}
-      <PageHeader title={`Pick #${String(parcel.pickNumber)}: ${parcelName(parcel)}`} />
+      <div className={styles.headerCard}>
+        <PageHeader
+          icon={<BoxIcon />}
+          title={`Pick #${String(parcel.pickNumber)}: ${parcelName(parcel)}`}
+        />
+      </div>
       <SessionLine session={session.data} />
       <p>
         <Link onClick={linkTo(`/run-sessions/${sessionId}`)} to={`/run-sessions/${sessionId}`}>
@@ -1059,7 +1106,7 @@ export function RunSessionClientScreen() {
         pendingAction={pendingAction}
         readOnly={isSessionReadOnly(session.data.status)}
       />
-    </>
+    </div>
   );
 }
 

@@ -54,37 +54,43 @@ export function AmendUserScreen() {
 
   if (target.isPending) {
     return (
-      <>
-        <PageHeader title="Amend a user" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a user" />
+        </div>
         <Spinner label="Loading the account…" />
-      </>
+      </div>
     );
   }
 
   if (target.isError) {
     return (
-      <>
-        <PageHeader title="Amend a user" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a user" />
+        </div>
         <ErrorNotice
           error={target.error}
           onRetry={() => {
             void target.refetch();
           }}
         />
-      </>
+      </div>
     );
   }
 
   if (target.data === null) {
     return (
-      <>
-        <PageHeader title="Amend a user" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Amend a user" />
+        </div>
         <EmptyState
           action={<Link to="/users">Back to users</Link>}
           headline="That account is not in the list"
           sentence="The link may be out of date. Nothing has been deleted — accounts are only ever retired."
         />
-      </>
+      </div>
     );
   }
 
@@ -154,8 +160,10 @@ function AmendUserForm({ user, users }: { user: User; users: readonly User[] }) 
   const nameError = errors.displayName?.message;
 
   return (
-    <>
-      <PageHeader title={`Amend ${user.displayName}`} />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title={`Amend ${user.displayName}`} />
+      </div>
 
       {/* 409 and 422 are rendered verbatim by the shared notice, and nothing is
           added to them: a manufactured next step on a refusal we did not
@@ -239,7 +247,7 @@ function AmendUserForm({ user, users }: { user: User; users: readonly User[] }) 
           </Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

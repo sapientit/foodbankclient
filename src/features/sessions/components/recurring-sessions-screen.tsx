@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
-import { PencilIcon, TrashIcon } from '../../../components/icons';
+import { CalendarIcon, PencilIcon, TrashIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { Spinner } from '../../../components/spinner';
@@ -61,53 +61,56 @@ export function RecurringSessionsScreen() {
 
   if (recurring.isPending) {
     return (
-      <>
-        <PageHeader title="Weekly sessions" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Weekly sessions" />
+        </div>
         <Spinner label="Loading weekly sessions…" />
-      </>
+      </div>
     );
   }
 
   if (recurring.isError) {
     return (
-      <>
-        <PageHeader title="Weekly sessions" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Weekly sessions" />
+        </div>
         <ErrorNotice
           error={recurring.error}
           onRetry={() => {
             void recurring.refetch();
           }}
         />
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <PageHeader
-        title="Weekly sessions"
-        action={
-          <div className={styles.headerActions}>
-            <Link
-              className={classNames(styles.add, 'button-link')}
-              ref={addLinkRef}
-              to="/sessions/recurring/new"
-            >
-              Add a weekly session
-            </Link>
-          </div>
-        }
-      />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          title="Weekly sessions"
+          icon={<CalendarIcon />}
+          description={
+            'Every Monday session, every Thursday session, and so on. A template does not create anything by itself: an overnight job turns the templates into actual sessions up to six weeks ahead, and “Generate sessions now” does the same thing immediately. Changing a template does not change any session already generated from it.'
+          }
+          action={
+            <div className={styles.headerActions}>
+              <Link
+                className={classNames(styles.add, 'button-link')}
+                ref={addLinkRef}
+                to="/sessions/recurring/new"
+              >
+                Add a weekly session
+              </Link>
+            </div>
+          }
+        />
+      </div>
 
       <p aria-live="polite" className={styles.visuallyHidden} role="status">
         {deletedName !== null && `Deleted ${deletedName}.`}
-      </p>
-
-      <p className={styles.intro}>
-        Every Monday session, every Thursday session, and so on. A template does not create anything
-        by itself: an overnight job turns the templates into actual sessions up to six weeks ahead,
-        and “Generate sessions now” does the same thing immediately. Changing a template does not
-        change any session already generated from it.
       </p>
 
       {/*
@@ -146,66 +149,68 @@ export function RecurringSessionsScreen() {
           sentence="Add one to start generating sessions automatically, or use “Add a session” for a one-off."
         />
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Day</th>
-              <th scope="col">Time</th>
-              <th scope="col">Location</th>
-              <th className={styles.numeric} scope="col">
-                Capacity
-              </th>
-              <th scope="col">Active</th>
-              <th scope="col">Deliveries</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recurring.data.map((row) => (
-              <tr key={row.id}>
-                <th scope="row">{row.name}</th>
-                <td>{WEEKDAY_LABELS[row.weekday] ?? row.weekday}</td>
-                <td>{row.startTime}</td>
-                <td>{row.location}</td>
-                <td className={styles.numeric}>{row.capacity}</td>
-                <td>
-                  From {formatSessionDate(row.activeFrom)}
-                  {row.activeUntil !== null && <> to {formatSessionDate(row.activeUntil)}</>}
-                </td>
-                <td>{describeDeliveries(row)}</td>
-                <td className={styles.actions}>
-                  <Link
-                    aria-label={`Amend ${row.name}`}
-                    className="button-link button-plain"
-                    ref={row.id === returnedSessionId ? returnedSessionRef : undefined}
-                    state={listReturnContext(
-                      listPathFor(location.pathname, location.search),
-                      row.id,
-                    )}
-                    title={`Amend ${row.name}`}
-                    to={`/sessions/recurring/${row.id}`}
-                  >
-                    <ResponsiveIconLabel label="Edit">
-                      <PencilIcon />
-                    </ResponsiveIconLabel>
-                  </Link>
-                  <button
-                    aria-label={`Delete ${row.name}`}
-                    className="button-danger button-plain"
-                    onClick={() => {
-                      setDeleting(row);
-                    }}
-                    title={`Delete ${row.name}`}
-                    type="button"
-                  >
-                    <TrashIcon />
-                  </button>
-                </td>
+        <section aria-label="Weekly sessions" className={styles.results}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Day</th>
+                <th scope="col">Time</th>
+                <th scope="col">Location</th>
+                <th className={styles.numeric} scope="col">
+                  Capacity
+                </th>
+                <th scope="col">Active</th>
+                <th scope="col">Deliveries</th>
+                <th scope="col">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {recurring.data.map((row) => (
+                <tr key={row.id}>
+                  <th scope="row">{row.name}</th>
+                  <td>{WEEKDAY_LABELS[row.weekday] ?? row.weekday}</td>
+                  <td>{row.startTime}</td>
+                  <td>{row.location}</td>
+                  <td className={styles.numeric}>{row.capacity}</td>
+                  <td>
+                    From {formatSessionDate(row.activeFrom)}
+                    {row.activeUntil !== null && <> to {formatSessionDate(row.activeUntil)}</>}
+                  </td>
+                  <td>{describeDeliveries(row)}</td>
+                  <td className={styles.actions}>
+                    <Link
+                      aria-label={`Amend ${row.name}`}
+                      className="button-link button-plain"
+                      ref={row.id === returnedSessionId ? returnedSessionRef : undefined}
+                      state={listReturnContext(
+                        listPathFor(location.pathname, location.search),
+                        row.id,
+                      )}
+                      title={`Amend ${row.name}`}
+                      to={`/sessions/recurring/${row.id}`}
+                    >
+                      <ResponsiveIconLabel label="Edit">
+                        <PencilIcon />
+                      </ResponsiveIconLabel>
+                    </Link>
+                    <button
+                      aria-label={`Delete ${row.name}`}
+                      className="button-danger button-plain"
+                      onClick={() => {
+                        setDeleting(row);
+                      }}
+                      title={`Delete ${row.name}`}
+                      type="button"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
 
       {deleting !== null && (
@@ -227,6 +232,6 @@ export function RecurringSessionsScreen() {
           </p>
         </ConfirmDialog>
       )}
-    </>
+    </div>
   );
 }

@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import * as z from 'zod';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
-import { TargetIcon } from '../../../components/icons';
+import { BoxesIcon, PencilIcon, TargetIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
@@ -45,49 +45,59 @@ export function AmendTargetStockListScreen() {
 
   if (target.isPending || stockItems.isPending || crates.isPending) {
     return (
-      <>
-        <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
+        </div>
         <Spinner label="Loading the target stock list…" />
-      </>
+      </div>
     );
   }
 
   if (target.isError) {
     return (
-      <>
-        <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
+        </div>
         <ErrorNotice error={target.error} onRetry={() => void target.refetch()} />
-      </>
+      </div>
     );
   }
 
   if (stockItems.isError) {
     return (
-      <>
-        <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
+        </div>
         <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
-      </>
+      </div>
     );
   }
   if (crates.isError) {
     return (
-      <>
-        <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
+        </div>
         <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
-      </>
+      </div>
     );
   }
 
   if (target.data === null) {
     return (
-      <>
-        <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<TargetIcon />} title="Amend a target stock list" />
+        </div>
         <EmptyState
           action={<Link to="/stock/target-lists">Back to target stock lists</Link>}
           headline="That target stock list is not in the list"
           sentence="The link may be out of date, or it has been deleted."
         />
-      </>
+      </div>
     );
   }
 
@@ -223,85 +233,110 @@ function AmendForm({
   const nameError = errors.name?.message;
 
   return (
-    <>
-      <PageHeader icon={<TargetIcon />} title={`Amend ${list.name}`} />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader icon={<TargetIcon />} title={`Amend ${list.name}`} />
+      </div>
 
       {amend.error !== null && !isFieldFailure(amend.error) && <ErrorNotice error={amend.error} />}
 
       <form className={styles.form} noValidate onSubmit={(event) => void submit(event)}>
-        <div className={styles.field}>
-          <label htmlFor={nameId}>Name</label>
-          <input
-            {...register('name')}
-            aria-describedby={
-              [
-                nameError === undefined ? null : nameErrorId,
-                duplicate !== undefined ? duplicateId : null,
-              ]
-                .filter((id) => id !== null)
-                .join(' ') || undefined
-            }
-            aria-invalid={nameError === undefined ? undefined : true}
-            autoComplete="off"
-            className={styles.input}
-            id={nameId}
-            type="text"
-          />
-          {nameError !== undefined && (
-            <p className={styles.fieldError} id={nameErrorId}>
-              {nameError}
-            </p>
-          )}
-          {duplicate !== undefined && (
-            <p className={styles.refusal} id={duplicateId}>
-              “{duplicate.name}” already exists.{' '}
-              <Link to={`/stock/target-lists/${duplicate.id}`}>Amend that list</Link> instead.
-            </p>
-          )}
+        <div className={styles.card}>
+          <h2 className={styles.cardHeading}>
+            <span className={styles.cardHeadingIcon}>
+              <PencilIcon />
+            </span>
+            Name
+          </h2>
+          <div className={styles.field}>
+            <label htmlFor={nameId}>Name</label>
+            <input
+              {...register('name')}
+              aria-describedby={
+                [
+                  nameError === undefined ? null : nameErrorId,
+                  duplicate !== undefined ? duplicateId : null,
+                ]
+                  .filter((id) => id !== null)
+                  .join(' ') || undefined
+              }
+              aria-invalid={nameError === undefined ? undefined : true}
+              autoComplete="off"
+              className={styles.input}
+              id={nameId}
+              type="text"
+            />
+            {nameError !== undefined && (
+              <p className={styles.fieldError} id={nameErrorId}>
+                {nameError}
+              </p>
+            )}
+            {duplicate !== undefined && (
+              <p className={styles.refusal} id={duplicateId}>
+                “{duplicate.name}” already exists.{' '}
+                <Link to={`/stock/target-lists/${duplicate.id}`}>Amend that list</Link> instead.
+              </p>
+            )}
+          </div>
         </div>
 
-        <h2>Targets</h2>
-        <TargetStockListEditor
-          attention={attention}
-          focusRow={focusRow}
-          onAllResolved={onAllResolved}
-          onRemoveAttention={(stockItemId) => {
-            setAttention((current) => current.filter((row) => row.stockItemId !== stockItemId));
-          }}
-          onRowsChange={setRows}
-          rows={rows}
-        />
-        <h3>Crate targets</h3>
-        <CrateTargetEditor
-          errorCrateId={errorCrateId}
-          focusCrate={focusCrate}
-          onRowsChange={setCrateRows}
-          rows={crateRows}
-        />
-        {missingCrateLines.length > 0 && (
-          <section className={styles.attention}>
-            <h3>Crates that need attention</h3>
-            <p>These crates no longer exist. Remove or replace their targets before saving.</p>
-            <ul>
-              {missingCrateLines.map((line) => (
-                <li key={line.crateId}>
-                  {line.crateName} (target {line.targetQuantity}){' '}
-                  <button
-                    className="button-secondary"
-                    onClick={() => {
-                      setMissingCrateLines((current) =>
-                        current.filter((candidate) => candidate.crateId !== line.crateId),
-                      );
-                    }}
-                    type="button"
-                  >
-                    Remove {line.crateName}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        <div className={styles.card}>
+          <h2 className={styles.cardHeading}>
+            <span className={styles.cardHeadingIcon}>
+              <TargetIcon />
+            </span>
+            Targets
+          </h2>
+          <TargetStockListEditor
+            attention={attention}
+            focusRow={focusRow}
+            onAllResolved={onAllResolved}
+            onRemoveAttention={(stockItemId) => {
+              setAttention((current) => current.filter((row) => row.stockItemId !== stockItemId));
+            }}
+            onRowsChange={setRows}
+            rows={rows}
+          />
+        </div>
+
+        <div className={styles.card}>
+          <h2 className={styles.cardHeading}>
+            <span className={styles.cardHeadingIcon}>
+              <BoxesIcon />
+            </span>
+            Crate targets
+          </h2>
+          <CrateTargetEditor
+            errorCrateId={errorCrateId}
+            focusCrate={focusCrate}
+            onRowsChange={setCrateRows}
+            rows={crateRows}
+          />
+          {missingCrateLines.length > 0 && (
+            <section className={styles.attention}>
+              <h3>Crates that need attention</h3>
+              <p>These crates no longer exist. Remove or replace their targets before saving.</p>
+              <ul>
+                {missingCrateLines.map((line) => (
+                  <li key={line.crateId}>
+                    {line.crateName} (target {line.targetQuantity}){' '}
+                    <button
+                      className="button-secondary"
+                      onClick={() => {
+                        setMissingCrateLines((current) =>
+                          current.filter((candidate) => candidate.crateId !== line.crateId),
+                        );
+                      }}
+                      type="button"
+                    >
+                      Remove {line.crateName}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
         {linesError !== null && (
           <p
             className={styles.fieldError}
@@ -342,7 +377,7 @@ function AmendForm({
           <Link to="/stock/target-lists">Cancel</Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

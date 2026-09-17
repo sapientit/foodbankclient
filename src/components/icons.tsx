@@ -141,6 +141,23 @@ export function CalendarIcon({ className }: IconProps) {
   );
 }
 
+export function GiftIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="M4 10h16v10H4zM3 6h18v4H3z" />
+      <path d="M12 6v14M12 6c-3.5 0-5-1.1-5-2.5S8 1 9.5 1c2.1 0 2.5 3 2.5 5ZM12 6c3.5 0 5-1.1 5-2.5S16 1 14.5 1C12.4 1 12 4 12 6Z" />
+    </svg>
+  );
+}
+
+export function CloudIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="M7.5 18.5h10a4 4 0 0 0 .4-8A6.3 6.3 0 0 0 6 9.1a4.8 4.8 0 0 0 1.5 9.4Z" />
+    </svg>
+  );
+}
+
 export function GridIcon({ className }: IconProps) {
   return (
     <svg {...shared} className={className}>
@@ -246,6 +263,51 @@ export function TrashIcon({ className }: IconProps) {
       <path d="M7 7l1 13h8l1-13" />
       <path d="M10 11v5" />
       <path d="M14 11v5" />
+    </svg>
+  );
+}
+
+export function MapPinIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="M12 21s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12Z" />
+      <circle cx="12" cy="9" r="2.5" />
+    </svg>
+  );
+}
+
+export function PhoneIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="M5.5 4h3l1.5 4.5-2 1.5a11 11 0 0 0 5.5 5.5l1.5-2 4.5 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 3.5 6.2 2 2 0 0 1 5.5 4Z" />
+    </svg>
+  );
+}
+
+export function ClockIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </svg>
+  );
+}
+
+export function CopyIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <rect height="13" rx="1.5" width="13" x="8" y="8" />
+      <path d="M5.5 16H4.5A1.5 1.5 0 0 1 3 14.5v-10A1.5 1.5 0 0 1 4.5 3h10A1.5 1.5 0 0 1 16 4.5v1" />
+    </svg>
+  );
+}
+
+export function RefreshIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <path d="M4 12a8 8 0 0 1 14-5.2M20 12a8 8 0 0 1-14 5.2" />
+      <path d="M18 3v4h-4" />
+      <path d="M6 21v-4h4" />
     </svg>
   );
 }

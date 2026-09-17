@@ -116,31 +116,39 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
 
   if (levels.isPending || groupings.isPending || crates.isPending)
     return (
-      <>
-        <StockTakeHeading />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <StockTakeHeading />
+        </div>
         <Spinner label="Loading stock levels…" />
-      </>
+      </div>
     );
   if (levels.isError)
     return (
-      <>
-        <StockTakeHeading />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <StockTakeHeading />
+        </div>
         <ErrorNotice error={levels.error} onRetry={() => void levels.refetch()} />
-      </>
+      </div>
     );
   if (groupings.isError)
     return (
-      <>
-        <StockTakeHeading />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <StockTakeHeading />
+        </div>
         <ErrorNotice error={groupings.error} onRetry={() => void groupings.refetch()} />
-      </>
+      </div>
     );
   if (crates.isError)
     return (
-      <>
-        <StockTakeHeading />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <StockTakeHeading />
+        </div>
         <ErrorNotice error={crates.error} onRetry={() => void crates.refetch()} />
-      </>
+      </div>
     );
 
   const baselineFor = (id: string, fallback: number) => baselines[id] ?? fallback;
@@ -261,74 +269,155 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
   };
 
   return (
-    <>
-      <StockTakeHeading />
-      <p>
-        <label htmlFor="stock-take-grouping">Grouping </label>
-        <select
-          id="stock-take-grouping"
-          onChange={(event) => {
-            setGroupingId(event.target.value);
-            setPage(0);
-            setTyped({});
-            setFieldErrors({});
-            setSavedMessage(null);
-          }}
-          value={groupingId}
-        >
-          <option value="">Choose a grouping…</option>
-          {groupings.data.map((grouping) => (
-            <option key={grouping.id} value={grouping.id}>
-              {grouping.name}
-            </option>
-          ))}
-        </select>
-      </p>
-      {groupingId !== '' && model !== null && (
-        <>
-          {savedMessage !== null && (
-            <p className={styles.savedNotice} role="status">
-              {savedMessage}
-            </p>
-          )}
-          {save.error !== null && <ErrorNotice error={save.error} />}
-          {fieldErrors.page !== undefined && (
-            <p className={styles.fieldError}>{fieldErrors.page}</p>
-          )}
-          {model.rows.length === 0 ? (
-            <EmptyState
-              headline="Nothing to count in this grouping"
-              sentence="An administrator may need to assign items or crates, then check Stock validation."
-            />
-          ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col">Item or crate</th>
-                  <th scope="col">Shelf</th>
-                  <th className={styles.numeric} scope="col">
-                    Current level
-                  </th>
-                  <th scope="col">Counted quantity</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageRows.map((row, index) => {
-                  const alternateRow = index % 2 === 1 ? styles.alternateRow : undefined;
-                  if (row.kind === 'item') {
-                    const level = row.level;
-                    const key = `item-${level.id}`;
-                    const packKey = `pack-${level.id}`;
-                    const current = baselineFor(level.id, level.quantityOnHand);
-                    const unitsPerPack = level.unitsPerPack;
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <StockTakeHeading />
+      </div>
+      <section aria-label="Stock take" className={styles.panel}>
+        <p>
+          <label htmlFor="stock-take-grouping">Grouping </label>
+          <select
+            id="stock-take-grouping"
+            onChange={(event) => {
+              setGroupingId(event.target.value);
+              setPage(0);
+              setTyped({});
+              setFieldErrors({});
+              setSavedMessage(null);
+            }}
+            value={groupingId}
+          >
+            <option value="">Choose a grouping…</option>
+            {groupings.data.map((grouping) => (
+              <option key={grouping.id} value={grouping.id}>
+                {grouping.name}
+              </option>
+            ))}
+          </select>
+        </p>
+        {groupingId !== '' && model !== null && (
+          <>
+            {savedMessage !== null && (
+              <p className={styles.savedNotice} role="status">
+                {savedMessage}
+              </p>
+            )}
+            {save.error !== null && <ErrorNotice error={save.error} />}
+            {fieldErrors.page !== undefined && (
+              <p className={styles.fieldError}>{fieldErrors.page}</p>
+            )}
+            {model.rows.length === 0 ? (
+              <EmptyState
+                headline="Nothing to count in this grouping"
+                sentence="An administrator may need to assign items or crates, then check Stock validation."
+              />
+            ) : (
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th scope="col">Item or crate</th>
+                    <th scope="col">Shelf</th>
+                    <th className={styles.numeric} scope="col">
+                      Current level
+                    </th>
+                    <th scope="col">Counted quantity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((row, index) => {
+                    const alternateRow = index % 2 === 1 ? styles.alternateRow : undefined;
+                    if (row.kind === 'item') {
+                      const level = row.level;
+                      const key = `item-${level.id}`;
+                      const packKey = `pack-${level.id}`;
+                      const current = baselineFor(level.id, level.quantityOnHand);
+                      const unitsPerPack = level.unitsPerPack;
+                      return (
+                        <tr className={alternateRow} key={level.id}>
+                          <th scope="row">{level.name}</th>
+                          <td>{level.shelfNumber}</td>
+                          <td className={styles.numeric}>{String(current)}</td>
+                          <td>
+                            <label className={styles.visuallyHidden} htmlFor={key}>
+                              Counted {level.name} individually
+                            </label>
+                            <input
+                              aria-describedby={
+                                fieldErrors[key] === undefined ? undefined : `${key}-error`
+                              }
+                              aria-invalid={fieldErrors[key] !== undefined}
+                              className={styles.count}
+                              id={key}
+                              inputMode="numeric"
+                              onChange={(event) => {
+                                change(key, event.target.value);
+                                setTyped((current) => {
+                                  const { [packKey]: _packCount, ...rest } = current;
+                                  return rest;
+                                });
+                              }}
+                              type="text"
+                              value={typed[key] ?? ''}
+                            />
+                            {fieldErrors[key] !== undefined && (
+                              <span className={styles.fieldError} id={`${key}-error`}>
+                                {fieldErrors[key]}
+                              </span>
+                            )}
+                            {unitsPerPack !== null && (
+                              <label className={styles.packCount} htmlFor={packKey}>
+                                or {packUnitLabelFor(level)} of {String(unitsPerPack)}
+                                <input
+                                  aria-label={`Counted ${level.name} in ${packUnitLabelFor(level)} of ${String(unitsPerPack)}`}
+                                  aria-describedby={
+                                    fieldErrors[packKey] === undefined
+                                      ? undefined
+                                      : `${packKey}-error`
+                                  }
+                                  aria-invalid={fieldErrors[packKey] !== undefined}
+                                  className={styles.count}
+                                  id={packKey}
+                                  inputMode="decimal"
+                                  onChange={(event) => {
+                                    changePackedCount(
+                                      key,
+                                      packKey,
+                                      unitsPerPack,
+                                      event.target.value,
+                                    );
+                                  }}
+                                  type="text"
+                                  value={typed[packKey] ?? ''}
+                                />
+                              </label>
+                            )}
+                            {fieldErrors[packKey] !== undefined && (
+                              <span className={styles.fieldError} id={`${packKey}-error`}>
+                                {fieldErrors[packKey]}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    }
+                    const crate = row.crate;
+                    const key = `crate-${crate.id}`;
+                    const reference = computeCrateReferenceCount(crate, effectiveLevels);
+                    const parsed =
+                      typed[key] === undefined || typed[key].trim() === ''
+                        ? null
+                        : parseOneDecimalQuantity(typed[key], 0);
                     return (
-                      <tr className={alternateRow} key={level.id}>
-                        <th scope="row">{level.name}</th>
-                        <td>{level.shelfNumber}</td>
-                        <td className={styles.numeric}>{String(current)}</td>
+                      <tr className={alternateRow} key={crate.id}>
+                        <th scope="row">
+                          {crate.name}
+                          <span className={styles.retired}> ({crate.members.length} items)</span>
+                        </th>
+                        <td>{crate.shelfKey}</td>
+                        <td className={styles.numeric}>{reference.toFixed(1)} crates</td>
                         <td>
                           <label className={styles.visuallyHidden} htmlFor={key}>
-                            Counted {level.name} individually
+                            Counted {crate.name} crates
                           </label>
                           <input
                             aria-describedby={
@@ -337,13 +426,9 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
                             aria-invalid={fieldErrors[key] !== undefined}
                             className={styles.count}
                             id={key}
-                            inputMode="numeric"
+                            inputMode="decimal"
                             onChange={(event) => {
                               change(key, event.target.value);
-                              setTyped((current) => {
-                                const { [packKey]: _packCount, ...rest } = current;
-                                return rest;
-                              });
                             }}
                             type="text"
                             value={typed[key] ?? ''}
@@ -353,144 +438,76 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
                               {fieldErrors[key]}
                             </span>
                           )}
-                          {unitsPerPack !== null && (
-                            <label className={styles.packCount} htmlFor={packKey}>
-                              or {packUnitLabelFor(level)} of {String(unitsPerPack)}
-                              <input
-                                aria-label={`Counted ${level.name} in ${packUnitLabelFor(level)} of ${String(unitsPerPack)}`}
-                                aria-describedby={
-                                  fieldErrors[packKey] === undefined
-                                    ? undefined
-                                    : `${packKey}-error`
-                                }
-                                aria-invalid={fieldErrors[packKey] !== undefined}
-                                className={styles.count}
-                                id={packKey}
-                                inputMode="decimal"
-                                onChange={(event) => {
-                                  changePackedCount(key, packKey, unitsPerPack, event.target.value);
-                                }}
-                                type="text"
-                                value={typed[packKey] ?? ''}
-                              />
-                            </label>
-                          )}
-                          {fieldErrors[packKey] !== undefined && (
-                            <span className={styles.fieldError} id={`${packKey}-error`}>
-                              {fieldErrors[packKey]}
-                            </span>
-                          )}
+                          <CratePreview
+                            crate={crate}
+                            enteredCount={parsed?.ok ? parsed.value : null}
+                            levels={levels.data}
+                          />
                         </td>
                       </tr>
                     );
-                  }
-                  const crate = row.crate;
-                  const key = `crate-${crate.id}`;
-                  const reference = computeCrateReferenceCount(crate, effectiveLevels);
-                  const parsed =
-                    typed[key] === undefined || typed[key].trim() === ''
-                      ? null
-                      : parseOneDecimalQuantity(typed[key], 0);
-                  return (
-                    <tr className={alternateRow} key={crate.id}>
-                      <th scope="row">
-                        {crate.name}
-                        <span className={styles.retired}> ({crate.members.length} items)</span>
-                      </th>
-                      <td>{crate.shelfKey}</td>
-                      <td className={styles.numeric}>{reference.toFixed(1)} crates</td>
-                      <td>
-                        <label className={styles.visuallyHidden} htmlFor={key}>
-                          Counted {crate.name} crates
-                        </label>
-                        <input
-                          aria-describedby={
-                            fieldErrors[key] === undefined ? undefined : `${key}-error`
-                          }
-                          aria-invalid={fieldErrors[key] !== undefined}
-                          className={styles.count}
-                          id={key}
-                          inputMode="decimal"
-                          onChange={(event) => {
-                            change(key, event.target.value);
-                          }}
-                          type="text"
-                          value={typed[key] ?? ''}
-                        />
-                        {fieldErrors[key] !== undefined && (
-                          <span className={styles.fieldError} id={`${key}-error`}>
-                            {fieldErrors[key]}
-                          </span>
-                        )}
-                        <CratePreview
-                          crate={crate}
-                          enteredCount={parsed?.ok ? parsed.value : null}
-                          levels={levels.data}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-          {pageCount > 1 && (
-            <nav aria-label="Stock take pages" className={styles.pagination}>
-              <p>
-                Page {String(pageIndex + 1)} of {String(pageCount)} — items{' '}
-                {String(pageIndex * PAGE_SIZE + 1)}–
-                {String(Math.min((pageIndex + 1) * PAGE_SIZE, model.rows.length))} of{' '}
-                {String(model.rows.length)}.
-              </p>
+                  })}
+                </tbody>
+              </table>
+            )}
+            {pageCount > 1 && (
+              <nav aria-label="Stock take pages" className={styles.pagination}>
+                <p>
+                  Page {String(pageIndex + 1)} of {String(pageCount)} — items{' '}
+                  {String(pageIndex * PAGE_SIZE + 1)}–
+                  {String(Math.min((pageIndex + 1) * PAGE_SIZE, model.rows.length))} of{' '}
+                  {String(model.rows.length)}.
+                </p>
+                <button
+                  className="button-secondary"
+                  disabled={pageIndex === 0}
+                  onClick={() => {
+                    setPage(pageIndex - 1);
+                    setTyped({});
+                    setFieldErrors({});
+                    setSavedMessage(null);
+                  }}
+                  type="button"
+                >
+                  Previous page
+                </button>{' '}
+                <button
+                  className="button-secondary"
+                  disabled={pageIndex === pageCount - 1}
+                  onClick={() => {
+                    setPage(pageIndex + 1);
+                    setTyped({});
+                    setFieldErrors({});
+                    setSavedMessage(null);
+                  }}
+                  type="button"
+                >
+                  Next page
+                </button>
+              </nav>
+            )}
+            <div className={styles.formActions}>
               <button
-                className="button-secondary"
-                disabled={pageIndex === 0}
-                onClick={() => {
-                  setPage(pageIndex - 1);
-                  setTyped({});
-                  setFieldErrors({});
-                  setSavedMessage(null);
-                }}
+                className={styles.primary}
+                disabled={save.isPending}
+                onClick={() => void saveGrouping()}
                 type="button"
               >
-                Previous page
-              </button>{' '}
-              <button
-                className="button-secondary"
-                disabled={pageIndex === pageCount - 1}
-                onClick={() => {
-                  setPage(pageIndex + 1);
-                  setTyped({});
-                  setFieldErrors({});
-                  setSavedMessage(null);
-                }}
-                type="button"
-              >
-                Next page
+                {save.isPending ? 'Saving…' : 'Save this page'}
               </button>
-            </nav>
-          )}
-          <div className={styles.formActions}>
-            <button
-              className={styles.primary}
-              disabled={save.isPending}
-              onClick={() => void saveGrouping()}
-              type="button"
-            >
-              {save.isPending ? 'Saving…' : 'Save this page'}
-            </button>
-            {/* A volunteer on a code has no `/stock` to go back to — it is
+              {/* A volunteer on a code has no `/stock` to go back to — it is
                 guarded, and the link would bounce them to sign-in. Their way out
                 is "Finish counting" in the counting screen's own frame. */}
-            {onAuthError === undefined && (
-              <Link className="button-link button-secondary" to="/stock">
-                Back to stock
-              </Link>
-            )}
-          </div>
-        </>
-      )}
-    </>
+              {onAuthError === undefined && (
+                <Link className="button-link button-secondary" to="/stock">
+                  Back to stock
+                </Link>
+              )}
+            </div>
+          </>
+        )}
+      </section>
+    </div>
   );
 }
 

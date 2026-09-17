@@ -83,8 +83,10 @@ export function CreateUserScreen() {
   const refused = duplicate !== undefined;
 
   return (
-    <>
-      <PageHeader title="Add a user" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Add a user" />
+      </div>
 
       {/* A 400 has already been turned into field errors, so showing the notice
           as well would say the same thing twice, further from the input. */}
@@ -205,7 +207,7 @@ export function CreateUserScreen() {
           </Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

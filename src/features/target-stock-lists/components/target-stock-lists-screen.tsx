@@ -34,19 +34,19 @@ export function TargetStockListsScreen() {
 
   if (lists.isPending) {
     return (
-      <>
+      <div className={styles.page}>
         <TargetListsHeader />
         <Spinner label="Loading target stock lists…" />
-      </>
+      </div>
     );
   }
 
   if (lists.isError) {
     return (
-      <>
+      <div className={styles.page}>
         <TargetListsHeader />
         <ErrorNotice error={lists.error} onRetry={() => void lists.refetch()} />
-      </>
+      </div>
     );
   }
 
@@ -66,7 +66,7 @@ export function TargetStockListsScreen() {
   };
 
   return (
-    <>
+    <div className={styles.page}>
       <TargetListsHeader
         action={
           <Link className="button-link" ref={addLinkRef} to="/stock/target-lists/new">
@@ -92,46 +92,48 @@ export function TargetStockListsScreen() {
           sentence="Add one — a normal week is the usual first — then shop against it."
         />
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Items on the list</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lists.data.map((list) => (
-              <tr key={list.id}>
-                <th scope="row">{list.name}</th>
-                <td>{list.lines.length}</td>
-                <td className={styles.actions}>
-                  <Link
-                    aria-label={`Amend ${list.name}`}
-                    className="button-link button-plain"
-                    to={`/stock/target-lists/${list.id}`}
-                    title={`Amend ${list.name}`}
-                  >
-                    <ResponsiveIconLabel label="Edit">
-                      <PencilIcon />
-                    </ResponsiveIconLabel>
-                  </Link>
-                  <button
-                    aria-label={`Delete ${list.name}`}
-                    className="button-danger button-plain"
-                    onClick={() => {
-                      setDeleting(list);
-                    }}
-                    title={`Delete ${list.name}`}
-                    type="button"
-                  >
-                    <TrashIcon />
-                  </button>
-                </td>
+        <section aria-label="Target stock lists" className={styles.results}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Items on the list</th>
+                <th scope="col">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {lists.data.map((list) => (
+                <tr key={list.id}>
+                  <th scope="row">{list.name}</th>
+                  <td>{list.lines.length}</td>
+                  <td className={styles.actions}>
+                    <Link
+                      aria-label={`Amend ${list.name}`}
+                      className="button-link button-plain"
+                      to={`/stock/target-lists/${list.id}`}
+                      title={`Amend ${list.name}`}
+                    >
+                      <ResponsiveIconLabel label="Edit">
+                        <PencilIcon />
+                      </ResponsiveIconLabel>
+                    </Link>
+                    <button
+                      aria-label={`Delete ${list.name}`}
+                      className="button-danger button-plain"
+                      onClick={() => {
+                        setDeleting(list);
+                      }}
+                      title={`Delete ${list.name}`}
+                      type="button"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
 
       {deleting !== null && (
@@ -153,23 +155,25 @@ export function TargetStockListsScreen() {
           </p>
         </ConfirmDialog>
       )}
-    </>
+    </div>
   );
 }
 
 function TargetListsHeader({ action }: { readonly action?: ReactNode } = {}) {
   return (
-    <PageHeader
-      action={action}
-      description={
-        <p>
-          A target stock list is how many of each item the food bank wants to hold. A team lead
-          picks one on the <Link to="/stock/shopping">Shopping</Link> screen and is told what to buy
-          — the target less what is on hand.
-        </p>
-      }
-      icon={<TargetIcon />}
-      title="Target stock lists"
-    />
+    <div className={styles.headerCard}>
+      <PageHeader
+        action={action}
+        description={
+          <p>
+            A target stock list is how many of each item the food bank wants to hold. A team lead
+            picks one on the <Link to="/stock/shopping">Shopping</Link> screen and is told what to
+            buy — the target less what is on hand.
+          </p>
+        }
+        icon={<TargetIcon />}
+        title="Target stock lists"
+      />
+    </div>
   );
 }

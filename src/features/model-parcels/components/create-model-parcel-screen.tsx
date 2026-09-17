@@ -104,14 +104,16 @@ export function CreateModelParcelScreen() {
   const refused = duplicate !== undefined;
 
   return (
-    <>
-      <PageHeader
-        description={
-          <p>This cannot be changed once saved — it is what the household grid points at.</p>
-        }
-        icon={<BoxIcon />}
-        title="Add a model parcel"
-      />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          description={
+            <p>This cannot be changed once saved — it is what the household grid points at.</p>
+          }
+          icon={<BoxIcon />}
+          title="Add a model parcel"
+        />
+      </div>
 
       {create.error !== null && !isFieldFailure(create.error) && (
         <ErrorNotice error={create.error} />
@@ -205,7 +207,7 @@ export function CreateModelParcelScreen() {
           <Link to="/model-parcels">Cancel</Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

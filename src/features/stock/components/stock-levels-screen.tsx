@@ -36,17 +36,21 @@ export function StockLevelsScreen() {
 
   if (levels.isPending)
     return (
-      <>
-        <StockLevelsHeading />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <StockLevelsHeading />
+        </div>
         <Spinner label="Loading stock levels…" />
-      </>
+      </div>
     );
   if (levels.isError)
     return (
-      <>
-        <StockLevelsHeading />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <StockLevelsHeading />
+        </div>
         <ErrorNotice error={levels.error} onRetry={() => void levels.refetch()} />
-      </>
+      </div>
     );
 
   const active = levels.data.filter((level) => level.isActive);
@@ -113,23 +117,24 @@ export function StockLevelsScreen() {
   };
 
   return (
-    <>
-      <StockLevelsHeading />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <StockLevelsHeading />
+      </div>
       <div className={styles.filters}>
-        <label>
-          Search items
-          <input
-            onChange={(event) => {
-              setItemSearch(event.target.value);
-            }}
-            placeholder="Search items"
-            type="search"
-            value={itemSearch}
-          />
-        </label>
-        <label>
-          Shelf filter
+        <input
+          aria-label="Search items"
+          className={styles.search}
+          onChange={(event) => {
+            setItemSearch(event.target.value);
+          }}
+          placeholder="Search items"
+          type="search"
+          value={itemSearch}
+        />
+        <div className={styles.filter}>
           <select
+            aria-label="Shelf filter"
             onChange={(event) => {
               setShelf(event.target.value);
             }}
@@ -142,10 +147,10 @@ export function StockLevelsScreen() {
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          Stock-level filter
+        </div>
+        <div className={styles.filter}>
           <select
+            aria-label="Stock-level filter"
             onChange={(event) => {
               setLevelFilter(event.target.value as 'all' | 'low');
             }}
@@ -154,7 +159,7 @@ export function StockLevelsScreen() {
             <option value="all">All stock levels</option>
             <option value="low">Low stock</option>
           </select>
-        </label>
+        </div>
       </div>
       {active.length === 0 ? (
         <EmptyState
@@ -167,62 +172,64 @@ export function StockLevelsScreen() {
           sentence="Try a different item search, shelf or stock-level filter."
         />
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Item</th>
-              <th scope="col">Shelf</th>
-              <th scope="col">Adjust</th>
-              <th className={styles.numeric} scope="col">
-                On hand
-              </th>
-              <th scope="col">Count description</th>
-              <th className={styles.numeric} scope="col">
-                Count quantity
-              </th>
-              <th className={styles.numeric} scope="col">
-                Low-stock threshold
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Rendered in the order the server sent. Shelf labels use plain
-                string order, so A10 is before A2. */}
-            {visible.map((level) => {
-              const lowStock = isLowStock(level);
-              return (
-                <StockLevelRow
-                  adjusting={adjusting}
-                  canCorrect={canCorrect}
-                  correctionError={correction.error}
-                  key={level.id}
-                  level={level}
-                  lowStock={lowStock}
-                  onAdjust={beginCorrection}
-                  onCancel={() => {
-                    setAdjusting(null);
-                    setAdjustmentError(null);
-                  }}
-                  onOperationChange={(nextOperation) => {
-                    setOperation(nextOperation);
-                    setQuantity(nextOperation === 'set' ? String(level.quantityOnHand) : '');
-                    setAdjustmentError(null);
-                  }}
-                  onQuantityChange={setQuantity}
-                  onSubmit={() => {
-                    void submitCorrection();
-                  }}
-                  operation={operation}
-                  quantity={quantity}
-                  saving={correction.isPending || writeLocked}
-                  validationError={adjustmentError}
-                />
-              );
-            })}
-          </tbody>
-        </table>
+        <section aria-label="Stock results" className={styles.results}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Item</th>
+                <th scope="col">Shelf</th>
+                <th scope="col">Adjust</th>
+                <th className={styles.numeric} scope="col">
+                  On hand
+                </th>
+                <th scope="col">Count description</th>
+                <th className={styles.numeric} scope="col">
+                  Count quantity
+                </th>
+                <th className={styles.numeric} scope="col">
+                  Low-stock threshold
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Rendered in the order the server sent. Shelf labels use plain
+                  string order, so A10 is before A2. */}
+              {visible.map((level) => {
+                const lowStock = isLowStock(level);
+                return (
+                  <StockLevelRow
+                    adjusting={adjusting}
+                    canCorrect={canCorrect}
+                    correctionError={correction.error}
+                    key={level.id}
+                    level={level}
+                    lowStock={lowStock}
+                    onAdjust={beginCorrection}
+                    onCancel={() => {
+                      setAdjusting(null);
+                      setAdjustmentError(null);
+                    }}
+                    onOperationChange={(nextOperation) => {
+                      setOperation(nextOperation);
+                      setQuantity(nextOperation === 'set' ? String(level.quantityOnHand) : '');
+                      setAdjustmentError(null);
+                    }}
+                    onQuantityChange={setQuantity}
+                    onSubmit={() => {
+                      void submitCorrection();
+                    }}
+                    operation={operation}
+                    quantity={quantity}
+                    saving={correction.isPending || writeLocked}
+                    validationError={adjustmentError}
+                  />
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
       )}
-    </>
+    </div>
   );
 }
 
@@ -365,11 +372,11 @@ function StockLevelRow({
 }
 
 function countDescriptionFor(level: StockLevel): string {
-  return level.unitsPerPack === null ? '' : packUnitLabelFor(level);
+  return level.unitsPerPack === null ? '-' : packUnitLabelFor(level);
 }
 
 function countQuantityFor(level: StockLevel): string {
-  return level.unitsPerPack === null ? '' : (level.quantityOnHand / level.unitsPerPack).toFixed(1);
+  return level.unitsPerPack === null ? '-' : (level.quantityOnHand / level.unitsPerPack).toFixed(1);
 }
 
 function parseQuantity(value: string, operation: Operation): number | string {

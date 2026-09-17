@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { CapacityMeter } from './capacity-meter';
+import { classNames } from '../lib/class-names';
 import { formatSessionDate, formatTimeRange } from '../lib/london-time';
 import { deliveryLabel, standingFromCapacity } from '../lib/session-description';
 import {
@@ -52,12 +53,15 @@ export function SessionTable({
   sessions,
   action,
   captionHidden = false,
+  emphasiseCaption = false,
   capacityNouns = true,
 }: {
   /** Names the table for anyone who cannot see which screen it is on. */
   readonly caption: string;
   /** Keep the table name for assistive technology when nearby context states it visually. */
   readonly captionHidden?: boolean;
+  /** Makes the current open-session summary a prominent positive cue. */
+  readonly emphasiseCaption?: boolean;
   /** The dashboard's column headings already say what each capacity count measures. */
   readonly capacityNouns?: boolean;
   readonly hrefFor: (session: TabulatedSession) => string;
@@ -76,7 +80,13 @@ export function SessionTable({
       tabIndex={0}
     >
       <table className={styles.table}>
-        <caption className={captionHidden ? styles.visuallyHidden : styles.caption}>
+        <caption
+          className={
+            captionHidden
+              ? styles.visuallyHidden
+              : classNames(styles.caption, emphasiseCaption && styles.openCaption)
+          }
+        >
           {caption}
         </caption>
         <thead>

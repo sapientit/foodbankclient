@@ -9,20 +9,35 @@ import styles from './session-referral-details-screen.module.css';
 export function SessionReferralDetailsScreen() {
   const { sessionId = '' } = useParams();
   const details = useSessionReferralDetails(sessionId);
-  if (details.isPending) return <Spinner label="Loading referral details…" />;
+  if (details.isPending)
+    return (
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Referral details" />
+        </div>
+        <Spinner label="Loading referral details…" />
+      </div>
+    );
   if (details.isError)
     return (
-      <ErrorNotice
-        error={details.error}
-        onRetry={() => {
-          void details.refetch();
-        }}
-      />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Referral details" />
+        </div>
+        <ErrorNotice
+          error={details.error}
+          onRetry={() => {
+            void details.refetch();
+          }}
+        />
+      </div>
     );
   const { data } = details;
   return (
-    <>
-      <PageHeader title="Referral details" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Referral details" />
+      </div>
       <p>
         {formatSessionDate(data.sessionDate)}, {data.startTime} — {data.location}
       </p>
@@ -95,6 +110,6 @@ export function SessionReferralDetailsScreen() {
           </tbody>
         </table>
       </div>
-    </>
+    </div>
   );
 }

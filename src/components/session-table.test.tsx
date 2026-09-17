@@ -16,7 +16,11 @@ const session: TabulatedSession = {
   status: 'planned',
 };
 
-function renderTable(action?: (row: TabulatedSession) => ReactNode, captionHidden?: boolean) {
+function renderTable(
+  action?: (row: TabulatedSession) => ReactNode,
+  captionHidden?: boolean,
+  emphasiseCaption?: boolean,
+) {
   const actionProp = action === undefined ? {} : { action };
 
   return render(
@@ -26,6 +30,7 @@ function renderTable(action?: (row: TabulatedSession) => ReactNode, captionHidde
         hrefFor={(row) => `/sessions/${row.id}`}
         sessions={[session]}
         {...(captionHidden === true ? { captionHidden: true } : {})}
+        {...(emphasiseCaption === true ? { emphasiseCaption: true } : {})}
         {...actionProp}
       />
     </MemoryRouter>,
@@ -54,5 +59,11 @@ describe('SessionTable', () => {
 
     expect(screen.getByRole('table', { name: 'Sessions' })).toBeInTheDocument();
     expect(screen.getByText('Sessions').className).toMatch(/visuallyHidden/);
+  });
+
+  it('can make the open-session summary a distinct positive cue', () => {
+    renderTable(undefined, false, true);
+
+    expect(screen.getByText('Sessions').className).toMatch(/openCaption/);
   });
 });

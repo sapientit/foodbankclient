@@ -83,7 +83,6 @@ describe('the referrals list', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Check referrals' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Filter referrals' })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { level: 2, name: 'Referrals' })).toBeInTheDocument();
     expect(screen.getByLabelText('Session')).toHaveValue('s1');
     expect(screen.getByLabelText('Status')).toHaveValue('cancelled');
@@ -155,6 +154,17 @@ describe('the referrals list', () => {
     expect(row).toHaveTextContent('2 adults, 1 child');
     expect(row).toHaveTextContent('Riverside Church');
     expect(row).toHaveTextContent('Pending review');
+  });
+
+  it('gives every row a named action to open it, alongside the name link', async () => {
+    server.use(
+      http.get(REFERRALS, () => HttpResponse.json({ referrals: [referral({ id: 'r1' })] })),
+    );
+
+    renderApp('/referrals');
+
+    const view = await screen.findByRole('link', { name: 'View Rowe, Jamie' });
+    expect(view).toHaveAttribute('href', '/referrals/r1');
   });
 
   it('shows a purged referral as removed, never as a blank or "undefined"', async () => {

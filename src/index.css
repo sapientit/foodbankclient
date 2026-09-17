@@ -11,6 +11,8 @@
 }
 
 :root {
+  --button-action: #007a46;
+  --button-action-hover: #005a34;
   --category-action: #0b5cab;
   --category-action-hover: #084684;
   --category-action-tint: #eaf1f9;
@@ -72,7 +74,7 @@ a:not(.button-link) {
 /* ---------------------------------------------------------------------------
  * Controls
  *
- * **Whether a control can be used is said by its colour: blue works, grey does
+ * **Whether a control can be used is said by its colour: green works, grey does
  * not.** Settled by Pete on 2026-08-17, recorded in `screenDetails.md` under
  * "#Buttons and other controls", and drawn here — once, for every screen at
  * once.
@@ -90,8 +92,8 @@ a:not(.button-link) {
  *
  * Four looks, and only four:
  *
- *   - the default, blue — an action that can be taken;
- *   - `button-secondary`, white with a blue edge — the other half of a pair,
+ *   - the default, green — an action that can be taken;
+ *   - `button-secondary`, white with a green edge — the other half of a pair,
  *     the Cancel beside a Save. Available, and deliberately not where the eye
  *     lands first. The one variant a `button-link` may carry too, because the
  *     way back out of a form is usually a link and must not compete with
@@ -137,9 +139,9 @@ button,
 a:where(.button-link) {
   padding: 0.6rem 1rem;
   font: inherit;
-  border: 1px solid var(--category-action, #0b5cab);
-  background: var(--category-action, #0b5cab);
-  /* #ffffff on #0b5cab is 6.7:1. */
+  border: 1px solid var(--button-action);
+  background: var(--button-action);
+  /* #ffffff on #007a46 is 5.2:1. */
   color: #ffffff;
   cursor: pointer;
 }
@@ -154,8 +156,8 @@ a:where(.button-link) {
 
 button:not(:disabled, [aria-disabled='true']):hover,
 a:where(.button-link):hover {
-  background: var(--category-action-hover, #084684);
-  border-color: var(--category-action-hover, #084684);
+  background: var(--button-action-hover);
+  border-color: var(--button-action-hover);
 }
 
 /* The fill is dark enough that the page's own blue focus ring disappears into

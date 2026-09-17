@@ -1,3 +1,23 @@
+/* The page paints its own white background and carries the category tint in
+   its cards instead — the negative margin cancels `.main`'s own padding
+   (`app-shell.module.css`, `padding: 1.5rem 1rem`) so the white reaches the
+   shell's edges. */
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+/* The name banner is a card like the others below it, not the page's own
+   background — `PageHeader` itself stays transparent everywhere else in the
+   app, so the tint is added here rather than on the shared component. */
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+}
+
 .intro {
   max-inline-size: 42rem;
   margin-block-end: 1.5rem;
@@ -7,8 +27,10 @@
   max-inline-size: 42rem;
   margin-block-end: 1.5rem;
   padding: 1rem 1.25rem;
-  border: 1px solid currentcolor;
+  border: 1px solid #d5e5ef;
   border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
 }
 
 .resultHeading {
@@ -37,8 +59,20 @@
   block-size: 1.35rem;
 }
 
+.codeBox {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-block: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--category-action-tint);
+}
+
 .code {
-  margin-block: 0.25rem;
+  margin-block: 0;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   /* Sized to fit a 19-character code within a 320px screen without a horizontal
      scroll; breaks rather than overflows if it still cannot (heavy zoom). */
@@ -49,13 +83,38 @@
   user-select: all;
 }
 
+.copyButton {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  padding: 0.4rem;
+  border-radius: 0.375rem;
+  background: #ffffff;
+}
+
+.copyButton svg {
+  inline-size: 1.35rem;
+  block-size: 1.35rem;
+}
+
 .shareText {
   margin-block: 0.5rem 0.25rem;
 }
 
 .expiry {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   margin-block: 0.5rem 0.25rem;
   font-weight: 600;
+}
+
+.expiryIcon {
+  flex: none;
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
 }
 
 .once {
@@ -86,8 +145,23 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
+  max-inline-size: 42rem;
+  margin-block-end: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
 }
 
 .generate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.6rem 1.25rem;
+}
+
+.generateIcon {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
 }

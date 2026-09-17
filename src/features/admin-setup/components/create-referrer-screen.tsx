@@ -108,8 +108,10 @@ export function CreateReferrerScreen() {
   const refused = duplicate !== undefined;
 
   return (
-    <>
-      <PageHeader title="Authorise a referrer" />
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Authorise a referrer" />
+      </div>
 
       {authorise.error !== null && !isFieldFailure(authorise.error) && (
         <ErrorNotice error={authorise.error} />
@@ -216,7 +218,7 @@ export function CreateReferrerScreen() {
           </Link>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 

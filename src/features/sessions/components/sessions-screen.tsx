@@ -3,7 +3,7 @@ import { useAuth } from '../../../auth/auth-context';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
-import { PencilIcon, PlayIcon } from '../../../components/icons';
+import { CalendarIcon, PencilIcon, PlayIcon } from '../../../components/icons';
 import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { SessionListFilters } from '../../../components/session-list-filters';
 import { SessionTable } from '../../../components/session-table';
@@ -52,25 +52,27 @@ export function SessionsScreen() {
   const shown = filterSessionsByStatus(sessions.data ?? [], selection.showCompleted);
 
   return (
-    <>
-      <PageHeader
-        title={title}
-        action={
-          isAdmin ? (
-            <div className={styles.actions}>
-              <Link className={classNames(styles.add, 'button-link')} to="/sessions/new">
-                Add a session
-              </Link>
-            </div>
-          ) : undefined
-        }
-      />
-
-      <p className={styles.intro}>
-        {isAdmin
-          ? 'Every session that has been generated, up to six weeks ahead. Recurring sessions further out appear once the weekly template creates them.'
-          : 'The sessions on your schedule. You can look up to six days ahead; for anything further out, ask an administrator.'}
-      </p>
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          title={title}
+          icon={<CalendarIcon />}
+          description={
+            isAdmin
+              ? 'Every session that has been generated, up to six weeks ahead. Recurring sessions further out appear once the weekly template creates them.'
+              : 'The sessions on your schedule. You can look up to six days ahead; for anything further out, ask an administrator.'
+          }
+          action={
+            isAdmin ? (
+              <div className={styles.actions}>
+                <Link className={classNames(styles.add, 'button-link')} to="/sessions/new">
+                  Add a session
+                </Link>
+              </div>
+            ) : undefined
+          }
+        />
+      </div>
 
       <SessionListFilters />
 
@@ -135,10 +137,11 @@ export function SessionsScreen() {
                 ? 'Sessions in this date range, completed ones included'
                 : 'Open sessions in this date range'
             }
+            emphasiseCaption={!selection.showCompleted}
             hrefFor={(session) => `/run-sessions/${session.id}`}
             sessions={shown}
           />
         ))}
-    </>
+    </div>
   );
 }

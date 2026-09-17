@@ -3,7 +3,12 @@ import { Link } from 'react-router';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
-import { ArchiveIcon, PencilIcon, RestoreIcon } from '../../../components/icons';
+import {
+  ArchiveIcon,
+  ClipboardCheckIcon,
+  PencilIcon,
+  RestoreIcon,
+} from '../../../components/icons';
 import { ResponsiveIconLabel } from '../../../components/responsive-icon-label';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
@@ -29,19 +34,23 @@ export function ReferralReasonsScreen() {
 
   if (reasons.isPending) {
     return (
-      <>
-        <PageHeader title="Reasons for referral" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Reasons for referral" />
+        </div>
         <Spinner label="Loading reasons for referral…" />
-      </>
+      </div>
     );
   }
 
   if (reasons.isError) {
     return (
-      <>
-        <PageHeader title="Reasons for referral" />
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Reasons for referral" />
+        </div>
         <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />
-      </>
+      </div>
     );
   }
 
@@ -57,19 +66,19 @@ export function ReferralReasonsScreen() {
   };
 
   return (
-    <>
-      <PageHeader
-        title="Reasons for referral"
-        action={
-          <Link className="button-link" to="/referral-reasons/new">
-            Add a reason
-          </Link>
-        }
-      />
-
-      <p className={styles.intro}>
-        The options a referrer chooses from when they say why a household needs food.
-      </p>
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader
+          title="Reasons for referral"
+          icon={<ClipboardCheckIcon />}
+          description="The options a referrer chooses from when they say why a household needs food."
+          action={
+            <Link className="button-link" to="/referral-reasons/new">
+              Add a reason
+            </Link>
+          }
+        />
+      </div>
 
       {amend.error !== null && <ErrorNotice error={amend.error} />}
 
@@ -84,64 +93,66 @@ export function ReferralReasonsScreen() {
           sentence="Add the first one before anyone can submit a referral."
         />
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Label</th>
-              <th scope="col">Code</th>
-              <th scope="col">Order</th>
-              <th scope="col">Status</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reasons.data.map((reason) => (
-              <tr key={reason.id}>
-                <th scope="row">{reason.label}</th>
-                <td className={styles.code}>{reason.code}</td>
-                <td className={styles.numeric}>{reason.displayOrder}</td>
-                <td>{reason.isActive ? 'Active' : 'Retired'}</td>
-                <td className={styles.actions}>
-                  <Link
-                    aria-label={`Amend ${reason.label}`}
-                    className="button-link button-plain"
-                    to={`/referral-reasons/${reason.id}`}
-                    title={`Amend ${reason.label}`}
-                  >
-                    <ResponsiveIconLabel label="Edit">
-                      <PencilIcon />
-                    </ResponsiveIconLabel>
-                  </Link>
-                  {reason.isActive ? (
-                    <button
-                      aria-label={`Retire ${reason.label}`}
-                      className="button-danger button-plain"
-                      onClick={() => {
-                        setRetiring(reason);
-                      }}
-                      title={`Retire ${reason.label}`}
-                      type="button"
-                    >
-                      <ArchiveIcon />
-                    </button>
-                  ) : (
-                    <button
-                      aria-label={`Restore ${reason.label}`}
-                      className="button-plain"
-                      onClick={() => {
-                        setActive(reason, true);
-                      }}
-                      title={`Restore ${reason.label}`}
-                      type="button"
-                    >
-                      <RestoreIcon />
-                    </button>
-                  )}
-                </td>
+        <section aria-label="Reasons for referral" className={styles.results}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Label</th>
+                <th scope="col">Code</th>
+                <th scope="col">Order</th>
+                <th scope="col">Status</th>
+                <th scope="col">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {reasons.data.map((reason) => (
+                <tr key={reason.id}>
+                  <th scope="row">{reason.label}</th>
+                  <td className={styles.code}>{reason.code}</td>
+                  <td className={styles.numeric}>{reason.displayOrder}</td>
+                  <td>{reason.isActive ? 'Active' : 'Retired'}</td>
+                  <td className={styles.actions}>
+                    <Link
+                      aria-label={`Amend ${reason.label}`}
+                      className="button-link button-plain"
+                      to={`/referral-reasons/${reason.id}`}
+                      title={`Amend ${reason.label}`}
+                    >
+                      <ResponsiveIconLabel label="Edit">
+                        <PencilIcon />
+                      </ResponsiveIconLabel>
+                    </Link>
+                    {reason.isActive ? (
+                      <button
+                        aria-label={`Retire ${reason.label}`}
+                        className="button-danger button-plain"
+                        onClick={() => {
+                          setRetiring(reason);
+                        }}
+                        title={`Retire ${reason.label}`}
+                        type="button"
+                      >
+                        <ArchiveIcon />
+                      </button>
+                    ) : (
+                      <button
+                        aria-label={`Restore ${reason.label}`}
+                        className="button-plain"
+                        onClick={() => {
+                          setActive(reason, true);
+                        }}
+                        title={`Restore ${reason.label}`}
+                        type="button"
+                      >
+                        <RestoreIcon />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
 
       {retiring !== null && (
@@ -162,6 +173,6 @@ export function ReferralReasonsScreen() {
           </p>
         </ConfirmDialog>
       )}
-    </>
+    </div>
   );
 }
