@@ -8,7 +8,101 @@ import { useAuth } from '../../auth/auth-context';
 import { postLoginPath } from '../../auth/next-path';
 import { reloadForNewerClient } from '../../lib/client-version';
 import { ApiError, describeApiError, issuesToFieldErrors } from '../../lib/errors';
+import { GoogleSignInButton } from './components/google-sign-in-button';
+import { isGoogleSignInMode } from './google-signin';
 import styles from './login-screen.module.css';
+
+/**
+ * Which sign-in screen a deployment shows is fixed at build time — see
+ * `isGoogleSignInMode`. Everything below `LoginScreen` itself is the dummy
+ * provider's screen, unchanged from before Google sign-in existed.
+ */
+export function LoginScreen() {
+  return isGoogleSignInMode() ? <GoogleLoginScreen /> : <DummyLoginScreen />;
+}
+
+/**
+ * Sign in with a Google identity. There is no form here at all: Google's own
+ * button produces the credential, and a failed sign-in is Google's UI to
+ * explain, not this screen's — the one exception is the server refusing an
+ * address with no account, which is this app's own rule and needs its own
+ * words.
+ */
+function GoogleLoginScreen() {
+  const { signInWithGoogle } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [formError, setFormError] = useState<string | null>(null);
+  const formErrorRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (formError !== null) formErrorRef.current?.focus();
+  }, [formError]);
+
+  return (
+    <main className={styles.screen}>
+      <img alt="Foodbank logo" className={styles.banner} src={foodbankLogo} />
+      <h1>Sign in</h1>
+
+      <p className={styles.intro}>
+        Sign in with the Google account an administrator has added for you.
+      </p>
+
+      {searchParams.get('session') === 'ended' && (
+        <p className={styles.formError} role="alert">
+          Your sign-in has ended. Sign in again to continue.
+        </p>
+      )}
+
+      {formError !== null && (
+        <p className={styles.formError} ref={formErrorRef} role="alert" tabIndex={-1}>
+          {formError}
+        </p>
+      )}
+
+      <GoogleSignInButton
+        onCredential={(idToken) => {
+          setFormError(null);
+          void (async () => {
+            try {
+              const user = await signInWithGoogle(idToken);
+              const nextPath = postLoginPath(searchParams.get('next'), user.role);
+              if (await reloadForNewerClient(nextPath)) return;
+              await navigate(nextPath, { replace: true });
+            } catch (error) {
+              setFormError(explainGoogle(error));
+            }
+          })();
+        }}
+      />
+
+      <p className={styles.stockTake}>
+        Doing a stock take? <Link to="/count">Enter a counting code</Link>
+      </p>
+    </main>
+  );
+}
+
+function explainGoogle(error: unknown): string {
+  if (!(error instanceof ApiError)) {
+    return 'We could not reach the server. Check the connection and try again.';
+  }
+
+  switch (error.status) {
+    // Deliberately says nothing about whether the address is registered —
+    // same reasoning as the dummy screen's 401, below.
+    case 401:
+      return 'We could not sign you in. Ask an administrator to add your Google account.';
+    case 403: {
+      const reason = error.code === 'FORBIDDEN' ? error.message : 'This account is not active.';
+      return `${reason} Ask an administrator to reactivate it.`;
+    }
+    case 404:
+      return 'Google sign-in is not enabled on this server. Tell whoever deployed it.';
+    default:
+      return describeApiError(error);
+  }
+}
 
 /**
  * Sign in. **Email only, and that is the whole form.**
@@ -43,7 +137,7 @@ type SignInValues = z.infer<typeof signInSchema>;
  */
 const DEV_ACCOUNTS = ['pete@x.com', 'lead@x.com'];
 
-export function LoginScreen() {
+function DummyLoginScreen() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

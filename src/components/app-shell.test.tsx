@@ -160,6 +160,21 @@ describe('AppShell', () => {
     expect(section.getByRole('link', { name: 'Stock' })).not.toHaveAttribute('aria-current');
   });
 
+  it('keeps Stock validation under the active Master Data navigation', async () => {
+    await renderShell('admin', '/stock/validation');
+
+    const primary = within(screen.getByRole('navigation', { name: 'Main navigation' }));
+    expect(primary.getByRole('link', { name: 'Master Data', current: 'page' })).toBeInTheDocument();
+    expect(primary.getByRole('link', { name: 'Stock' })).not.toHaveAttribute('aria-current');
+
+    const section = within(screen.getByRole('navigation', { name: 'Section navigation' }));
+    expect(
+      section.getByRole('link', { name: 'Stock validation', current: 'page' }),
+    ).toBeInTheDocument();
+    expect(section.queryByRole('link', { name: 'Stock take' })).toBeNull();
+    expect(document.querySelector('main')).toHaveAttribute('data-category', 'stock');
+  });
+
   it('puts the primary navigation before the account block, in reading order', async () => {
     await renderShell('admin');
 

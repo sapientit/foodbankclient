@@ -2,33 +2,6 @@
   "rules": [
     {
       "when": {
-        "key": "Tea/Coffee"
-      },
-      "cases": [
-        {
-          "familySize": {
-            "people": "adults",
-            "atLeast": 4
-          },
-          "set": [
-            {
-              "stock": "$selectedAnswer",
-              "quantity": 2
-            }
-          ]
-        }
-      ],
-      "otherwise": {
-        "set": [
-          {
-            "stock": "$selectedAnswer",
-            "quantity": 1
-          }
-        ]
-      }
-    },
-    {
-      "when": {
         "key": "Pasta/Rice",
         "hasAnswer": "Pasta"
       },
@@ -143,6 +116,181 @@
           {
             "stock": "Pulses",
             "quantity": -1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tea/Coffee",
+        "hasAnswer": "Tea"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Tea - 160 bags",
+              "quantity": 1
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 2
+          },
+          "set": [
+            {
+              "stock": "Tea - 80 bags",
+              "quantity": 1
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Tea - 40 bags",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tea/Coffee",
+        "hasAnswer": "Decaf Tea"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Decaf Tea - 40 bags",
+              "quantity": 3
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 2
+          },
+          "set": [
+            {
+              "stock": "Decaf Tea - 40 bags",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Decaf Tea - 40 bags",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tea/Coffee",
+        "hasAnswer": "Coffee"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Coffee - large",
+              "quantity": 1
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 2
+          },
+          "set": [
+            {
+              "stock": "Coffee - med",
+              "quantity": 1
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Coffee - small",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tea/Coffee",
+        "hasAnswer": "Decaf Coffee"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Decaf Coffee",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Decaf Coffee",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tea/Coffee"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "adults",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "$selectedAnswer",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "$selectedAnswer",
+            "quantity": 1
           }
         ]
       }
@@ -431,34 +579,6 @@
     {
       "when": {
         "key": "Toiletries",
-        "hasAnswer": "Deodorant"
-      },
-      "cases": [
-        {
-          "familySize": {
-            "people": "total",
-            "atLeast": 4
-          },
-          "set": [
-            {
-              "stock": "Deodorant",
-              "quantity": 2
-            }
-          ]
-        }
-      ],
-      "otherwise": {
-        "set": [
-          {
-            "stock": "Deodorant",
-            "quantity": 1
-          }
-        ]
-      }
-    },
-    {
-      "when": {
-        "key": "Toiletries",
         "hasAnswer": "Toothpaste"
       },
       "cases": [
@@ -487,7 +607,34 @@
     {
       "when": {
         "key": "Toiletries",
-        "hasAnswer": "Toothpaste"
+        "hasAnswer": "Deodorant"
+      },
+      "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "Deodorant",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Deodorant",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toothpaste"
       },
       "cases": [
         {
@@ -507,6 +654,81 @@
         "set": [
           {
             "stock": "Toothpaste - child",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toothbrush",
+        "hasAnswer": "5"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - child",
+            "quantity": 5
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toothbrush",
+        "hasAnswer": "4"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - child",
+            "quantity": 4
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toothbrush",
+        "hasAnswer": "3"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - child",
+            "quantity": 3
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toothbrush",
+        "hasAnswer": "2"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - child",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toothbrush",
+        "hasAnswer": "1"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - child",
             "quantity": 1
           }
         ]
@@ -694,7 +916,7 @@
           },
           "set": [
             {
-              "stock": "Laundry liquid - large",
+              "stock": "Laundry detergent - lrg",
               "quantity": 1
             }
           ]
@@ -703,7 +925,7 @@
       "otherwise": {
         "set": [
           {
-            "stock": "Laundry liquid - small",
+            "stock": "Laundry detergent - sm",
             "quantity": 1
           }
         ]
@@ -714,12 +936,45 @@
         "key": "Household",
         "hasAnswer": "Cloths & Sponges"
       },
-      "cases": [],
+      "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Cloths",
+              "quantity": 4
+            },
+            {
+              "stock": "Sponges",
+              "quantity": 2
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 2
+          },
+          "set": [
+            {
+              "stock": "Cloths",
+              "quantity": 3
+            },
+            {
+              "stock": "Sponges",
+              "quantity": 1
+            }
+          ]
+        }
+      ],
       "otherwise": {
         "set": [
           {
             "stock": "Cloths",
-            "quantity": 1
+            "quantity": 2
           },
           {
             "stock": "Sponges",

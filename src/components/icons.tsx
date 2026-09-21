@@ -247,10 +247,8 @@ export function ArchiveIcon({ className }: IconProps) {
 export function RestoreIcon({ className }: IconProps) {
   return (
     <svg {...shared} className={className}>
-      <path d="M4 8h16v12H4z" />
-      <path d="M3 4h18v4H3z" />
-      <path d="M12 16v-5" />
-      <path d="m9.5 13.5 2.5-2.5 2.5 2.5" />
+      <path d="M7 7V3L3 7l4 4V7" />
+      <path d="M5 7a8 8 0 1 1 2.3 5.7" />
     </svg>
   );
 }

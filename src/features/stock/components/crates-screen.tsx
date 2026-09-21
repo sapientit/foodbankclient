@@ -334,8 +334,10 @@ export function CratesScreen() {
           </table>
         </section>
       )}
-      <section className={styles.form}>
-        <h2>{editing === null ? 'Add a crate' : `Amend ${editing.name}`}</h2>
+      <section aria-labelledby="crate-editor-heading" className={styles.crateEditor}>
+        <h2 id="crate-editor-heading">
+          {editing === null ? 'Add a crate' : `Amend ${editing.name}`}
+        </h2>
         {(create.error !== null || amend.error !== null || remove.error !== null) && (
           <ErrorNotice error={create.error ?? amend.error ?? remove.error} />
         )}

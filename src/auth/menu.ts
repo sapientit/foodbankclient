@@ -182,17 +182,42 @@ export function navigationSectionsFor(role: Role): readonly NavigationSection[] 
   ];
 }
 
+function ownsPath(section: NavigationSection, pathname: string): boolean {
+  return section.paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
+/**
+ * The most-specific matching destination owns a path. This matters for Stock
+ * validation: its URL begins `/stock`, but it is a Master Data screen.
+ */
+function sectionForPath(role: Role, pathname: string): NavigationSection | undefined {
+  return navigationSectionsFor(role)
+    .filter((section) => ownsPath(section, pathname))
+    .sort(
+      (left, right) =>
+        Math.max(
+          ...right.paths.filter((path) => pathname.startsWith(path)).map((path) => path.length),
+        ) -
+        Math.max(
+          ...left.paths.filter((path) => pathname.startsWith(path)).map((path) => path.length),
+        ),
+    )[0];
+}
+
 /** The contextual links for the primary section that owns this URL. */
 export function subtabsFor(role: Role, pathname: string): readonly MenuItem[] {
-  const section = navigationSectionsFor(role).find((candidate) =>
-    candidate.paths.some((path) => pathname === path || pathname.startsWith(`${path}/`)),
-  );
-  return section?.subtabs ?? [];
+  return sectionForPath(role, pathname)?.subtabs ?? [];
+}
+
+/** The primary tab that owns this path, including exceptions to URL prefixes. */
+export function topTabForPath(role: Role, pathname: string): MenuItem | undefined {
+  const section = sectionForPath(role, pathname);
+  if (section !== undefined) return topTabsFor(role).find((item) => item.to === section.tab.to);
+  return topTabsFor(role).find((item) => item.to === pathname);
 }
 
 /** The visual category follows the work a route belongs to, not a user's role. */
 export function categoryForPath(pathname: string): NavigationCategory {
-  if (pathname === '/stock/validation') return 'master-data';
   if (
     ['/referrals', '/extracts', '/sms', '/fuel-help'].some(
       (path) => pathname === path || pathname.startsWith(`${path}/`),
@@ -201,7 +226,7 @@ export function categoryForPath(pathname: string): NavigationCategory {
     return 'referrals';
   }
   if (
-    ['/stock', '/model-parcels'].some(
+    ['/stock', '/model-parcels', '/preference-rules'].some(
       (path) => pathname === path || pathname.startsWith(`${path}/`),
     )
   ) {

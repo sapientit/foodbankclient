@@ -1,7 +1,13 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import foodbankLogo from '../assets/foodbank-logo.webp';
 import { useAuth } from '../auth/auth-context';
-import { categoryForPath, subtabsFor, topTabsFor, type NavigationCategory } from '../auth/menu';
+import {
+  categoryForPath,
+  subtabsFor,
+  topTabForPath,
+  topTabsFor,
+  type NavigationCategory,
+} from '../auth/menu';
 import { classNames } from '../lib/class-names';
 import styles from './app-shell.module.css';
 import { BoxIcon, CalendarIcon, FuelIcon, GridIcon, HomeIcon, UsersIcon } from './icons';
@@ -54,6 +60,7 @@ export function AppShell() {
   const { displayName, role } = state.user;
   const topTabs = topTabsFor(role);
   const subtabs = subtabsFor(role, pathname);
+  const activeTopTab = topTabForPath(role, pathname);
   const category = categoryForPath(pathname);
 
   const endSession = async () => {
@@ -82,10 +89,14 @@ export function AppShell() {
                 const Icon = iconForTab(item.to);
                 return (
                   <li data-category={categoryForPath(item.to)} key={item.to}>
-                    <NavLink end to={item.to}>
+                    <Link
+                      aria-current={activeTopTab?.to === item.to ? 'page' : undefined}
+                      className={activeTopTab?.to === item.to ? 'active' : undefined}
+                      to={item.to}
+                    >
                       <Icon className={styles.navIcon} />
                       {item.label}
-                    </NavLink>
+                    </Link>
                   </li>
                 );
               })}

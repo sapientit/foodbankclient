@@ -40,6 +40,16 @@
   margin-block: 1rem;
 }
 
+.gridCard,
+.preview {
+  margin-block-end: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
+}
+
 .table {
   border-collapse: collapse;
 }
@@ -85,7 +95,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
-  margin-block-end: 2rem;
+  margin-block-end: 0;
 }
 
 .submit {
@@ -93,8 +103,7 @@
 }
 
 .preview {
-  padding-block-start: 1.5rem;
-  border-block-start: 1px solid #d4d4d4;
+  max-inline-size: 60rem;
 }
 
 .previewFields {
@@ -137,6 +146,12 @@
 }
 
 @media print {
+  .gridCard,
+  .preview {
+    border: 0;
+    box-shadow: none;
+  }
+
   .formActions,
   .previewFields {
     display: none;

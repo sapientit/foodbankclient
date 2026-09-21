@@ -3,6 +3,7 @@ import { useAuth } from '../../../auth/auth-context';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { BoxIcon, PencilIcon } from '../../../components/icons';
+import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { ApiError } from '../../../lib/errors';
 import { useCorrectStockLevel, useStockLevels, type StockLevel } from '../queries';
@@ -38,7 +39,7 @@ export function StockLevelsScreen() {
     return (
       <div className={styles.page}>
         <div className={styles.headerCard}>
-          <StockLevelsHeading />
+          <StockLevelsHeader />
         </div>
         <Spinner label="Loading stock levels…" />
       </div>
@@ -47,7 +48,7 @@ export function StockLevelsScreen() {
     return (
       <div className={styles.page}>
         <div className={styles.headerCard}>
-          <StockLevelsHeading />
+          <StockLevelsHeader />
         </div>
         <ErrorNotice error={levels.error} onRetry={() => void levels.refetch()} />
       </div>
@@ -119,7 +120,7 @@ export function StockLevelsScreen() {
   return (
     <div className={styles.page}>
       <div className={styles.headerCard}>
-        <StockLevelsHeading />
+        <StockLevelsHeader />
       </div>
       <div className={styles.filters}>
         <input
@@ -233,17 +234,13 @@ export function StockLevelsScreen() {
   );
 }
 
-function StockLevelsHeading() {
+function StockLevelsHeader() {
   return (
-    <header className={styles.heading}>
-      <span className={styles.headingIcon}>
-        <BoxIcon />
-      </span>
-      <div>
-        <h1>Stock</h1>
-        <p>What the system says is on each shelf, in the order you would walk them.</p>
-      </div>
-    </header>
+    <PageHeader
+      description={<p>What the system says is on each shelf, in the order you would walk them.</p>}
+      icon={<BoxIcon />}
+      title="Stock"
+    />
   );
 }
 

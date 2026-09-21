@@ -30,24 +30,26 @@ export function StockValidationScreen() {
       <div className={styles.headerCard}>
         <PageHeader title="Stock validation" />
       </div>
-      {validation.data.length === 0 ? (
-        <p role="status">Stock setup is valid. Every item is counted exactly once.</p>
-      ) : (
-        <>
-          <p role="alert">
-            {validation.data.length} {validation.data.length === 1 ? 'issue needs' : 'issues need'}{' '}
-            attention. Changes are saved first, then checked, so this list helps you resolve an
-            incomplete transition.
-          </p>
-          <ul>
-            {validation.data.map((issue, index) => (
-              <li key={`${issue.kind}-${issue.stockItemId ?? issue.crateId ?? String(index)}`}>
-                {issue.message}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+      <section aria-label="Stock validation results" className={styles.results}>
+        {validation.data.length === 0 ? (
+          <p role="status">Stock setup is valid. Every item is counted exactly once.</p>
+        ) : (
+          <>
+            <p role="alert">
+              {validation.data.length}{' '}
+              {validation.data.length === 1 ? 'issue needs' : 'issues need'} attention. Changes are
+              saved first, then checked, so this list helps you resolve an incomplete transition.
+            </p>
+            <ul>
+              {validation.data.map((issue, index) => (
+                <li key={`${issue.kind}-${issue.stockItemId ?? issue.crateId ?? String(index)}`}>
+                  {issue.message}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
     </div>
   );
 }

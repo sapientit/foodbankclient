@@ -40,7 +40,6 @@
           "questionKey": "refereeFirstName",
           "questionTitle": "Client's first name",
           "required": true,
-          "forListenerSheet": true,
           "forFuelTeam": true,
           "keyField": "refereeFirstName"
         },
@@ -49,7 +48,6 @@
           "questionKey": "refereeSurname",
           "questionTitle": "Client's surname",
           "required": true,
-          "forListenerSheet": true,
           "forFuelTeam": true,
           "keyField": "refereeSurname"
         },
@@ -206,7 +204,6 @@
           "questionKey": "reasonId",
           "questionTitle": "Main cause of crisis",
           "required": true,
-          "forListenerSheet": true,
           "keyField": "reasonId"
         },
         {
@@ -214,7 +211,6 @@
           "questionKey": "reasonAdditional",
           "questionTitle": "Additional information about crisis",
           "required": false,
-          "forListenerSheet": true,
           "preference": false,
           "validation": {
             "type": "String",
@@ -226,7 +222,6 @@
           "questionKey": "Secondary",
           "questionTitle": "Secondary cause of crisis",
           "required": false,
-          "forListenerSheet": true,
           "preference": false,
           "validation": {
             "type": "CheckBox",
@@ -420,6 +415,7 @@
           },
           "answers": [
             "Tea",
+            "Decaf Tea",
             "Coffee",
             "Decaf Coffee",
             "Hot Chocolate"
@@ -558,6 +554,48 @@
         },
         {
           "questionNum": 5,
+          "questionKey": "Toothpaste",
+          "questionTitle": "Do you also need child's toothpaste",
+          "required": false,
+          "enabledWhen": {
+            "questionKey": "Toiletries",
+            "hasAnswer": "Toothpaste"
+          },
+          "preference": true,
+          "validation": {
+            "type": "CheckBox",
+            "answerMin": 0,
+            "answerMax": 1
+          },
+          "answers": [
+            "Yes"
+          ]
+        },
+        {
+          "questionNum": 6,
+          "questionKey": "Toothbrush",
+          "questionTitle": "How many child toothbrushes do you need?",
+          "required": false,
+          "enabledWhen": {
+            "questionKey": "Toiletries",
+            "hasAnswer": "Toothbrush"
+          },
+          "preference": true,
+          "validation": {
+            "type": "CheckBox",
+            "answerMin": 0,
+            "answerMax": 1
+          },
+          "answers": [
+            "5",
+            "4",
+            "3",
+            "2",
+            "1"
+          ]
+        },
+        {
+          "questionNum": 7,
           "questionKey": "Nappies",
           "questionTitle": "Do they require nappies?",
           "required": false,
@@ -581,7 +619,7 @@
           ]
         },
         {
-          "questionNum": 6,
+          "questionNum": 8,
           "questionKey": "Baby Food",
           "questionTitle": "Do they require baby food?",
           "required": false,
@@ -596,7 +634,7 @@
           ]
         },
         {
-          "questionNum": 7,
+          "questionNum": 9,
           "questionKey": "Baby Milk",
           "questionTitle": "Do they require baby milk?",
           "required": false,
@@ -692,7 +730,6 @@
           "questionKey": "needsFuelHelp",
           "questionTitle": "Does the client need help with Energy costs?",
           "required": false,
-          "forListenerSheet": true,
           "keyField": "needsFuelHelp"
         },
         {

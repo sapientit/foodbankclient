@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "foodbank-client",
+  "name": "referrals-test",
   "main": "src/worker/index.ts",
   // Matches the server's, so both sides of the service binding agree on runtime
   // behaviour.
@@ -33,10 +33,10 @@
   },
   /*
    * The server overrides its `name` per environment, so the binding target
-   * differs by environment: the local/default script is `foodbank-server`, and
-   * the deployed one is `foodbank-server-production`.
+   * differs by environment: the local/default script is `api-test`, and
+   * the deployed one is `api`.
    */
-  "services": [{ "binding": "API", "service": "foodbank-server" }],
+  "services": [{ "binding": "API", "service": "api-test" }],
   /*
    * Wrangler environments do not inherit top-level keys, so every key above is
    * repeated here in full. Omitting one does not fall back — it deploys
@@ -45,7 +45,7 @@
    */
   "env": {
     "production": {
-      "name": "foodbank-client-production",
+      "name": "referrals",
       "main": "src/worker/index.ts",
       "compatibility_date": "2026-07-01",
       "observability": { "enabled": true },
@@ -54,7 +54,7 @@
         "not_found_handling": "single-page-application",
         "run_worker_first": ["/api/*", "/client-version.json"],
       },
-      "services": [{ "binding": "API", "service": "foodbank-server-production" }],
+      "services": [{ "binding": "API", "service": "api" }],
     },
   },
 }

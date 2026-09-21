@@ -104,6 +104,18 @@ beforeEach(() => {
 });
 
 describe('the household grid', () => {
+  it('groups the editor and household preview in separate labelled cards', async () => {
+    server.use(http.get(PARCEL_GRID, () => gridResponse(COMPLETE_GRID)));
+    renderApp('/model-parcels/grid');
+
+    expect(await screen.findByRole('region', { name: 'Household grid editor' })).toContainElement(
+      screen.getByRole('button', { name: 'Save the grid' }),
+    );
+    expect(screen.getByRole('region', { name: 'Preview a household' })).toContainElement(
+      screen.getByRole('button', { name: 'Preview' }),
+    );
+  });
+
   it('saves the whole grid in one PUT rather than one call per cell', async () => {
     let putCount = 0;
     let putGrid: unknown = null;

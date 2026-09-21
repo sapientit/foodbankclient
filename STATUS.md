@@ -20,7 +20,7 @@ in [`DEFERRED-WORK.md`](./DEFERRED-WORK.md).
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **1a — toolchain**            | Vite, React, TypeScript with the four-project split, eslint and Prettier matching the server, Vitest with jsdom and MSW, generated API types.                                                                                                                                                                                                                                                                                                              |
 | **1b — deployment topology**  | `wrangler.jsonc`, the proxy Worker and its tests, `tsconfig.worker.json`, `cf-typegen` and `dry-run` in `check`. `npm run dev` runs the real proxy against the server's `wrangler dev`.                                                                                                                                                                                                                                                                    |
-| **2 — API layer and auth**    | `src/api/` (both clients, token store, single-flight `auth-fetch`, cross-tab `refresh-lock`, `unwrap`, query client), `src/lib/errors.ts`, `src/auth/` (provider, `RequireAuth`, `?next=` validation, session start/restore/end), sign-in screen.                                                                                                                                                                                                          |
+| **2 — API layer and auth**    | `src/api/` (both clients, token store, single-flight `auth-fetch`, cross-tab `refresh-lock`, `unwrap`, query client), `src/lib/errors.ts`, `src/auth/` (provider, `RequireAuth`, `?next=` validation, session start/restore/end), sign-in screen — the dummy email form and, since 2026-09-21, a Google sign-in screen (`features/auth/google-signin.ts`, `GoogleSignInButton`), chosen at build time by `VITE_AUTH_MODE`.                                 |
 | **3 — app shell and routing** | `src/routes.tsx` as a data router, `src/auth/menu.ts`, the shared components in `src/components/`, the home screen. The `@media print` frame already lives in `app-shell.module.css`.                                                                                                                                                                                                                                                                      |
 | **3d — dashboard**            | `/` now shows role-appropriate referral, session and attention summaries, Sunday–Saturday session ranges, paged table actions and persistent shortcut tabs. The client relies on `Session.deliveryBooked` and `StockItem.lowStockThreshold`.                                                                                                                                                                                                               |
 | **3b — users**                | `/users`, `/users/new`, `/users/:userId`; `ConfirmDialog`; the first `london-time` helpers; `test/render-app.tsx`. **The slice that unblocks role testing** — the only way to create a team lead.                                                                                                                                                                                                                                                          |
@@ -113,10 +113,17 @@ Tracked so it is not mistaken for finished work.
 - **A production Turnstile widget, and its secret.** The client half is built:
   `src/features/referrals/turnstile.ts` and `TurnstileCheck` put the check on the last page of
   `/refer` and send `cf-turnstile-response`, and both halves are inert where no sitekey is
-  configured, which is local development. What is not done is deployment configuration — a widget
-  for **production** (the test one, `foodbank-referral-test`, covers
-  `foodbank-client.losttemple.workers.dev` and `localhost` only) and `TURNSTILE_SECRET_KEY` on each
-  deployed server. The charity has accepted Cloudflare Turnstile running inside the referral form;
-  that acceptance is recorded in `docs/engineering/personal-data.md`.
-- **Google sign-in.** `dev-login` is the only path. The rejection path for an unknown email is
-  already built, so the switch does not change the response shape.
+  configured, which is local development. The test widget (`referrals-test`, sitekey
+  `0x4AAAAAAE-vkC8v_zmzPHVS`, created 2026-09-21 on the charity's own Cloudflare account) covers
+  `referrals-test.guildfordfoodbank.workers.dev` and `localhost` only — a workers.dev hostname works
+  fine for this, it does not need a custom domain. What is not done is a **production** widget and
+  `TURNSTILE_SECRET_KEY` on the production server. The charity has accepted Cloudflare Turnstile
+  running inside the referral form; that acceptance is recorded in
+  `docs/engineering/personal-data.md`.
+- **Production Google sign-in.** The test deployment signs on with real Google identities as of
+  2026-09-21 (`LoginScreen` branches on `VITE_AUTH_MODE` at build time — `google-signin.ts`,
+  `GoogleSignInButton`) against the server's `AUTH_MODE=google`. Production still runs the dummy
+  provider until it has its own Google OAuth client and `VITE_AUTH_MODE=google` is set on that
+  build. The rejection path for an unknown or deactivated address was already built for `dev-login`
+  and needed no new shape, only a second explainer (`explainGoogle`) since the two screens' 404
+  cases mean different things.

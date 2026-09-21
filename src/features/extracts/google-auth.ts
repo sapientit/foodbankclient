@@ -1,5 +1,13 @@
 import { ShowableError } from '../../lib/errors';
 
+/**
+ * Both halves of Google Identity Services this app uses come from the one
+ * script (`GIS` below), so `window.google`'s shape is declared once here —
+ * `oauth2` for this file's Sheets access, `id` for `../auth/google-signin.ts`'s
+ * sign-in button. Declaring the same global property twice with two different
+ * shapes, in two files, is a TypeScript error; extend this one instead of
+ * adding a second `declare global` for `google`.
+ */
 declare global {
   interface Window {
     google?: {
@@ -11,6 +19,13 @@ declare global {
             callback: (response: { access_token?: string; error?: string }) => void;
             error_callback?: (error: { type?: string }) => void;
           }): { requestAccessToken(config: { prompt: string }): void };
+        };
+        id: {
+          initialize(config: {
+            client_id: string;
+            callback: (response: { credential?: string }) => void;
+          }): void;
+          renderButton(container: HTMLElement, options: { type: 'standard'; width?: number }): void;
         };
       };
     };

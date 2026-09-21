@@ -60,6 +60,21 @@ export async function signIn(email: string): Promise<AuthUser> {
   return user;
 }
 
+/**
+ * `google-login` takes only `{ idToken }`. As with `dev-login`, the display
+ * name and role come from the `users` row, never from anything Google sent.
+ */
+export async function signInWithGoogle(idToken: string): Promise<AuthUser> {
+  const { accessToken, user } = await unwrap(
+    publicApi.POST('/api/v1/auth/google-login', { body: { idToken } }),
+  );
+
+  setAccessToken(accessToken);
+  queryClient.clear();
+
+  return user;
+}
+
 export async function signOut(): Promise<void> {
   try {
     // 204 — `unwrap` would throw on the success case. See unwrap.ts.

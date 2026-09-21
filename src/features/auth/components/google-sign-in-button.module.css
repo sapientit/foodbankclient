@@ -1,0 +1,11 @@
+.wrapper {
+  margin-block: 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.status {
+  min-block-size: 1.5rem;
+  margin: 0.5rem 0 0;
+  max-inline-size: 60ch;
+}

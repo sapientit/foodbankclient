@@ -89,8 +89,8 @@ never selects production, and the combined command intentionally has no
 production mode.
 
 `preview` serves whatever is already in `dist/`, and `check` leaves a **production** build there —
-one whose `API` binding points at `foodbank-server-production` and will not resolve locally. Run
-`npm run build` before `npm run preview`.
+one whose `API` binding points at `api` (the server's production name) and will not resolve locally.
+Run `npm run build` before `npm run preview`.
 
 `npm run dev` uses `localhost`, never `127.0.0.1`, and `strictPort` is on. They are different hosts,
 so mixing them makes requests cross-site and reintroduces the cookie bug the proxy exists to avoid.
@@ -141,10 +141,10 @@ server's `wrangler dev` through wrangler's dev registry. So `http://localhost:51
 served by the local API, through the same code path as production: one origin, no CORS, the `/api/v1`
 prefix intact and `Set-Cookie` passed straight back.
 
-The registry matches on the deployed script name, so `wrangler.jsonc` binds to `foodbank-server` at
-top level (the server's local name) and `foodbank-server-production` under `env.production`. If the
-binding stops resolving, the usual cause is a wrangler version mismatch between the two repos —
-check `npx wrangler --version` in both before anything else.
+The registry matches on the deployed script name, so `wrangler.jsonc` binds to `api-test` at top
+level (the server's local name) and `api` under `env.production`. If the binding stops resolving,
+the usual cause is a wrangler version mismatch between the two repos — check `npx wrangler
+--version` in both before anything else.
 
 If refresh works in Chrome but not another browser locally, suspect `Secure` over plain HTTP:
 `localhost` is treated as a trustworthy origin by some browsers and not others.

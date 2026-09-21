@@ -27,22 +27,25 @@ export function PreferenceRuleHealthScreen() {
       <div className={styles.headerCard}>
         <PageHeader title="Preference rule check" />
       </div>
-      <p>
-        {preferenceRuleConfig.rules.length} rule{preferenceRuleConfig.rules.length === 1 ? '' : 's'}{' '}
-        checked against the current questionnaire and active stock items.
-      </p>
-      {health.errors.length === 0 ? (
-        <p role="status">All preference rules are valid.</p>
-      ) : (
-        <div role="alert">
-          <p>Fix these rules before generating a pick list:</p>
-          <ul>
-            {health.errors.map((error) => (
-              <li key={error}>{error}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <section aria-label="Preference rule check results" className={styles.results}>
+        <p>
+          {preferenceRuleConfig.rules.length} rule
+          {preferenceRuleConfig.rules.length === 1 ? '' : 's'} checked against the current
+          questionnaire and active stock items.
+        </p>
+        {health.errors.length === 0 ? (
+          <p role="status">All preference rules are valid.</p>
+        ) : (
+          <div role="alert">
+            <p>Fix these rules before generating a pick list:</p>
+            <ul>
+              {health.errors.map((error) => (
+                <li key={error}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

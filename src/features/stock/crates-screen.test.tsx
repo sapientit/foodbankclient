@@ -122,6 +122,15 @@ describe('crate deletion', () => {
 });
 
 describe('crate composition inputs', () => {
+  it('groups the add-crate controls in a labelled editor card', async () => {
+    server.use(http.get('/api/v1/stock/crates', () => HttpResponse.json({ items: [] })));
+    renderApp('/stock/crates');
+
+    expect(await screen.findByRole('region', { name: 'Add a crate' })).toContainElement(
+      screen.getByLabelText('Name'),
+    );
+  });
+
   it('does not offer a shelf or retired item when it has only one active stock item', async () => {
     server.use(
       http.get('/api/v1/stock/crates', () => HttpResponse.json({ items: [] })),

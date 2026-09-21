@@ -169,6 +169,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/google-login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with a Google identity
+         * @description Not registered unless `AUTH_MODE=google` — returns `404` otherwise,
+         *     the same as `dev-login` returns `404` when it isn't `dummy`.
+         *
+         *     Send the ID token Google Identity Services handed the browser after
+         *     sign-in, nothing else. The server verifies it — signature, issuer,
+         *     audience, expiry — and refuses an identity from outside the charity's
+         *     own Google Workspace domain even when the email matches an account on
+         *     file. As with `dev-login`, the address must already have a user
+         *     record; an unknown address is refused and the display name and role
+         *     come from that record, never from the token.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        idToken: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Signed in */
+                200: {
+                    headers: {
+                        /** @description `foodbank_refresh`, HttpOnly, Secure, SameSite=Strict, scoped to `/api/v1/auth`. Not readable by JavaScript, by design. It expires when the eight-hour sign-in does, and a rotation does not extend it. */
+                        "Set-Cookie"?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TokenResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                /** @description Token failed verification */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description That account has been deactivated */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not registered */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;

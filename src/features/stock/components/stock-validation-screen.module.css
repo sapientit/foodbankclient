@@ -1,13 +1,7 @@
-/* This screen paints its own white page and carries the master-data blue in
-   its header card instead of relying on an ambient category tint — despite
-   living in the `stock` feature folder, `/stock/validation` is carved out as
-   `'master-data'` category (`src/auth/menu.ts`'s `categoryForPath`), which
-   has no `--category-tint` (`app-shell.module.css` has no `'master-data'`
-   entry), so the fill is the literal hex the rest of that category's accent
-   already uses. The negative margin cancels `.main`'s own padding
-   (`app-shell.module.css`, `padding: 1.5rem 1rem`) so the white reaches the
-   shell's edges. There is no white card in this screen's body to retint —
-   the issues list sits directly on the page. */
+/* Stock validation remains in Master Data navigation, but its check belongs
+   with stock setup: it uses the stock-blue category surface. The negative
+   margin cancels `.main`'s own padding (`app-shell.module.css`,
+   `padding: 1.5rem 1rem`) so the white reaches the shell's edges. */
 .page {
   margin: -1.5rem -1rem;
   padding: 1.5rem 1rem;
@@ -18,5 +12,21 @@
   margin-block-end: 1.5rem;
   padding: 1.5rem 1.75rem 0.5rem;
   border-radius: 0.5rem;
-  background: #e8f3f9;
+  background: var(--category-tint, #f1fafd);
+}
+
+.results {
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
+}
+
+.results p:first-child {
+  margin-block-start: 0;
+}
+
+.results ul {
+  margin-block-end: 0;
 }

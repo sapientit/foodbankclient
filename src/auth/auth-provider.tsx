@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { queryClient } from '../api/query-client';
 import { subscribeToAuthEvents } from '../api/token-store';
 import { AuthContext, type AuthContextValue, type AuthState } from './auth-context';
-import { ensureSession, signIn as startSession, signOut as endSession } from './session';
+import {
+  ensureSession,
+  signIn as startSession,
+  signInWithGoogle as startGoogleSession,
+  signOut as endSession,
+} from './session';
 
 /**
  * Holds the current user and nothing else. Server state belongs to TanStack
@@ -76,14 +81,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return user;
   }, []);
 
+  const signInWithGoogle = useCallback(async (idToken: string) => {
+    const user = await startGoogleSession(idToken);
+    setState({ status: 'signed-in', user });
+    return user;
+  }, []);
+
   const signOut = useCallback(async () => {
     await endSession();
     setState({ status: 'signed-out', reason: 'signed-out' });
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ state, restoreSession, signIn, signOut }),
-    [state, restoreSession, signIn, signOut],
+    () => ({ state, restoreSession, signIn, signInWithGoogle, signOut }),
+    [state, restoreSession, signIn, signInWithGoogle, signOut],
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

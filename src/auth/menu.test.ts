@@ -7,6 +7,7 @@ import {
   menuFor,
   navigationSectionsFor,
   subtabsFor,
+  topTabForPath,
   topTabsFor,
 } from './menu';
 
@@ -162,6 +163,19 @@ describe('contextual navigation', () => {
       'Cloudflare statistics',
     ]);
   });
+
+  it('keeps Stock validation in Master Data despite its stock URL prefix', () => {
+    expect(subtabsFor('admin', '/stock/validation').map((item) => item.label)).toEqual([
+      'Approved referrers',
+      'Users',
+      'Christmas vouchers',
+      'Reasons for Crisis',
+      'Rule check',
+      'Stock validation',
+      'Cloudflare statistics',
+    ]);
+    expect(topTabForPath('admin', '/stock/validation')?.label).toBe('Master Data');
+  });
 });
 
 describe('MENU', () => {
@@ -199,7 +213,8 @@ describe('categoryForPath', () => {
     ['/sms', 'referrals'],
     ['/fuel-help', 'referrals'],
     ['/stock/take', 'stock'],
-    ['/stock/validation', 'master-data'],
+    ['/stock/validation', 'stock'],
+    ['/preference-rules', 'stock'],
     ['/model-parcels/grid', 'stock'],
   ] as const)('gives %s the %s visual category', (path, expected) => {
     expect(categoryForPath(path)).toBe(expected);

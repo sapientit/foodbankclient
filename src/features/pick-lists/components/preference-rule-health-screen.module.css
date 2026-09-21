@@ -1,11 +1,7 @@
-/* This route (`/preference-rules`) falls through `categoryForPath` to
-   `master-data`, not `sessions`, despite living in the `pick-lists` feature
-   folder — see `src/auth/menu.ts`. Master Data has no shared
-   `--category-tint`/`--category-action` (`app-shell.module.css` has no
-   `.main[data-category='master-data']` rule), so this screen paints its own
-   white page and carries the blue this category already uses elsewhere, in
-   its own literal `#e8f3f9`. The negative margin cancels `.main`'s own
-   padding so the white reaches the shell's edges. */
+/* Rule check remains in Master Data navigation, but it validates the stock
+   names that preference rules use, so its check card follows the stock-blue
+   treatment. The negative margin cancels `.main`'s own padding so the white
+   reaches the shell's edges. */
 .page {
   margin: -1.5rem -1rem;
   padding: 1.5rem 1rem;
@@ -16,5 +12,21 @@
   margin-block-end: 1.5rem;
   padding: 1.5rem 1.75rem 0.5rem;
   border-radius: 0.5rem;
-  background: #e8f3f9;
+  background: var(--category-tint, #f1fafd);
+}
+
+.results {
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
+}
+
+.results p:first-child {
+  margin-block-start: 0;
+}
+
+.results > :last-child {
+  margin-block-end: 0;
 }

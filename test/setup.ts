@@ -91,6 +91,11 @@ afterAll(() => {
  */
 beforeEach(() => {
   vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '');
+  // Same reasoning, for Google sign-in: a real VITE_GOOGLE_CLIENT_ID or
+  // VITE_AUTH_MODE=google sitting in .env.development.local must not silently
+  // switch LoginScreen's tests onto a different branch than CI runs.
+  vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '');
+  vi.stubEnv('VITE_AUTH_MODE', '');
 });
 
 afterEach(() => {

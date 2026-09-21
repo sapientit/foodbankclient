@@ -2,6 +2,15 @@
   max-inline-size: 34rem;
 }
 
+.crateEditor {
+  max-inline-size: 34rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
+}
+
 /* Shared by every screen that imports this module — `crates-screen.tsx`,
    `amend-stock-item-screen.tsx` and `create-stock-item-screen.tsx` — each
    painting its own white page and carrying the category tint in its cards

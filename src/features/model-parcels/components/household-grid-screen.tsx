@@ -116,92 +116,95 @@ function GridEditor({
     <div className={styles.page}>
       <HouseholdGridHeader action={<Link to="/model-parcels">Model parcels</Link>} />
 
-      {save.error !== null && <ErrorNotice error={save.error} />}
+      <section aria-label="Household grid editor" className={styles.gridCard}>
+        {save.error !== null && <ErrorNotice error={save.error} />}
 
-      {saved && (
-        <p className={styles.savedNotice} role="status">
-          Grid saved.
-        </p>
-      )}
+        {saved && (
+          <p className={styles.savedNotice} role="status">
+            Grid saved.
+          </p>
+        )}
 
-      {!isComplete && (
-        <p className={styles.infoNotice} role="status">
-          {missingCells.length === 1
-            ? '1 household size has no model parcel yet.'
-            : `${String(missingCells.length)} household sizes have no model parcel yet.`}{' '}
-          That is not an error while you are setting up — a household landing on a blank cell simply
-          cannot be given a parcel until one is chosen, which picking will report when it happens.
-        </p>
-      )}
+        {!isComplete && (
+          <p className={styles.infoNotice} role="status">
+            {missingCells.length === 1
+              ? '1 household size has no model parcel yet.'
+              : `${String(missingCells.length)} household sizes have no model parcel yet.`}{' '}
+            That is not an error while you are setting up — a household landing on a blank cell
+            simply cannot be given a parcel until one is chosen, which picking will report when it
+            happens.
+          </p>
+        )}
 
-      {unknownCells.length > 0 && (
-        <p className={styles.infoNotice} role="status">
-          {unknownCells.length === 1
-            ? '1 cell names a model parcel that no longer exists.'
-            : `${String(unknownCells.length)} cells name a model parcel that no longer exists.`}{' '}
-          Choose a replacement for each one marked below before saving, or saving will be refused.
-        </p>
-      )}
+        {unknownCells.length > 0 && (
+          <p className={styles.infoNotice} role="status">
+            {unknownCells.length === 1
+              ? '1 cell names a model parcel that no longer exists.'
+              : `${String(unknownCells.length)} cells name a model parcel that no longer exists.`}{' '}
+            Choose a replacement for each one marked below before saving, or saving will be refused.
+          </p>
+        )}
 
-      <div className={styles.tableWrapper}>
-        <table className={styles.table}>
-          <caption className={styles.caption}>Model parcel by household size</caption>
-          <thead>
-            <tr>
-              <th scope="col">Adults ↓ / Children →</th>
-              {GRID_CHILDREN.map((children) => (
-                <th key={children} scope="col">
-                  {children}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {GRID_ADULTS.map((adults) => (
-              <tr key={adults}>
-                <th scope="row">{adults}</th>
-                {GRID_CHILDREN.map((children) => {
-                  const key = gridCellKey(adults, children);
-                  const value = draft[key] ?? '';
-                  const isUnknown = unknownCells.includes(key);
-
-                  return (
-                    <td key={key}>
-                      <select
-                        aria-label={`Model parcel for ${describeHouseholdSize(adults, children)}`}
-                        className={isUnknown ? styles.unknownCell : styles.select}
-                        onChange={(event) => {
-                          setCell(key, event.target.value);
-                        }}
-                        value={value}
-                      >
-                        <option value="">— none —</option>
-                        {isUnknown && <option value={value}>{value} (no longer exists)</option>}
-                        {parcels.map((parcel) => (
-                          <option key={parcel.id} value={parcel.name}>
-                            {parcel.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  );
-                })}
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <caption className={styles.caption}>Model parcel by household size</caption>
+            <thead>
+              <tr>
+                <th scope="col">Adults ↓ / Children →</th>
+                {GRID_CHILDREN.map((children) => (
+                  <th key={children} scope="col">
+                    {children}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {GRID_ADULTS.map((adults) => (
+                <tr key={adults}>
+                  <th scope="row">{adults}</th>
+                  {GRID_CHILDREN.map((children) => {
+                    const key = gridCellKey(adults, children);
+                    const value = draft[key] ?? '';
+                    const isUnknown = unknownCells.includes(key);
 
-      <div className={styles.formActions}>
-        <button
-          aria-disabled={save.isPending}
-          className={styles.submit}
-          onClick={doSave}
-          type="button"
-        >
-          {save.isPending ? 'Saving…' : 'Save the grid'}
-        </button>
-      </div>
+                    return (
+                      <td key={key}>
+                        <select
+                          aria-label={`Model parcel for ${describeHouseholdSize(adults, children)}`}
+                          className={isUnknown ? styles.unknownCell : styles.select}
+                          onChange={(event) => {
+                            setCell(key, event.target.value);
+                          }}
+                          value={value}
+                        >
+                          <option value="">— none —</option>
+                          {isUnknown && <option value={value}>{value} (no longer exists)</option>}
+                          {parcels.map((parcel) => (
+                            <option key={parcel.id} value={parcel.name}>
+                              {parcel.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className={styles.formActions}>
+          <button
+            aria-disabled={save.isPending}
+            className={styles.submit}
+            onClick={doSave}
+            type="button"
+          >
+            {save.isPending ? 'Saving…' : 'Save the grid'}
+          </button>
+        </div>
+      </section>
 
       <PreviewTool />
     </div>
@@ -286,8 +289,8 @@ function PreviewTool() {
     result === null ? null : describeHouseholdClamping(result.adults, result.children);
 
   return (
-    <section className={styles.preview}>
-      <h2>Preview a household</h2>
+    <section aria-labelledby="household-preview-heading" className={styles.preview}>
+      <h2 id="household-preview-heading">Preview a household</h2>
       <p className={styles.intro}>What would a household of this size receive right now?</p>
 
       <div className={styles.previewFields}>

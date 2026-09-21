@@ -160,9 +160,9 @@ describe('a team lead listener sheet', () => {
 
     renderApp(`/run-sessions/${SESSION_ID}/listener`);
 
-    expect(await screen.findByRole('row', { name: /Amina Ahmed/ })).toBeInTheDocument();
-    expect(screen.getByRole('row', { name: /Ben Brown/ })).toBeInTheDocument();
-    expect(screen.getByRole('row', { name: /Cora Cole/ })).toBeInTheDocument();
+    expect(await screen.findByRole('row', { name: /#1.*First time/ })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /#2.*Admin/ })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /#3.*already received/ })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Pick number' })).toBeInTheDocument();
     expect(screen.getByText('#1')).toBeInTheDocument();
     expect(screen.getByText('#2')).toBeInTheDocument();
@@ -227,6 +227,18 @@ describe('a team lead listener sheet', () => {
               category: 'Drinks',
               description: null,
               shelfNumber: 'A1',
+              lowStockThreshold: null,
+              groupingId: null,
+              unitsPerPack: null,
+              packUnitLabel: null,
+              isActive: true,
+            },
+            {
+              id: 'decaf-tea',
+              name: 'Decaf Tea',
+              category: 'Drinks',
+              description: null,
+              shelfNumber: 'A2a',
               lowStockThreshold: null,
               groupingId: null,
               unitsPerPack: null,
@@ -336,7 +348,7 @@ describe('a team lead listener sheet', () => {
     expect(router.state.location.pathname).toBe(`/run-sessions/${SESSION_ID}`);
   });
 
-  it('shows every question the form marks for the listener sheet, and no other referral data', async () => {
+  it('shows only the standard listener-sheet columns when the form marks no referral fields', async () => {
     server.use(
       http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
         HttpResponse.json(LISTENER_SHEET),
@@ -346,43 +358,23 @@ describe('a team lead listener sheet', () => {
 
     renderApp(`/run-sessions/${SESSION_ID}/listener`);
 
-    // Headed by the questions as the charity words them in the questionnaire,
-    // not by names this screen made up — the marker is what puts them here.
-    await screen.findByRole('columnheader', { name: "Client's first name" });
-    for (const heading of [
-      "Client's surname",
-      'Main cause of crisis',
-      'Additional information about crisis',
-      'Secondary cause of crisis',
-      'Does the client need help with Energy costs?',
-    ]) {
-      expect(screen.getByRole('columnheader', { name: heading })).toBeInTheDocument();
-    }
-
-    expect(screen.getByText('Unexpected expenses')).toBeInTheDocument();
-    expect(screen.getByText('The boiler broke and used the rent money.')).toBeInTheDocument();
-    // The secondary cause: required by `screenDetails.md` and absent from this
-    // sheet until the form started choosing the columns. It is stored as the
-    // reason's id and must print as the words — a listener reads this aloud.
-    expect(screen.getByText('Debt')).toBeInTheDocument();
-    expect(screen.queryByText('reason-debt')).toBeNull();
-    expect(screen.getAllByText('No')).toHaveLength(2);
-    expect(screen.getByText('Yes')).toBeInTheDocument();
-    expect(screen.getAllByText('None given')).toHaveLength(3);
-
-    expect(screen.getByRole('columnheader', { name: 'First time / voucher' })).toBeInTheDocument();
+    await screen.findByRole('columnheader', { name: 'First time / voucher' });
+    expect(screen.getAllByRole('columnheader').map((heading) => heading.textContent)).toEqual([
+      'Pick number',
+      'First time / voucher',
+    ]);
     expect(
-      within(screen.getByRole('row', { name: /Amina Ahmed/ })).getByRole('cell', {
+      within(screen.getByRole('row', { name: /#1.*First time/ })).getByRole('cell', {
         name: 'First time — Provide voucher for this client',
       }),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByRole('row', { name: /Ben Brown/ })).getByRole('cell', {
+      within(screen.getByRole('row', { name: /#2.*Admin/ })).getByRole('cell', {
         name: 'Admin — Refer to administrators for voucher',
       }),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByRole('row', { name: /Cora Cole/ })).getByRole('cell', {
+      within(screen.getByRole('row', { name: /#3.*already received/ })).getByRole('cell', {
         name: 'Client has already received voucher',
       }),
     ).toBeInTheDocument();
@@ -396,10 +388,7 @@ describe('a team lead listener sheet', () => {
     expect(screen.queryByText('Baked beans: 2')).toBeNull();
   });
 
-  it('says so, rather than printing an identifier, when a stored reason is no longer on the list', async () => {
-    // The public lookup sends the active reasons only, so a referral naming a
-    // reason retired since it was made cannot be resolved here at all. Marked
-    // as a guess in the server's OPEN-QUESTIONS.md.
+  it('does not expose an unmarked stored reason', async () => {
     server.use(
       http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
         HttpResponse.json({
@@ -415,24 +404,27 @@ describe('a team lead listener sheet', () => {
 
     renderApp(`/run-sessions/${SESSION_ID}/listener`);
 
-    expect(await screen.findByText('No longer listed')).toBeInTheDocument();
+    await screen.findByRole('row', { name: /#1.*First time/ });
+    expect(screen.queryByText('No longer listed')).toBeNull();
     expect(screen.queryByText('reason-retired')).toBeNull();
   });
 
-  it('holds the sheet back rather than printing it when the reason lookup fails', async () => {
+  it('does not fetch referral reasons when no displayed column needs them', async () => {
+    let reasonReads = 0;
     server.use(
       http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
         HttpResponse.json(LISTENER_SHEET),
       ),
-      http.get('/api/v1/public/referral-reasons', () => HttpResponse.json({}, { status: 500 })),
+      http.get('/api/v1/public/referral-reasons', () => {
+        reasonReads += 1;
+        return HttpResponse.json({ referralReasons: REASONS });
+      }),
     );
 
     renderApp(`/run-sessions/${SESSION_ID}/listener`);
 
-    // A page of identifiers where a cause of crisis should be is worse than a
-    // page the team lead can retry.
-    expect(await screen.findByRole('button', { name: /try again/i })).toBeInTheDocument();
-    expect(screen.queryByRole('row', { name: /Amina Ahmed/ })).toBeNull();
+    expect(await screen.findByRole('row', { name: /#1.*First time/ })).toBeInTheDocument();
+    expect(reasonReads).toBe(0);
   });
 
   it('never prints a column for a marked question the endpoint does not send', () => {
@@ -444,14 +436,7 @@ describe('a team lead listener sheet', () => {
      */
     const marked = listenerColumns().map((column) => column.key);
 
-    expect(marked).toEqual([
-      'refereeFirstName',
-      'refereeSurname',
-      'reasonId',
-      'reasonAdditional',
-      'Secondary',
-      'needsFuelHelp',
-    ]);
+    expect(marked).toEqual([]);
     expect(
       listenerColumns({
         version: 1,

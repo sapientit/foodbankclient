@@ -17,39 +17,6 @@
   background: var(--category-tint, #f1fafd);
 }
 
-.heading {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-}
-
-.heading h1 {
-  margin: 0;
-  color: #17324d;
-  font-size: 1.5rem;
-}
-
-.heading p {
-  max-inline-size: 70ch;
-  margin: 0.25rem 0 0;
-}
-
-.headingIcon {
-  display: inline-grid;
-  aspect-ratio: 1;
-  place-items: center;
-  inline-size: 3.5rem;
-  border-radius: 50%;
-  background: #d7eef9;
-  color: var(--category-action, #005a9c);
-}
-
-.headingIcon svg {
-  inline-size: 1.8rem;
-  block-size: 1.8rem;
-  stroke-width: 2.2;
-}
-
 .filters {
   display: flex;
   flex-wrap: wrap;

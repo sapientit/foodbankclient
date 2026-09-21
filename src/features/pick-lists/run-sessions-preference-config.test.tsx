@@ -67,7 +67,7 @@ describe('a team lead opening a session with invalid preference rules', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Rule Tea/Coffee: $selectedAnswer cannot resolve active stock items for Tea, Coffee, Decaf Coffee, Hot Chocolate.',
+        'Rule Tea/Coffee: $selectedAnswer cannot resolve active stock items for Tea, Decaf Tea, Coffee, Decaf Coffee, Hot Chocolate.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('We could not reach the server')).toBeNull();
