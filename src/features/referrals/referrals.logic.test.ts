@@ -328,13 +328,16 @@ describe('canCopyReferral', () => {
     );
   });
 
-  it('is false for a household who attended or is still booked, on either status', () => {
+  it('is true for a household who attended, on either status', () => {
     expect(canCopyReferral(referral({ id: 'r1', status: 'active', outcome: 'attended' }))).toBe(
-      false,
+      true,
     );
     expect(canCopyReferral(referral({ id: 'r1', status: 'reviewed', outcome: 'attended' }))).toBe(
-      false,
+      true,
     );
+  });
+
+  it('is false for a household still booked, on either status', () => {
     expect(canCopyReferral(referral({ id: 'r1', status: 'active', outcome: 'booked' }))).toBe(
       false,
     );

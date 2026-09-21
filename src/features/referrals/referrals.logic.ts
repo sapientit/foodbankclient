@@ -241,11 +241,11 @@ export function displayedOutcome(
  * agree rather than the administrator finding out by pressing the button.
  *
  * **Only where the original can no longer come to anything**: it was cancelled
- * or rejected, or the household did not turn up. A referral still on its way to
- * being fed is *moved*, and `screenDetails.md` is explicit that the two are
- * never offered as alternatives for the same referral. A household who has
- * already collected is not copied either — feeding them again is an ordinary
- * new referral.
+ * or rejected, or the household did not turn up or has already collected. A
+ * referral still on its way to being fed is *moved*, and `screenDetails.md` is
+ * explicit that the two are never offered as alternatives for the same
+ * referral. Copying a household who already collected is the quick way to make
+ * the deliberate second referral the charity has decided they need.
  *
  * A purged referral has nothing left to copy and is a `409`; that is the caller's
  * own guard, since every other action on this screen is hidden for the same
@@ -253,7 +253,9 @@ export function displayedOutcome(
  */
 export function canCopyReferral(referral: Pick<Referral, 'status' | 'outcome'>): boolean {
   if (referral.status === 'cancelled' || referral.status === 'rejected') return true;
-  return hasOutcome(referral) && referral.outcome === 'no_show';
+  return (
+    hasOutcome(referral) && (referral.outcome === 'no_show' || referral.outcome === 'attended')
+  );
 }
 
 /**
@@ -302,15 +304,16 @@ export function describeLockedReferral(referral: Pick<Referral, 'status'>): stri
  * collected is still worth correcting, and only cancelling and moving are
  * refused. Two different refusals with two different scopes.
  *
- * The no-show sentence names copying, because that is the whole answer to the
- * phone call that produces it — `screenDetails.md`, "#Copying a referral": the
- * two "must not be offered as alternatives for the same referral".
+ * Each settled-outcome sentence names copying, because that is the whole answer
+ * to the phone call that produces it — `screenDetails.md`, "#Copying a
+ * referral": the two "must not be offered as alternatives for the same
+ * referral".
  */
 export function describeSettledReferral(referral: Pick<Referral, 'outcome'>): string | null {
   if (!hasOutcome(referral)) return null;
 
   if (referral.outcome === 'attended') {
-    return 'This household has already collected or been delivered to, so this referral can no longer be cancelled or moved.';
+    return 'This household has already collected or been delivered to, so this referral can no longer be cancelled or moved. Copy it to another session to make a new referral.';
   }
   if (referral.outcome === 'no_show') {
     return 'This household did not turn up, so this referral can no longer be cancelled or moved. Copy it to another session to give them another chance.';

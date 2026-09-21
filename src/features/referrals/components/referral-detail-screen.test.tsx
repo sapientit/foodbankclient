@@ -1286,7 +1286,7 @@ describe('copying a referral', () => {
     expect(screen.getByText(/did not turn up/)).toBeInTheDocument();
   });
 
-  it('does not offer cancelling or moving a household who already collected, and offers no copy either', async () => {
+  it('does not offer cancelling or moving a household who already collected, and offers a copy', async () => {
     server.use(
       http.get(REFERRAL, () =>
         HttpResponse.json(referral({ id: 'r1', status: 'reviewed', outcome: 'attended' })),
@@ -1304,10 +1304,10 @@ describe('copying a referral', () => {
       'aria-disabled',
       'true',
     );
-    // Feeding them again is an ordinary new referral, not a copy.
+    expect(screen.getByRole('button', { name: 'Copy to another session' })).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Copy to another session' }),
-    ).not.toBeInTheDocument();
+      screen.getByText(/Copy it to another session to make a new referral/),
+    ).toBeInTheDocument();
   });
 
   it('leaves cancelling and moving live for a household still to come', async () => {

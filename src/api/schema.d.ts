@@ -2763,12 +2763,14 @@ export interface paths {
          *
          *     **Offered only where the original can no longer come to anything**: its
          *     `status` is `cancelled` or `rejected`, **or** its `outcome` is
-         *     `no_show`. Anything else is a `409` — a referral still on its way to
-         *     being fed is *moved* (`PATCH /referrals/{id}` with `sessionId`), and the
-         *     two are never alternatives for the same referral. Gate the button on
-         *     `status` and `outcome` together and the server and the screen agree. A
-         *     household who has already collected is a `409` too; feeding them again
-         *     is a new referral made in the ordinary way.
+         *     `no_show` or `attended`. Anything else is a `409` — a referral still on
+         *     its way to being fed is *moved* (`PATCH /referrals/{id}` with
+         *     `sessionId`), and the two are never alternatives for the same referral.
+         *     Gate the button on `status` and `outcome` together and the server and
+         *     the screen agree. A household who has already collected **can** now be
+         *     copied — a deliberate second referral for a household the charity has
+         *     decided needs feeding again, made the quick way rather than through the
+         *     whole form.
          *
          *     **A referral whose details have been forgotten is a `409`.** There is
          *     nothing left to copy.
@@ -2868,7 +2870,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description The referral can still be completed so it should be moved rather than copied, the household has already collected, the referral's details have been forgotten, or the target session is cancelled, confirmed, or full and not acknowledged */
+                /** @description The referral can still be completed so it should be moved rather than copied, the referral's details have been forgotten, or the target session is cancelled, confirmed, or full and not acknowledged */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2916,14 +2918,17 @@ export interface paths {
          *     on every press; that is the food bank being told the number is no good.
          *
          *     Three wordings, and the client chooses none of them: a collection
-         *     reminder carries the date, the time and the place, a delivery
-         *     reminder carries the date and the session's **delivery window** and
+         *     reminder greets the household by first name and carries the date,
+         *     the time and the place; a delivery reminder greets them the same way
+         *     and carries the date and the session's **delivery window** and
          *     **no address**. A session that sets no window of its own states its
-         *     own hours, so every delivery reminder names a window.
+         *     own hours, so every delivery reminder names a window. Neither
+         *     wording ever carries a surname.
          *
          *     A `referrer_collect` referral is reminded on `referrerPhone` instead
-         *     of `refereePhone`, with a **placeholder** third wording —
-         *     `x-assumed`, see below — until the charity gives the real one.
+         *     of `refereePhone`, with its own third wording that greets the
+         *     referrer by their own first name rather than the household's and
+         *     never reuses the collection or delivery text.
          */
         post: {
             parameters: {

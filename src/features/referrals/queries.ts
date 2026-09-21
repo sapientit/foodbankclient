@@ -597,9 +597,10 @@ export function useMarkReferralReviewed() {
 }
 
 /**
- * Copies a referral that came to nothing onto another session, so a household
- * who did not turn up, or whose referral was cancelled or rejected, gets
- * another chance. The original is untouched — the no-show stays where it
+ * Copies a referral that came to nothing — or was completed — onto another
+ * session, so a household who did not turn up, whose referral was cancelled
+ * or rejected, or who already collected gets another chance. The original is
+ * untouched — the no-show or completed referral remains the record of what
  * happened — and the copy arrives `reviewed`, approved and read in one go.
  *
  * **Invalidates the *original's* detail as well as caching the copy.** The copy

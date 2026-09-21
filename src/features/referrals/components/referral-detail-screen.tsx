@@ -1496,8 +1496,8 @@ function ReferralActionsPanel({
           Move to another session
         </button>
         {/* Deliberately gated on neither refusal, unlike the other two: copying
-            is the one action a cancelled, rejected or no-show referral still
-            has, and it is the whole point of the button. See
+            is the one action a cancelled, rejected, no-show or completed
+            referral still has, and it is the whole point of the button. See
             `canCopyReferral`. */}
         {canCopy && (
           <button
@@ -1514,7 +1514,7 @@ function ReferralActionsPanel({
 
       {/* The parent already renders `locked`, so this is only the other
           refusal. It says why cancelling and moving are inert, and for a
-          no-show it names copying as the answer instead. */}
+          settled household it names copying as the answer instead. */}
       {locked === null && settled !== null && (
         <p className={styles.refusal} id={settledId}>
           {settled}
