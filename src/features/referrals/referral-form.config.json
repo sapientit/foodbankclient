@@ -17,7 +17,7 @@
           "questionKey": "referrerEmail",
           "questionTitle": "Referrer's email address",
           "required": true,
-          "helpText": "Checked as you type. If we do not recognise it the referral still goes through, but an administrator has to approve it before the client is booked in.",
+          "helpText": "Checked as you type. If we do not recognise it, the referral still goes through, but an administrator has to approve it before the client is booked in.",
           "keyField": "referrerEmail"
         },
         {
@@ -146,7 +146,7 @@
           "questionNum": 13,
           "questionKey": "refereePhone",
           "questionTitle": "Client's contact number",
-          "required": false,
+          "required": true,
           "forFuelTeam": true,
           "keyField": "refereePhone"
         },
@@ -169,7 +169,7 @@
         {
           "questionNum": 16,
           "questionKey": "Household Components",
-          "questionTitle": "Household Composition",
+          "questionTitle": "Household Composition\nPlease type relevant number in household for each gender and related age group",
           "required": true,
           "preference": false,
           "validation": {
@@ -259,7 +259,7 @@
         },
         {
           "questionNum": 23,
-          "questionTitle": "Delivery is restricted to people who…",
+          "questionTitle": "Delivery is restricted to people who are housebound for medical reasons, or do not have any family or friends who can help them collect the parcel. Please note that single person parcels are small enough to be collected on foot/by public transport",
           "answerFormat": "No Answer",
           "enabledWhen": {
             "questionKey": "Collection method",
@@ -392,8 +392,23 @@
         },
         {
           "questionNum": 6,
-          "questionKey": "Pulses",
+          "questionKey": "PulsesYes",
           "questionTitle": "Would they like tinned pulses? (If they have a preference please say which.)",
+          "required": false,
+          "preference": true,
+          "validation": {
+            "type": "CheckBox",
+            "answerMin": 0,
+            "answerMax": 1
+          },
+          "answers": [
+            "Yes"
+          ]
+        },
+        {
+          "questionNum": 7,
+          "questionKey": "PulseText",
+          "questionTitle": "(If they have a preference please say which.)",
           "required": false,
           "pickListInformation": "Yes",
           "preference": true,
@@ -403,7 +418,7 @@
           }
         },
         {
-          "questionNum": 7,
+          "questionNum": 8,
           "questionKey": "Tea/Coffee",
           "questionTitle": "Would they prefer tea, coffee or hot chocolate?",
           "required": false,
@@ -426,7 +441,7 @@
           ]
         },
         {
-          "questionNum": 8,
+          "questionNum": 9,
           "questionKey": "Porridge",
           "questionTitle": "Would they like porridge oats?",
           "required": false,
@@ -445,7 +460,7 @@
           ]
         },
         {
-          "questionNum": 9,
+          "questionNum": 10,
           "questionKey": "Eggs",
           "questionTitle": "Would they like eggs?",
           "required": false,
@@ -755,7 +770,7 @@
         {
           "questionNum": 3,
           "questionKey": "Electricity crisis",
-          "questionTitle": "If the client is on a prepayment meter and in fuel crisis (will run out in 5 days or less and does not have funds to top up), specify Electricity provider",
+          "questionTitle": "Electricity - If the client is on a prepayment meter and in fuel crisis (will run out in 5 days or less and does not have funds to top up), specify Electricity provider",
           "required": false,
           "enabledWhen": {
             "questionKey": "needsFuelHelp",
@@ -791,7 +806,7 @@
         {
           "questionNum": 5,
           "questionKey": "Gas crisis",
-          "questionTitle": "If the client is on a pre-payment meter and in fuel crisis (will run out in 5 days or less) and does not have funds to top up, specify Gas provider",
+          "questionTitle": "Gas - If the client is on a pre-payment meter and in fuel crisis (will run out in 5 days or less) and does not have funds to top up, specify Gas provider",
           "required": false,
           "enabledWhen": {
             "questionKey": "needsFuelHelp",
@@ -827,7 +842,7 @@
         {
           "questionNum": 7,
           "questionKey": "Electricity debt",
-          "questionTitle": "If they are not on a pre-payment meter, are they in fuel debt for electricity?",
+          "questionTitle": "If they are billed for their electricity (not on a pre-payment meter), are they in fuel debt for electricity?",
           "required": false,
           "enabledWhen": {
             "questionKey": "needsFuelHelp",
@@ -847,7 +862,7 @@
         {
           "questionNum": 8,
           "questionKey": "Gas debt",
-          "questionTitle": "If they are not on a pre-payment meter, are they in fuel debt for gas?",
+          "questionTitle": "If they are billed for their gas (not on a pre-payment meter), are they in fuel debt for gas?",
           "required": false,
           "enabledWhen": {
             "questionKey": "needsFuelHelp",
@@ -867,7 +882,7 @@
         {
           "questionNum": 9,
           "questionKey": "Permission",
-          "questionTitle": "Do you give permission to share details with \"Energy Manage\" who work in partnership with the foodbank to support our clients?",
+          "questionTitle": "Do you give permission to share details with \"Energy Manage\" and/or \"The Fuel Bank Foundation\" who work in partnership with the foodbank to support our clients?",
           "required": false,
           "enabledWhen": {
             "questionKey": "needsFuelHelp",

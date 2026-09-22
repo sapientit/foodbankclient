@@ -18,7 +18,7 @@ const REFERRAL_6 = '/api/v1/referrals/referral-6';
 
 /*
  * Threads for this fixture:
- *  - +441111111111 (loose): message-1, message-1b — both unread, no referral.
+ *  - +441111111111 (unknown): message-1, message-1b — both unread, no referral.
  *  - +442222222222 (active session): message-2 — unread, referral-2.
  *  - +443333333333 (closed session): message-3 (referral-3) and message-5
  *    (referral-5) — a phone reused across a repeat referral, both unread.
@@ -250,42 +250,60 @@ beforeEach(() => {
   );
 });
 
-describe('SmsInboxLayout — Session messages tab', () => {
-  it('groups by phone, shows the most recent household name and badges the tab with only administrator-actionable unread', async () => {
-    renderApp('/sms');
+describe('SmsInboxLayout — Normal messages tab', () => {
+  it('shows only active-session messages and orders all four inbox tabs', async () => {
+    renderApp('/sms/normal');
 
-    expect(await screen.findByRole('heading', { name: 'Session messages' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Normal messages' })).toBeInTheDocument();
     expect(
       await screen.findByRole('heading', { name: 'Messages for active sessions' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'Messages for closed sessions' }),
-    ).toBeInTheDocument();
 
     expect(await screen.findByText('Ada Rowe')).toBeInTheDocument();
-    // referral-3 and referral-5 share a phone number and thread together —
-    // only the most recent (referral-5, "Dee Rowe") names the group.
-    expect(await screen.findByText('Dee Rowe')).toBeInTheDocument();
-    expect(screen.queryByText('Bea Rowe')).not.toBeInTheDocument();
-    expect(await screen.findByText('Cass Rowe')).toBeInTheDocument();
-    expect(await screen.findByText('Eve Rowe')).toBeInTheDocument();
+    expect(screen.queryByText('Dee Rowe')).not.toBeInTheDocument();
+    expect(screen.getByText('Unread')).toBeInTheDocument();
 
-    // Only the closed-session replies (referral-3 and referral-5, both on
-    // the same thread) need administrator attention; the active-session one
-    // stays the team leader's and is excluded from the badge.
-    const sessionTab = screen.getByRole('link', { name: 'Session messages (2 unread)' });
-    expect(within(sessionTab).getByText('2')).toBeInTheDocument();
+    const tabs = within(screen.getByRole('navigation', { name: 'SMS Messages navigation' }))
+      .getAllByRole('link')
+      .map((link) => link.textContent.replace(/\s+/g, ' ').trim());
+    expect(tabs).toEqual([
+      'Referrer messages1',
+      'Closed session messages2',
+      'Unknown messages2',
+      'Normal messages1',
+    ]);
+    expect(screen.getByRole('link', { name: 'Normal messages (1 unread)' })).toHaveAttribute(
+      'href',
+      '/sms/normal',
+    );
   });
 
   it('shows the unread count in words, not colour alone', async () => {
-    renderApp('/sms');
+    renderApp('/sms/normal');
 
     const summary = await screen.findByText('Ada Rowe');
     expect(summary.closest('summary')).toHaveTextContent('1 unread');
   });
 
+  it('puts an unread closed-session thread before read threads and marks it visibly', async () => {
+    renderApp('/sms/closed');
+
+    const unreadName = await screen.findByText('Dee Rowe');
+    const list = unreadName.closest('ul');
+    if (list === null) throw new Error('Expected the closed-session message list');
+    const threads = within(list).getAllByRole('listitem');
+    const firstThread = threads[0];
+    const secondThread = threads[1];
+    if (firstThread === undefined || secondThread === undefined)
+      throw new Error('Expected an unread thread followed by a read thread');
+
+    expect(firstThread).toHaveTextContent('Dee Rowe');
+    expect(within(firstThread).getByText('Unread')).toBeInTheDocument();
+    expect(within(secondThread).queryByText('Unread')).toBeNull();
+  });
+
   it('shows an informational note, no unread flag and no mark-read control for a thread with only a failed reminder', async () => {
-    renderApp('/sms');
+    renderApp('/sms/closed');
     const user = userEvent.setup();
 
     const eveSummary = (await screen.findByText('Eve Rowe')).closest('summary');
@@ -313,7 +331,7 @@ describe('SmsInboxLayout — Session messages tab', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderApp('/sms');
+    renderApp('/sms/normal');
     const user = userEvent.setup();
 
     const active = (
@@ -335,7 +353,7 @@ describe('SmsInboxLayout — Session messages tab', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderApp('/sms');
+    renderApp('/sms/closed');
     const user = userEvent.setup();
 
     await user.click(await screen.findByText('Dee Rowe'));
@@ -357,7 +375,7 @@ describe('SmsInboxLayout — Session messages tab', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderApp('/sms');
+    renderApp('/sms/closed');
     const user = userEvent.setup();
 
     await user.click(await screen.findByText('Dee Rowe'));
@@ -377,7 +395,7 @@ describe('SmsInboxLayout — Session messages tab', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderApp('/sms');
+    renderApp('/sms/closed');
     const user = userEvent.setup();
 
     await user.click(await screen.findByText('Cass Rowe'));
@@ -386,19 +404,19 @@ describe('SmsInboxLayout — Session messages tab', () => {
   });
 });
 
-describe('SmsInboxLayout — Loose messages tab', () => {
-  it('threads a phone with several loose replies, badged on its own tab', async () => {
-    renderApp('/sms/unmatched');
+describe('SmsInboxLayout — Unknown messages tab', () => {
+  it('threads a phone with several unknown replies, badged on its own tab', async () => {
+    renderApp('/sms/unknown');
 
-    expect(await screen.findByRole('heading', { name: 'Loose messages' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Unknown messages' })).toBeInTheDocument();
     expect(await screen.findByText('Phone: +441111111111')).toBeInTheDocument();
     expect(screen.queryByText('I am running late.')).not.toBeInTheDocument();
     expect(screen.queryByText('Thank you.')).not.toBeInTheDocument();
     expect(screen.queryByText('I can collect both parcels.')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Loose messages (2 unread)' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Unknown messages (2 unread)' })).toBeInTheDocument();
   });
 
-  it('fires one mark-read call per unread message when a loose thread is opened', async () => {
+  it('fires one mark-read call per unread message when an unknown thread is opened', async () => {
     const readMessageIds: string[] = [];
     server.use(
       http.post(MESSAGE_READ, ({ params }) => {
@@ -406,7 +424,7 @@ describe('SmsInboxLayout — Loose messages tab', () => {
         return HttpResponse.json({ ...MESSAGES[0], readAt: '2026-08-22T09:10:00.000Z' });
       }),
     );
-    renderApp('/sms/unmatched');
+    renderApp('/sms/unknown');
     const user = userEvent.setup();
 
     await user.click(await screen.findByText('Phone: +441111111111'));
@@ -425,7 +443,7 @@ describe('SmsInboxLayout — Loose messages tab', () => {
         return HttpResponse.json({ count: 0, results: [] });
       }),
     );
-    const { router } = renderApp('/sms/unmatched');
+    const { router } = renderApp('/sms/unknown');
     const user = userEvent.setup();
 
     // The link only appears once the thread is opened — the same accordion
@@ -450,7 +468,7 @@ describe('SmsInboxLayout — Referrer messages tab', () => {
         HttpResponse.json({ ...MESSAGES[7], readAt: '2026-08-23T09:10:00.000Z' }),
       ),
     );
-    renderApp('/sms/referrers');
+    renderApp('/sms');
     const user = userEvent.setup();
 
     expect(await screen.findByRole('heading', { name: 'Referrer messages' })).toBeInTheDocument();
@@ -478,7 +496,7 @@ describe('SmsInboxLayout — Referrer messages tab', () => {
         return HttpResponse.json({ ...MESSAGES[7], readAt: '2026-08-23T09:10:00.000Z' });
       }),
     );
-    renderApp('/sms/referrers');
+    renderApp('/sms');
     const user = userEvent.setup();
 
     await user.click(await screen.findByText('Referrer: +446666666666'));

@@ -10,7 +10,7 @@ import { renderApp } from '../../../test/render-app';
  * Regression test for a bug found in review: `useMarkSmsInboxMessageRead`
  * invalidated the inbox's own query but not the dashboard's
  * `smsAttentionSummary` — so clearing a flagged message on `/sms` left the
- * dashboard's "unread SMS messages" alert reading a stale, too-high count
+ * dashboard's unknown-message alert reading a stale, too-high count
  * until something else happened to invalidate it.
  *
  * Built with the app's real `staleTime` rather than `renderApp`'s default of
@@ -69,12 +69,19 @@ beforeEach(() => {
 });
 
 describe('marking an inbox message read', () => {
-  it("refreshes the dashboard's unread-SMS count, not just the inbox", async () => {
-    let unreadTotal = 1;
+  it("refreshes the dashboard's unknown-message count, not just the inbox", async () => {
+    let unmatchedUnread = 1;
     server.use(
-      http.get(ATTENTION, () => HttpResponse.json({ unreadTotal })),
+      http.get(ATTENTION, () =>
+        HttpResponse.json({
+          activeSessionUnread: 0,
+          closedSessionUnread: 0,
+          unmatchedUnread,
+          referrerUnread: 0,
+        }),
+      ),
       http.post(READ, () => {
-        unreadTotal = 0;
+        unmatchedUnread = 0;
         return HttpResponse.json({ ...MESSAGE, readAt: '2026-08-22T09:05:00.000Z' });
       }),
     );
@@ -82,9 +89,9 @@ describe('marking an inbox message read', () => {
     const { router } = renderApp('/', cachingClient());
     const user = userEvent.setup();
 
-    expect(await screen.findByText('1 unread SMS messages')).toBeInTheDocument();
+    expect(await screen.findByText('1 unread messages from unknown numbers')).toBeInTheDocument();
 
-    await router.navigate('/sms/unmatched');
+    await router.navigate('/sms/unknown');
     // Opening the thread is what marks it read now — there is no separate
     // button — the same way a team lead's own thread view already works.
     await user.click(await screen.findByText('Phone: +441234567890'));
@@ -98,7 +105,7 @@ describe('marking an inbox message read', () => {
      * for the fresh answer rather than assert synchronously.
      */
     await waitFor(() => {
-      expect(screen.queryByText('1 unread SMS messages')).toBeNull();
+      expect(screen.queryByText('1 unread messages from unknown numbers')).toBeNull();
     });
   });
 });

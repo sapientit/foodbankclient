@@ -19,9 +19,10 @@ import { SessionReferralDetailsScreen } from './features/pick-lists/components/s
 import {
   RunSessionMessagesScreen,
   SmsInboxLayout,
-  SmsLooseMessagesScreen,
+  SmsClosedMessagesScreen,
+  SmsNormalMessagesScreen,
   SmsReferrerMessagesScreen,
-  SmsSessionMessagesScreen,
+  SmsUnknownMessagesScreen,
 } from './features/pick-lists/components/sms-panel';
 import { PreferenceRuleHealthScreen } from './features/pick-lists/components/preference-rule-health-screen';
 import { ReferralDetailScreen } from './features/referrals/components/referral-detail-screen';
@@ -175,7 +176,7 @@ export const routes: RouteObject[] = [
         ],
       },
       /*
-       * The administrator inbox's two tabs share `SmsInboxLayout` — the same
+       * The administrator inbox's four tabs share `SmsInboxLayout` — the same
        * shape as `run-sessions/:sessionId` above: a shared tab strip as a
        * layout route, real routes rather than a same-page filter.
        */
@@ -183,9 +184,10 @@ export const routes: RouteObject[] = [
         path: 'sms',
         element: <SmsInboxLayout />,
         children: [
-          { index: true, element: <SmsSessionMessagesScreen /> },
-          { path: 'unmatched', element: <SmsLooseMessagesScreen /> },
-          { path: 'referrers', element: <SmsReferrerMessagesScreen /> },
+          { index: true, element: <SmsReferrerMessagesScreen /> },
+          { path: 'closed', element: <SmsClosedMessagesScreen /> },
+          { path: 'unknown', element: <SmsUnknownMessagesScreen /> },
+          { path: 'normal', element: <SmsNormalMessagesScreen /> },
         ],
       },
       { path: 'run-sessions/:sessionId/clients/:parcelId', element: <RunSessionClientScreen /> },

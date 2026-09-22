@@ -42,7 +42,14 @@ async function renderShell(role: 'admin' | 'team_lead', path = '/sessions') {
     http.get('/api/v1/stock/items/low-stock-summary', () =>
       HttpResponse.json({ lowStockCount: 0 }),
     ),
-    http.get('/api/v1/sms-messages/attention-summary', () => HttpResponse.json({ unreadTotal: 0 })),
+    http.get('/api/v1/sms-messages/attention-summary', () =>
+      HttpResponse.json({
+        activeSessionUnread: 0,
+        closedSessionUnread: 0,
+        unmatchedUnread: 0,
+        referrerUnread: 0,
+      }),
+    ),
     http.get('/api/v1/platform-stats/usage/alert-summary', () =>
       HttpResponse.json({ windowDays: 14, daysWithExceededThreshold: 0 }),
     ),

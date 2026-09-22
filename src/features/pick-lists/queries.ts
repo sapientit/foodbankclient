@@ -315,6 +315,11 @@ export function useSmsAttentionSummary(enabled: boolean) {
     enabled,
     queryFn: (): Promise<SmsAttentionSummary> =>
       unwrap(api.GET('/api/v1/sms-messages/attention-summary')),
+    // Dashboard alerts need to notice a new reply without spending a hall
+    // wifi connection on constant traffic. TanStack Query pauses this interval
+    // in a background tab; it resumes only while the dashboard is foreground.
+    refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: false,
   });
 }
 

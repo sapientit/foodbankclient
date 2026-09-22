@@ -3175,9 +3175,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Count of unread replies an administrator needs to deal with
-         * @description **Admin only.** No message body, household name, phone number or referral data — a count and nothing else.
-         *     Counts only unread household replies that are unmatched, or that belong to a session which has since been confirmed or cancelled. A reply on a session still planned or under way is excluded — that one is the team leader running it who reads it, not an administrator. Failures are always excluded; they arrive already read.
+         * Four counts of unread replies, split by who they are for
+         * @description **Admin only.** No message body, household name, phone number or referral data — four counts and nothing else.
+         *     Splits unread `household_reply` and `referrer_reply` messages within retention: `activeSessionUnread` is a household reply on a session that is not yet closed — the team leader running it reads these, not an administrator, and the count is shown only so an administrator can see whether the team leader is keeping up. `closedSessionUnread`, `unmatchedUnread` and `referrerUnread` are what an administrator is actually told needs doing: a household reply whose session has closed (confirmed or cancelled, or its own date has simply passed — see `SmsMessageLocation`), a loose household reply with no session behind it at all, and every unread referrer message (`referrer_reply`) — kept apart from `unmatchedUnread` even though a referrer message also has no session, because it is never a household's own reply and is never treated as one. Failures, reminders and staff replies are always excluded; none of those three is ever unread.
          */
         get: {
             parameters: {
@@ -3188,7 +3188,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description The count */
+                /** @description The four counts */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -3307,7 +3307,7 @@ export interface paths {
         /**
          * Mark one unread household reply read
          * @description Admin only. Marks one unread household reply read — a loose reply or one from a session that has since closed, not only an unmatched one as before.
-         *     Refuses a reply still on a `planned` or `in_progress` session: that one remains the team leader's to read until the session closes, and this endpoint is not a side door round that. Idempotent, and scoped to exactly the message named — clearing a closed-session or unmatched item never marks another message and never touches a session's own unread count.
+         *     Refuses a reply still on a session that is not yet closed (confirmed or cancelled, or its own date simply passed — see `SmsMessageLocation`): that one remains the team leader's to read until the session closes, and this endpoint is not a side door round that. Idempotent, and scoped to exactly the message named — clearing a closed-session or unmatched item never marks another message and never touches a session's own unread count.
          */
         post: {
             parameters: {
@@ -3353,10 +3353,13 @@ export interface paths {
          *     the second unauthenticated write in the system — the provider posts
          *     here, authenticated with HTTP basic credentials and rate limited.
          *
-         *     A reply is matched by phone number to the referral for the **soonest
-         *     session still to come**; a session already past is not a candidate, so a
-         *     reply the morning after becomes a loose reply. Unmatched replies are
-         *     kept, never dropped.
+         *     A reply is matched by phone number, first, to the referral for the
+         *     **soonest session still to come**; a session already past is not a
+         *     candidate for this first match. Failing that, it falls back to the
+         *     single most recent session — any age, any status — that phone number
+         *     was ever referred against, landing as a closed-session reply. Only a
+         *     phone number genuinely never referred at all becomes a loose reply.
+         *     Replies are kept, never dropped.
          *
          *     **Idempotent by `messageid`.** The provider retries anything it did not
          *     get a `200` for, and the second delivery must not put the same text on a
@@ -6771,8 +6774,14 @@ export interface components {
             phone?: string;
         };
         SmsAttentionSummary: {
-            /** @description Unread household replies that are unmatched or belong to a confirmed or cancelled session, plus unread referrer replies (`referrer_reply`), which have no session to be excluded by. A household reply on a session still planned or under way is excluded — that one is the team leader's to read. */
-            unreadTotal: number;
+            /** @description Unread household replies on a session that is not yet closed — the team leader's to read, not an administrator's. Shown so an administrator can see whether the team leader is keeping up; it does not count towards what an administrator is told needs doing. */
+            activeSessionUnread: number;
+            /** @description Unread household replies whose session has closed: confirmed or cancelled, or its own calendar date has simply passed, whichever came first — see `SmsMessageLocation`. Nobody is running that session's screen any more, so this is an administrator's job. */
+            closedSessionUnread: number;
+            /** @description Unread loose household replies — no session behind them at all, and not a referrer message (see `referrerUnread`). */
+            unmatchedUnread: number;
+            /** @description Every unread referrer reply (`referrer_reply`). Also has no session behind it, but kept apart from `unmatchedUnread` — a referrer message is never a household's own reply and is never treated as one. */
+            referrerUnread: number;
         };
         /** @description The session an `SmsInboxMessage` was snapshotted against, when it has one. */
         SmsInboxSession: {
@@ -6800,12 +6809,18 @@ export interface components {
          *     household later moved to another session does not retroactively move
          *     an old message with it.
          *
-         *     - `unmatched` — a loose reply, no session behind it.
-         *     - `active_session` — its session is still planned or under way; this
-         *       is the team leader's to read.
-         *     - `closed_session` — its session has since been confirmed or
-         *       cancelled; nobody else was coming back to it, which is why this one
-         *       counts towards `SmsAttentionSummary` when unread.
+         *     - `unmatched` — a loose reply, or any referrer message — neither has
+         *       a session behind it. Unread, the two count separately in
+         *       `SmsAttentionSummary`: a loose reply towards `unmatchedUnread`, a
+         *       referrer message towards `referrerUnread`.
+         *     - `active_session` — its session is not yet closed; this is the team
+         *       leader's to read.
+         *     - `closed_session` — its session has closed: confirmed or cancelled,
+         *       or its own calendar date has simply passed, whichever came first.
+         *       Nobody else was coming back to it either way, which is why this one
+         *       counts towards `SmsAttentionSummary` (`closedSessionUnread`) when
+         *       unread — including a session nobody ever formally confirmed, once
+         *       its date is history.
          *
          *     `session` is null when `location` is `unmatched`, which is also true
          *     of every `kind: 'referrer_reply'` row — it is never snapshotted

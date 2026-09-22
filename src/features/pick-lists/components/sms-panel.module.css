@@ -42,7 +42,7 @@ textarea {
   min-block-size: 5rem;
 }
 
-/* The administrator inbox's three tabs. Red, the referral category's colour
+/* The administrator inbox's four tabs. Red, the referral category's colour
    — `screenDetails.md`, "referral equivalents are red" — and otherwise
    the same borderless, underlined-on-selection shape
    `run-session-tabs.module.css` uses for the five session tabs. */
@@ -111,6 +111,25 @@ textarea {
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   background: var(--category-tint, #f1faf5);
+}
+
+/* The word, filled marker and stronger edge make unread threads clear without
+   relying on red alone. The client places these cards before read threads. */
+.unreadMessageCard {
+  border-color: #b3261e;
+  border-inline-start-width: 0.35rem;
+}
+
+.unreadFlag {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: #b3261e;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
 }
 
 /* Everything that acts on an opened thread — phone/session context and the

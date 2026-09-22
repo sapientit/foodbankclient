@@ -107,11 +107,21 @@ export function HomeScreen() {
   const pageCount = Math.max(1, Math.ceil(shown.length / 10));
   const displayed = shown.slice((page - 1) * 10, page * 10);
   const lowStockCount = lowStock.data?.lowStockCount ?? 0;
-  const unreadTotal = sms.data?.unreadTotal ?? 0;
+  const activeSessionUnread = sms.data?.activeSessionUnread ?? 0;
+  const closedSessionUnread = sms.data?.closedSessionUnread ?? 0;
+  const unmatchedUnread = sms.data?.unmatchedUnread ?? 0;
+  const referrerUnread = sms.data?.referrerUnread ?? 0;
   const expiringVolunteerCode = latestVolunteerCode.data?.latest;
   const platformConcernDays = platformUsage.data?.daysWithExceededThreshold ?? 0;
   const nothingNeedsAttention =
-    lowStockCount + referralsWaiting + oldSessions.length + unreadTotal === 0 &&
+    lowStockCount +
+      referralsWaiting +
+      oldSessions.length +
+      activeSessionUnread +
+      closedSessionUnread +
+      unmatchedUnread +
+      referrerUnread ===
+      0 &&
     expiringVolunteerCode?.expiringSoon !== true &&
     !latestVolunteerCode.isError &&
     platformConcernDays === 0 &&
@@ -401,11 +411,32 @@ export function HomeScreen() {
                 to={`/sessions?from=${addCalendarDays(today, -DAYS_BACK)}&to=${addCalendarDays(thisWeek.from, -1)}`}
               />
             )}
-            {isAdmin && unreadTotal > 0 && (
+            {isAdmin && referrerUnread > 0 && (
               <Alert
                 category="referrals"
-                headline={`${String(unreadTotal)} unread SMS messages`}
+                headline={`${String(referrerUnread)} unread referrer messages`}
                 to="/sms"
+              />
+            )}
+            {isAdmin && closedSessionUnread > 0 && (
+              <Alert
+                category="referrals"
+                headline={`${String(closedSessionUnread)} unread messages from closed sessions`}
+                to="/sms/closed"
+              />
+            )}
+            {isAdmin && unmatchedUnread > 0 && (
+              <Alert
+                category="referrals"
+                headline={`${String(unmatchedUnread)} unread messages from unknown numbers`}
+                to="/sms/unknown"
+              />
+            )}
+            {isAdmin && activeSessionUnread > 0 && (
+              <Alert
+                category="referrals"
+                headline={`${String(activeSessionUnread)} unread messages from active sessions`}
+                to="/sms/normal"
               />
             )}
             {isAdmin && platformConcernDays > 0 && (

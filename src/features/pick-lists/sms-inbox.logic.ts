@@ -41,9 +41,10 @@ function groupKey(message: SmsInboxMessage): string {
 
 /**
  * Groups whatever it is given by `phone` (or by `referralId` for a
- * no-number-on-file household), newest-message-first between groups and
- * oldest-first within one — the reverse of the order `GET /sms-messages`
- * itself arrives in, so this is a re-sort for display, not a pass-through.
+ * no-number-on-file household), unread-reply-first and then
+ * newest-message-first between groups, and oldest-first within one. The
+ * inbox is deliberately small, so this client-side ordering is clearer than
+ * adding a server sort just for the display.
  */
 export function groupByPhone(messages: readonly SmsInboxMessage[]): SmsPhoneGroup[] {
   const byKey = new Map<string, SmsInboxMessage[]>();
@@ -90,9 +91,12 @@ export function groupByPhone(messages: readonly SmsInboxMessage[]): SmsPhoneGrou
     };
   });
 
-  // Newest-message-first between groups. Each group's most recent message is
-  // the last one in its (oldest-first) `messages` array.
+  // Unread threads first, then newest-message-first. Each group's most recent
+  // message is the last one in its (oldest-first) `messages` array.
   groups.sort((a, b) => {
+    const unreadDifference =
+      Number(b.unreadReplyIds.length > 0) - Number(a.unreadReplyIds.length > 0);
+    if (unreadDifference !== 0) return unreadDifference;
     const aLast = a.messages.at(-1);
     const bLast = b.messages.at(-1);
     const aTime = aLast === undefined ? 0 : Date.parse(aLast.occurredAt);

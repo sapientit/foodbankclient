@@ -1,8 +1,8 @@
-import { QueryClient } from '@tanstack/react-query';
+import { focusManager, QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, delay, http } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 import { platformStatsKeys } from '../platform-stats/keys';
@@ -52,11 +52,23 @@ beforeEach(() => {
     http.get('/api/v1/stock/take/volunteer-codes/latest', () =>
       HttpResponse.json({ latest: { expiresAt: 1_788_888_888, expiringSoon: false } }),
     ),
-    http.get('/api/v1/sms-messages/attention-summary', () => HttpResponse.json({ unreadTotal: 3 })),
+    http.get('/api/v1/sms-messages/attention-summary', () =>
+      HttpResponse.json({
+        activeSessionUnread: 4,
+        closedSessionUnread: 3,
+        unmatchedUnread: 2,
+        referrerUnread: 1,
+      }),
+    ),
     http.get('/api/v1/platform-stats/usage/alert-summary', () =>
       HttpResponse.json({ windowDays: 14, daysWithExceededThreshold: 0 }),
     ),
   );
+});
+
+afterEach(() => {
+  focusManager.setFocused(undefined);
+  vi.useRealTimers();
 });
 
 describe('the administrator dashboard', () => {
@@ -67,12 +79,78 @@ describe('the administrator dashboard', () => {
     expect(screen.getByRole('heading', { name: 'Referrals' })).toBeInTheDocument();
     expect(await screen.findByText('2 stock items with low stock')).toBeInTheDocument();
     expect(await screen.findByText('2 referrals waiting for review')).toBeInTheDocument();
-    expect(await screen.findByText('3 unread SMS messages')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: '1 unread referrer messages' })).toHaveAttribute(
+      'href',
+      '/sms',
+    );
+    expect(
+      screen.getByRole('link', { name: '3 unread messages from closed sessions' }),
+    ).toHaveAttribute('href', '/sms/closed');
+    expect(
+      screen.getByRole('link', { name: '2 unread messages from unknown numbers' }),
+    ).toHaveAttribute('href', '/sms/unknown');
+    expect(
+      screen.getByRole('link', { name: '4 unread messages from active sessions' }),
+    ).toHaveAttribute('href', '/sms/normal');
     expect(screen.queryByText('Go to stock to reorder')).toBeNull();
     expect(screen.queryByText('Review and process referrals')).toBeNull();
 
     const checkReferrals = screen.getByRole('link', { name: 'Check referrals' });
     expect(checkReferrals.querySelectorAll('svg')).toHaveLength(0);
+  });
+
+  it('refreshes the SMS alerts every five minutes while the dashboard is foreground', async () => {
+    vi.useFakeTimers();
+    focusManager.setFocused(true);
+    let requests = 0;
+    server.use(
+      http.get('/api/v1/sms-messages/attention-summary', () => {
+        requests += 1;
+        return HttpResponse.json({
+          activeSessionUnread: 0,
+          closedSessionUnread: 0,
+          unmatchedUnread: 0,
+          referrerUnread: 0,
+        });
+      }),
+    );
+
+    renderApp('/');
+    await vi.waitFor(() => {
+      expect(requests).toBe(1);
+    });
+
+    await vi.advanceTimersByTimeAsync(4 * 60_000);
+    expect(requests).toBe(1);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.waitFor(() => {
+      expect(requests).toBe(2);
+    });
+  });
+
+  it('does not poll SMS alerts while the dashboard tab is in the background', async () => {
+    vi.useFakeTimers();
+    focusManager.setFocused(false);
+    let requests = 0;
+    server.use(
+      http.get('/api/v1/sms-messages/attention-summary', () => {
+        requests += 1;
+        return HttpResponse.json({
+          activeSessionUnread: 0,
+          closedSessionUnread: 0,
+          unmatchedUnread: 0,
+          referrerUnread: 0,
+        });
+      }),
+    );
+
+    renderApp('/');
+    await vi.waitFor(() => {
+      expect(requests).toBe(1);
+    });
+
+    await vi.advanceTimersByTimeAsync(6 * 60_000);
+    expect(requests).toBe(1);
   });
 
   it('alerts an administrator when the latest volunteer code has under five days left', async () => {
@@ -82,7 +160,12 @@ describe('the administrator dashboard', () => {
         HttpResponse.json({ lowStockCount: 0 }),
       ),
       http.get('/api/v1/sms-messages/attention-summary', () =>
-        HttpResponse.json({ unreadTotal: 0 }),
+        HttpResponse.json({
+          activeSessionUnread: 0,
+          closedSessionUnread: 0,
+          unmatchedUnread: 0,
+          referrerUnread: 0,
+        }),
       ),
       http.get('/api/v1/stock/take/volunteer-codes/latest', () =>
         HttpResponse.json({ latest: { expiresAt: 1_788_888_888, expiringSoon: true } }),
@@ -114,7 +197,12 @@ describe('the administrator dashboard', () => {
         HttpResponse.json({ lowStockCount: 0 }),
       ),
       http.get('/api/v1/sms-messages/attention-summary', () =>
-        HttpResponse.json({ unreadTotal: 0 }),
+        HttpResponse.json({
+          activeSessionUnread: 0,
+          closedSessionUnread: 0,
+          unmatchedUnread: 0,
+          referrerUnread: 0,
+        }),
       ),
       http.get('/api/v1/stock/take/volunteer-codes/latest', () =>
         HttpResponse.json(
@@ -157,7 +245,12 @@ describe('the administrator dashboard', () => {
         HttpResponse.json({ lowStockCount: 0 }),
       ),
       http.get('/api/v1/sms-messages/attention-summary', () =>
-        HttpResponse.json({ unreadTotal: 0 }),
+        HttpResponse.json({
+          activeSessionUnread: 0,
+          closedSessionUnread: 0,
+          unmatchedUnread: 0,
+          referrerUnread: 0,
+        }),
       ),
       http.get('/api/v1/platform-stats/usage/alert-summary', () =>
         HttpResponse.json(
@@ -190,7 +283,12 @@ describe('the administrator dashboard', () => {
         HttpResponse.json({ latest: null }),
       ),
       http.get('/api/v1/sms-messages/attention-summary', () =>
-        HttpResponse.json({ unreadTotal: 0 }),
+        HttpResponse.json({
+          activeSessionUnread: 0,
+          closedSessionUnread: 0,
+          unmatchedUnread: 0,
+          referrerUnread: 0,
+        }),
       ),
       http.get('/api/v1/platform-stats/usage/alert-summary', async () => {
         if (delayRefresh) await delay(300);
@@ -263,7 +361,12 @@ describe('the administrator dashboard', () => {
     server.use(
       http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
       http.get('/api/v1/sms-messages/attention-summary', () =>
-        HttpResponse.json({ unreadTotal: 0 }),
+        HttpResponse.json({
+          activeSessionUnread: 0,
+          closedSessionUnread: 0,
+          unmatchedUnread: 0,
+          referrerUnread: 0,
+        }),
       ),
       http.get('/api/v1/stock/items/low-stock-summary', async () => {
         await delay(300);

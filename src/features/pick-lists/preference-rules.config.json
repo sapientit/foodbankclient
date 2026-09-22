@@ -5,12 +5,93 @@
         "key": "Pasta/Rice",
         "hasAnswer": "Pasta"
       },
-      "cases": [],
+      "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 8
+          },
+          "set": [
+            {
+              "stock": "Pasta",
+              "quantity": 7
+            },
+            {
+              "stock": "Pasta sauce",
+              "quantity": 7
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 5
+          },
+          "set": [
+            {
+              "stock": "Pasta",
+              "quantity": 6
+            },
+            {
+              "stock": "Pasta sauce",
+              "quantity": 6
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "Pasta",
+              "quantity": 5
+            },
+            {
+              "stock": "Pasta sauce",
+              "quantity": 5
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Pasta",
+              "quantity": 4
+            },
+            {
+              "stock": "Pasta sauce",
+              "quantity": 4
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 2
+          },
+          "set": [
+            {
+              "stock": "Pasta",
+              "quantity": 2
+            },
+            {
+              "stock": "Pasta sauce",
+              "quantity": 3
+            }
+          ]
+        }
+      ],
       "otherwise": {
         "set": [
           {
             "stock": "Pasta",
-            "quantity": 2
+            "quantity": 1
           },
           {
             "stock": "Pasta sauce",
@@ -24,12 +105,93 @@
         "key": "Pasta/Rice",
         "hasAnswer": "Rice"
       },
-      "cases": [],
+      "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 8
+          },
+          "set": [
+            {
+              "stock": "Rice",
+              "quantity": 7
+            },
+            {
+              "stock": "Curry sauce",
+              "quantity": 7
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 5
+          },
+          "set": [
+            {
+              "stock": "Rice",
+              "quantity": 6
+            },
+            {
+              "stock": "Curry sauce",
+              "quantity": 6
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "Rice",
+              "quantity": 5
+            },
+            {
+              "stock": "Curry sauce",
+              "quantity": 5
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Rice",
+              "quantity": 4
+            },
+            {
+              "stock": "Curry sauce",
+              "quantity": 4
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 2
+          },
+          "set": [
+            {
+              "stock": "Rice",
+              "quantity": 2
+            },
+            {
+              "stock": "Curry sauce",
+              "quantity": 3
+            }
+          ]
+        }
+      ],
       "otherwise": {
         "set": [
           {
             "stock": "Rice",
-            "quantity": 2
+            "quantity": 1
           },
           {
             "stock": "Curry sauce",
@@ -43,7 +205,128 @@
         "key": "Pasta/Rice",
         "hasAnswer": "Both"
       },
-      "cases": [],
+      "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 8
+          },
+          "set": [
+            {
+              "stock": "Pasta",
+              "quantity": 4
+            },
+            {
+              "stock": "Pasta sauce",
+              "quantity": 5
+            },
+            {
+              "stock": "Rice",
+              "quantity": 3
+            },
+            {
+              "stock": "Curry sauce",
+              "quantity": 4
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 5
+          },
+          "set": [
+            {
+              "stock": "Pasta",
+              "quantity": 3
+            },
+            {
+              "stock": "Pasta sauce",
+              "quantity": 4
+            },
+            {
+              "stock": "Rice",
+              "quantity": 3
+            },
+            {
+              "stock": "Curry sauce",
+              "quantity": 3
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "Pasta",
+              "quantity": 3
+            },
+            {
+              "stock": "Pasta sauce",
+              "quantity": 3
+            },
+            {
+              "stock": "Rice",
+              "quantity": 2
+            },
+            {
+              "stock": "Curry sauce",
+              "quantity": 2
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Pasta",
+              "quantity": 2
+            },
+            {
+              "stock": "Pasta sauce",
+              "quantity": 2
+            },
+            {
+              "stock": "Rice",
+              "quantity": 2
+            },
+            {
+              "stock": "Curry sauce",
+              "quantity": 2
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 2
+          },
+          "set": [
+            {
+              "stock": "Pasta",
+              "quantity": 2
+            },
+            {
+              "stock": "Pasta sauce",
+              "quantity": 2
+            },
+            {
+              "stock": "Rice",
+              "quantity": 1
+            },
+            {
+              "stock": "Curry sauce",
+              "quantity": 1
+            }
+          ]
+        }
+      ],
       "otherwise": {
         "set": [
           {
@@ -108,14 +391,75 @@
     },
     {
       "when": {
-        "key": "Pulses"
+        "key": "PulsesYes"
       },
-      "cases": [],
+      "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 8
+          },
+          "set": [
+            {
+              "stock": "Pulses",
+              "quantity": 5
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 5
+          },
+          "set": [
+            {
+              "stock": "Pulses",
+              "quantity": 4
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 4
+          },
+          "set": [
+            {
+              "stock": "Pulses",
+              "quantity": 3
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 3
+          },
+          "set": [
+            {
+              "stock": "Pulses",
+              "quantity": 2
+            }
+          ]
+        },
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 2
+          },
+          "set": [
+            {
+              "stock": "Pulses",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
       "otherwise": {
         "set": [
           {
             "stock": "Pulses",
-            "quantity": -1
+            "quantity": 1
           }
         ]
       }
@@ -300,7 +644,20 @@
         "key": "Porridge",
         "hasAnswer": "Yes"
       },
-      "cases": [],
+      "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 5
+          },
+          "set": [
+            {
+              "stock": "Porridge",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
       "otherwise": {
         "set": [
           {
@@ -316,6 +673,18 @@
         "hasAnswer": "Yes"
       },
       "cases": [
+        {
+          "familySize": {
+            "people": "total",
+            "atLeast": 8
+          },
+          "set": [
+            {
+              "stock": "Egg boxes",
+              "quantity": 3
+            }
+          ]
+        },
         {
           "familySize": {
             "people": "total",

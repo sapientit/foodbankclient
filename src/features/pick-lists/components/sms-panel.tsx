@@ -4,6 +4,7 @@ import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
+import { classNames } from '../../../lib/class-names';
 import { isNotFound } from '../../../lib/errors';
 import { formatLondonDateTime, formatSessionDate } from '../../../lib/london-time';
 import { useReferral, useReferralSearchMemory } from '../../referrals/queries';
@@ -306,14 +307,11 @@ function SmsConversation({
 }
 
 /**
- * The administrator inbox, as separate tabs rather than one long page — settled by
- * Pete on 2026-08-30 after the combined screen made an unread reply from a
- * session page down past a long list of loose ones to reach. `Loose
- * messages` and `Session messages` borrow the API's own words for the split
- * (`SmsInboxMessage.location`: "a loose reply, no session behind it" versus
- * everything tied to a referral) rather than inventing new vocabulary. The
- * third tab is deliberately different: referrer replies can concern several
- * households and must remain administrator-only.
+ * The administrator inbox has separate routes for referrer, closed-session,
+ * unknown-number, and normal (active-session) messages. A referrer reply can
+ * concern several households and must remain administrator-only; a closed
+ * session needs administrator follow-up; normal messages stay with the team
+ * leader currently running that session.
  *
  * Modelled on `RunSessionLayout`/`RunSessionTabs`: real routes, not a
  * same-page filter, and each tab fetches `useSmsInbox()` again rather than
@@ -331,20 +329,16 @@ export function SmsInboxLayout() {
 }
 
 /**
- * Badged with each tab's own unread count, not the combined
- * `sms-messages/attention-summary` total — that total mixes loose and
- * closed-session replies together, and a team lead scanning for which tab to
- * open needs to know which one has something waiting. Deliberately excludes
- * an active session's unread replies from the `Session messages` badge, the
- * same way `attention-summary` does: those remain the team leader's to read,
- * so counting them here would tell an administrator they have something to
- * do that is not theirs.
+ * Each tab has its own unread badge, matching its own attention-summary
+ * field. The normal-message count remains visible to an administrator even
+ * though active-session replies are the team leader's to read.
  */
 function SmsInboxTabs() {
   const inbox = useSmsInbox();
   const messages = inbox.data?.messages ?? [];
-  const looseUnread = unreadCount(messages, 'unmatched');
-  const sessionUnread = unreadCount(messages, 'closed_session');
+  const unknownUnread = unreadCount(messages, 'unmatched');
+  const closedUnread = unreadCount(messages, 'closed_session');
+  const normalUnread = unreadCount(messages, 'active_session');
   const referrerUnread = messages.filter(
     (message) => message.kind === 'referrer_reply' && message.readAt === null,
   ).length;
@@ -355,47 +349,64 @@ function SmsInboxTabs() {
         <li>
           <NavLink
             aria-label={
-              sessionUnread > 0 ? `Session messages (${String(sessionUnread)} unread)` : undefined
-            }
-            end
-            to="/sms"
-          >
-            Session messages
-            {sessionUnread > 0 && (
-              <span aria-hidden="true" className={styles.badge}>
-                {sessionUnread}
-              </span>
-            )}
-          </NavLink>
-        </li>
-        <li>
-          <NavLink
-            aria-label={
-              looseUnread > 0 ? `Loose messages (${String(looseUnread)} unread)` : undefined
-            }
-            to="/sms/unmatched"
-          >
-            Loose messages
-            {looseUnread > 0 && (
-              <span aria-hidden="true" className={styles.badge}>
-                {looseUnread}
-              </span>
-            )}
-          </NavLink>
-        </li>
-        <li>
-          <NavLink
-            aria-label={
               referrerUnread > 0
                 ? `Referrer messages (${String(referrerUnread)} unread)`
                 : undefined
             }
-            to="/sms/referrers"
+            end
+            to="/sms"
           >
             Referrer messages
             {referrerUnread > 0 && (
               <span aria-hidden="true" className={styles.badge}>
                 {referrerUnread}
+              </span>
+            )}
+          </NavLink>
+        </li>
+        <li>
+          <NavLink
+            aria-label={
+              closedUnread > 0
+                ? `Closed session messages (${String(closedUnread)} unread)`
+                : undefined
+            }
+            to="/sms/closed"
+          >
+            Closed session messages
+            {closedUnread > 0 && (
+              <span aria-hidden="true" className={styles.badge}>
+                {closedUnread}
+              </span>
+            )}
+          </NavLink>
+        </li>
+        <li>
+          <NavLink
+            aria-label={
+              unknownUnread > 0 ? `Unknown messages (${String(unknownUnread)} unread)` : undefined
+            }
+            to="/sms/unknown"
+          >
+            Unknown messages
+            {unknownUnread > 0 && (
+              <span aria-hidden="true" className={styles.badge}>
+                {unknownUnread}
+              </span>
+            )}
+          </NavLink>
+        </li>
+        <li>
+          <NavLink
+            aria-label={
+              normalUnread > 0 ? `Normal messages (${String(normalUnread)} unread)` : undefined
+            }
+            to="/sms/normal"
+          >
+            Normal messages
+            {normalUnread > 0 && (
+              <span aria-hidden="true" className={styles.badge}>
+                {normalUnread}
               </span>
             )}
           </NavLink>
@@ -417,54 +428,73 @@ function unreadCount(
   ).length;
 }
 
-export function SmsSessionMessagesScreen() {
+export function SmsNormalMessagesScreen() {
   const inbox = useSmsInbox();
   const active = groupByPhone(
     (inbox.data?.messages ?? []).filter((message) => message.location === 'active_session'),
   );
-  const closed = groupByPhone(
-    (inbox.data?.messages ?? []).filter((message) => message.location === 'closed_session'),
-  );
   return (
     <div className={styles.page}>
       <div className={styles.headerCard}>
-        <PageHeader title="Session messages" />
+        <PageHeader title="Normal messages" />
       </div>
       <p>
-        Every message tied to a referral, from a session still to run or one already closed. Closing
-        a session does not detach its messages from the referral — they stay marked with that
-        session and show the household's name for as long as they are retained.
+        Messages tied to a session still planned or under way. They remain the team leader's to read
+        and are not marked read here.
       </p>
       {inbox.isPending && <Spinner label="Loading SMS messages…" />}
       {inbox.isError && <ErrorNotice error={inbox.error} onRetry={() => void inbox.refetch()} />}
       {inbox.data !== undefined &&
-        (active.length === 0 && closed.length === 0 ? (
+        (active.length === 0 ? (
           <EmptyState
-            headline="No session messages"
-            sentence="Nothing tied to a referral in the last thirty days."
+            headline="No normal messages"
+            sentence="Nothing from a session still planned or under way in the last thirty days."
           />
         ) : (
-          <>
-            <SmsInboxGroupSection
-              heading="Messages for active sessions"
-              groups={active}
-              // Active-session replies stay the team leader's to read; see
-              // `SmsInboxTabs`'s own doc comment for the same exclusion on the
-              // badge count.
-              markReadMode="none"
-            />
-            <SmsInboxGroupSection
-              heading="Messages for closed sessions"
-              groups={closed}
-              markReadMode="referral"
-            />
-          </>
+          <SmsInboxGroupSection
+            heading="Messages for active sessions"
+            groups={active}
+            markReadMode="none"
+          />
         ))}
     </div>
   );
 }
 
-export function SmsLooseMessagesScreen() {
+export function SmsClosedMessagesScreen() {
+  const inbox = useSmsInbox();
+  const groups = groupByPhone(
+    (inbox.data?.messages ?? []).filter((message) => message.location === 'closed_session'),
+  );
+  return (
+    <div className={styles.page}>
+      <div className={styles.headerCard}>
+        <PageHeader title="Closed session messages" />
+      </div>
+      <p>
+        Messages from sessions that have closed. Opening a conversation marks its unread replies
+        read.
+      </p>
+      {inbox.isPending && <Spinner label="Loading SMS messages…" />}
+      {inbox.isError && <ErrorNotice error={inbox.error} onRetry={() => void inbox.refetch()} />}
+      {inbox.data !== undefined &&
+        (groups.length === 0 ? (
+          <EmptyState
+            headline="No closed session messages"
+            sentence="Nothing from a closed session in the last thirty days."
+          />
+        ) : (
+          <ul className={styles.messageList}>
+            {groups.map((group) => (
+              <SmsInboxThread key={group.key} group={group} markReadMode="referral" />
+            ))}
+          </ul>
+        ))}
+    </div>
+  );
+}
+
+export function SmsUnknownMessagesScreen() {
   const inbox = useSmsInbox();
   const groups = groupByPhone(
     (inbox.data?.messages ?? []).filter(
@@ -474,7 +504,7 @@ export function SmsLooseMessagesScreen() {
   return (
     <div className={styles.page}>
       <div className={styles.headerCard}>
-        <PageHeader title="Loose messages" />
+        <PageHeader title="Unknown messages" />
       </div>
       <p>
         A reply with no referral behind it at all — a wrong number, or somebody the food bank has
@@ -485,7 +515,7 @@ export function SmsLooseMessagesScreen() {
       {inbox.data !== undefined &&
         (groups.length === 0 ? (
           <EmptyState
-            headline="No loose messages"
+            headline="No unknown messages"
             sentence="Nothing without a referral behind it in the last thirty days."
           />
         ) : (
@@ -503,7 +533,7 @@ export function SmsLooseMessagesScreen() {
  * Referrer replies cannot belong to one household's SMS thread: a referrer may
  * be collecting for several households, and the server deliberately returns
  * all currently-open possibilities rather than guessing. This is therefore an
- * administrator-only inbox route, separate from loose messages even though
+ * administrator-only inbox route, separate from unknown messages even though
  * the underlying messages have no one session attached.
  */
 export function SmsReferrerMessagesScreen() {
@@ -577,14 +607,14 @@ function hasSession(
  *   thread view uses, looped once per `referralIds` entry because a phone
  *   reused across a repeat referral can carry unread replies against more
  *   than one.
- * - `'message'` — a loose or referrer thread with no single referral to mark
+ * - `'message'` — an unknown or referrer thread with no single referral to mark
  *   read, so `POST /sms-messages/{id}/read` is looped once per unread reply.
  * - `'none'` — an active session's thread. Expandable and readable, but never
  *   marks anything read: those replies remain the team leader's, the same
  *   exclusion `SmsInboxTabs`'s own badge count and `attention-summary` make.
  *
  * Collapsed, the summary line is the only thing shown — a household name or,
- * for a loose thread, the phone number, the message count, and the unread
+ * for an unknown thread, the phone number, the message count, and the unread
  * count in words as well as weight, the same way `SmsConversation`'s own
  * summary does. The thread and the footer render only once opened, matching
  * `SmsConversation` rather than the flat card this replaces, which showed
@@ -614,7 +644,7 @@ function SmsInboxThread({
   const isReferrerThread = group.messages.every((message) => message.kind === 'referrer_reply');
 
   return (
-    <li className={styles.messageCard}>
+    <li className={classNames(styles.messageCard, unreadCount > 0 && styles.unreadMessageCard)}>
       <details
         onToggle={(event) => {
           const expanded = event.currentTarget.open;
@@ -647,7 +677,12 @@ function SmsInboxThread({
             <span>Phone: {group.phone ?? 'No phone number'}</span>
           )}
           : {group.messages.length} {group.messages.length === 1 ? 'message' : 'messages'}
-          {unreadCount > 0 && `, ${String(unreadCount)} unread`}
+          {unreadCount > 0 && (
+            <>
+              {`, ${String(unreadCount)} unread `}
+              <span className={styles.unreadFlag}>Unread</span>
+            </>
+          )}
           {group.hasFailure && unreadCount === 0 && (
             <span className={styles.needsAttention}> A reminder failed to send.</span>
           )}

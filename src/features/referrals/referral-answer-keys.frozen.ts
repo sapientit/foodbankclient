@@ -85,4 +85,6 @@ export const FROZEN_ANSWER_KEYS: readonly FrozenAnswerKey[] = [
   { key: 'Incontinence products', type: 'choice' },
   { key: 'Toothpaste', type: 'choice' },
   { key: 'Toothbrush', type: 'choice' },
+  { key: 'PulsesYes', type: 'choice' },
+  { key: 'PulseText', type: 'text' },
 ];

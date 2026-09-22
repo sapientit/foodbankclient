@@ -63,6 +63,24 @@ describe('groupByPhone', () => {
     expect(groups.map((g) => g.phone)).toEqual(['+442222222222', '+441111111111']);
   });
 
+  it('puts an unread thread before a newer read thread', () => {
+    const groups = groupByPhone([
+      message({
+        id: 'read-newer',
+        phone: '+441111111111',
+        readAt: '2026-08-25T09:00:00.000Z',
+        occurredAt: '2026-08-25T09:00:00.000Z',
+      }),
+      message({
+        id: 'unread-older',
+        phone: '+442222222222',
+        occurredAt: '2026-08-20T09:00:00.000Z',
+      }),
+    ]);
+
+    expect(groups.map((group) => group.phone)).toEqual(['+442222222222', '+441111111111']);
+  });
+
   it('counts unread household and referrer replies as unreadReplyIds', () => {
     const groups = groupByPhone([
       message({ id: 'unread-reply', kind: 'household_reply', readAt: null }),
@@ -101,7 +119,7 @@ describe('groupByPhone', () => {
     expect(groups[0]?.referralIds).toEqual(['referral-new', 'referral-old']);
   });
 
-  it('returns an empty referralIds array for an unmatched (loose) group, not [null]', () => {
+  it('returns an empty referralIds array for an unmatched (unknown) group, not [null]', () => {
     const groups = groupByPhone([
       message({ id: 'm1', referralId: null, location: 'unmatched' }),
       message({ id: 'm2', referralId: null, location: 'unmatched' }),
