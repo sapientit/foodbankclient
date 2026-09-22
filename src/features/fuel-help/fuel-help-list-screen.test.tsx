@@ -74,7 +74,7 @@ describe('fuel help list', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('columnheader', {
-        name: 'Do you give permission to share details with "Energy Manage" who work in partnership with the foodbank to support our clients?',
+        name: 'Do you give permission to share details with "Energy Manage" and/or "The Fuel Bank Foundation" who work in partnership with the foodbank to support our clients?',
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Fuel help list' })).toHaveAttribute('tabindex', '0');

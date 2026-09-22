@@ -194,6 +194,7 @@ async function fillPageOne(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/Client's first name/), 'Ada');
   await user.type(screen.getByLabelText(/Client's surname/), 'Rowe');
   await user.type(screen.getByLabelText(/Client's date of birth/), '1985-03-12');
+  await user.type(screen.getByLabelText(/Client's contact number/), '01483 123456');
   await user.selectOptions(screen.getByRole('combobox', { name: /Client's gender/ }), 'Female');
   await user.selectOptions(screen.getByRole('combobox', { name: /^Ethnicity/ }), 'White -British');
   await user.type(screen.getByLabelText(/Mother tongue and level of spoken English/), 'English');
@@ -602,13 +603,15 @@ describe('the questions themselves', () => {
     const user = userEvent.setup();
 
     await fillPageOne(user);
-    expect(screen.queryByText('Delivery is restricted to people who…')).toBeNull();
+    expect(screen.queryByText(/Delivery is restricted to people who are housebound/)).toBeNull();
 
     await user.selectOptions(
       screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
       'Delivery Requested',
     );
-    expect(screen.getByText('Delivery is restricted to people who…')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Delivery is restricted to people who are housebound/),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: /Delivery is restricted/ })).toBeNull();
   });
 
@@ -721,7 +724,9 @@ describe('the questions themselves', () => {
 
     // The row hides rather than showing the token or an empty sentence.
     expect(screen.queryByText(/\$deliveryTime/)).toBeNull();
-    expect(screen.getByText('Delivery is restricted to people who…')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Delivery is restricted to people who are housebound/),
+    ).toBeInTheDocument();
   });
 
   it('requires both delivery confirmations, not just one', async () => {

@@ -37,6 +37,10 @@ export default defineConfig({
      * number, if a test starts needing more.
      */
     testTimeout: 15_000,
+    // The desktop host reports hundreds of logical CPUs. Leaving Vitest to
+    // choose from that number starts far more Node processes than the test
+    // suite can use and prevents `npm run check` from completing.
+    maxWorkers: 4,
     include: ['src/**/*.test.{ts,tsx}', 'test/**/*.test.{ts,tsx}'],
     coverage: {
       // v8 is fine here: unlike the server's tests, nothing runs in workerd.

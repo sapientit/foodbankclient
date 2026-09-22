@@ -65,7 +65,7 @@ const PARCEL: Parcel = {
   voucherInstruction: null,
   answers: {
     Allergies: 'Gluten-free food for one person',
-    Pulses: 'Vegetarian',
+    PulseText: 'Vegetarian',
     'Household Components': { '0-4': { male: 1 }, 'working-age': { 'non-binary': 1 } },
   },
   lines: [
@@ -402,7 +402,7 @@ describe('a team lead running a session', () => {
               children: PARCEL.children,
               answers: {
                 Allergies: 'Gluten-free food for one person',
-                Pulses: 'Kidney beans please',
+                PulseText: 'Kidney beans please',
               },
             },
           ],
@@ -475,7 +475,7 @@ describe('a team lead running a session', () => {
       pickListInformation: [
         {
           referralId: PARCEL.referralId,
-          notes: 'Allergies: Gluten-free food for one person\nPulses: Kidney beans please',
+          notes: 'Allergies: Gluten-free food for one person\nPulseText: Kidney beans please',
         },
       ],
     });

@@ -656,7 +656,7 @@ describe('the admin referral detail screen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       "Client's contact number: enter a valid UK mobile number.",
     );
-    expect(screen.getByLabelText("Client's contact number")).toHaveAttribute(
+    expect(screen.getByLabelText(/Client's contact number/)).toHaveAttribute(
       'aria-invalid',
       'true',
     );
