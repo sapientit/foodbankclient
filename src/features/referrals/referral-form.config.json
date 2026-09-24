@@ -214,7 +214,6 @@
           "questionKey": "reasonAdditional",
           "questionTitle": "Additional information about crisis",
           "required": false,
-          "forListenerSheet": true,
           "preference": false,
           "validation": {
             "type": "String",
@@ -941,6 +940,7 @@
           "questionKey": "Other",
           "questionTitle": "Any additional information?",
           "required": false,
+          "forListenerSheet": true,
           "preference": true,
           "validation": {
             "type": "String",

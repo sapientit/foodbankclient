@@ -202,7 +202,10 @@ async function fillPageOne(
   }
   await user.selectOptions(screen.getByRole('combobox', { name: /Client's gender/ }), 'Female');
   await user.selectOptions(screen.getByRole('combobox', { name: /^Ethnicity/ }), 'White -British');
-  await user.type(screen.getByLabelText(/Mother tongue and level of spoken English/), 'English');
+  await user.type(
+    screen.getByLabelText(/Mother tongue \(if not English\) and level of spoken English/),
+    'English',
+  );
   await user.type(screen.getByLabelText(/First line of address/), '1 Elm Street');
   await user.type(screen.getByLabelText(/Client's postcode/), 'gu234xx');
   await fillHouseholdComposition(user);
@@ -986,7 +989,9 @@ describe('submitting', () => {
     expect(screen.getByLabelText(/Client's postcode/)).toHaveValue('');
     expect(screen.getByRole('combobox', { name: /Client's gender/ })).toHaveValue('');
     expect(screen.getByLabelText('18 to State Pension age, Female')).toHaveValue('');
-    expect(screen.getByLabelText(/Mother tongue and level of spoken English/)).toHaveValue('');
+    expect(
+      screen.getByLabelText(/Mother tongue \(if not English\) and level of spoken English/),
+    ).toHaveValue('');
     expect(screen.getByRole('combobox', { name: /Session date/ })).toHaveValue('');
 
     await user.click(next());
