@@ -920,6 +920,21 @@
     {
       "when": {
         "key": "Toiletries",
+        "hasAnswer": "Toothbrush"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "$dummy",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Toiletries",
         "hasAnswer": "Shower gel"
       },
       "cases": [
@@ -1037,7 +1052,7 @@
       "otherwise": {
         "set": [
           {
-            "stock": "Toothbrush - child",
+            "stock": "Toothbrush - adult",
             "quantity": 5
           }
         ]
@@ -1052,7 +1067,7 @@
       "otherwise": {
         "set": [
           {
-            "stock": "Toothbrush - child",
+            "stock": "Toothbrush - adult",
             "quantity": 4
           }
         ]
@@ -1067,7 +1082,7 @@
       "otherwise": {
         "set": [
           {
-            "stock": "Toothbrush - child",
+            "stock": "Toothbrush - adult",
             "quantity": 3
           }
         ]
@@ -1082,7 +1097,7 @@
       "otherwise": {
         "set": [
           {
-            "stock": "Toothbrush - child",
+            "stock": "Toothbrush - adult",
             "quantity": 2
           }
         ]
@@ -1091,6 +1106,81 @@
     {
       "when": {
         "key": "Toothbrush",
+        "hasAnswer": "1"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - adult",
+            "quantity": 1
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tbrush-child",
+        "hasAnswer": "5"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - child",
+            "quantity": 5
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tbrush-child",
+        "hasAnswer": "4"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - child",
+            "quantity": 4
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tbrush-child",
+        "hasAnswer": "3"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - child",
+            "quantity": 3
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tbrush-child",
+        "hasAnswer": "2"
+      },
+      "cases": [],
+      "otherwise": {
+        "set": [
+          {
+            "stock": "Toothbrush - child",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    {
+      "when": {
+        "key": "Tbrush-child",
         "hasAnswer": "1"
       },
       "cases": [],

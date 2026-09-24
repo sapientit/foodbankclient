@@ -10,7 +10,14 @@ import type { Referral } from '../referrals/queries';
 import type { StockItem } from '../stock/queries';
 import { normaliseStockItemName } from '../stock/stock.logic';
 
-const stockSchema = z.union([z.string().min(1), z.literal('$selectedAnswer')]);
+const DUMMY_STOCK = '$dummy';
+const SELECTED_ANSWER_STOCK = '$selectedAnswer';
+
+const stockSchema = z.union([
+  z.literal(DUMMY_STOCK),
+  z.literal(SELECTED_ANSWER_STOCK),
+  z.string().min(1),
+]);
 const lineSchema = z.object({
   stock: stockSchema,
   quantity: z.union([z.literal(-1), z.number().int().min(1).max(10)]),
@@ -95,7 +102,10 @@ export function validatePreferenceRules(
       errors.push(`Rule ${rule.when.key}: ${rule.when.hasAnswer} is not an offered answer.`);
     }
     for (const line of ruleLines(rule)) {
-      if (line.stock === '$selectedAnswer') {
+      if (line.stock === DUMMY_STOCK) {
+        continue;
+      }
+      if (line.stock === SELECTED_ANSWER_STOCK) {
         if (question.type !== 'choice') {
           errors.push(`Rule ${rule.when.key}: $selectedAnswer needs a choice preference question.`);
           continue;
@@ -156,8 +166,11 @@ export function resolvePreferenceLines(
         const outcome = firstOutcome(rule, referral);
         if (outcome === undefined) continue;
         for (const line of outcome.set) {
+          if (line.stock === DUMMY_STOCK) continue;
           const item = activeByName.get(
-            normaliseStockItemName(line.stock === '$selectedAnswer' ? selectedAnswer : line.stock),
+            normaliseStockItemName(
+              line.stock === SELECTED_ANSWER_STOCK ? selectedAnswer : line.stock,
+            ),
           )?.[0];
           if (item === undefined) continue;
           const oldQuantity = lines.get(item.id);

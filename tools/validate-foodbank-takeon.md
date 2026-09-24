@@ -23,8 +23,11 @@ not written to disk. The command signs in through the existing development/test
 API login and reads the catalogue through `GET /api/v1/stock/items`. It checks
 the proposed questionnaire and rules together, frozen answer-key compatibility,
 preference keys and offered answers, and that every fixed or `$selectedAnswer`
-stock name resolves to exactly one active item. It reports all detected
-configuration problems and changes no files by default.
+stock name resolves to exactly one active item. `$dummy` is the one reserved
+stock value: it consumes a controlling answer without adding a parcel line, so
+it deliberately has no stock lookup, though it still needs a normal quantity.
+The command reports all detected configuration problems and changes no files by
+default.
 
 The Desktop OAuth client secret is required by Google's token endpoint, but is
 not stored by the validator. Supply it only for the command being run:

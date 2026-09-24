@@ -64,6 +64,7 @@ const LISTENER_SHEET = {
       answers: {
         reasonAdditional: 'The boiler broke and used the rent money.',
         Secondary: 'reason-debt',
+        Other: 'Please arrange an interpreter.',
         Address: '17 Never Print Close',
         Phone: '07000 000000',
         'Parcel contents': 'Baked beans: 2',
@@ -348,7 +349,7 @@ describe('a team lead listener sheet', () => {
     expect(router.state.location.pathname).toBe(`/run-sessions/${SESSION_ID}`);
   });
 
-  it('shows only the standard listener-sheet columns when the form marks no referral fields', async () => {
+  it('shows the marked listener-sheet columns in questionnaire order', async () => {
     server.use(
       http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
         HttpResponse.json(LISTENER_SHEET),
@@ -361,8 +362,17 @@ describe('a team lead listener sheet', () => {
     await screen.findByRole('columnheader', { name: 'First time / voucher' });
     expect(screen.getAllByRole('columnheader').map((heading) => heading.textContent)).toEqual([
       'Pick number',
+      "Client's first name",
+      "Client's surname",
+      'Main cause of crisis',
+      'Secondary cause of crisis',
+      'Does the client need help with Energy costs?',
+      'Any additional information?',
       'First time / voucher',
     ]);
+    expect(
+      screen.getByRole('row', { name: /#1.*Amina.*Unexpected expenses.*Debt.*Yes.*interpreter/ }),
+    ).toBeInTheDocument();
     expect(
       within(screen.getByRole('row', { name: /#1.*First time/ })).getByRole('cell', {
         name: 'First time — Provide voucher for this client',
@@ -388,14 +398,17 @@ describe('a team lead listener sheet', () => {
     expect(screen.queryByText('Baked beans: 2')).toBeNull();
   });
 
-  it('does not expose an unmarked stored reason', async () => {
+  it('does not expose an unmarked stored answer', async () => {
     server.use(
       http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
         HttpResponse.json({
           ...LISTENER_SHEET,
           households: LISTENER_SHEET.households.slice(0, 1).map((household) => ({
             ...household,
-            answers: { ...household.answers, Secondary: 'reason-retired' },
+            answers: {
+              ...household.answers,
+              reasonAdditional: 'This must stay off the listener sheet.',
+            },
           })),
         } satisfies ListenerSheet),
       ),
@@ -405,11 +418,10 @@ describe('a team lead listener sheet', () => {
     renderApp(`/run-sessions/${SESSION_ID}/listener`);
 
     await screen.findByRole('row', { name: /#1.*First time/ });
-    expect(screen.queryByText('No longer listed')).toBeNull();
-    expect(screen.queryByText('reason-retired')).toBeNull();
+    expect(screen.queryByText('This must stay off the listener sheet.')).toBeNull();
   });
 
-  it('does not fetch referral reasons when no displayed column needs them', async () => {
+  it('fetches referral reasons when a displayed marked column needs them', async () => {
     let reasonReads = 0;
     server.use(
       http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
@@ -424,7 +436,7 @@ describe('a team lead listener sheet', () => {
     renderApp(`/run-sessions/${SESSION_ID}/listener`);
 
     expect(await screen.findByRole('row', { name: /#1.*First time/ })).toBeInTheDocument();
-    expect(reasonReads).toBe(0);
+    expect(reasonReads).toBe(1);
   });
 
   it('never prints a column for a marked question the endpoint does not send', () => {
@@ -436,7 +448,14 @@ describe('a team lead listener sheet', () => {
      */
     const marked = listenerColumns().map((column) => column.key);
 
-    expect(marked).toEqual([]);
+    expect(marked).toEqual([
+      'refereeFirstName',
+      'refereeSurname',
+      'reasonId',
+      'Secondary',
+      'needsFuelHelp',
+      'Other',
+    ]);
     expect(
       listenerColumns({
         version: 1,

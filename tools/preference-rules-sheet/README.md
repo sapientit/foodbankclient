@@ -45,7 +45,7 @@ headings and may be renamed. Data begins on row 3.
 | Outcome           | `Case` or `Otherwise`; begin every outcome explicitly.                                                                 |
 | People            | `Adults`, `Children`, or `Total` for a Case; blank for Otherwise.                                                      |
 | At least          | Whole number zero or greater for a Case; blank for Otherwise.                                                          |
-| Stock item        | Exact active stock-item name or `$selectedAnswer`; never inherited.                                                    |
+| Stock item        | Exact active stock-item name, `$selectedAnswer`, or `$dummy`; never inherited.                                         |
 | Quantity          | 1–10 or **Needs team-leader attention**; never inherited.                                                              |
 
 Blank condition cells inherit the current rule and outcome only when adding a
@@ -58,10 +58,14 @@ Rules run top-to-bottom. A rule consumes each answer it handles, so put a
 specific answer rule before a broad `$selectedAnswer` rule for the same
 Preference key. Quantities from separate handled answers are added together;
 **Needs team-leader attention** overrides any positive quantity for that item.
+Use `$dummy` when an answer only enables later questions: it consumes that
+answer without adding a parcel line. `$dummy` still requires a Quantity, using
+the same values as every other Stock item row.
 
 The generated result is structurally valid JSON only. The deployed client’s
 administrator-only Preference rule check still validates keys, answer values,
-and active stock names against the current environment.
+and active stock names against the current environment. `$dummy` is the one
+reserved Stock item value that deliberately has no active-stock match.
 
 ## Referral Form tab
 
@@ -79,14 +83,19 @@ The **Pick-list information** column belongs on this tab, because it marks a
 referral question rather than a stock-selection rule. It is column 12,
 immediately before **For Fuel Team**. Enter **Yes** to copy that question's
 answer into the initial parcel note, **No** or blank otherwise; it may only be
-Yes for a question marked **Use for picking rules?**.
+Yes for a question marked **Use for picking rules?**. **For Listener Sheet** is
+column 14, immediately after **For Fuel Team**: enter **Yes** to include that
+question on the sensitive listener sheet, or **No** or blank to leave it out.
+For an existing workbook, add that column-14 heading before validating; the
+generator deliberately refuses a sheet whose fixed headers do not match.
 
 Validation checks the fixed headers, page numbering, unique question keys,
 answer-format names, choice-selection limits, defaults, conditional keys and
-the one-option-per-row rule. A required `Choose up to N` question means choose
-one to N; an optional one means zero to N. It translates the Sheet's friendly
-formats into the client configuration schema, retains the `For Fuel Team` flag
-and the **Pick-list information** Yes marker,
+the one-option-per-row rule. Choice-list selections may be `Choose one`,
+`Choose N`, `Choose N-M`, or `Choose up to N`. A required `Choose up to N`
+question means choose one to N; an optional one means zero to N. It translates the Sheet's friendly
+formats into the client configuration schema, retains the `For Fuel Team` and
+`For Listener Sheet` flags and the **Pick-list information** Yes marker,
 and separates a blank-line help paragraph from the displayed question.
 It deliberately flags incomplete data rather than guessing it: a choice list
 without options, a comma-separated option cell, or a condition naming an

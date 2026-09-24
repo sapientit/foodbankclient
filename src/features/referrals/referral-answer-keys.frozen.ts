@@ -87,4 +87,5 @@ export const FROZEN_ANSWER_KEYS: readonly FrozenAnswerKey[] = [
   { key: 'Toothbrush', type: 'choice' },
   { key: 'PulsesYes', type: 'choice' },
   { key: 'PulseText', type: 'text' },
+  { key: 'Tbrush-child', type: 'choice' },
 ];

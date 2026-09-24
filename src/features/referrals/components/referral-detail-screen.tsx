@@ -657,9 +657,9 @@ function PreviousReferralsTable({ matches }: { matches: readonly RepeatReferralM
  * review.
  *
  * There are two ways to accept: this referral only, or the referral and the
- * referrer's exact email address. The latter asks the administrator for the
- * organisation name rather than copying the free text from the referral — the
- * authorised list is used for reporting and needs the name the charity trusts.
+ * referrer's exact email address. The latter starts with the organisation from
+ * the referral, so an administrator does not have to key it twice, but leaves
+ * it editable to correct or standardise the reporting name before authorising.
  *
  * **Approving asks no confirming question — Pete settled this on 2026-09-14,
  * now in `screenDetails.md`'s "Referrals awaiting a decision".** It is the
@@ -744,6 +744,7 @@ function ReviewPanel({
           <button
             aria-disabled={review.isPending}
             onClick={() => {
+              setOrganisationName(referral.referrerOrganisation);
               setOrganisationNameError(null);
               setConfirming('authorise');
             }}

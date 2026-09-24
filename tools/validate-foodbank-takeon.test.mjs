@@ -113,6 +113,25 @@ test('uses the app’s ordered-rule semantics when resolving $selectedAnswer', (
   assert.deepEqual(result.errors, []);
 });
 
+test('accepts $dummy without an active stock item while preserving its required quantity', () => {
+  const dummyRules = {
+    rules: [
+      {
+        when: { key: 'Household', hasAnswer: 'Soap' },
+        otherwise: { set: [{ stock: '$dummy', quantity: 1 }] },
+      },
+    ],
+  };
+  const result = validateTakeon({
+    questionnaireInput: JSON.stringify(questionnaire),
+    rulesInput: JSON.stringify(dummyRules),
+    frozenLedger: ledger,
+    stockItems: [],
+  });
+
+  assert.deepEqual(result.errors, []);
+});
+
 test('accepts $selectedAnswer for a preference whose choices come from a runtime list', () => {
   const questionnaireWithRuntimeChoices = {
     ...questionnaire,

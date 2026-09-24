@@ -1188,7 +1188,7 @@ describe('a team lead running a session', () => {
     expect(screen.queryByRole('table', { name: 'Clients on this session' })).toBeNull();
   });
 
-  it('lists a client as a table row naming its pick number, household, voucher, status and action', async () => {
+  it('shows compact First? and Voucher columns when the session is in the voucher date range', async () => {
     server.use(
       http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
       http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
@@ -1212,8 +1212,8 @@ describe('a team lead running a session', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Pick #' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Client' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'First-time status' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Christmas voucher' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'First?' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Voucher' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Action' })).toBeInTheDocument();
 
@@ -1230,6 +1230,27 @@ describe('a team lead running a session', () => {
     expect(
       screen.getByRole('cell', { name: 'Review Pick list' }).querySelector('a'),
     ).toHaveAttribute('href', `/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+  });
+
+  it('does not show a Voucher column outside the active voucher date range', async () => {
+    server.use(
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [{ ...PARCEL, firstTimeMarker: 'admin', voucherInstruction: null }],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    expect(await screen.findByRole('columnheader', { name: 'First?' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Voucher' })).toBeNull();
   });
 
   it('marks Complete session aria-disabled, not disabled, while a client still lacks an outcome, and does not submit when clicked', async () => {

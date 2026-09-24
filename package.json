@@ -16,7 +16,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run",
+    "test": "vitest run && node --test tools/preference-rules-sheet/questionnaire.test.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "api:types": "openapi-typescript ../foodbankserver/openapi.yaml -o src/api/schema.d.ts",

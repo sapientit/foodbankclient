@@ -129,6 +129,41 @@ const HOUSEHOLD_PREFERENCE: ReferralFormDefinition = {
   ],
 };
 
+const TOOTHBRUSH_PREFERENCE: ReferralFormDefinition = {
+  version: 1,
+  pages: [
+    {
+      pageNum: 1,
+      pageTitle: 'Preferences',
+      questions: [
+        {
+          type: 'choice',
+          key: 'Toiletries',
+          label: 'Toiletries',
+          required: false,
+          preference: true,
+          answerMin: 0,
+          answerMax: 1,
+          options: [{ value: 'Toothbrush', label: 'Toothbrush' }],
+        },
+      ],
+    },
+  ],
+};
+
+const TOOTHBRUSH_STOCK_ITEM: StockItem = {
+  id: 'toothbrush',
+  name: 'Toothbrush',
+  category: 'Toiletries',
+  description: null,
+  shelfNumber: 'B2',
+  lowStockThreshold: null,
+  groupingId: null,
+  unitsPerPack: null,
+  packUnitLabel: null,
+  isActive: true,
+};
+
 const SELECTED_ANSWER_RULE: readonly PreferenceRule[] = [
   {
     when: { key: 'Household' },
@@ -143,6 +178,35 @@ const SELECTED_ANSWER_RULE: readonly PreferenceRule[] = [
 ];
 
 describe('validatePreferenceRules', () => {
+  it('accepts $dummy without a stock item, but still requires its quantity', () => {
+    const config = {
+      rules: [
+        {
+          when: { key: 'Toiletries', hasAnswer: 'Toothbrush' },
+          cases: [],
+          otherwise: { set: [{ stock: '$dummy', quantity: 1 }] },
+        },
+      ],
+    };
+
+    expect(parsePreferenceRuleConfig(config)).toEqual(config);
+    expect(
+      validatePreferenceRules([], parsePreferenceRuleConfig(config).rules, TOOTHBRUSH_PREFERENCE)
+        .errors,
+    ).toEqual([]);
+    expect(() =>
+      parsePreferenceRuleConfig({
+        rules: [
+          {
+            when: { key: 'Toiletries', hasAnswer: 'Toothbrush' },
+            cases: [],
+            otherwise: { set: [{ stock: '$dummy' }] },
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
   it('rejects $selectedAnswer as an answer trigger', () => {
     expect(() =>
       parsePreferenceRuleConfig({
@@ -223,6 +287,37 @@ describe('validatePreferenceRules', () => {
         ],
       },
     ]);
+  });
+
+  it('uses $dummy to consume Toothbrush before a later $selectedAnswer rule without a parcel line', () => {
+    const rules: readonly PreferenceRule[] = [
+      {
+        when: { key: 'Toiletries', hasAnswer: 'Toothbrush' },
+        cases: [],
+        otherwise: { set: [{ stock: '$dummy', quantity: 1 }] },
+      },
+      {
+        when: { key: 'Toiletries' },
+        cases: [],
+        otherwise: { set: [{ stock: '$selectedAnswer', quantity: 1 }] },
+      },
+    ];
+
+    expect(
+      resolvePreferenceLines(
+        [
+          {
+            id: 'r1',
+            adults: 1,
+            children: 0,
+            answers: { Toiletries: 'Toothbrush' },
+          },
+        ],
+        [TOOTHBRUSH_STOCK_ITEM],
+        rules,
+        TOOTHBRUSH_PREFERENCE,
+      ),
+    ).toEqual([]);
   });
 
   it('adds output from each selected answer while attention remains dominant', () => {

@@ -16,6 +16,7 @@ const QUESTIONNAIRE_COLUMNS = [
   'Shown when answer',
   'Pick-list information',
   'For Fuel Team',
+  'For Listener Sheet',
 ];
 const QUESTIONNAIRE_FORMATS = new Set([
   'Text',
@@ -186,6 +187,7 @@ function toClientQuestion_(source, errors) {
     ...(wording.helpText === undefined ? {} : { helpText: wording.helpText }),
     ...(source.enabledWhen === undefined ? {} : { enabledWhen: source.enabledWhen }),
     ...(source.forFuelTeam === undefined ? {} : { forFuelTeam: source.forFuelTeam }),
+    ...(source.forListenerSheet === undefined ? {} : { forListenerSheet: source.forListenerSheet }),
     ...(source.pickListInformation === 'Yes' ? { pickListInformation: 'Yes' } : {}),
   };
   const expectedFormat = CLIENT_KEY_FIELDS.get(source.questionKey);
@@ -343,6 +345,8 @@ function parseQuestionnaire_() {
         error(rowNumber, 'Pick-list information must be Yes, No or blank.');
       if (!['', 'Yes', 'No'].includes(line['For Fuel Team']))
         error(rowNumber, 'For Fuel Team must be blank, Yes or No.');
+      if (!['', 'Yes', 'No'].includes(line['For Listener Sheet']))
+        error(rowNumber, 'For Listener Sheet must be blank, Yes or No.');
       if ((line['Shown when key'] === '') !== (line['Shown when answer'] === ''))
         error(
           rowNumber,
@@ -397,6 +401,7 @@ function parseQuestionnaire_() {
         preference: line['Use for picking rules?'] === 'Yes',
         ...(line['Pick-list information'] === 'Yes' ? { pickListInformation: 'Yes' } : {}),
         ...(line['For Fuel Team'] === 'Yes' ? { forFuelTeam: true } : {}),
+        ...(line['For Listener Sheet'] === 'Yes' ? { forListenerSheet: true } : {}),
         ...(line['Shown when key'] === ''
           ? {}
           : {
@@ -423,6 +428,7 @@ function parseQuestionnaire_() {
         'Shown when key',
         'Shown when answer',
         'For Fuel Team',
+        'For Listener Sheet',
       ];
       inheritedColumns.forEach((column) => {
         if (line[column] !== '')
@@ -495,7 +501,7 @@ function finalizeQuestion_(question, errors) {
   const selection = parseSelection_(question.selection);
   if (selection === null) {
     errors.push(
-      `Question "${question.questionKey}": Selection must be Choose one, Choose 1 or Choose up to N.`,
+      `Question "${question.questionKey}": Selection must be Choose one, Choose N, Choose N-M or Choose up to N.`,
     );
     return;
   }
@@ -518,9 +524,31 @@ function finalizeQuestion_(question, errors) {
 function parseSelection_(value) {
   if (value === 'Choose one' || value === 'Choose 1')
     return { label: value, minimum: 1, maximum: 1 };
-  const match = value.match(/^Choose up to (\d+)$/);
-  if (match === null) return null;
-  const maximum = Number(match[1]);
+
+  const exactMatch = value.match(/^Choose (\d+)$/);
+  if (exactMatch !== null) {
+    const count = Number(exactMatch[1]);
+    return Number.isInteger(count) && count >= 1
+      ? { label: value, minimum: count, maximum: count }
+      : null;
+  }
+
+  const rangeMatch = value.match(/^Choose (\d+)-(\d+)$/);
+  if (rangeMatch !== null) {
+    const minimum = Number(rangeMatch[1]);
+    const maximum = Number(rangeMatch[2]);
+    return Number.isInteger(minimum) &&
+      Number.isInteger(maximum) &&
+      minimum >= 1 &&
+      maximum >= minimum
+      ? { label: value, minimum, maximum }
+      : null;
+  }
+
+  const upToMatch = value.match(/^Choose up to (\d+)$/);
+  if (upToMatch === null) return null;
+
+  const maximum = Number(upToMatch[1]);
   return Number.isInteger(maximum) && maximum >= 1 ? { label: value, minimum: 0, maximum } : null;
 }
 

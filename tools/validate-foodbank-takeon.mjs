@@ -86,6 +86,9 @@ export function validateRuleStockReferences(questionnaire, rules, stockItems) {
         ? question.answers.filter((answer) => typeof answer === 'string')
         : [];
     for (const line of ruleLines(rule)) {
+      if (line.stock === '$dummy') {
+        continue;
+      }
       if (line.stock === '$selectedAnswer') {
         if (!isChoice) {
           errors.push(`Rule ${rule.when.key}: $selectedAnswer needs a choice preference question.`);

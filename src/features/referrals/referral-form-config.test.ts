@@ -83,6 +83,14 @@ describe('the shipped referral form', () => {
     expect(new Set(fields).size).toBe(fields.length);
   });
 
+  it('does not require a client contact number', () => {
+    const clientPhone = keyFieldQuestions(referralFormDefinition).find(
+      (question) => question.field === 'refereePhone',
+    );
+
+    expect(clientPhone).toMatchObject({ required: false });
+  });
+
   it('marks the preference questions the pick list is adjusted from', () => {
     const preferences = dynamicQuestions(referralFormDefinition)
       .filter((question) => question.preference)

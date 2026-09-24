@@ -41,6 +41,7 @@
           "questionTitle": "Client's first name",
           "required": true,
           "forFuelTeam": true,
+          "forListenerSheet": true,
           "keyField": "refereeFirstName"
         },
         {
@@ -49,6 +50,7 @@
           "questionTitle": "Client's surname",
           "required": true,
           "forFuelTeam": true,
+          "forListenerSheet": true,
           "keyField": "refereeSurname"
         },
         {
@@ -122,7 +124,7 @@
         {
           "questionNum": 11,
           "questionKey": "languages",
-          "questionTitle": "Mother tongue and level of spoken English",
+          "questionTitle": "Mother tongue (if not English) and level of spoken English",
           "required": false,
           "preference": false,
           "validation": {
@@ -146,7 +148,7 @@
           "questionNum": 13,
           "questionKey": "refereePhone",
           "questionTitle": "Client's contact number",
-          "required": true,
+          "required": false,
           "forFuelTeam": true,
           "keyField": "refereePhone"
         },
@@ -204,6 +206,7 @@
           "questionKey": "reasonId",
           "questionTitle": "Main cause of crisis",
           "required": true,
+          "forListenerSheet": true,
           "keyField": "reasonId"
         },
         {
@@ -211,6 +214,7 @@
           "questionKey": "reasonAdditional",
           "questionTitle": "Additional information about crisis",
           "required": false,
+          "forListenerSheet": true,
           "preference": false,
           "validation": {
             "type": "String",
@@ -222,6 +226,7 @@
           "questionKey": "Secondary",
           "questionTitle": "Secondary cause of crisis",
           "required": false,
+          "forListenerSheet": true,
           "preference": false,
           "validation": {
             "type": "CheckBox",
@@ -408,8 +413,12 @@
         {
           "questionNum": 7,
           "questionKey": "PulseText",
-          "questionTitle": "(If they have a preference please say which.)",
+          "questionTitle": "(If they have a preference for beans please say which.)",
           "required": false,
+          "enabledWhen": {
+            "questionKey": "PulsesYes",
+            "hasAnswer": "yes"
+          },
           "pickListInformation": "Yes",
           "preference": true,
           "validation": {
@@ -452,8 +461,7 @@
             "answerMax": 1
           },
           "answers": [
-            "Yes",
-            "No"
+            "Yes"
           ],
           "default": [
             "Yes"
@@ -471,8 +479,7 @@
             "answerMax": 1
           },
           "answers": [
-            "Yes",
-            "No"
+            "Yes"
           ],
           "default": [
             "Yes"
@@ -570,7 +577,7 @@
         {
           "questionNum": 5,
           "questionKey": "Toothpaste",
-          "questionTitle": "Do you also need child's toothpaste",
+          "questionTitle": "Do they also need child's toothpaste",
           "required": false,
           "enabledWhen": {
             "questionKey": "Toiletries",
@@ -589,7 +596,7 @@
         {
           "questionNum": 6,
           "questionKey": "Toothbrush",
-          "questionTitle": "How many child toothbrushes do you need?",
+          "questionTitle": "How many adult toothbrushes do they need?",
           "required": false,
           "enabledWhen": {
             "questionKey": "Toiletries",
@@ -611,6 +618,29 @@
         },
         {
           "questionNum": 7,
+          "questionKey": "Tbrush-child",
+          "questionTitle": "How many child (0-6) toothbrushes do they need?",
+          "required": false,
+          "enabledWhen": {
+            "questionKey": "Toiletries",
+            "hasAnswer": "Toothbrush"
+          },
+          "preference": true,
+          "validation": {
+            "type": "CheckBox",
+            "answerMin": 0,
+            "answerMax": 1
+          },
+          "answers": [
+            "5",
+            "4",
+            "3",
+            "2",
+            "1"
+          ]
+        },
+        {
+          "questionNum": 8,
           "questionKey": "Nappies",
           "questionTitle": "Do they require nappies?",
           "required": false,
@@ -634,7 +664,7 @@
           ]
         },
         {
-          "questionNum": 8,
+          "questionNum": 9,
           "questionKey": "Baby Food",
           "questionTitle": "Do they require baby food?",
           "required": false,
@@ -649,7 +679,7 @@
           ]
         },
         {
-          "questionNum": 9,
+          "questionNum": 10,
           "questionKey": "Baby Milk",
           "questionTitle": "Do they require baby milk?",
           "required": false,
@@ -745,6 +775,7 @@
           "questionKey": "needsFuelHelp",
           "questionTitle": "Does the client need help with Energy costs?",
           "required": false,
+          "forListenerSheet": true,
           "keyField": "needsFuelHelp"
         },
         {

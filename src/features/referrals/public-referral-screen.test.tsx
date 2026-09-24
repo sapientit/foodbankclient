@@ -183,7 +183,10 @@ async function typeWholeAddress(value: string) {
 }
 
 /** Page one, filled in well enough to move on. Everything mandatory, nothing else. */
-async function fillPageOne(user: ReturnType<typeof userEvent.setup>) {
+async function fillPageOne(
+  user: ReturnType<typeof userEvent.setup>,
+  options: { readonly omitClientPhone?: boolean } = {},
+) {
   await user.type(await screen.findByLabelText(/Referrer's name/), 'Sam Referrer');
   await user.type(screen.getByLabelText(/Referrer's email address/), 'sam@riverside.org');
   await user.selectOptions(
@@ -194,7 +197,9 @@ async function fillPageOne(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/Client's first name/), 'Ada');
   await user.type(screen.getByLabelText(/Client's surname/), 'Rowe');
   await user.type(screen.getByLabelText(/Client's date of birth/), '1985-03-12');
-  await user.type(screen.getByLabelText(/Client's contact number/), '01483 123456');
+  if (!options.omitClientPhone) {
+    await user.type(screen.getByLabelText(/Client's contact number/), '01483 123456');
+  }
   await user.selectOptions(screen.getByRole('combobox', { name: /Client's gender/ }), 'Female');
   await user.selectOptions(screen.getByRole('combobox', { name: /^Ethnicity/ }), 'White -British');
   await user.type(screen.getByLabelText(/Mother tongue and level of spoken English/), 'English');
@@ -888,6 +893,26 @@ describe('submitting', () => {
       'working-age': { female: 2 },
     });
     expect(body.answers).not.toHaveProperty('refereePostcode');
+  });
+
+  it('submits without a client contact number and omits it from the request', async () => {
+    let body: Record<string, unknown> = {};
+    server.use(
+      http.post(SUBMIT, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(receipt('active'), { status: 201 });
+      }),
+    );
+    renderRefer();
+
+    const user = userEvent.setup();
+    await fillPageOne(user, { omitClientPhone: true });
+    await sendFromPageOne(user);
+
+    await waitFor(() => {
+      expect(body.sessionId).toBe('s-tue');
+    });
+    expect(body).not.toHaveProperty('refereePhone');
   });
 
   it('sends referrer collection as the structured referrer_collect method', async () => {

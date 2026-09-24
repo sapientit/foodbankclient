@@ -113,17 +113,10 @@ Tracked so it is not mistaken for finished work.
 - **A production Turnstile widget, and its secret.** The client half is built:
   `src/features/referrals/turnstile.ts` and `TurnstileCheck` put the check on the last page of
   `/refer` and send `cf-turnstile-response`, and both halves are inert where no sitekey is
-  configured, which is local development. The test widget (`referrals-test`, sitekey
-  `0x4AAAAAAE-vkC8v_zmzPHVS`, created 2026-09-21 on the charity's own Cloudflare account) covers
-  `referrals-test.guildfordfoodbank.workers.dev` and `localhost` only — a workers.dev hostname works
-  fine for this, it does not need a custom domain. What is not done is a **production** widget and
-  `TURNSTILE_SECRET_KEY` on the production server. The charity has accepted Cloudflare Turnstile
-  running inside the referral form; that acceptance is recorded in
-  `docs/engineering/personal-data.md`.
-- **Production Google sign-in.** The test deployment signs on with real Google identities as of
-  2026-09-21 (`LoginScreen` branches on `VITE_AUTH_MODE` at build time — `google-signin.ts`,
-  `GoogleSignInButton`) against the server's `AUTH_MODE=google`. Production still runs the dummy
-  provider until it has its own Google OAuth client and `VITE_AUTH_MODE=google` is set on that
-  build. The rejection path for an unknown or deactivated address was already built for `dev-login`
-  and needed no new shape, only a second explainer (`explainGoogle`) since the two screens' 404
-  cases mean different things.
+  configured, which is local development. What is not done is deployment configuration — a widget
+  for **production** (the test one, `foodbank-referral-test`, covers
+  `foodbank-client.losttemple.workers.dev` and `localhost` only) and `TURNSTILE_SECRET_KEY` on each
+  deployed server. The charity has accepted Cloudflare Turnstile running inside the referral form;
+  that acceptance is recorded in `docs/engineering/personal-data.md`.
+- **Google sign-in.** `dev-login` is the only path. The rejection path for an unknown email is
+  already built, so the switch does not change the response shape.

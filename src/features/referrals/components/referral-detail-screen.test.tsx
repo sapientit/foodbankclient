@@ -992,7 +992,7 @@ describe('the admin referral detail screen', () => {
     expect(screen.queryByRole('button', { name: 'Approve and authorise referrer' })).toBeNull();
   });
 
-  it('approves a referral and authorises only its referrer email under the organisation the administrator types', async () => {
+  it('defaults the organisation from the referral and lets the administrator correct it before authorising', async () => {
     let body: unknown = null;
     server.use(
       http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
@@ -1011,8 +1011,9 @@ describe('the admin referral detail screen', () => {
     expect(dialog.getByText(/referrer@riverside\.org only/)).toBeInTheDocument();
     expect(dialog.getByText(/not everyone at that organisation’s domain/)).toBeInTheDocument();
     const organisation = dialog.getByLabelText('Organisation');
-    expect(organisation).toHaveValue('');
+    expect(organisation).toHaveValue('Riverside Church');
 
+    await user.clear(organisation);
     await user.type(organisation, 'Riverside Community Church');
     await user.click(dialog.getByRole('button', { name: 'Approve and authorise referrer' }));
 
@@ -1023,7 +1024,31 @@ describe('the admin referral detail screen', () => {
     });
   });
 
-  it('does not authorise a referrer until the administrator supplies an organisation', async () => {
+  it('authorises the organisation from the referral when the administrator leaves the default unchanged', async () => {
+    let body: unknown = null;
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
+      http.post(REFERRAL_ACCEPT, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', status: 'active' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Approve and authorise referrer' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Authorise this referrer' }));
+    expect(dialog.getByLabelText('Organisation')).toHaveValue('Riverside Church');
+    await user.click(dialog.getByRole('button', { name: 'Approve and authorise referrer' }));
+
+    await waitFor(() => {
+      expect(body).toEqual({ authoriseReferrer: { organisationName: 'Riverside Church' } });
+    });
+  });
+
+  it('does not authorise a referrer when the administrator clears the organisation', async () => {
     const accept = vi.fn();
     server.use(
       http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
@@ -1036,6 +1061,7 @@ describe('the admin referral detail screen', () => {
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     await user.click(screen.getByRole('button', { name: 'Approve and authorise referrer' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Authorise this referrer' }));
+    await user.clear(dialog.getByLabelText('Organisation'));
     await user.click(dialog.getByRole('button', { name: 'Approve and authorise referrer' }));
 
     expect(await dialog.findByRole('alert')).toHaveTextContent(

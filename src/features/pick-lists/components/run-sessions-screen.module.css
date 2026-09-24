@@ -308,6 +308,13 @@
   border-block-end: 2px solid #1a1a1a;
 }
 
+/* These two status columns do not use spare table width: the client name and
+   actions benefit from it, while these short labels remain quick to scan. */
+.compactColumn {
+  inline-size: 1%;
+  white-space: nowrap;
+}
+
 .pickCell {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;

@@ -724,6 +724,10 @@ export function RunSessionDetailScreen() {
   if (pickList.data === undefined && !noPickList) return null;
   const currentParcels = (pickList.data?.parcels ?? []).filter(isCurrentParcel);
   const allOutcomesRecorded = currentParcels.every((parcel) => parcel.attendance !== 'pending');
+  // Voucher dates are administrator-only. The server instead derives an
+  // instruction for every parcel in an in-range session, which lets team leads
+  // see whether the scheme applies without receiving the dates themselves.
+  const voucherSchemeApplies = currentParcels.some((parcel) => parcel.voucherInstruction !== null);
   const readyToPrint = pickList.data !== undefined && allParcelsReviewed(currentParcels);
   /*
    * The panel follows the control rather than the state behind it. A late
@@ -790,8 +794,14 @@ export function RunSessionDetailScreen() {
               <tr>
                 <th scope="col">Pick #</th>
                 <th scope="col">Client</th>
-                <th scope="col">First-time status</th>
-                <th scope="col">Christmas voucher</th>
+                <th className={styles.compactColumn} scope="col">
+                  First?
+                </th>
+                {voucherSchemeApplies && (
+                  <th className={styles.compactColumn} scope="col">
+                    Voucher
+                  </th>
+                )}
                 <th scope="col">Status</th>
                 <th scope="col">Action</th>
               </tr>
@@ -804,6 +814,7 @@ export function RunSessionDetailScreen() {
                   parcel={parcel}
                   readOnly={readOnly === true}
                   sessionId={sessionId}
+                  voucherSchemeApplies={voucherSchemeApplies}
                 />
               ))}
             </tbody>
@@ -885,11 +896,13 @@ function ClientRow({
   parcel,
   readOnly,
   sessionId,
+  voucherSchemeApplies,
 }: {
   canOpenReferral: boolean;
   parcel: Parcel;
   readOnly: boolean;
   sessionId: string;
+  voucherSchemeApplies: boolean;
 }) {
   const attendance = useRecordAttendance();
   const status = parcelStatus(parcel);
@@ -914,20 +927,22 @@ function ClientRow({
           parcelName(parcel)
         )}
       </td>
-      <td>
+      <td className={styles.compactColumn}>
         {parcel.firstTimeMarker !== null && (
           <span className={styles.status} data-status={parcel.firstTimeMarker}>
             {FIRST_TIME_MARKER[parcel.firstTimeMarker]}
           </span>
         )}
       </td>
-      <td>
-        {parcel.voucherInstruction !== null && (
-          <span className={styles.status}>
-            {voucherInstructionLabel(parcel.voucherInstruction)}
-          </span>
-        )}
-      </td>
+      {voucherSchemeApplies && (
+        <td className={styles.compactColumn}>
+          {parcel.voucherInstruction !== null && (
+            <span className={styles.status}>
+              {voucherInstructionLabel(parcel.voucherInstruction)}
+            </span>
+          )}
+        </td>
+      )}
       <td>
         <span className={styles.status} data-status={status.state}>
           {status.label}

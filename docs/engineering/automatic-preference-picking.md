@@ -58,6 +58,23 @@ same stock-item names. For the example above, a household of four or more
 gets quantity 2 of each selected toiletry; every other household gets quantity
 1 of each.
 
+`$dummy` is a reserved Stock item value for a choice that only controls later
+questions. It consumes the selected answer without adding a parcel line, so a
+later broad `$selectedAnswer` rule does not try to resolve the control choice
+as stock. It still has a quantity, exactly like every other rule line; the
+quantity is checked but deliberately has no effect. For example, the
+`Toothbrush` option can enable separate adult- and child-toothbrush questions:
+
+```json
+{
+  "when": { "key": "Toiletries", "hasAnswer": "Toothbrush" },
+  "cases": [],
+  "otherwise": {
+    "set": [{ "stock": "$dummy", "quantity": 1 }]
+  }
+}
+```
+
 Cases are evaluated in written order and the **first matching case wins**. An
 empty `cases` array therefore means that `otherwise` always applies. The only
 secondary condition is `familySize`: its `people` value is one of `adults`,
