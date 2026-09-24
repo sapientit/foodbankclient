@@ -135,6 +135,8 @@ describe('an admin’s planning view', () => {
     ).toHaveAttribute('href', '/sessions/s1');
     expect(screen.getByRole('columnheader', { name: 'Action' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /4 Aug 2026/ })).toBeNull();
+    expect(screen.queryByText('Hall A')).toBeNull();
+    expect(screen.queryByText('Hall B')).toBeNull();
     // One header row plus one per session.
     expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(4);
   });

@@ -57,6 +57,7 @@ npm run dev               # http://localhost:5173
 | `npm run cf-typegen`      | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc`    |
 | `npm run dry-run`         | Build and validate the production deploy without uploading      |
 | `npm run deploy`          | Build and deploy the `production` environment                   |
+| `npm run deploy:uat`      | Build and deploy the `uat` environment (charity account)        |
 | `npm run check`           | Everything above that can fail — run before considering it done |
 
 `check` needs no Cloudflare credentials: `wrangler types` reads `wrangler.jsonc` locally and
@@ -87,6 +88,19 @@ deploy-foodbank-client --tests-only   # or --deploy-only / --verify-only
 the checks have passed, normally through `deploy_foodbank`. The client command
 never selects production, and the combined command intentionally has no
 production mode.
+
+Before building the test client, the helper verifies the private-account
+`foodbank-referral-test` Turnstile widget and its
+`foodbank-client.losttemple.workers.dev` hostname, then passes that widget's
+public sitekey to Vite. It does not read `.env.development.local`: Turnstile is
+deliberately disabled for local development.
+
+A `--uat` flag on both `deploy_foodbank` and `deploy-foodbank-client` targets
+UAT instead: the charity's own Cloudflare account, `referrals-test` /
+`api-test`, the `referrals-test` Turnstile widget and real Google sign-in. It
+authenticates to the charity account the same way `foodbank-deploy-server
+--uat` does — a Keychain-held API token plus a pinned account id, both scoped
+to the deploy subprocess only, never the ambient `wrangler login` session.
 
 `preview` serves whatever is already in `dist/`, and `check` leaves a **production** build there —
 one whose `API` binding points at `api` (the server's production name) and will not resolve locally.

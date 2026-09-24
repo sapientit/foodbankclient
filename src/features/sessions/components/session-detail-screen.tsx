@@ -18,7 +18,6 @@ import {
   DELIVERY_CAPACITY_BOUNDS,
   DURATION_BOUNDS,
   MAX_CANCEL_REASON_LENGTH,
-  MAX_LOCATION_LENGTH,
   SESSION_STATUS_LABELS,
   describeDeliveries,
   describeLockedSession,
@@ -81,11 +80,8 @@ const sessionFormSchema = z
       const parsed = parseWholeNumber(value, DURATION_BOUNDS);
       if (!parsed.ok) ctx.addIssue({ code: 'custom', message: DURATION_MESSAGES[parsed.problem] });
     }),
-    location: z
-      .string()
-      .trim()
-      .min(1, 'Enter where this session happens.')
-      .max(MAX_LOCATION_LENGTH, 'Use 200 characters or fewer.'),
+    // A stored value is preserved but intentionally not editable on screen.
+    location: z.string(),
     capacity: z.string().superRefine((value, ctx) => {
       const parsed = parseWholeNumber(value, CAPACITY_BOUNDS);
       if (!parsed.ok) ctx.addIssue({ code: 'custom', message: CAPACITY_MESSAGES[parsed.problem] });
@@ -194,8 +190,6 @@ function SessionDetailForm({ session }: { session: Session }) {
   const timeErrorId = useId();
   const durationId = useId();
   const durationErrorId = useId();
-  const locationId = useId();
-  const locationErrorId = useId();
   const capacityId = useId();
   const capacityErrorId = useId();
   const windowStartId = useId();
@@ -387,25 +381,6 @@ function SessionDetailForm({ session }: { session: Session }) {
         </div>
 
         <div className={styles.field}>
-          <label htmlFor={locationId}>Location</label>
-          <input
-            {...register('location')}
-            aria-describedby={errors.location === undefined ? undefined : locationErrorId}
-            aria-invalid={errors.location === undefined ? undefined : true}
-            autoComplete="off"
-            className={styles.input}
-            id={locationId}
-            maxLength={MAX_LOCATION_LENGTH}
-            type="text"
-          />
-          {errors.location !== undefined && (
-            <p className={styles.fieldError} id={locationErrorId}>
-              {errors.location.message}
-            </p>
-          )}
-        </div>
-
-        <div className={styles.field}>
           <label htmlFor={capacityId}>Capacity</label>
           <input
             {...register('capacity')}
@@ -581,7 +556,22 @@ function SessionDetailForm({ session }: { session: Session }) {
 }
 
 function isFieldFailure(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 400;
+  const fields = error instanceof ApiError ? Object.keys(issuesToFieldErrors(error)) : [];
+  return (
+    error instanceof ApiError &&
+    error.status === 400 &&
+    fields.length > 0 &&
+    fields.every(
+      (path) =>
+        path === 'sessionDate' ||
+        path === 'startTime' ||
+        path === 'durationMinutes' ||
+        path === 'capacity' ||
+        path === 'deliveryWindowStart' ||
+        path === 'deliveryWindowEnd' ||
+        path === 'deliveryCapacity',
+    )
+  );
 }
 
 function applyFieldErrors(error: unknown, setError: UseFormSetError<SessionFormValues>): void {
@@ -592,7 +582,6 @@ function applyFieldErrors(error: unknown, setError: UseFormSetError<SessionFormV
       path === 'sessionDate' ||
       path === 'startTime' ||
       path === 'durationMinutes' ||
-      path === 'location' ||
       path === 'capacity' ||
       path === 'deliveryWindowStart' ||
       path === 'deliveryWindowEnd' ||

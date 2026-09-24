@@ -60,5 +60,20 @@
       },
       "services": [{ "binding": "API", "service": "api" }],
     },
+    // UAT: the charity account's third tier, alongside test (default, above)
+    // and production. Shaped like production but bound to the server's UAT
+    // Worker (`api-test`) instead of its production one (`api`).
+    "uat": {
+      "name": "referrals-test",
+      "main": "src/worker/index.ts",
+      "compatibility_date": "2026-07-01",
+      "observability": { "enabled": true },
+      "assets": {
+        "binding": "ASSETS",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*", "/client-version.json"],
+      },
+      "services": [{ "binding": "API", "service": "api-test" }],
+    },
   },
 }

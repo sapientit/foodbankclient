@@ -73,6 +73,19 @@ beforeEach(() => {
 });
 
 describe('the referrals list', () => {
+  it('does not include a session location in the filter choices', async () => {
+    server.use(
+      http.get(SESSIONS, () =>
+        HttpResponse.json({ sessions: [session({ id: 's1', location: 'Old hall' })] }),
+      ),
+      http.get(REFERRALS, () => HttpResponse.json({ referrals: [] })),
+    );
+
+    renderApp('/referrals');
+
+    expect(await screen.findByLabelText('Session')).not.toHaveTextContent('Old hall');
+  });
+
   it('clears both filters back to the privacy-safe list URL', async () => {
     server.use(
       http.get(REFERRALS, () => HttpResponse.json({ referrals: [referral({ id: 'r1' })] })),

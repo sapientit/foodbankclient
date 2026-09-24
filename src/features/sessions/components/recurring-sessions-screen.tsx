@@ -156,7 +156,6 @@ export function RecurringSessionsScreen() {
                 <th scope="col">Name</th>
                 <th scope="col">Day</th>
                 <th scope="col">Time</th>
-                <th scope="col">Location</th>
                 <th className={styles.numeric} scope="col">
                   Capacity
                 </th>
@@ -171,7 +170,6 @@ export function RecurringSessionsScreen() {
                   <th scope="row">{row.name}</th>
                   <td>{WEEKDAY_LABELS[row.weekday] ?? row.weekday}</td>
                   <td>{row.startTime}</td>
-                  <td>{row.location}</td>
                   <td className={styles.numeric}>{row.capacity}</td>
                   <td>
                     From {formatSessionDate(row.activeFrom)}

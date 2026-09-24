@@ -112,17 +112,6 @@
         },
         {
           "questionNum": 10,
-          "questionKey": "ethnicity other",
-          "questionTitle": "Ethnicity details",
-          "required": false,
-          "preference": false,
-          "validation": {
-            "type": "String",
-            "maxLength": 500
-          }
-        },
-        {
-          "questionNum": 11,
           "questionKey": "languages",
           "questionTitle": "Mother tongue (if not English) and level of spoken English",
           "required": false,
@@ -133,7 +122,7 @@
           }
         },
         {
-          "questionNum": 12,
+          "questionNum": 11,
           "questionKey": "refereeEmail",
           "questionTitle": "Client's email",
           "required": false,
@@ -145,7 +134,7 @@
           }
         },
         {
-          "questionNum": 13,
+          "questionNum": 12,
           "questionKey": "refereePhone",
           "questionTitle": "Client's contact number",
           "required": false,
@@ -153,7 +142,7 @@
           "keyField": "refereePhone"
         },
         {
-          "questionNum": 14,
+          "questionNum": 13,
           "questionKey": "refereeAddress",
           "questionTitle": "First line of address",
           "required": true,
@@ -161,7 +150,7 @@
           "keyField": "refereeAddress"
         },
         {
-          "questionNum": 15,
+          "questionNum": 14,
           "questionKey": "refereePostcode",
           "questionTitle": "Client's postcode",
           "required": true,
@@ -169,7 +158,7 @@
           "keyField": "refereePostcode"
         },
         {
-          "questionNum": 16,
+          "questionNum": 15,
           "questionKey": "Household Components",
           "questionTitle": "Household Composition\nPlease type relevant number in household for each gender and related age group",
           "required": true,
@@ -179,7 +168,7 @@
           }
         },
         {
-          "questionNum": 17,
+          "questionNum": 16,
           "questionKey": "source of income",
           "questionTitle": "What is your main source of income",
           "required": true,
@@ -202,7 +191,7 @@
           ]
         },
         {
-          "questionNum": 18,
+          "questionNum": 17,
           "questionKey": "reasonId",
           "questionTitle": "Main cause of crisis",
           "required": true,
@@ -210,10 +199,11 @@
           "keyField": "reasonId"
         },
         {
-          "questionNum": 19,
+          "questionNum": 18,
           "questionKey": "reasonAdditional",
           "questionTitle": "Additional information about crisis",
           "required": false,
+          "forListenerSheet": true,
           "preference": false,
           "validation": {
             "type": "String",
@@ -221,7 +211,7 @@
           }
         },
         {
-          "questionNum": 20,
+          "questionNum": 19,
           "questionKey": "Secondary",
           "questionTitle": "Secondary cause of crisis",
           "required": false,
@@ -236,14 +226,14 @@
           }
         },
         {
-          "questionNum": 21,
+          "questionNum": 20,
           "questionKey": "sessionId",
           "questionTitle": "Session date",
           "required": true,
           "keyField": "sessionId"
         },
         {
-          "questionNum": 22,
+          "questionNum": 21,
           "questionKey": "Collection method",
           "questionTitle": "How will the parcel be collected",
           "required": true,
@@ -262,7 +252,7 @@
           ]
         },
         {
-          "questionNum": 23,
+          "questionNum": 22,
           "questionTitle": "Delivery is restricted to people who are housebound for medical reasons, or do not have any family or friends who can help them collect the parcel. Please note that single person parcels are small enough to be collected on foot/by public transport",
           "answerFormat": "No Answer",
           "enabledWhen": {
@@ -271,7 +261,7 @@
           }
         },
         {
-          "questionNum": 24,
+          "questionNum": 23,
           "questionTitle": "$deliveryTime",
           "answerFormat": "No Answer",
           "enabledWhen": {
@@ -280,7 +270,7 @@
           }
         },
         {
-          "questionNum": 25,
+          "questionNum": 24,
           "questionKey": "deliveryConfirm",
           "questionTitle": "Please confirm both of these",
           "required": true,
@@ -416,7 +406,7 @@
           "required": false,
           "enabledWhen": {
             "questionKey": "PulsesYes",
-            "hasAnswer": "yes"
+            "hasAnswer": "Yes"
           },
           "pickListInformation": "Yes",
           "preference": true,
@@ -940,7 +930,6 @@
           "questionKey": "Other",
           "questionTitle": "Any additional information?",
           "required": false,
-          "forListenerSheet": true,
           "preference": true,
           "validation": {
             "type": "String",

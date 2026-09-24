@@ -179,6 +179,13 @@ export const DELIVERY_CAPACITY_BOUNDS = { minimum: 0, maximum: 1000 };
 
 export const DEFAULT_CAPACITY = 25;
 
+/**
+ * The food bank currently runs from one place. It remains in session records
+ * for operational exports and SMS reminders, but is not a session display in
+ * the client.
+ */
+export const DEFAULT_LOCATION = "St. Clare's Church";
+
 /** `location`: `maxLength: 200` on every session endpoint. */
 export const MAX_LOCATION_LENGTH = 200;
 

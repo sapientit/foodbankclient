@@ -39,7 +39,7 @@ export function SessionReferralDetailsScreen() {
         <PageHeader title="Referral details" />
       </div>
       <p>
-        {formatSessionDate(data.sessionDate)}, {data.startTime} — {data.location}
+        {formatSessionDate(data.sessionDate)}, {data.startTime}
       </p>
       <button
         type="button"

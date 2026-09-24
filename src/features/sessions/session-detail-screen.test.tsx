@@ -55,26 +55,24 @@ beforeEach(() => {
 });
 
 describe('the session detail screen', () => {
-  it('prefills the form from the fetched session and never sends startsAtUtc when saving', async () => {
+  it('hides an existing location but preserves it in the patch', async () => {
     let posted: unknown = null;
     server.use(
       http.get(SESSION_URL, () => HttpResponse.json(session())),
       http.patch(SESSION_URL, async ({ request }) => {
         posted = await request.json();
-        return HttpResponse.json(session({ location: 'New hall' }));
+        return HttpResponse.json(session({ location: 'Old hall' }));
       }),
     );
 
     renderApp('/sessions/s1');
     const user = userEvent.setup();
 
-    expect(await screen.findByDisplayValue('St Mary’s Hall')).toBeInTheDocument();
+    await screen.findByRole('button', { name: 'Save changes' });
+    expect(screen.queryByLabelText('Location')).toBeNull();
     expect(screen.getByDisplayValue('90')).toBeInTheDocument();
     expect(screen.getByDisplayValue('25')).toBeInTheDocument();
 
-    const locationInput = screen.getByLabelText('Location');
-    await user.clear(locationInput);
-    await user.type(locationInput, 'New hall');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await screen.findByRole('heading', { name: 'Sessions' });
@@ -83,7 +81,7 @@ describe('the session detail screen', () => {
       sessionDate: '2026-08-04',
       startTime: '10:00',
       durationMinutes: 90,
-      location: 'New hall',
+      location: 'St Mary’s Hall',
       capacity: 25,
       // Fetched with no window and left untouched — both keys are still sent
       // explicitly, because this form saves every field on every submit.
@@ -150,7 +148,7 @@ describe('the session detail screen', () => {
     renderApp('/sessions/s1');
     const user = userEvent.setup();
 
-    await screen.findByDisplayValue('St Mary’s Hall');
+    await screen.findByLabelText('Delivery capacity');
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
@@ -216,7 +214,7 @@ describe('the session detail screen', () => {
     // Waited for on the loaded screen, not on the link: the link is on the
     // loading header too, so awaiting it would resolve before the session had
     // arrived and prove nothing about either state below.
-    await screen.findByDisplayValue('St Mary’s Hall');
+    await screen.findByLabelText('Delivery capacity');
     expect(screen.getByRole('link', { name: 'Back to sessions' })).toHaveAttribute(
       'href',
       '/sessions',
@@ -289,7 +287,7 @@ describe('the session detail screen', () => {
     renderApp('/sessions/s1');
     const user = userEvent.setup();
 
-    await screen.findByDisplayValue('St Mary’s Hall');
+    await screen.findByLabelText('Delivery capacity');
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -317,7 +315,7 @@ describe('the session detail screen', () => {
     renderApp('/sessions/s1');
     const user = userEvent.setup();
 
-    await screen.findByDisplayValue('St Mary’s Hall');
+    await screen.findByLabelText('Delivery capacity');
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');

@@ -50,7 +50,6 @@ describe('a team lead typing the add-a-session URL', () => {
     await user.type(await screen.findByLabelText('Date'), '2026-08-04');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
     await user.click(screen.getByRole('button', { name: 'Add session' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('You do not have access to this');

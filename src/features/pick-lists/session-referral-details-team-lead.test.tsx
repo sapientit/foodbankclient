@@ -72,6 +72,7 @@ describe('team-lead session referral details', () => {
     const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
     expect(await screen.findByRole('row', { name: /Jamie Rowe/ })).toBeInTheDocument();
+    expect(screen.queryByText('St Mary’s Hall')).toBeNull();
     expect(screen.getByRole('row', { name: /Jamie Rowe/ })).toHaveTextContent('#1');
     expect(screen.getByText('Sam Referrer')).toBeInTheDocument();
     expect(screen.queryByText('Reason for referral')).toBeNull();

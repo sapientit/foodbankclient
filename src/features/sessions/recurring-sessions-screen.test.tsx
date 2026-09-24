@@ -86,6 +86,21 @@ describe('the weekly session list', () => {
     expect(within(rows[3]!).getByText('Thursday club')).toBeInTheDocument();
   });
 
+  it('never shows a weekly template’s stored location', async () => {
+    server.use(
+      http.get(RECURRING, () =>
+        HttpResponse.json({ recurringSessions: [template({ id: 't1', location: 'Old hall' })] }),
+      ),
+    );
+
+    renderApp('/sessions/recurring');
+
+    expect(await screen.findByRole('row', { name: /Tuesday session/ })).not.toHaveTextContent(
+      'Old hall',
+    );
+    expect(screen.queryByRole('columnheader', { name: 'Location' })).toBeNull();
+  });
+
   it('shows an open-ended template without an end date', async () => {
     server.use(
       http.get(RECURRING, () =>
@@ -319,7 +334,7 @@ describe('generating sessions from the templates', () => {
 });
 
 describe('adding a weekly session', () => {
-  it('sends the day as a number and treats a blank end date as no end', async () => {
+  it('hides the single location while creating each weekly session as St. Clare’s Church', async () => {
     let posted: unknown = null;
     server.use(
       http.get(RECURRING, () => HttpResponse.json({ recurringSessions: [] })),
@@ -336,7 +351,7 @@ describe('adding a weekly session', () => {
     await user.selectOptions(screen.getByLabelText('Day of the week'), 'Tuesday');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
+    expect(screen.queryByLabelText('Location')).toBeNull();
     await user.type(screen.getByLabelText('Starts from'), '2026-01-01');
 
     await user.click(screen.getByRole('button', { name: 'Add weekly session' }));
@@ -347,7 +362,7 @@ describe('adding a weekly session', () => {
       weekday: 2,
       startTime: '10:00',
       durationMinutes: 90,
-      location: 'St Mary’s Hall',
+      location: "St. Clare's Church",
       capacity: 25,
       activeFrom: '2026-01-01',
       activeUntil: null,
@@ -388,7 +403,6 @@ describe('adding a weekly session', () => {
     await user.selectOptions(screen.getByLabelText('Day of the week'), 'Tuesday');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
     await user.type(screen.getByLabelText('Starts from'), '2026-01-01');
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
@@ -420,7 +434,6 @@ describe('adding a weekly session', () => {
     await user.type(await screen.findByLabelText('Name'), 'Tuesday session');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
     await user.type(screen.getByLabelText('Starts from'), '2026-01-01');
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
@@ -440,7 +453,6 @@ describe('adding a weekly session', () => {
     await user.type(await screen.findByLabelText('Name'), 'Tuesday session');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
     await user.type(screen.getByLabelText('Starts from'), '2026-06-01');
     await user.type(screen.getByLabelText('Ends after (optional)'), '2026-01-01');
 
@@ -453,7 +465,7 @@ describe('adding a weekly session', () => {
 });
 
 describe('amending a weekly session', () => {
-  it('prefills from the cached list — there is no single-item GET — and saves a patch', async () => {
+  it('hides an existing weekly location but preserves it in the patch', async () => {
     let posted: unknown = null;
     server.use(
       http.get(RECURRING, () =>
@@ -461,21 +473,20 @@ describe('amending a weekly session', () => {
       ),
       http.patch(`${RECURRING}/t1`, async ({ request }) => {
         posted = await request.json();
-        return HttpResponse.json(template({ id: 't1', location: 'New hall' }));
+        return HttpResponse.json(template({ id: 't1', location: 'Old hall' }));
       }),
     );
 
     renderApp('/sessions/recurring/t1');
     const user = userEvent.setup();
 
-    const locationInput = await screen.findByDisplayValue('St Mary’s Hall');
-    await user.clear(locationInput);
-    await user.type(locationInput, 'New hall');
+    await screen.findByRole('button', { name: 'Save changes' });
+    expect(screen.queryByLabelText('Location')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await screen.findByRole('heading', { name: 'Weekly sessions' });
 
-    expect(posted).toMatchObject({ location: 'New hall' });
+    expect(posted).toMatchObject({ location: 'St Mary’s Hall' });
   });
 
   it('disables the delivery times until the checkbox is ticked', async () => {
@@ -515,7 +526,7 @@ describe('amending a weekly session', () => {
     renderApp('/sessions/recurring/t1');
     const user = userEvent.setup();
 
-    await screen.findByDisplayValue('St Mary’s Hall');
+    await screen.findByLabelText('Delivery capacity');
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
@@ -595,7 +606,7 @@ describe('amending a weekly session', () => {
     renderApp('/sessions/recurring/t1');
     const user = userEvent.setup();
 
-    await screen.findByDisplayValue('St Mary’s Hall');
+    await screen.findByLabelText('Delivery capacity');
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');

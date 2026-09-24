@@ -105,7 +105,7 @@ export function ReferralsScreen() {
               <option value="">All sessions</option>
               {(sessions.data ?? []).map((session) => (
                 <option key={session.id} value={session.id}>
-                  {sessionLabel(session.id)} — {session.location}
+                  {sessionLabel(session.id)}
                 </option>
               ))}
             </select>

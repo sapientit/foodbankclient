@@ -55,7 +55,7 @@ beforeEach(() => {
 });
 
 describe('adding an ad hoc session', () => {
-  it('sends named fields only, defaulting capacity to 25, and never sends startsAtUtc', async () => {
+  it('hides the single location while creating it as St. Clare’s Church', async () => {
     let posted: unknown = null;
     server.use(
       http.get(SESSIONS, () => HttpResponse.json({ sessions: [] })),
@@ -71,7 +71,7 @@ describe('adding an ad hoc session', () => {
     await user.type(await screen.findByLabelText('Date'), '2026-08-04');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
+    expect(screen.queryByLabelText('Location')).toBeNull();
     // Capacity keeps its default of 25 — nothing typed into it.
 
     await user.click(screen.getByRole('button', { name: 'Add session' }));
@@ -82,7 +82,7 @@ describe('adding an ad hoc session', () => {
       sessionDate: '2026-08-04',
       startTime: '10:00',
       durationMinutes: 90,
-      location: 'St Mary’s Hall',
+      location: "St. Clare's Church",
       capacity: 25,
       // Nought — settled 2026-08-16 — so an untouched box opts a new session
       // out of deliveries and the window pair is omitted entirely. A driver is
@@ -92,6 +92,39 @@ describe('adding an ad hoc session', () => {
     expect(posted).not.toHaveProperty('startsAtUtc');
     expect(posted).not.toHaveProperty('deliveryWindowStart');
     expect(posted).not.toHaveProperty('deliveryWindowEnd');
+  });
+
+  it('announces a location refusal instead of storing it against the hidden field', async () => {
+    server.use(
+      http.post(SESSIONS, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'VALIDATION_FAILED',
+              message: 'The stored location needs attention.',
+              details: {
+                issues: [
+                  { path: 'location', message: 'Location is not valid.' },
+                  { path: 'capacity', message: 'Capacity is not valid.' },
+                ],
+              },
+              requestId: 'r1',
+            },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    renderApp('/sessions/new');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText('Date'), '2026-08-04');
+    await user.type(screen.getByLabelText('Start time'), '10:00');
+    await user.type(screen.getByLabelText('Duration (minutes)'), '90');
+    await user.click(screen.getByRole('button', { name: 'Add session' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Location is not valid.');
   });
 
   it('disables and un-marks the delivery times until the delivery capacity is above nought', async () => {
@@ -131,7 +164,6 @@ describe('adding an ad hoc session', () => {
     await user.type(await screen.findByLabelText('Date'), '2026-08-04');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
@@ -143,7 +175,7 @@ describe('adding an ad hoc session', () => {
       sessionDate: '2026-08-04',
       startTime: '10:00',
       durationMinutes: 90,
-      location: 'St Mary’s Hall',
+      location: "St. Clare's Church",
       capacity: 25,
       deliveryWindowStart: '09:00',
       deliveryWindowEnd: '11:00',
@@ -168,7 +200,6 @@ describe('adding an ad hoc session', () => {
     await user.type(await screen.findByLabelText('Date'), '2026-08-04');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
 
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
@@ -205,7 +236,6 @@ describe('adding an ad hoc session', () => {
     await user.type(await screen.findByLabelText('Date'), '2026-08-04');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
 
@@ -231,7 +261,6 @@ describe('adding an ad hoc session', () => {
     await user.type(await screen.findByLabelText('Date'), '2026-08-04');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '11:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '09:00');
@@ -264,7 +293,6 @@ describe('adding an ad hoc session', () => {
     await user.type(await screen.findByLabelText('Date'), '2026-08-04');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
     const capacity = screen.getByLabelText('Capacity');
     await user.clear(capacity);
     await user.type(capacity, '25');
@@ -299,7 +327,6 @@ describe('adding an ad hoc session', () => {
     await user.type(await screen.findByLabelText('Date'), '2026-08-04');
     await user.type(screen.getByLabelText('Start time'), '10:00');
     await user.type(screen.getByLabelText('Duration (minutes)'), '90');
-    await user.type(screen.getByLabelText('Location'), 'St Mary’s Hall');
     await setDeliveryCapacity(user, '25');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
