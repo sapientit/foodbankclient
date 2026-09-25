@@ -26,7 +26,9 @@ import styles from './turnstile-check.module.css';
  *   this and should never know.
  * - **A failed challenge.** `error-callback` clears the token and says so in a
  *   live region, because the send button is unavailable until there is one and
- *   an unexplained dead button is indistinguishable from a broken form.
+ *   an unexplained dead button is indistinguishable from a broken form. A
+ *   configuration failure is terminal; only a transient failure gets one
+ *   controlled retry, rather than an invisible, endless reset loop.
  */
 export function TurnstileCheck({
   onToken,
@@ -40,7 +42,8 @@ export function TurnstileCheck({
   const labelId = useId();
   const container = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
-  const [failed, setFailed] = useState(false);
+  const retries = useRef(0);
+  const [error, setError] = useState<TurnstileError | null>(null);
 
   /*
    * Held in a ref so the mount effect below does not depend on it. The screen
@@ -67,30 +70,38 @@ export function TurnstileCheck({
         widgetId.current =
           window.turnstile?.render(container.current, {
             sitekey: siteKey,
+            // Cloudflare's automatic retries can call error-callback repeatedly.
+            // This form must stop with a useful answer after its one controlled
+            // retry, rather than visibly flashing forever.
+            retry: 'never',
             callback: (token) => {
-              setFailed(false);
+              retries.current = 0;
+              setError(null);
               report.current(token);
             },
             'expired-callback': () => {
               report.current(null);
               if (widgetId.current !== null) window.turnstile?.reset(widgetId.current);
             },
-            /*
-             * Turnstile's own guidance is to reset on error, and it is right:
-             * a challenge that failed once usually succeeds on a second pass.
-             * The referrer is told, because the send button is unavailable
-             * meanwhile and a dead button with no explanation reads as a
-             * broken form — but they are not asked to do anything yet.
-             */
-            'error-callback': () => {
-              setFailed(true);
+            'error-callback': (errorCode) => {
               report.current(null);
-              if (widgetId.current !== null) window.turnstile?.reset(widgetId.current);
+              const nextError = describeTurnstileError(errorCode);
+              if (nextError.retryable && retries.current === 0 && widgetId.current !== null) {
+                retries.current += 1;
+                setError({ kind: 'retrying', retryable: false });
+                window.turnstile?.reset(widgetId.current);
+              } else {
+                setError(nextError);
+              }
+              // `retry: 'never'` keeps recovery under our control. Returning
+              // false asks Turnstile to print its code in the browser console,
+              // a safe diagnostic that contains no referral data.
+              return false;
             },
           }) ?? null;
       })
       .catch(() => {
-        if (!cancelled) setFailed(true);
+        if (!cancelled) setError({ kind: 'connection', retryable: true });
       });
 
     return () => {
@@ -116,6 +127,8 @@ export function TurnstileCheck({
     lastReset.current = resetSignal;
     if (widgetId.current !== null) {
       report.current(null);
+      retries.current = 0;
+      setError(null);
       window.turnstile?.reset(widgetId.current);
     }
   }, [resetSignal]);
@@ -130,15 +143,66 @@ export function TurnstileCheck({
       <div aria-labelledby={labelId} ref={container} role="group" />
       {/*
         Never "reload the page": nothing on this form is saved anywhere, so that
-        advice costs a referrer seven pages of somebody else's details. The check
-        is already trying again by itself; if it truly cannot pass, the food bank
-        takes referrals by phone as it always did.
+        advice costs a referrer seven pages of somebody else's details. A
+        transient challenge gets one controlled retry; if it truly cannot pass,
+        the food bank takes referrals by phone as it always did.
       */}
-      <p aria-atomic="true" className={styles.status} role="status">
-        {failed
-          ? 'The security check did not pass. It is trying again — if this does not clear, phone the food bank and they will take the referral over the phone.'
-          : ''}
-      </p>
+      {error !== null && (
+        <p
+          aria-atomic="true"
+          className={styles.status}
+          role={error.kind === 'retrying' ? 'status' : 'alert'}
+        >
+          {turnstileErrorMessage(error)}
+        </p>
+      )}
     </div>
   );
+}
+
+type TurnstileError =
+  | { kind: 'configuration'; retryable: false }
+  | { kind: 'connection'; retryable: true }
+  | { kind: 'timeout'; retryable: true }
+  | { kind: 'retrying'; retryable: false }
+  | { kind: 'challenge'; retryable: boolean };
+
+function describeTurnstileError(errorCode: string): TurnstileError {
+  if (
+    errorCode === '110100' ||
+    errorCode === '110110' ||
+    errorCode === '110200' ||
+    errorCode === '200100' ||
+    errorCode === '400020' ||
+    errorCode === '400070'
+  ) {
+    return { kind: 'configuration', retryable: false };
+  }
+
+  if (errorCode === '200500') return { kind: 'connection', retryable: true };
+
+  if (errorCode === '110600' || errorCode === '110620') {
+    return { kind: 'timeout', retryable: true };
+  }
+
+  if (errorCode.startsWith('300') || errorCode.startsWith('600')) {
+    return { kind: 'challenge', retryable: true };
+  }
+
+  return { kind: 'challenge', retryable: false };
+}
+
+function turnstileErrorMessage(error: TurnstileError): string {
+  switch (error.kind) {
+    case 'retrying':
+      return 'The security check had a temporary problem. It is trying once more.';
+    case 'configuration':
+      return 'The security check is not available because of a food bank setup problem. Please phone the food bank and they will take the referral over the phone.';
+    case 'connection':
+      return 'The security check could not connect. Please check your connection and try again; if it still cannot pass, phone the food bank and they will take the referral over the phone.';
+    case 'timeout':
+      return 'The security check took too long. Please phone the food bank and they will take the referral over the phone.';
+    case 'challenge':
+      return 'The security check could not pass. Please phone the food bank and they will take the referral over the phone.';
+  }
 }

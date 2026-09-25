@@ -1506,7 +1506,7 @@ describe('Turnstile', () => {
     sitekey: string;
     emitToken: (token: string) => void;
     expire: () => void;
-    fail: () => void;
+    fail: (errorCode: string) => boolean;
   }
 
   function installTurnstileStub() {
@@ -1773,6 +1773,62 @@ describe('Turnstile', () => {
       screen.getByText('Waiting for the security check to finish. It usually takes a moment.'),
     ).toBeInTheDocument();
     expect(reset).toHaveBeenCalledWith(widget.id);
+  });
+
+  it('retries a transient security-check failure once, then gives a useful error instead of looping', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '1x00000000000000000000AA');
+    const { rendered, reset } = installTurnstileStub();
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await navigateToLastPage(user);
+
+    await waitFor(() => {
+      expect(rendered).toHaveLength(1);
+    });
+    const widget = rendered[0];
+    if (widget === undefined) throw new Error('The widget was not rendered.');
+
+    act(() => {
+      expect(widget.fail('200500')).toBe(false);
+    });
+    expect(reset).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByText('The security check had a temporary problem. It is trying once more.'),
+    ).toBeInTheDocument();
+
+    act(() => {
+      expect(widget.fail('200500')).toBe(false);
+    });
+    expect(reset).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The security check could not connect. Please check your connection and try again; if it still cannot pass, phone the food bank and they will take the referral over the phone.',
+    );
+  });
+
+  it('stops immediately and says when the security check is misconfigured', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '1x00000000000000000000AA');
+    const { rendered, reset } = installTurnstileStub();
+    renderRefer();
+    const user = userEvent.setup();
+
+    await fillPageOne(user);
+    await navigateToLastPage(user);
+
+    await waitFor(() => {
+      expect(rendered).toHaveLength(1);
+    });
+    const widget = rendered[0];
+    if (widget === undefined) throw new Error('The widget was not rendered.');
+
+    act(() => {
+      expect(widget.fail('110200')).toBe(false);
+    });
+    expect(reset).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The security check is not available because of a food bank setup problem. Please phone the food bank and they will take the referral over the phone.',
+    );
   });
 
   it('waits for a fresh token after going back from the final page', async () => {

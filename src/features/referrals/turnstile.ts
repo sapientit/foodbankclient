@@ -33,7 +33,8 @@ declare global {
           sitekey: string;
           callback: (token: string) => void;
           'expired-callback': () => void;
-          'error-callback': () => void;
+          'error-callback': (errorCode: string) => boolean;
+          retry: 'never';
         },
       ): string | undefined;
       reset(widgetId: string): void;
