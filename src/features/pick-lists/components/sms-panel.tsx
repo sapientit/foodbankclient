@@ -5,7 +5,7 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { classNames } from '../../../lib/class-names';
-import { isNotFound } from '../../../lib/errors';
+import { ApiError, isNotFound } from '../../../lib/errors';
 import { formatLondonDateTime, formatSessionDate } from '../../../lib/london-time';
 import { useReferral, useReferralSearchMemory } from '../../referrals/queries';
 import { useSession } from '../../sessions/queries';
@@ -71,6 +71,46 @@ function SmsThreadMessages({ messages }: { messages: readonly ThreadMessage[] })
   );
 }
 
+/** The same reminder send is available on Text messages and the Clients tab. */
+export function SmsRemindersAction({ sessionId }: { readonly sessionId: string }) {
+  const send = useSendSmsReminders();
+  const sending = useRef(false);
+  const [result, setResult] = useState<SmsReminderResult>();
+
+  return (
+    <>
+      <button
+        aria-disabled={send.isPending}
+        onClick={() => {
+          if (sending.current) return;
+          sending.current = true;
+          send.mutate(sessionId, {
+            onSuccess: (response) => {
+              setResult(response);
+            },
+            onError: (error) => {
+              // A network or 5xx failure may have sent the reminder already;
+              // only a refusal proves that it is safe to offer another attempt.
+              if (error instanceof ApiError && error.status >= 400 && error.status < 500)
+                sending.current = false;
+            },
+          });
+        }}
+        type="button"
+      >
+        {send.isPending ? 'Sending SMS reminders…' : 'Send SMS reminders'}
+      </button>
+      {send.isError && <ErrorNotice error={send.error} />}
+      {result !== undefined && (
+        <p role="status">
+          {formatSmsReminderOutcome(result)}
+          {result.failed > 0 && <strong> Failed reminders need attention.</strong>}
+        </p>
+      )}
+    </>
+  );
+}
+
 /**
  * `readOnly` is the containing session being finished with, and it takes every
  * write on this panel away: no reminders, no replies, and **opening a
@@ -96,9 +136,6 @@ export function SessionSmsPanel({
   // The app's one sanctioned poll exists for a session being run. On a finished
   // one it is a request every five seconds for a number that cannot change.
   const summary = useSmsSummary(sessionId, !readOnly);
-  const send = useSendSmsReminders();
-  const sending = useRef(false);
-  const [result, setResult] = useState<SmsReminderResult>();
   const countFor = (referralId: string) =>
     summary.data?.households.find((household) => household.referralId === referralId);
 
@@ -109,35 +146,7 @@ export function SessionSmsPanel({
       {summary.isError && (
         <ErrorNotice error={summary.error} onRetry={() => void summary.refetch()} />
       )}
-      {!readOnly && (
-        <>
-          <button
-            aria-disabled={send.isPending}
-            onClick={() => {
-              if (sending.current) return;
-              sending.current = true;
-              send.mutate(sessionId, {
-                onSuccess: (response) => {
-                  setResult(response);
-                },
-                onSettled: () => {
-                  sending.current = false;
-                },
-              });
-            }}
-            type="button"
-          >
-            {send.isPending ? 'Sending SMS reminders…' : 'Send SMS reminders'}
-          </button>
-          {send.isError && <ErrorNotice error={send.error} />}
-          {result !== undefined && (
-            <p role="status">
-              {formatSmsReminderOutcome(result)}
-              {result.failed > 0 && <strong> Failed reminders need attention.</strong>}
-            </p>
-          )}
-        </>
-      )}
+      {!readOnly && <SmsRemindersAction sessionId={sessionId} />}
       <ul className={styles.households}>
         {parcels.map((parcel) => {
           const count = countFor(parcel.referralId);

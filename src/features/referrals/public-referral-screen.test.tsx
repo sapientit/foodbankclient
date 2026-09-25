@@ -898,24 +898,15 @@ describe('submitting', () => {
     expect(body.answers).not.toHaveProperty('refereePostcode');
   });
 
-  it('submits without a client contact number and omits it from the request', async () => {
-    let body: Record<string, unknown> = {};
-    server.use(
-      http.post(SUBMIT, async ({ request }) => {
-        body = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json(receipt('active'), { status: 201 });
-      }),
-    );
+  it('holds the referrer on page one when the mandatory client contact number is blank', async () => {
     renderRefer();
 
     const user = userEvent.setup();
     await fillPageOne(user, { omitClientPhone: true });
-    await sendFromPageOne(user);
+    await user.click(next());
 
-    await waitFor(() => {
-      expect(body.sessionId).toBe('s-tue');
-    });
-    expect(body).not.toHaveProperty('refereePhone');
+    expect(await screen.findByText(/Client's contact number is required/)).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 7')).toBeInTheDocument();
   });
 
   it('sends referrer collection as the structured referrer_collect method', async () => {

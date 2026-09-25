@@ -52,6 +52,7 @@ import {
   missedLabel,
   parcelStatus,
 } from '../run-session.logic';
+import { SmsRemindersAction } from './sms-panel';
 import styles from './run-sessions-screen.module.css';
 import { StockCheckPanel } from './stock-check-panel';
 import { resolvePreferenceLines, validatePreferenceRules } from '../preference-rules';
@@ -160,9 +161,9 @@ export function SessionLine({ session }: { session: Session }) {
 }
 
 /**
- * The two things a team lead does to the session as a whole that still live
- * on the Clients tab: the stock check, and the one tap that closes the
- * session. Print all pick lists, Listener sheet and Referral details moved
+ * The three things a team lead does to the session as a whole that still live
+ * on the Clients tab: sending SMS reminders, the stock check, and the one tap
+ * that closes the session. Print all pick lists, Listener sheet and Referral details moved
  * out to the tab strip on 2026-08-30 — `screenDetails.md`, "Session
  * processing" — because they are places to look, not actions taken on the
  * session; these two stay here because both depend on state this tab shows
@@ -202,6 +203,7 @@ function SessionActions({
   onToggleStockCheck,
   readOnly,
   readyToPrint,
+  sessionId,
   stockCheckOpen,
   stockCheckPanelId,
 }: {
@@ -211,6 +213,7 @@ function SessionActions({
   readonly onToggleStockCheck: () => void;
   readonly readOnly: boolean;
   readonly readyToPrint: boolean;
+  readonly sessionId: string;
   readonly stockCheckOpen: boolean;
   readonly stockCheckPanelId: string;
 }) {
@@ -224,6 +227,7 @@ function SessionActions({
   return (
     <>
       <div className={styles.actions}>
+        {!readOnly && <SmsRemindersAction sessionId={sessionId} />}
         {/* **Gone on a finished session, not greyed.** Settled by Pete on
             2026-08-17. The comparison answers "what does this session ask for,
             and is it on the shelves" — a question with a use before the doors
@@ -764,6 +768,7 @@ export function RunSessionDetailScreen() {
         }}
         readOnly={readOnly === true}
         readyToPrint={readyToPrint}
+        sessionId={sessionId}
         stockCheckOpen={stockCheckOnScreen}
         stockCheckPanelId={stockCheckPanelId}
       />

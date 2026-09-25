@@ -115,6 +115,65 @@ beforeEach(() => {
 });
 
 describe('a team lead running a session', () => {
+  it('sends reminders from the Clients tab without leaving the run session screen', async () => {
+    let sent = 0;
+    server.use(
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.post('/api/v1/sessions/:sessionId/sms-reminders', () => {
+        sent += 1;
+        return HttpResponse.json({ reminded: 1, simulated: 1, failed: 0, alreadyReminded: 0 });
+      }),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Send SMS reminders' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '1 message sent — 1 simulated; 0 failed; 0 already sent.',
+    );
+    expect(sent).toBe(1);
+  });
+
+  it('does not retry a reminder send after a server failure that may have sent it', async () => {
+    let attempts = 0;
+    server.use(
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.post('/api/v1/sessions/:sessionId/sms-reminders', () => {
+        attempts += 1;
+        return HttpResponse.json(
+          {
+            error: { code: 'INTERNAL_ERROR', message: 'Reminder status was lost', requestId: 'r1' },
+          },
+          { status: 500 },
+        );
+      }),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+    const user = userEvent.setup();
+    const send = await screen.findByRole('button', { name: 'Send SMS reminders' });
+
+    await user.click(send);
+    await screen.findByRole('alert');
+    await user.click(send);
+
+    expect(attempts).toBe(1);
+  });
+
   it('sends reminders and opens a household conversation without exposing a phone number', async () => {
     let sent = false;
     server.use(

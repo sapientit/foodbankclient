@@ -82,6 +82,55 @@ test('preserves the For Listener Sheet marker in generated questionnaire JSON', 
   assert.equal(converted.json.pages[0].questions[0].forListenerSheet, true);
 });
 
+test('allows the questionnaire to make the server-optional client phone mandatory', () => {
+  const headers = [
+    'Page',
+    'Question key',
+    'Question wording',
+    'Answer format',
+    'Selection',
+    'Required',
+    'Use for picking rules?',
+    'Answer / option shown',
+    'Default?',
+    'Shown when key',
+    'Shown when answer',
+    'Pick-list information',
+    'For Fuel Team',
+    'For Listener Sheet',
+  ];
+  const { parseQuestionnaire_, toClientConfig_ } = loadQuestionnaireScript({
+    headers,
+    values: [
+      [
+        '1 — Client details',
+        'refereePhone',
+        "Client's contact number",
+        'Phone number',
+        '',
+        'Yes',
+        'No',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'No',
+        'No',
+      ],
+    ],
+  });
+
+  const parsed = parseQuestionnaire_();
+  assert.equal(parsed.errors.length, 0, parsed.errors.join('\n'));
+  const converted = toClientConfig_(parsed.json);
+  assert.equal(converted.errors.length, 0);
+  const clientPhone = converted.json.pages[0].questions[0];
+  assert.equal(clientPhone.questionKey, 'refereePhone');
+  assert.equal(clientPhone.required, true);
+  assert.equal(clientPhone.keyField, 'refereePhone');
+});
+
 test('converts exact and ranged selection limits from the questionnaire sheet', () => {
   const headers = [
     'Page',

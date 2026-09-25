@@ -239,8 +239,10 @@ describe('a completed session', () => {
     expect(screen.queryByRole('button', { name: /^Attended/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^No show/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Complete session' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send SMS reminders' })).toBeNull();
     expect(writes.attendance).toBe(0);
     expect(writes.confirm).toBe(0);
+    expect(writes.smsReminders).toBe(0);
   });
 
   /**

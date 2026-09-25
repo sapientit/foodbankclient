@@ -365,13 +365,15 @@ describe('a team lead listener sheet', () => {
       "Client's first name",
       "Client's surname",
       'Main cause of crisis',
+      'Additional information about crisis',
       'Secondary cause of crisis',
       'Does the client need help with Energy costs?',
-      'Any additional information?',
       'First time / voucher',
     ]);
     expect(
-      screen.getByRole('row', { name: /#1.*Amina.*Unexpected expenses.*Debt.*Yes.*interpreter/ }),
+      screen.getByRole('row', {
+        name: /#1.*Amina.*Unexpected expenses.*boiler broke.*Debt.*Yes/,
+      }),
     ).toBeInTheDocument();
     expect(
       within(screen.getByRole('row', { name: /#1.*First time/ })).getByRole('cell', {
@@ -396,6 +398,7 @@ describe('a team lead listener sheet', () => {
     expect(screen.queryByText('17 Never Print Close')).toBeNull();
     expect(screen.queryByText('07000 000000')).toBeNull();
     expect(screen.queryByText('Baked beans: 2')).toBeNull();
+    expect(screen.queryByText('Please arrange an interpreter.')).toBeNull();
   });
 
   it('does not expose an unmarked stored answer', async () => {
@@ -407,7 +410,7 @@ describe('a team lead listener sheet', () => {
             ...household,
             answers: {
               ...household.answers,
-              reasonAdditional: 'This must stay off the listener sheet.',
+              Other: 'This must stay off the listener sheet.',
             },
           })),
         } satisfies ListenerSheet),
@@ -452,9 +455,9 @@ describe('a team lead listener sheet', () => {
       'refereeFirstName',
       'refereeSurname',
       'reasonId',
+      'reasonAdditional',
       'Secondary',
       'needsFuelHelp',
-      'Other',
     ]);
     expect(
       listenerColumns({
