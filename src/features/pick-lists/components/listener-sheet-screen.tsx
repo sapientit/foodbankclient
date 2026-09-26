@@ -6,7 +6,11 @@ import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { isNewClientsAssigned } from '../../../lib/errors';
 import { referralKeys } from '../../referrals/keys';
-import { fetchReferrals, useReferralOptionSources } from '../../referrals/queries';
+import {
+  fetchReferrals,
+  usePublicReferralFormDefinition,
+  useReferralOptionSources,
+} from '../../referrals/queries';
 import {
   listenerColumns,
   listenerColumnsNeedReferralReasons,
@@ -26,6 +30,14 @@ import styles from './listener-sheet-screen.module.css';
  * what a listener needs by marking the questionnaire; this screen holds no list
  * of its own, because the one it used to hold named a question the form had
  * since renamed, and the column read "None given" on every sheet.
+ *
+ * **Columns come from the currently active release, not each household's
+ * own.** A session mixing households from more than one release is possible
+ * but rare, and Pete settled on 2026-09-26 that this one shared table shows
+ * only what the current release marks — a household referred under an older
+ * release simply does not surface its own marked answers here, rather than
+ * the table growing a column for every release that has ever applied to
+ * somebody on this session.
  */
 export function ListenerSheetScreen() {
   const { sessionId = '' } = useParams();
@@ -34,7 +46,8 @@ export function ListenerSheetScreen() {
   const [rebuildError, setRebuildError] = useState<unknown>(null);
   const [rebuilding, setRebuilding] = useState(false);
   const sheet = useListenerSheet(sessionId);
-  const columns = listenerColumns();
+  const form = usePublicReferralFormDefinition();
+  const columns = form.data === undefined ? [] : listenerColumns(form.data.definition);
 
   // The reason lookup, because a question choosing from it stores an id.
   const needsReasons = listenerColumnsNeedReferralReasons(columns);
@@ -107,13 +120,27 @@ export function ListenerSheetScreen() {
       </div>
     );
   }
-  if (reasons.isPending)
+  if (form.isPending || reasons.isPending)
     return (
       <div className={styles.page}>
         <div className={styles.headerCard}>
           <PageHeader title="Listener sheet" />
         </div>
         <Spinner label="Loading the listener sheet…" />
+      </div>
+    );
+  if (form.isError)
+    return (
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Listener sheet" />
+        </div>
+        <ErrorNotice
+          error={form.error}
+          onRetry={() => {
+            void form.refetch();
+          }}
+        />
       </div>
     );
   // Held back rather than printed with an identifier where a cause of crisis

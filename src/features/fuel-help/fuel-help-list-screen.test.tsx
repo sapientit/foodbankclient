@@ -3,10 +3,12 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
+import rawFormConfig from '../referrals/referral-form.config.json';
 import type { FuelHelpList } from './queries';
 
 const REFRESH = '/api/v1/auth/refresh';
 const FUEL_HELP_LIST = '/api/v1/fuel-help-list';
+const QUESTIONNAIRE = '/api/v1/public/questionnaire';
 
 const LIST: FuelHelpList = {
   households: [
@@ -52,6 +54,12 @@ beforeEach(() => {
       }),
     ),
     http.get(FUEL_HELP_LIST, () => HttpResponse.json(LIST)),
+    // The columns now come from the currently active release, fetched rather
+    // than bundled — the shipped config verbatim, so the `forFuelTeam`
+    // markers this file already asserts on stay true.
+    http.get(QUESTIONNAIRE, () =>
+      HttpResponse.json({ formId: 'form-1', questionnaire: JSON.stringify(rawFormConfig) }),
+    ),
   );
 });
 
@@ -134,5 +142,48 @@ describe('fuel help list', () => {
 
     expect(screen.queryByText('Must not appear on this screen.')).toBeNull();
     expect(screen.queryByText(/Cause Details/)).toBeNull();
+  });
+
+  it('reads its columns from the currently active release, not the bundled default', async () => {
+    // A key the shipped config does not have at all — if this screen ever
+    // fell back to the bundled default instead of the fetched release, this
+    // column would not exist and the value would not appear.
+    server.use(
+      http.get(QUESTIONNAIRE, () =>
+        HttpResponse.json({
+          formId: 'other-form',
+          questionnaire: JSON.stringify({
+            version: 1,
+            pages: [
+              {
+                pageNum: 1,
+                pageTitle: 'Fuel',
+                questions: [
+                  {
+                    questionNum: 1,
+                    questionKey: 'ShoeSize',
+                    questionTitle: 'Shoe size',
+                    preference: false,
+                    required: false,
+                    forFuelTeam: true,
+                    validation: { type: 'String', maxLength: 20 },
+                  },
+                ],
+              },
+            ],
+          }),
+        }),
+      ),
+      http.get(FUEL_HELP_LIST, () =>
+        HttpResponse.json({
+          households: [{ ...LIST.households[0], answers: { ShoeSize: 'Size 8' } }],
+        }),
+      ),
+    );
+
+    renderApp('/fuel-help');
+
+    expect(await screen.findByRole('columnheader', { name: 'Shoe size' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Size 8/ })).toBeInTheDocument();
   });
 });

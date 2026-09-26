@@ -3,7 +3,7 @@ import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatSessionDate } from '../../../lib/london-time';
 import { fuelColumns, fuelColumnsNeedOptionSources, fuelColumnValue } from '../fuel-help.logic';
-import { useReferralOptionSources } from '../../referrals/queries';
+import { usePublicReferralFormDefinition, useReferralOptionSources } from '../../referrals/queries';
 import { useFuelHelpList } from '../queries';
 import styles from './fuel-help-list-screen.module.css';
 
@@ -11,15 +11,22 @@ import styles from './fuel-help-list-screen.module.css';
  * A deliberately plain table: fuel work happens in a spreadsheet, and copying
  * rows intact is safer than retyping a phone number. The referral form decides
  * which columns fuel workers may see; unmarked answers never reach the DOM.
+ *
+ * **Columns come from the currently active release, not each household's
+ * own** — the same choice, for the same reason, as the listener sheet: Pete
+ * settled on 2026-09-26 that one shared table shows only what the current
+ * release marks, rather than growing a column for every release anybody on
+ * the list has ever been referred under.
  */
 export function FuelHelpListScreen() {
   const list = useFuelHelpList();
-  const columns = fuelColumns();
+  const form = usePublicReferralFormDefinition();
+  const columns = form.data === undefined ? [] : fuelColumns(form.data.definition);
   // Only where a marked question chooses from a lookup, which none do today:
   // its answer would otherwise be copied into the spreadsheet as an id.
   const reasons = useReferralOptionSources(fuelColumnsNeedOptionSources(columns));
 
-  if (list.isPending || reasons.isPending) {
+  if (list.isPending || form.isPending || reasons.isPending) {
     return (
       <div className={styles.page}>
         <div className={styles.headerCard}>
@@ -37,6 +44,22 @@ export function FuelHelpListScreen() {
           <PageHeader title="Fuel help list" />
         </div>
         <ErrorNotice error={list.error} onRetry={() => void list.refetch()} />
+      </div>
+    );
+  }
+
+  if (form.isError) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Fuel help list" />
+        </div>
+        <ErrorNotice
+          error={form.error}
+          onRetry={() => {
+            void form.refetch();
+          }}
+        />
       </div>
     );
   }

@@ -7,12 +7,14 @@ import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 import type { ConfigurationRelease } from '../configuration-releases/queries';
 import { referralKeys } from '../referrals/keys';
+import rawFormConfig from '../referrals/referral-form.config.json';
 import { listenerColumns } from './listener-sheet.logic';
 import type { ListenerSheet } from './queries';
 import type { ReferralReason } from '../referrals/queries';
 
 const SESSION_ID = 'session-1';
 const RELEASES_BULK = '/api/v1/configuration-releases/bulk';
+const QUESTIONNAIRE = '/api/v1/public/questionnaire';
 
 // A minimal valid rule makes the fresh referral contribute a distinctive line
 // to reconciliation. The maintained rules themselves are covered separately.
@@ -200,6 +202,12 @@ beforeEach(() => {
     ),
     http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
       HttpResponse.json({ sessionId: SESSION_ID, unreadTotal: 0, households: [] }),
+    ),
+    // The listener sheet's own columns now come from the currently active
+    // release, fetched rather than bundled — the shipped config verbatim, so
+    // the `forListenerSheet` markers this file already asserts on stay true.
+    http.get(QUESTIONNAIRE, () =>
+      HttpResponse.json({ formId: 'current-form', questionnaire: JSON.stringify(rawFormConfig) }),
     ),
   );
 });
@@ -461,6 +469,63 @@ describe('a team lead listener sheet', () => {
     expect(screen.queryByText('07000 000000')).toBeNull();
     expect(screen.queryByText('Baked beans: 2')).toBeNull();
     expect(screen.queryByText('Please arrange an interpreter.')).toBeNull();
+  });
+
+  it('reads its columns from the currently active release, not the bundled default', async () => {
+    // A key the shipped config does not have at all — if this screen ever
+    // fell back to the bundled default instead of the fetched release, this
+    // column would not exist and the value would not appear.
+    server.use(
+      http.get(QUESTIONNAIRE, () =>
+        HttpResponse.json({
+          formId: 'other-form',
+          questionnaire: JSON.stringify({
+            version: 1,
+            pages: [
+              {
+                pageNum: 1,
+                pageTitle: 'Listener',
+                questions: [
+                  {
+                    questionNum: 1,
+                    questionKey: 'ShoeSize',
+                    questionTitle: 'Shoe size',
+                    preference: false,
+                    required: false,
+                    forListenerSheet: true,
+                    validation: { type: 'String', maxLength: 20 },
+                  },
+                ],
+              },
+            ],
+          }),
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
+        HttpResponse.json({
+          sessionId: SESSION_ID,
+          households: [
+            {
+              referralId: 'referral-shoe',
+              pickNumber: 1,
+              refereeFirstName: 'Sam',
+              refereeSurname: 'Shoe',
+              reason: 'Low income',
+              needsFuelHelp: false,
+              formId: null,
+              firstTimeMarker: null,
+              voucherInstruction: null,
+              answers: { ShoeSize: 'Size 8' },
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION_ID}/listener`);
+
+    expect(await screen.findByRole('columnheader', { name: 'Shoe size' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /#1.*Size 8/ })).toBeInTheDocument();
   });
 
   it('does not expose an unmarked stored answer', async () => {
