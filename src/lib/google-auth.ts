@@ -1,12 +1,14 @@
-import { ShowableError } from '../../lib/errors';
+import { ShowableError } from './errors';
 
 /**
  * Both halves of Google Identity Services this app uses come from the one
  * script (`GIS` below), so `window.google`'s shape is declared once here —
- * `oauth2` for this file's Sheets access, `id` for `../auth/google-signin.ts`'s
- * sign-in button. Declaring the same global property twice with two different
- * shapes, in two files, is a TypeScript error; extend this one instead of
- * adding a second `declare global` for `google`.
+ * `oauth2` for the Sheets access both the spreadsheet extract and the
+ * configuration-release publish screen need, `id` for
+ * `../features/auth/google-signin.ts`'s sign-in button. Declaring the same
+ * global property twice with two different shapes, in two files, is a
+ * TypeScript error; extend this one instead of adding a second
+ * `declare global` for `google`.
  */
 declare global {
   interface Window {
@@ -39,13 +41,22 @@ export function preloadSheetsAccess(): Promise<void> {
   return loadGis();
 }
 
-export function requestSheetsAccess(clientId: string): Promise<string> {
+/**
+ * `scope` defaults to read-write, what the spreadsheet extract needs to
+ * write archive rows. The configuration-release publish screen asks with the
+ * narrower `.readonly` scope instead — the plan's own "short-lived,
+ * read-only Google access" — since it only ever reads the workbook.
+ */
+export function requestSheetsAccess(
+  clientId: string,
+  scope = 'https://www.googleapis.com/auth/spreadsheets',
+): Promise<string> {
   return loadGis().then(
     () =>
       new Promise((resolve, reject) => {
         const client = window.google?.accounts.oauth2.initTokenClient({
           client_id: clientId,
-          scope: 'https://www.googleapis.com/auth/spreadsheets',
+          scope,
           callback: (response) => {
             if (typeof response.access_token === 'string') resolve(response.access_token);
             else

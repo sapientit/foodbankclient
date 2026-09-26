@@ -4,7 +4,7 @@ import { ShowableError } from '../../lib/errors';
  * The boundary between this client and Cloudflare's Turnstile script.
  *
  * **Everything about the third-party global lives here**, in the same shape as
- * `extracts/google-auth.ts`: one `declare global`, one loader, and no component
+ * `lib/google-auth.ts`: one `declare global`, one loader, and no component
  * reaching for `window` itself. The component beside this file decides what a
  * referrer sees; this decides nothing.
  *

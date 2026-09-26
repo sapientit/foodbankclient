@@ -9,7 +9,7 @@ import { ShowableError } from '../../lib/errors';
 const { writeClaim } = vi.hoisted(() => ({
   writeClaim: vi.fn<(...args: unknown[]) => Promise<void>>().mockResolvedValue(undefined),
 }));
-vi.mock('./google-auth', () => ({
+vi.mock('../../lib/google-auth', () => ({
   preloadSheetsAccess: vi.fn(() => Promise.resolve()),
   requestSheetsAccess: vi.fn(() => Promise.resolve('google-token')),
 }));

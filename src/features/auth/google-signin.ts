@@ -5,7 +5,7 @@ import { ShowableError } from '../../lib/errors';
  * button, in the same shape as `referrals/turnstile.ts`: one loader, no
  * component reaching for `window` itself.
  *
- * `window.google`'s type is declared once in `extracts/google-auth.ts`,
+ * `window.google`'s type is declared once in `lib/google-auth.ts`,
  * shared with this file since both load the same script — see the comment
  * there before adding to it.
  */

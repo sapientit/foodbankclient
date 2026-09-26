@@ -4,7 +4,7 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { CloudIcon, SpreadsheetIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { ShowableError } from '../../../lib/errors';
-import { preloadSheetsAccess, requestSheetsAccess } from '../google-auth';
+import { preloadSheetsAccess, requestSheetsAccess } from '../../../lib/google-auth';
 import { writeClaim } from '../google-sheets';
 import { useCompleteExtractClaim, useExtractClaim, useExtractConfig } from '../queries';
 import { useReferralReasons } from '../../admin-setup/queries';

@@ -81,7 +81,7 @@ describe('loadGoogleIdentityServices', () => {
   });
 
   it('resolves immediately when the script is already loaded', async () => {
-    // @ts-expect-error -- test double; the real shape is declared in extracts/google-auth.ts.
+    // @ts-expect-error -- test double; the real shape is declared in lib/google-auth.ts.
     window.google = {};
 
     await expect(loadGoogleIdentityServices()).resolves.toBeUndefined();
