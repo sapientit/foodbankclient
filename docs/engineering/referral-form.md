@@ -1,19 +1,37 @@
-# The referral form is ours, not the server's
+# The referral form's shape is ours; the live release is the server's
 
 The enforceable rules are in [`.claude/rules/referral-form.md`](../../.claude/rules/referral-form.md).
 This file is the reasoning, and the design of the machinery in `src/features/referrals/`.
 
-## The publishing mechanism is a release of this client
+## The publishing mechanism is a versioned release, not a client deploy
 
-There is no `GET /public/referral-form`, no draft or publish call, and no form-maintenance screen to
-build. The server **had** one — versioned `form_definitions` / `form_fields`, a publish flow and an
-answer-validation module — and it was removed: migration `0008` dropped both tables and
-`referrals.form_definition_id`.
+An earlier version of this document described the referral form as a JSON file bundled into and
+released with the client, on the reasoning that the server's own versioned `form_definitions` /
+`form_fields` tables, publish flow and answer-validation module had been removed (migration `0008`).
+That has since changed again, deliberately: see
+[`docs/planning/versioned-configuration-releases.md`](../planning/versioned-configuration-releases.md)
+for the decision and its scope. The questionnaire and preference rules are now authored together in a
+Google Sheets workbook and published as an immutable release the server stores — `GET
+/public/questionnaire`, `POST /configuration-releases`, `.../publish` — from the "Publish referral
+form" admin screen (`screenDetails.md`, "Referral form releases"), one button that reads the workbook,
+confirms the generation timestamp, validates, and uploads-and-publishes in one action.
 
-So the questions are configuration in this application. Change them here, see them in the test system,
-publish them by releasing a new version of the client.
+**What did not change is who validates `answers`.** The server still stores and returns a release
+verbatim; it does not parse, execute or validate the questionnaire or the rules against anything.
+Everything below that used to say "the server does not hold the referral form" still holds in that
+sense — there is still no server-side answer validation, still no `keyField` vocabulary the server
+knows about — only the storage location and publishing mechanism moved.
 
-That moves a set of constraints from the server to us, and **nothing else enforces them**:
+`referral-form.config.json`, in this repo, is now the **local authoring and test fixture**: what
+`parseReferralFormConfig` parses in development and in this file's own tests, and the baseline the
+frozen-key ledger (`referral-answer-keys.frozen.ts`) and `npm run form:freeze` work from. The live
+public form (`usePublicReferralFormDefinition` in `src/features/referrals/queries.ts`) fetches the
+active release and parses it with that same function, so a definition built from the bundled file and
+one built from a fetched release are the identical shape — everything below about that shape remains
+true regardless of where the JSON came from.
+
+That moves a set of constraints from the server to the client authoring/validation path, and
+**nothing else enforces them**:
 
 - **The server validates `answers` against nothing.** Required, max length, option lists and which
   questions appear at all are enforced here, before submit, or not at all.

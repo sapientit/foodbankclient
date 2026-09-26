@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { AuthProvider } from '../../auth/auth-provider';
 import { routes } from '../../routes';
+import rawFormConfig from './referral-form.config.json';
 import type { PublicSession, ReferralReason, ReferrerCheck } from './queries';
 import { resetTurnstileLoaderForTests } from './turnstile';
 
@@ -32,6 +33,15 @@ const REASONS = '/api/v1/public/referral-reasons';
 const ORGANISATIONS = '/api/v1/public/organisations';
 const SUBMIT = '/api/v1/public/referrals';
 const REFRESH = '/api/v1/auth/refresh';
+const QUESTIONNAIRE = '/api/v1/public/questionnaire';
+
+/**
+ * The active release the form now fetches rather than bundling. The shipped
+ * `referral-form.config.json` verbatim, so every question label and answer
+ * option this file already asserts on stays true — only where the JSON comes
+ * from has changed.
+ */
+const ACTIVE_FORM_ID = 'form-1';
 
 const TUESDAY: PublicSession = {
   id: 's-tue',
@@ -140,6 +150,9 @@ beforeEach(() => {
       HttpResponse.json({ organisations: [{ name: 'Riverside Church' }] }),
     ),
     http.post(CHECK, () => HttpResponse.json(authorised('Riverside Church'))),
+    http.get(QUESTIONNAIRE, () =>
+      HttpResponse.json({ formId: ACTIVE_FORM_ID, questionnaire: JSON.stringify(rawFormConfig) }),
+    ),
   );
 });
 
@@ -907,6 +920,9 @@ describe('submitting', () => {
       children: 0,
       collectionMethod: 'collection',
       needsFuelHelp: false,
+      // The release this form was fetched under, kept with it and sent
+      // alongside the answers rather than derived server-side.
+      formId: ACTIVE_FORM_ID,
     });
     expect(typeof body.adults).toBe('number');
 

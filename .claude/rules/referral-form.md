@@ -14,11 +14,18 @@ paths:
 
 # Referral form rules
 
-**The server does not hold the referral form.** There is no `GET /public/referral-form`, no publish
-call and no form-maintenance screen to build. The questions are **configuration in this
-application** — `referral-form.config.json`, the charity's real questions: change them there, see
-them in the test system, publish them by releasing a new version of the client. That is the
-publishing mechanism. Full reasoning and the machinery's design:
+**The live questionnaire is a versioned release the server stores, not a file bundled into this
+client.** The public form fetches it (`GET /public/questionnaire`), holds its `formId` with the
+in-progress answers, and submits that id with the referral — see
+`docs/planning/versioned-configuration-releases.md`. The charity authors questions in the Google
+Sheets configuration workbook and publishes them from the "Publish referral form" admin screen; there
+is no form-maintenance screen for editing questions directly, and the server still validates
+`answers` against nothing — it stores and serves a release verbatim.
+
+`referral-form.config.json` remains real: it is what `parseReferralFormConfig` parses (whether the
+JSON came from that file or from a fetched release), it drives the frozen-key ledger and
+`form:freeze`, and staff screens that render a referral's own historic release still go through the
+same shape. Full reasoning and the machinery's design:
 [`docs/engineering/referral-form.md`](../../docs/engineering/referral-form.md).
 
 **Two kinds of question, and the type system keeps them apart.** A `KeyFieldQuestion` names one of

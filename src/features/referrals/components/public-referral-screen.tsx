@@ -17,11 +17,11 @@ import {
   suggestedOrganisation,
   type ReferrerVerdict,
 } from '../public-referral.logic';
-import { referralFormDefinition } from '../referral-form-config';
 import {
   isAnswerableQuestion,
   keyFieldKey,
   type AnswerableQuestion,
+  type ReferralFormDefinition,
 } from '../referral-form-definition';
 import { buildPageSchema, defaultAnswers } from '../referral-form-schema';
 import {
@@ -36,6 +36,7 @@ import { describeSubmission, splitSubmission } from '../referral-submission.logi
 import {
   buildSubmissionBody,
   usePublicOrganisations,
+  usePublicReferralFormDefinition,
   usePublicReferralReasons,
   usePublicSessions,
   useReferrerCheck,
@@ -48,8 +49,13 @@ import { TurnstileCheck } from './turnstile-check';
 import styles from './public-referral-screen.module.css';
 
 /**
- * The public referral form: seven pages of the charity's own questions, from
- * `referral-form.config.json`.
+ * The public referral form: the charity's own questions, fetched from the
+ * active release (`usePublicReferralFormDefinition`, `GET
+ * /public/questionnaire`) rather than bundled into the client. See
+ * `docs/planning/versioned-configuration-releases.md`, "Public referral
+ * form": the release's `formId` is held in memory alongside the in-progress
+ * answers and submitted with them, so a referral always records which
+ * questionnaire it was filled in against.
  *
  * `/refer` is a **sibling** of the authenticated layout rather than a child of
  * it, so this renders no shell, mounts no route guard and issues **no request
@@ -73,37 +79,86 @@ import styles from './public-referral-screen.module.css';
  */
 
 /**
- * The two answers this screen reaches for by name, looked up rather than
- * spelled: a key field's question key and the column it writes are independent
- * in the config. `undefined` would mean a released config that no longer asks
- * for one of them, in which case the check simply has nothing to work on —
- * `buildSubmissionBody` is what says so, on the page that can act on it.
+ * The answers this screen reaches for by name, looked up rather than spelled:
+ * a key field's question key and the column it writes are independent in the
+ * config, and now that the config itself arrives over the network there is no
+ * longer a module load to compute these at — see `deriveFormKeys`, called once
+ * the release has been fetched. `undefined` would mean a released config that
+ * no longer asks for one of them, in which case the check simply has nothing
+ * to work on — `buildSubmissionBody` is what says so, on the page that can act
+ * on it.
  */
-const REFERRER_EMAIL_KEY = keyFieldKey(referralFormDefinition, 'referrerEmail');
-const REFERRER_ORGANISATION_KEY = keyFieldKey(referralFormDefinition, 'referrerOrganisation');
-const REFERRER_DETAIL_KEYS = [
-  keyFieldKey(referralFormDefinition, 'referrerName'),
-  REFERRER_EMAIL_KEY,
-  REFERRER_ORGANISATION_KEY,
-  keyFieldKey(referralFormDefinition, 'referrerPhone'),
-].filter((key): key is string => key !== undefined);
-const SESSION_KEY = keyFieldKey(referralFormDefinition, 'sessionId');
-const REASON_KEY = keyFieldKey(referralFormDefinition, 'reasonId');
+function deriveFormKeys(definition: ReferralFormDefinition) {
+  const referrerEmailKey = keyFieldKey(definition, 'referrerEmail');
+  const referrerOrganisationKey = keyFieldKey(definition, 'referrerOrganisation');
+  const referrerDetailKeys = [
+    keyFieldKey(definition, 'referrerName'),
+    referrerEmailKey,
+    referrerOrganisationKey,
+    keyFieldKey(definition, 'referrerPhone'),
+  ].filter((key): key is string => key !== undefined);
+  const sessionKey = keyFieldKey(definition, 'sessionId');
+  const reasonKey = keyFieldKey(definition, 'reasonId');
+  // The tick a delivery refusal takes back, or `null` where this
+  // questionnaire asks for no such confirmation.
+  const windowConfirmation = deliveryWindowConfirmation(definition);
 
-/**
- * The tick a delivery refusal takes back, or `null` where this questionnaire
- * asks for no such confirmation. Read from the config once, like the key
- * fields above, because the charity's form is what names its own questions.
- */
-const WINDOW_CONFIRMATION = deliveryWindowConfirmation(referralFormDefinition);
+  return {
+    referrerEmailKey,
+    referrerOrganisationKey,
+    referrerDetailKeys,
+    sessionKey,
+    reasonKey,
+    windowConfirmation,
+  };
+}
+
+const NO_KEYS_YET = {
+  referrerEmailKey: undefined,
+  referrerOrganisationKey: undefined,
+  referrerDetailKeys: [] as readonly string[],
+  sessionKey: undefined,
+  reasonKey: undefined,
+  windowConfirmation: null,
+};
 
 export function PublicReferralScreen() {
   const sessions = usePublicSessions();
   const reasons = usePublicReferralReasons();
   const organisations = usePublicOrganisations();
+  const form = usePublicReferralFormDefinition();
   const submit = useSubmitReferral();
 
-  const [answers, setAnswers] = useState<FormAnswers>(() => defaultAnswers(referralFormDefinition));
+  const definition = form.data?.definition;
+  const formId = form.data?.formId;
+  const {
+    referrerEmailKey,
+    referrerOrganisationKey,
+    referrerDetailKeys,
+    sessionKey,
+    reasonKey,
+    windowConfirmation,
+  } = useMemo(
+    () => (definition === undefined ? NO_KEYS_YET : deriveFormKeys(definition)),
+    [definition],
+  );
+
+  const [answers, setAnswers] = useState<FormAnswers>({});
+  // Filled in once the release has been fetched, the same "adjust state during
+  // render when a dependency changes" idiom `filledFrom` below uses — there is
+  // no default answer map to build until the questions themselves have
+  // arrived. Compared by reference: `definition` only changes identity on a
+  // genuine refetch that returns different content, thanks to Query's
+  // structural sharing, so this does not wipe an in-progress answer the
+  // moment it is typed.
+  const [answersInitialisedFor, setAnswersInitialisedFor] = useState<ReferralFormDefinition | null>(
+    null,
+  );
+  if (definition !== undefined && definition !== answersInitialisedFor) {
+    setAnswersInitialisedFor(definition);
+    setAnswers(defaultAnswers(definition));
+  }
+
   const [pageIndex, setPageIndex] = useState(0);
   const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
   const [receipt, setReceipt] = useState<ReferralReceipt | null>(null);
@@ -195,8 +250,8 @@ export function PublicReferralScreen() {
     document.getElementById(summaryId)?.focus();
   }, [newReferralFocusRequest, summaryId]);
 
-  const page = referralFormDefinition.pages[pageIndex];
-  const isLastPage = pageIndex === referralFormDefinition.pages.length - 1;
+  const page = definition?.pages[pageIndex];
+  const isLastPage = definition !== undefined && pageIndex === definition.pages.length - 1;
 
   /*
    * The send button waits for the bot check rather than letting somebody press
@@ -235,19 +290,19 @@ export function PublicReferralScreen() {
   const variables = useMemo(() => {
     // `keyFieldKey` answers from the config, so a form with no session question
     // is expressible. Nothing to resolve against then, and the line hides.
-    if (SESSION_KEY === undefined) return { deliveryTime: null };
+    if (sessionKey === undefined) return { deliveryTime: null };
 
-    const chosen = answers[SESSION_KEY];
+    const chosen = answers[sessionKey];
     const session =
       typeof chosen === 'string'
         ? lookups.sessions.find((candidate) => candidate.id === chosen)
         : undefined;
     return { deliveryTime: session === undefined ? null : describeDeliveryWindow(session) };
-  }, [answers, lookups.sessions]);
+  }, [answers, lookups.sessions, sessionKey]);
 
   // The check lives here rather than in the notice because two things depend on
   // it: what the notice says, and the organisation the form fills in below.
-  const typedAddress = REFERRER_EMAIL_KEY === undefined ? '' : answers[REFERRER_EMAIL_KEY];
+  const typedAddress = referrerEmailKey === undefined ? '' : answers[referrerEmailKey];
   const settledAddress = normaliseEmail(
     useDebouncedValue(typeof typedAddress === 'string' ? typedAddress : '', CHECK_DEBOUNCE_MS),
   );
@@ -272,19 +327,23 @@ export function PublicReferralScreen() {
   const [filledFrom, setFilledFrom] = useState<string | null>(null);
   if (suggestion !== filledFrom) {
     setFilledFrom(suggestion);
-    if (suggestion !== null && REFERRER_ORGANISATION_KEY !== undefined) {
+    if (suggestion !== null && referrerOrganisationKey !== undefined) {
       setAnswers((current) =>
-        current[REFERRER_ORGANISATION_KEY] === ''
-          ? { ...current, [REFERRER_ORGANISATION_KEY]: suggestion }
+        current[referrerOrganisationKey] === ''
+          ? { ...current, [referrerOrganisationKey]: suggestion }
           : current,
       );
     }
   }
 
   const startAnotherReferral = () => {
+    // Unreachable in practice: this button only renders on the confirmation
+    // screen, which only exists once a referral has been sent, which needs
+    // this same `definition` to have been loaded already.
+    if (definition === undefined) return;
     setAnswers((current) => {
-      const next = defaultAnswers(referralFormDefinition);
-      for (const key of REFERRER_DETAIL_KEYS) {
+      const next = defaultAnswers(definition);
+      for (const key of referrerDetailKeys) {
         const value = current[key];
         if (typeof value === 'string') next[key] = value;
       }
@@ -303,9 +362,13 @@ export function PublicReferralScreen() {
   };
 
   if (receipt !== null) {
+    // Reaching here needs a completed `send()`, which needs `definition` —
+    // the guard is for the type checker, not a state that occurs.
+    if (definition === undefined) return null;
     return (
       <Confirmation
         answers={answers}
+        definition={definition}
         lookups={lookups}
         onStartAnotherReferral={startAnotherReferral}
         receipt={receipt}
@@ -313,7 +376,7 @@ export function PublicReferralScreen() {
     );
   }
 
-  if (sessions.isPending || reasons.isPending || organisations.isPending) {
+  if (sessions.isPending || reasons.isPending || organisations.isPending || form.isPending) {
     return (
       <main className={styles.screen}>
         <FoodbankBanner />
@@ -323,31 +386,33 @@ export function PublicReferralScreen() {
     );
   }
 
-  // Without the sessions there is no form to fill in — every referral has to
-  // name one — so this is a stop rather than a degraded page.
-  if (sessions.isError) {
+  // Without the sessions or the questionnaire itself there is no form to fill
+  // in — every referral needs both — so this is a stop rather than a
+  // degraded page.
+  if (sessions.isError || form.isError) {
     return (
       <main className={styles.screen}>
         <FoodbankBanner />
         <PageHeader title="Refer someone to the food bank" />
         <ErrorNotice
-          error={sessions.error}
+          error={sessions.error ?? form.error}
           onRetry={() => {
             void sessions.refetch();
+            void form.refetch();
           }}
         />
       </main>
     );
   }
 
-  if (page === undefined) return null;
+  if (page === undefined || definition === undefined || formId === undefined) return null;
 
   const change = (key: string, value: AnswerValue) => {
     setAnswers((current) => {
       const next = { ...current, [key]: value };
       // Run every time an answer changes, so a question that has just greyed
       // out forgets what was typed into it rather than submitting it unseen.
-      return clearDisabledAnswers(referralFormDefinition, next);
+      return clearDisabledAnswers(definition, next);
     });
     // Clear this field's error as soon as it is touched: an error that
     // outlives the thing it complained about reads as a form that will not
@@ -359,7 +424,7 @@ export function PublicReferralScreen() {
     });
     // A verdict is a verdict on the address as it stood. Editing it takes back
     // "we do not recognise that address" until they have finished again.
-    if (key === REFERRER_EMAIL_KEY) setAddressLeft(false);
+    if (key === referrerEmailKey) setAddressLeft(false);
   };
 
   const validatePage = (): boolean => {
@@ -441,7 +506,7 @@ export function PublicReferralScreen() {
    * the food bank reworded a message. So the server's own sentence is the
    * whole of what is said about what went wrong — the submission failure notice
    * renders `409` and `422` verbatim — and this adds no wording of its own. One cause *is*
-   * read, and structurally: see `WINDOW_CONFIRMATION` below.
+   * read, and structurally: see `windowConfirmation` below.
    *
    * **Refetching is what stops the second refusal.** A session that has just
    * filled is gone from the list by the time they look, so the same doomed
@@ -475,8 +540,8 @@ export function PublicReferralScreen() {
      * exactly as it was, so clearing the tick there would make somebody
      * re-answer something that never changed.
      */
-    if (WINDOW_CONFIRMATION !== null && refusedForDeliveryPlaces(error.details)) {
-      const { key: confirmationKey, value } = WINDOW_CONFIRMATION;
+    if (windowConfirmation !== null && refusedForDeliveryPlaces(error.details)) {
+      const { key: confirmationKey, value } = windowConfirmation;
       setAnswers((current) => {
         const ticked = current[confirmationKey];
         if (!Array.isArray(ticked) || !ticked.includes(value)) return current;
@@ -486,7 +551,7 @@ export function PublicReferralScreen() {
 
     const stale = status === 422 ? await reasons.refetch() : await sessions.refetch();
     const options = stale.data;
-    const key = status === 422 ? REASON_KEY : SESSION_KEY;
+    const key = status === 422 ? reasonKey : sessionKey;
     if (options === undefined || key === undefined) return;
 
     /*
@@ -514,8 +579,8 @@ export function PublicReferralScreen() {
   const send = async () => {
     if (!validatePage()) return;
 
-    const { keyFields, answers: dynamic } = splitSubmission(referralFormDefinition, answers);
-    const built = buildSubmissionBody(keyFields, dynamic);
+    const { keyFields, answers: dynamic } = splitSubmission(definition, answers);
+    const built = buildSubmissionBody(keyFields, dynamic, formId);
     if (!built.ok) {
       // Only reachable if a released config lost a question the contract
       // requires — a bug here, not a mistake the referrer made, so it says so
@@ -566,7 +631,7 @@ export function PublicReferralScreen() {
       <PageHeader title="Refer someone to the food bank" />
 
       <p className={styles.progress} id={summaryId} tabIndex={-1}>
-        {describePageProgress(referralFormDefinition, pageIndex)}
+        {describePageProgress(definition, pageIndex)}
       </p>
 
       <h2>{page.pageTitle}</h2>
@@ -619,7 +684,7 @@ export function PublicReferralScreen() {
             question={question}
             value={question.type === 'information' ? '' : (answers[question.key] ?? '')}
             variables={variables}
-            {...(question.type !== 'information' && question.key === REFERRER_EMAIL_KEY
+            {...(question.type !== 'information' && question.key === referrerEmailKey
               ? {
                   onBlur: () => {
                     setAddressLeft(true);
@@ -756,16 +821,18 @@ function FoodbankBanner() {
  */
 function Confirmation({
   answers,
+  definition,
   lookups,
   onStartAnotherReferral,
   receipt,
 }: {
   answers: FormAnswers;
+  definition: ReferralFormDefinition;
   lookups: ReferralLookups;
   onStartAnotherReferral: () => void;
   receipt: ReferralReceipt;
 }) {
-  const lines = describeSubmission(referralFormDefinition, answers, lookups);
+  const lines = describeSubmission(definition, answers, lookups);
   const pending = receipt.status === 'pending_review';
   const noticeHeading = useRef<HTMLHeadingElement>(null);
 

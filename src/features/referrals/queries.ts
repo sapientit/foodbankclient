@@ -6,8 +6,11 @@ import { unwrap } from '../../api/unwrap';
 import { authorisedReferrerKeys } from '../admin-setup/keys';
 import { pickListKeys } from '../pick-lists/keys';
 import { sessionKeys } from '../sessions/keys';
+import { usePublicQuestionnaire } from '../configuration-releases/queries';
 import { publicReferralKeys, referralKeys, type ReferralListFilters } from './keys';
 import { looksLikeEmail, sortByStart } from './public-referral.logic';
+import { parseReferralFormConfig } from './referral-form-config';
+import type { ReferralFormDefinition } from './referral-form-definition';
 import { reasonOptionSources } from './referral-lookups';
 import { sortReferrals } from './referrals.logic';
 
@@ -166,6 +169,99 @@ export function usePublicOrganisations() {
   });
 }
 
+/** The active release, parsed, plus the `formId` it was published under. */
+export interface PublicReferralForm {
+  readonly formId: string;
+  readonly definition: ReferralFormDefinition;
+}
+
+type PublicReferralFormResult =
+  | {
+      readonly isPending: true;
+      readonly isError: false;
+      readonly error: null;
+      readonly data: undefined;
+      readonly refetch: () => Promise<unknown>;
+    }
+  | {
+      readonly isPending: false;
+      readonly isError: true;
+      readonly error: unknown;
+      readonly data: undefined;
+      readonly refetch: () => Promise<unknown>;
+    }
+  | {
+      readonly isPending: false;
+      readonly isError: false;
+      readonly error: null;
+      readonly data: PublicReferralForm;
+      readonly refetch: () => Promise<unknown>;
+    };
+
+/**
+ * The active release, ready for the public form to render and validate from.
+ *
+ * `usePublicQuestionnaire` hands back the questionnaire as a raw string — the
+ * server never parses it — so this is where it becomes the
+ * `ReferralFormDefinition` the rest of the feature already knows how to work
+ * with, alongside the `formId` a submission has to carry.
+ *
+ * **A parse failure is folded into `isError`, not thrown.** The publishing
+ * screen already validated this exact payload before it went live, so this is
+ * a defence against a corrupt response rather than a path expected to run —
+ * but a referrer's browser is the wrong place to find that out by crashing.
+ */
+export function usePublicReferralFormDefinition(): PublicReferralFormResult {
+  const questionnaire = usePublicQuestionnaire();
+
+  return useMemo<PublicReferralFormResult>(() => {
+    if (questionnaire.isPending) {
+      return {
+        isPending: true,
+        isError: false,
+        error: null,
+        data: undefined,
+        refetch: questionnaire.refetch,
+      };
+    }
+    if (questionnaire.isError) {
+      return {
+        isPending: false,
+        isError: true,
+        error: questionnaire.error,
+        data: undefined,
+        refetch: questionnaire.refetch,
+      };
+    }
+    try {
+      const definition = parseReferralFormConfig(
+        JSON.parse(questionnaire.data.questionnaire) as unknown,
+      );
+      return {
+        isPending: false,
+        isError: false,
+        error: null,
+        data: { formId: questionnaire.data.formId, definition },
+        refetch: questionnaire.refetch,
+      };
+    } catch (error) {
+      return {
+        isPending: false,
+        isError: true,
+        error,
+        data: undefined,
+        refetch: questionnaire.refetch,
+      };
+    }
+  }, [
+    questionnaire.isPending,
+    questionnaire.isError,
+    questionnaire.error,
+    questionnaire.data,
+    questionnaire.refetch,
+  ]);
+}
+
 export type ReferralSubmission = components['schemas']['ReferralSubmission'];
 export type ReferralReceipt = components['schemas']['ReferralReceipt'];
 
@@ -191,6 +287,7 @@ export type SubmissionBuild =
 export function buildSubmissionBody(
   keyFields: Readonly<Record<string, string | number | boolean | null>>,
   answers: Readonly<Record<string, unknown>>,
+  formId: string,
 ): SubmissionBuild {
   const missing: string[] = [];
 
@@ -244,6 +341,7 @@ export function buildSubmissionBody(
     collectionMethod: collectionMethod(),
     needsFuelHelp: flag('needsFuelHelp'),
     answers,
+    formId,
     // Optional on the contract, and omitted rather than sent empty — a blank
     // phone number stored forever is a different thing from one nobody gave.
     ...optional('refereePhone'),
