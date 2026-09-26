@@ -107,7 +107,13 @@ export function topTabsFor(role: Role): MenuItem[] {
   if (dashboard === undefined) throw new Error('Dashboard menu item is missing.');
   if (role === 'team_lead') return [dashboard, itemAt('/run-sessions'), itemAt('/stock')];
 
-  const tabPaths = ['/referrals', '/stock', '/sessions', '/referrers'] as const;
+  const tabPaths = [
+    '/referrals',
+    '/stock',
+    '/sessions',
+    '/referrers',
+    '/preference-rules',
+  ] as const;
   return [
     dashboard,
     ...tabPaths.map((path) => {
@@ -115,7 +121,12 @@ export function topTabsFor(role: Role): MenuItem[] {
       if (item === undefined) throw new Error(`Dashboard tab ${path} is missing.`);
       if (path === '/referrals') return { ...item, label: 'Referrals' };
       if (path === '/sessions') return { ...item, label: 'Sessions' };
-      return path === '/referrers' ? { ...item, label: 'Master Data' } : item;
+      if (path === '/referrers') return { ...item, label: 'Master Data' };
+      // "Purely config type questions or system validation and not something
+      // used day to day" (Pete, 2026-09-26) — its own tab, not a hidden
+      // submenu, so it stays as visible as everything else on this bar; see
+      // screenDetails.md, "#Menus".
+      return path === '/preference-rules' ? { ...item, label: 'System' } : item;
     }),
   ];
 }
@@ -171,11 +182,11 @@ export function navigationSectionsFor(role: Role): readonly NavigationSection[] 
       '/model-parcels/grid',
     ]),
     section(itemAt('/sessions'), ['/sessions', '/sessions/recurring']),
-    section(itemAt('/referrers'), [
-      '/referrers',
-      '/users',
-      '/voucher-config',
-      '/referral-reasons',
+    section(itemAt('/referrers'), ['/referrers', '/users', '/voucher-config', '/referral-reasons']),
+    // Config and validation, not day-to-day master-data maintenance — its own
+    // tab rather than a heading or a hidden submenu within Master Data's row.
+    // See screenDetails.md, "#Menus".
+    section(itemAt('/preference-rules'), [
       '/preference-rules',
       '/configuration-releases',
       '/stock/validation',
@@ -190,7 +201,7 @@ function ownsPath(section: NavigationSection, pathname: string): boolean {
 
 /**
  * The most-specific matching destination owns a path. This matters for Stock
- * validation: its URL begins `/stock`, but it is a Master Data screen.
+ * validation: its URL begins `/stock`, but it is a System screen.
  */
 function sectionForPath(role: Role, pathname: string): NavigationSection | undefined {
   return navigationSectionsFor(role)

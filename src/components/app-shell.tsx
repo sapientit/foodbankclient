@@ -10,7 +10,15 @@ import {
 } from '../auth/menu';
 import { classNames } from '../lib/class-names';
 import styles from './app-shell.module.css';
-import { BoxIcon, CalendarIcon, FuelIcon, GridIcon, HomeIcon, UsersIcon } from './icons';
+import {
+  BoxIcon,
+  CalendarIcon,
+  FuelIcon,
+  GridIcon,
+  HomeIcon,
+  SettingsIcon,
+  UsersIcon,
+} from './icons';
 
 const CATEGORY_ICON: Record<NavigationCategory, typeof HomeIcon> = {
   sessions: CalendarIcon,
@@ -24,10 +32,15 @@ const CATEGORY_ICON: Record<NavigationCategory, typeof HomeIcon> = {
  * purposes (see `categoryForPath`), but reads better as a home glyph; fuel
  * help shares the `referrals` category for the same reason but is a fuel
  * admin's only tab, so it earns its own icon rather than borrowing theirs.
+ * System's anchor, Rule check, is `stock`-categorised because its own screen
+ * validates against live stock — right for that screen, not for a tab that
+ * also holds Publish referral form and Cloudflare statistics — so it gets its
+ * own icon rather than Stock's `BoxIcon` too.
  */
 function iconForTab(to: string) {
   if (to === '/') return HomeIcon;
   if (to === '/fuel-help') return FuelIcon;
+  if (to === '/preference-rules') return SettingsIcon;
   return CATEGORY_ICON[categoryForPath(to)];
 }
 

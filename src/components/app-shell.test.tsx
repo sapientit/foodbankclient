@@ -105,6 +105,7 @@ describe('AppShell', () => {
     expect(tabs.getByRole('link', { name: 'Stock' })).toBeInTheDocument();
     expect(tabs.getByRole('link', { name: 'Sessions' })).toBeInTheDocument();
     expect(tabs.getByRole('link', { name: 'Master Data' })).toBeInTheDocument();
+    expect(tabs.getByRole('link', { name: 'System' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Menu' })).toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull();
   });
@@ -131,18 +132,10 @@ describe('AppShell', () => {
         ],
       ],
       ['/sessions', ['Manage Sessions', 'Weekly sessions']],
+      ['/referrers', ['Approved referrers', 'Users', 'Christmas vouchers', 'Reasons for Crisis']],
       [
-        '/referrers',
-        [
-          'Approved referrers',
-          'Users',
-          'Christmas vouchers',
-          'Reasons for Crisis',
-          'Rule check',
-          'Publish referral form',
-          'Stock validation',
-          'Cloudflare statistics',
-        ],
+        '/preference-rules',
+        ['Rule check', 'Publish referral form', 'Stock validation', 'Cloudflare statistics'],
       ],
     ] as const;
 
@@ -168,11 +161,11 @@ describe('AppShell', () => {
     expect(section.getByRole('link', { name: 'Stock' })).not.toHaveAttribute('aria-current');
   });
 
-  it('keeps Stock validation under the active Master Data navigation', async () => {
+  it('keeps Stock validation under the active System navigation', async () => {
     await renderShell('admin', '/stock/validation');
 
     const primary = within(screen.getByRole('navigation', { name: 'Main navigation' }));
-    expect(primary.getByRole('link', { name: 'Master Data', current: 'page' })).toBeInTheDocument();
+    expect(primary.getByRole('link', { name: 'System', current: 'page' })).toBeInTheDocument();
     expect(primary.getByRole('link', { name: 'Stock' })).not.toHaveAttribute('aria-current');
 
     const section = within(screen.getByRole('navigation', { name: 'Section navigation' }));

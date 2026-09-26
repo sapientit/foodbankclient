@@ -310,6 +310,16 @@ export function RefreshIcon({ className }: IconProps) {
   );
 }
 
+/** A gear: the visual cue for configuration and system validation. */
+export function SettingsIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 8v-3M12 16v3M8 12h-3M16 12h3M14.8 14.8l2.1 2.1M9.2 14.8l-2.1 2.1M9.2 9.2l-2.1-2.1M14.8 9.2l2.1-2.1" />
+    </svg>
+  );
+}
+
 /** Radiating signal arcs: the visual cue for making a new version live. */
 export function PublishIcon({ className }: IconProps) {
   return (

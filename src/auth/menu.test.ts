@@ -139,10 +139,12 @@ describe('contextual navigation', () => {
       '/stock',
       '/sessions',
       '/referrers',
+      '/preference-rules',
     ]);
     expect(subtabsFor('admin', '/referrals').at(0)?.label).toBe('Check referrals');
     expect(subtabsFor('admin', '/stock').at(0)?.label).toBe('Stock');
     expect(subtabsFor('admin', '/sessions').at(0)?.label).toBe('Manage Sessions');
+    expect(subtabsFor('admin', '/preference-rules').at(0)?.label).toBe('Rule check');
   });
 
   it('keeps referral work together and puts master-data maintenance in its requested order', () => {
@@ -158,25 +160,27 @@ describe('contextual navigation', () => {
       'Users',
       'Christmas vouchers',
       'Reasons for Crisis',
-      'Rule check',
-      'Publish referral form',
-      'Stock validation',
-      'Cloudflare statistics',
     ]);
   });
 
-  it('keeps Stock validation in Master Data despite its stock URL prefix', () => {
-    expect(subtabsFor('admin', '/stock/validation').map((item) => item.label)).toEqual([
-      'Approved referrers',
-      'Users',
-      'Christmas vouchers',
-      'Reasons for Crisis',
+  it('splits config and validation into their own System tab, separate from day-to-day Master Data', () => {
+    expect(subtabsFor('admin', '/preference-rules').map((item) => item.label)).toEqual([
       'Rule check',
       'Publish referral form',
       'Stock validation',
       'Cloudflare statistics',
     ]);
-    expect(topTabForPath('admin', '/stock/validation')?.label).toBe('Master Data');
+    expect(topTabForPath('admin', '/preference-rules')?.label).toBe('System');
+  });
+
+  it('keeps Stock validation in System despite its stock URL prefix', () => {
+    expect(subtabsFor('admin', '/stock/validation').map((item) => item.label)).toEqual([
+      'Rule check',
+      'Publish referral form',
+      'Stock validation',
+      'Cloudflare statistics',
+    ]);
+    expect(topTabForPath('admin', '/stock/validation')?.label).toBe('System');
   });
 });
 
