@@ -168,6 +168,28 @@ export function PublicReferralScreen() {
     pageRef.current = pageIndex;
   }, [pageIndex]);
 
+  /*
+   * Focus has to wait for the page it is moving *to*, not the one it is
+   * leaving. `goNext`/`goBack`/`recoverOnPageOne` used to call `.focus()`
+   * synchronously right after `setPageIndex`, in the same tick — so the
+   * browser scrolled the summary paragraph into view against the outgoing
+   * page's still-current layout. A moment later React would swap in the new
+   * page, often shorter, and the browser clamped the scroll offset it had
+   * just set to the new, smaller document — landing at the bottom instead of
+   * the top. An effect runs after that swap has painted, once the new page's
+   * height is the one being measured. Skips the initial mount: nothing has
+   * moved yet and a referrer should not be pulled onto a paragraph before
+   * they have touched anything.
+   */
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    document.getElementById(summaryId)?.focus();
+  }, [pageIndex, summaryId]);
+
   useEffect(() => {
     if (newReferralFocusRequest === 0) return;
     document.getElementById(summaryId)?.focus();
@@ -381,9 +403,8 @@ export function PublicReferralScreen() {
     if (isLastPage) setTurnstileToken(null);
     submit.reset();
     setPageIndex(to);
-    // A wizard that changes its whole content without moving focus leaves a
-    // screen-reader user on a button that no longer exists.
-    document.getElementById(summaryId)?.focus();
+    // Focus moves once the new page has actually rendered — see the effect
+    // watching `pageIndex` above, not here.
   };
 
   const goNext = () => {
@@ -436,12 +457,9 @@ export function PublicReferralScreen() {
     // Page seven's failures are not page one's. Anything still showing here
     // belongs to a page they are no longer on.
     setErrors({});
-    // The same move `goNext` and `goBack` make: a wizard that changes its
-    // whole content without moving focus leaves a screen-reader user on a
-    // button that no longer exists. The refusal itself is announced by
-    // the submission failure notice's `role="alert"`, independently of where
-    // focus lands.
-    document.getElementById(summaryId)?.focus();
+    // Focus follows the same page-index effect goNext/goBack use. The
+    // refusal itself is announced separately by the submission failure
+    // notice's `role="alert"`.
 
     /*
      * **The one confirmation a refusal can invalidate.**

@@ -338,6 +338,41 @@ describe('the public referral form', () => {
     expect(await screen.findByText('Page 2 of 7')).toBeInTheDocument();
   });
 
+  it('moves focus only once the page it is moving to has actually rendered', async () => {
+    // Focusing the summary paragraph synchronously, before React commits the
+    // new page, is what let the browser scroll against the outgoing page's
+    // height and land at the bottom of a shorter incoming one once the swap
+    // landed a moment later. Spying on `focus` and reading the page heading
+    // at the instant it fires is what tells the two apart: the bug is
+    // invisible once React has settled, which is the only view a plain
+    // `findByText` assertion after the click would get.
+    const headingAtFocusTime: string[] = [];
+    // Grabbed as a plain value, not a method reference, before it is patched
+    // below — `HTMLElement.prototype.focus` itself would already be the spy
+    // by the time the mock implementation below runs and looked itself up.
+    const realFocus = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'focus')?.value as (
+      this: HTMLElement,
+    ) => void;
+    const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      headingAtFocusTime.push(document.querySelector('h2')?.textContent ?? '');
+      realFocus.call(this);
+    });
+
+    renderRefer();
+    const user = userEvent.setup();
+    await fillPageOne(user);
+    const pageOneHeading = screen.getByRole('heading', { level: 2 }).textContent;
+    await user.click(next());
+    await screen.findByText('Page 2 of 7');
+
+    expect(headingAtFocusTime).not.toHaveLength(0);
+    expect(headingAtFocusTime.at(-1)).not.toBe(pageOneHeading);
+
+    focusSpy.mockRestore();
+  });
+
   it('formats the postcode and refuses one that is not a postcode', async () => {
     renderRefer();
     const user = userEvent.setup();
