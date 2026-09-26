@@ -466,7 +466,13 @@
     margin-block-start: 0.5rem;
   }
 
-  .printLines {
+  /* `break-inside: avoid` on the whole table stranded the header alone on a
+     page of its own for a long household: the table didn't fit the space left
+     under the header, so the browser moved the entire (tall) table to a fresh
+     page rather than split it. Scoping the rule to each row instead keeps a
+     line's name and quantity together, atomic, while letting a long list flow
+     onto a further page directly beneath the header, as intended. */
+  .printLines tr {
     break-inside: avoid;
   }
 }

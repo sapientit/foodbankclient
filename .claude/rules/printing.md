@@ -35,9 +35,12 @@ for changing it, not a plan for writing it.
 
 - **`GET /pick-lists/{id}/print` returns lines already ordered by shelf** so a picker walks the aisle
   once (`A1, A2, A10` — not alphabetical). **Render in the order given. Never re-sort.**
-- **One sheet per parcel**: `break-after: page` between parcels, `break-inside: avoid` on a parcel's
-  line table. Fetch the whole payload once and render every sheet — no lazy loading, no
-  virtualisation, no per-sheet request.
+- **One sheet per parcel**: `break-after: page` between parcels, `break-inside: avoid` on each line
+  row (not the line table as a whole — that stranded a long household's header alone on its own page,
+  since the browser moved the whole table rather than split it. Scoping to the row keeps a line's name
+  and quantity together while letting a long list flow onto a further page under its header). Fetch
+  the whole payload once and render every sheet — no lazy loading, no virtualisation, no per-sheet
+  request.
 - **Show the pick number large.** It is how a sheet gets matched to a bag in a hall. It is also the
   only identifier on the sheet: `PrintParcel` carries no referral id, deliberately, and a sheet is
   traced back through the session's pick list rather than by printing one.
