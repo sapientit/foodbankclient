@@ -29,6 +29,11 @@ rules JSON were generated together before upload.
 turns that plan into an ordered `foodbankserver` workstream — migrations, the API contract, and the
 contract points that still need an explicit settle before they are built.
 
+[`versioned-configuration-releases-server-handoff-addendum-1.md`](./versioned-configuration-releases-server-handoff-addendum-1.md)
+supersedes that handoff's guidance on copying a referral: instead of silently reinterpreting an old
+referral's answers under today's rules, a copy whose form has since changed opens a review of today's
+form instead of creating anything.
+
 ## Potential matches attendance confirmation
 
 ![Potential matches attendance confirmation mock-up](potential-matches-attendance-confirmation-mockup.png)
