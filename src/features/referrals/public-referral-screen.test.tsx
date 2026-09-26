@@ -346,31 +346,30 @@ describe('the public referral form', () => {
     // at the instant it fires is what tells the two apart: the bug is
     // invisible once React has settled, which is the only view a plain
     // `findByText` assertion after the click would get.
+    // A native `focusin` listener, not a `vi.spyOn` of `HTMLElement.prototype.focus`:
+    // patching that prototype method proved to leave it broken for every test
+    // after this one once other tests in this file had already exercised real
+    // focus behaviour — a fragility this event-based approach does not have,
+    // since nothing here is replaced or needs restoring.
     const headingAtFocusTime: string[] = [];
-    // Grabbed as a plain value, not a method reference, before it is patched
-    // below — `HTMLElement.prototype.focus` itself would already be the spy
-    // by the time the mock implementation below runs and looked itself up.
-    const realFocus = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'focus')?.value as (
-      this: HTMLElement,
-    ) => void;
-    const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (
-      this: HTMLElement,
-    ) {
+    const recordHeading = () => {
       headingAtFocusTime.push(document.querySelector('h2')?.textContent ?? '');
-      realFocus.call(this);
-    });
+    };
+    document.addEventListener('focusin', recordHeading);
 
-    renderRefer();
-    const user = userEvent.setup();
-    await fillPageOne(user);
-    const pageOneHeading = screen.getByRole('heading', { level: 2 }).textContent;
-    await user.click(next());
-    await screen.findByText('Page 2 of 7');
+    try {
+      renderRefer();
+      const user = userEvent.setup();
+      await fillPageOne(user);
+      const pageOneHeading = screen.getByRole('heading', { level: 2 }).textContent;
+      await user.click(next());
+      await screen.findByText('Page 2 of 7');
 
-    expect(headingAtFocusTime).not.toHaveLength(0);
-    expect(headingAtFocusTime.at(-1)).not.toBe(pageOneHeading);
-
-    focusSpy.mockRestore();
+      expect(headingAtFocusTime).not.toHaveLength(0);
+      expect(headingAtFocusTime.at(-1)).not.toBe(pageOneHeading);
+    } finally {
+      document.removeEventListener('focusin', recordHeading);
+    }
   });
 
   it('formats the postcode and refuses one that is not a postcode', async () => {
