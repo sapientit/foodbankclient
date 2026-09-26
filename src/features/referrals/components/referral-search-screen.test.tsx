@@ -15,6 +15,7 @@ function result(overrides: Partial<ReferralSearchResult> = {}): ReferralSearchRe
     refereePhone: '01483 123456',
     sessionDate: '2026-08-15',
     status: 'active',
+    formId: null,
     reasonId: 'reason-1',
     referrerName: 'Case Worker',
     referrerOrganisation: 'Guildford Borough Council',

@@ -78,6 +78,7 @@ const JAMIE: Referral = {
   refereePhone: null,
   answers: {},
   piiPurgedAt: null,
+  formId: null,
 };
 
 describe('App', () => {

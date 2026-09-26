@@ -20,6 +20,7 @@ const LIST: FuelHelpList = {
       refereePostcode: 'AB1 2CD',
       refereePhone: '01234 567890',
       needsFuelHelp: true,
+      formId: null,
       answers: {
         refereeEmail: 'jamie@example.org',
         FuelPension: 'Yes',

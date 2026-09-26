@@ -59,6 +59,7 @@ const LISTENER_SHEET = {
       refereeSurname: 'Ahmed',
       reason: 'Unexpected expenses',
       needsFuelHelp: true,
+      formId: null,
       firstTimeMarker: 'first_time',
       voucherInstruction: 'provide_voucher',
       answers: {
@@ -77,6 +78,7 @@ const LISTENER_SHEET = {
       refereeSurname: 'Brown',
       reason: 'Benefit delay',
       needsFuelHelp: false,
+      formId: null,
       firstTimeMarker: 'admin',
       voucherInstruction: 'refer_to_admin',
       answers: { reasonAdditional: 'The first payment has not arrived.' },
@@ -88,6 +90,7 @@ const LISTENER_SHEET = {
       refereeSurname: 'Cole',
       reason: 'Low income',
       needsFuelHelp: false,
+      formId: null,
       firstTimeMarker: null,
       voucherInstruction: 'already_received',
       answers: {},

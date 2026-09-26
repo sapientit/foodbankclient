@@ -54,6 +54,7 @@ function teamLeadReferral(overrides: Partial<Referral> & Pick<Referral, 'id'>): 
     refereePhone: null,
     answers: {},
     piiPurgedAt: null,
+    formId: null,
     // Deliberately no reasonId, referrerEmail or referrerPhone key at all —
     // that is the shape a team lead actually receives, not `null`.
     ...overrides,

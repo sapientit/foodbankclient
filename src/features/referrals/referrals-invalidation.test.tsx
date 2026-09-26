@@ -53,6 +53,7 @@ const PARCEL: Parcel = {
   notes: null,
   firstTimeMarker: null,
   voucherInstruction: null,
+  formId: null,
   answers: {},
   lines: [],
 };
@@ -103,6 +104,7 @@ function referralRow(overrides: Partial<Referral> & Pick<Referral, 'id'>): Refer
     refereePhone: null,
     answers: {},
     piiPurgedAt: null,
+    formId: null,
     reasonId: 'q1',
     referrerEmail: 'referrer@riverside.org',
     referrerPhone: null,
@@ -229,6 +231,7 @@ function searchRow(overrides: Partial<ReferralSearchResult> = {}): ReferralSearc
     refereePhone: null,
     sessionDate: '2026-08-04',
     status: 'active',
+    formId: null,
     reasonId: 'q1',
     referrerName: 'Sam Referrer',
     referrerOrganisation: 'Riverside Church',
