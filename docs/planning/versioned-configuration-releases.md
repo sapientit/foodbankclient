@@ -141,23 +141,34 @@ that ID alongside the referral. No referral draft is persisted.
 
 ### Copying a referral (admin only)
 
-`POST /referrals/{id}/copy` creates an ordinary new referral in one request — the admin picks a
+`POST /referrals/{id}/copy` today creates an ordinary new referral in one request — the admin picks a
 session and it exists immediately, with no form or answer review step (`API.md`, "Copying a
-referral"). Under this plan the copy records **the currently active `formId`, never the source
-referral's**: a phoning household given another chance is provisioned under today's questionnaire,
-rules and stock, not a snapshot of whichever release happened to be active when they first came in.
+referral"). That stays true **only when the source referral's `formId` is the currently active
+release.** In that case nothing about this plan changes the endpoint: `answers` and every other
+carried field copy across exactly as they do now, and the new referral naturally shares the active
+`formId` because it was already on it.
 
-`answers` still copies across whole, unmodified — there is no per-key validity check to make. A key
-the household answered before still means the same thing today, because stable keys and stored
-values are historic identifiers a release must never repurpose. A key the current questionnaire has
-retired, or a current preference the household was never asked, simply produces no automatically
-resolved line for that preference — the rule engine already treats an absent answer key as "nothing
-selected," not an error — rather than blocking the copy or needing to decide what is "valid" to keep.
+**When the source referral's `formId` is not the active release, the button does not create a
+referral by itself.** Silently reinterpreting old answers under today's rules and stock was the
+original proposal here and it is wrong: it can leave a referral missing preference lines for
+questions the household was never asked, or resolve an old answer against a stock item that no
+longer exists, with nothing on screen to say either happened. Guessing which stored answers are still
+valid on today's form is exactly the problem that has no reliable answer — so the client stops
+guessing and asks instead.
 
-**Open point:** if an old stored answer value names a stock item that has since gone inactive, that
-preference is currently just dropped, unlike the historic-release path, which surfaces a "No longer
-stocked: X" note instead. Whether a copy under the active release should get the same note when this
-happens is not yet settled.
+Instead, the client fetches the source referral's fixed fields (household, referrer, reason) and
+whatever of its `answers` still matches a key **and**, for a choice, a still-offered value on the
+active release's questionnaire, then opens the ordinary referral form in a new tab pre-filled with
+that data and a banner explaining that the form has changed since this household last answered it. A
+stale or dropped answer is simply left blank, the same as a question this household has never been
+asked — there is no partial-copy heuristic to get right, because the admin resolves anything
+ambiguous by looking at the current question and answering it. The admin reviews, answers anything
+new, picks a session, and submits; only that submission creates the referral, on the active `formId`.
+Abandoning the tab creates nothing.
+
+This needs an authenticated admin submission path distinct from public submission — no Turnstile, no
+referrer re-check, since the referrer and reason are carried forward exactly as today's copy already
+carries them forward unquestioned. See the server handoff addendum for the endpoint shape.
 
 ### Historic answer rendering
 
