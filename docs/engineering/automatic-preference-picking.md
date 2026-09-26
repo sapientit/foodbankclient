@@ -1,8 +1,10 @@
 # Automatic preference picking — agreed design
 
 The charity has chosen Option 2: bounded, client-evaluated rules with
-item-level attention. The rules remain client configuration; the server
-receives their resolved stock-item lines when it creates a parcel.
+item-level attention. The rules are resolved entirely by the client; the
+server receives their resolved stock-item lines when it creates a parcel, and
+never runs a rule itself — see "Deliberate limits" below for what changed
+about where the rules are authored and stored, which this design predates.
 
 ## Aim
 
@@ -102,12 +104,14 @@ lookup and rule evaluation.
 
 Option 2 may be maintained in a Google Sheets workbook rather than by asking
 the charity to edit JSON. Its Apps Script validates the bounded picking rules
-and generates the client rule configuration. The generated file, rather than
-the spreadsheet, is committed and promoted through development and test as
-normal. The Rules and Questionnaire tabs are usable. Their Apps Script
-validates the charity-maintained rows and writes reviewed JSON to a separate
-generated tab; only that generated JSON enters the normal client review and
-release path.
+and generates the client rule configuration. The Rules and Questionnaire tabs
+are usable. Their Apps Script validates the charity-maintained rows and writes
+reviewed JSON to a separate generated tab; only that generated JSON is read
+and uploaded by the "Publish referral form" admin screen, which publishes it
+as a new, immutable release the server stores — see
+`docs/planning/versioned-configuration-releases.md`. There is no longer a
+generated file committed to the client repo for this to go live: publishing a
+correction no longer needs a client deploy.
 
 The **Questionnaire** tab has one row per answer option, with the page, stable
 question key, displayed question, type, required/preference flags, displayed
@@ -270,8 +274,9 @@ decision would be needed before any one-off reapplication to existing parcels.
 
 ## Deliberate limits
 
-Both options use exact active stock-item-name matches and leave the server
-unaware of the client JSON. Option 2 allows only the constrained cases above;
-it does not add family composition facts that are not collected, substitutions,
-quantities derived from a model parcel, or a general rule language. Those all
-require separate charity requirements.
+Both options use exact active stock-item-name matches. The server stores a
+release's JSON verbatim but never parses, validates or executes it — resolving
+rules against stock stays entirely the client's job. Option 2 allows only the
+constrained cases above; it does not add family composition facts that are not
+collected, substitutions, quantities derived from a model parcel, or a general
+rule language. Those all require separate charity requirements.
