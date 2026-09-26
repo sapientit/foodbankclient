@@ -8,17 +8,10 @@ import { preloadSheetsAccess, requestSheetsAccess } from '../../../lib/google-au
 import { writeClaim } from '../google-sheets';
 import { useCompleteExtractClaim, useExtractClaim, useExtractConfig } from '../queries';
 import { useReferralReasons } from '../../admin-setup/queries';
-import { referralFormDefinition } from '../../referrals/referral-form-config';
+import { usePublicReferralFormDefinition } from '../../referrals/queries';
 import { allQuestions, needsOptionSources } from '../../referrals/referral-form-definition';
 import { reasonOptionSources } from '../../referrals/referral-lookups';
 import styles from './extract-screen.module.css';
-
-/**
- * Whether any answer could have been chosen from a maintained lookup, and so is
- * stored as an id the archive must not be given. Read from the shipped
- * configuration, which is where the marker lives.
- */
-const ANSWERS_NEED_LOOKUPS = needsOptionSources(allQuestions(referralFormDefinition));
 
 type Phase =
   | 'idle'
@@ -53,12 +46,23 @@ export function ExtractScreen() {
   const claim = useExtractClaim();
   const complete = useCompleteExtractClaim();
   /*
+   * The currently active release, so a lookup-driven question added since the
+   * last client deploy is still recognised as one when the archive is
+   * written — see `google-sheets.ts`'s own comment on `writeClaim`. While it
+   * has not resolved yet, `needsLookups` assumes the more expensive case
+   * rather than risk skipping a reasons fetch a definition would have asked
+   * for.
+   */
+  const form = usePublicReferralFormDefinition();
+  const needsLookups =
+    form.data === undefined ? true : needsOptionSources(allQuestions(form.data.definition));
+  /*
    * The reason lookup, so an answer chosen from it is archived as the words it
    * was chosen by. The admin list rather than the public one — this screen is
    * an administrator's, and only that list names a retired reason, which is
    * exactly what an archive of past referrals is full of.
    */
-  const reasons = useReferralReasons(ANSWERS_NEED_LOOKUPS);
+  const reasons = useReferralReasons(needsLookups);
 
   // GIS must be ready before the administrator confirms. Loading its script is
   // not a consent request; it preserves the click gesture for the popup Safari
@@ -119,13 +123,25 @@ export function ExtractScreen() {
       const sheet = spreadsheetId.current;
       if (token === null || sheet === null)
         throw new ShowableError('Google Sheets permission is no longer available.');
-      // Nothing is written without the lookup: a row already in the archive
-      // cannot be corrected from here, so an unresolved id would stay one.
-      if (ANSWERS_NEED_LOOKUPS && reasons.data === undefined)
+      // Nothing is written without the current form: without it there is no
+      // way to tell a lookup-driven answer from an ordinary one, and an
+      // unresolved id written to the archive cannot be corrected from here.
+      if (form.data === undefined)
+        throw new ShowableError(
+          'The current referral form could not be loaded. Nothing was written.',
+        );
+      // Nothing is written without the lookup either, for the same reason.
+      if (needsLookups && reasons.data === undefined)
         throw new ShowableError(
           'The reasons for referral could not be loaded. Nothing was written.',
         );
-      await writeClaim(sheet, token, response.claim, reasonOptionSources(reasons.data ?? []));
+      await writeClaim(
+        sheet,
+        token,
+        response.claim,
+        reasonOptionSources(reasons.data ?? []),
+        form.data.definition,
+      );
       try {
         await complete.mutateAsync(response.claim.claimId);
       } catch (reason) {

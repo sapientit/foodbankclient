@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 import { ShowableError } from '../../lib/errors';
+import rawFormConfig from '../referrals/referral-form.config.json';
 
 const { writeClaim } = vi.hoisted(() => ({
   writeClaim: vi.fn<(...args: unknown[]) => Promise<void>>().mockResolvedValue(undefined),
@@ -31,6 +32,13 @@ beforeEach(() => {
       HttpResponse.json({ configured: true, spreadsheetId: 'sheet', googleClientId: 'client' }),
     ),
     http.get('/api/v1/referral-reasons', () => HttpResponse.json({ referralReasons: REASONS })),
+    // The currently active release, which `writeClaim` is mocked away from
+    // needing directly — this is only for deciding whether the reasons
+    // lookup above is fetched at all. The shipped config verbatim, so that
+    // decision matches what it always has.
+    http.get('/api/v1/public/questionnaire', () =>
+      HttpResponse.json({ formId: 'form-1', questionnaire: JSON.stringify(rawFormConfig) }),
+    ),
     http.post('/api/v1/auth/refresh', () =>
       HttpResponse.json({
         accessToken: 'token',

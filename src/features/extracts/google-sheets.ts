@@ -6,7 +6,8 @@ import {
   type StockItemUsageSession,
 } from './stock-item-usage.logic';
 import { ShowableError } from '../../lib/errors';
-import type { OptionSources } from '../referrals/referral-form-definition';
+import { referralFormDefinition } from '../referrals/referral-form-config';
+import type { OptionSources, ReferralFormDefinition } from '../referrals/referral-form-definition';
 import type { ExtractClaim } from './queries';
 
 const API = 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -33,12 +34,21 @@ export class GoogleSheetsError extends ShowableError {
  * the reason list, today. Threaded from the screen because an answer chosen
  * from one is stored as an id, and this writes to the charity's archive, where
  * a wrong cell is permanent.
+ *
+ * `definition` decides only which answer keys are read that way — see
+ * `archive-rows.logic.ts`'s own comment. Defaults to the bundled config for
+ * tests and local dev; the real screen passes the currently active release
+ * instead, so a lookup-driven question added since the last client deploy is
+ * still recognised as one, without needing that release's own `formId` —
+ * every key that has ever existed has always answered "is this a lookup" the
+ * same way, because a key is never reused for a different question.
  */
 export async function writeClaim(
   spreadsheetId: string,
   accessToken: string,
   claim: ExtractClaim,
   sources: OptionSources,
+  definition: ReferralFormDefinition = referralFormDefinition,
 ): Promise<void> {
   // Check the other sheet before adding any archive data. There is no
   // cross-sheet transaction, but a bad usage tab must not be discovered after
@@ -105,6 +115,7 @@ export async function writeClaim(
       claim.rows,
       allKeys,
       sources,
+      definition,
     ),
   );
   await writeStockItemUsage(spreadsheetId, accessToken, claim);
