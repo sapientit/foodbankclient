@@ -57,15 +57,19 @@ reviewed bundle to the server.
 ## Generated-release manifest and upload confirmation
 
 The two existing generated JSON cells alone cannot prove that their content was
-generated together after the latest Rules and Questionnaire editing. Add one
-Apps Script **Generate configuration release** action which regenerates both
-outputs and, only after both succeed, writes a separate generated manifest.
+generated together after the latest Rules and Questionnaire editing. The Apps
+Script exposes only two shared actions: **Validate configuration**, which
+checks both authoring tabs without overwriting output, and **Generate
+configuration release**, which validates both, regenerates both outputs and,
+only after both succeed, writes a separate generated manifest. There are no
+standalone Rules/Form generators or Rules-sheet setup action.
 
 The manifest contains a fresh generation ID, the generation date and time, and
 a hash of each generated JSON payload. It is a generated artefact, not an
-editable authoring field. Running either older individual generator, changing
-a generated cell, or reading a stale manifest must make the uploader refuse to
-continue because the downloaded payload hashes no longer match the manifest.
+editable authoring field. Changing a generated cell or reading a stale manifest
+must make the uploader refuse to continue because the downloaded payload hashes
+no longer match the manifest. Sheet feedback is non-blocking, so a completed
+generation does not leave an Apps Script execution Paused on a modal dialog.
 
 The uploader reads the Questionnaire JSON, Rules JSON and manifest together.
 Before upload it shows the manifest's date and asks the operator to confirm
@@ -145,6 +149,23 @@ client deployment.
 The public form fetches the active questionnaire once, renders and validates
 from it, retains its `formId` in memory with the in-progress form, and submits
 that ID alongside the referral. No referral draft is persisted.
+
+### Publishing a release (admin only)
+
+The client's only screen for this is a description and one button — settled in `screenDetails.md`,
+"Referral form releases." No draft review step, no history list and no rollback control: the server
+keeps all three (`GET /configuration-releases`, `POST .../rollback`), but nothing in this client calls
+them. A correction is made by fixing the workbook and pressing the button again, which is what
+"published releases are immutable" already implies — there is no other route to changing what is
+live.
+
+Pressing the button: reads the Questionnaire, Rules and manifest from the configuration workbook
+directly from the browser, using the same short-lived Google permission the spreadsheet extract
+already asks for; shows the manifest's generation date and time and asks the administrator to confirm
+it before doing anything else; on confirmation, runs the uploader's validation (structural,
+compatibility, rule-reference, current-stock) against the fetched content; and only on a pass, uploads
+it as a draft and publishes it, in the same action. A validation failure is shown the same way the
+existing Rule check screen shows one, and nothing is uploaded.
 
 ### Copying a referral (admin only)
 
