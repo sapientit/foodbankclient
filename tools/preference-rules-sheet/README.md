@@ -3,35 +3,44 @@
 ## Script files are separate
 
 **Rules code and Referral Form code are different Apps Script files. Do not
-combine them.** The existing Rules script stays in `Code.gs`; the Referral Form
-script is `questionnaire.gs`. In the live workbook, add `questionnaire.gs` as
-a separate script file and call `addQuestionnaireMenu_()` from the existing
-Rules `onOpen()` function. Do not paste either file into the other: they are
-separate script files in the same Apps Script project.
+combine them.** `Code.gs` owns the one shared menu and release workflow;
+`questionnaire.gs` converts the Referral Form tab. Do not paste either file
+into the other: they are separate script files in the same Apps Script project.
 
 ## Install
 
 1. In the authoring workbook, open **Extensions → Apps Script**.
-2. Keep the existing Rules source. Create a separate script file named
-   `questionnaire` and paste in `questionnaire.gs`.
-3. Add `addQuestionnaireMenu_();` to the existing Rules `onOpen()` function,
-   save, then reload the workbook.
-4. Choose **Foodbank rules → Set up Rules tab** once.
-5. Fill Rules rows from row 3, then choose **Foodbank rules → Generate JSON**.
-   Review the expanded result on `Generated Rules JSON`, then choose
-   **Foodbank rules → Copy reviewed JSON**. In the client repository, run
-   `import-foodbank-preference-rules`; it validates the clipboard JSON, replaces
-   `preference-rules.config.json` atomically, formats it and runs its focused
-   configuration test.
-6. For the referral form, choose **Foodbank questionnaire → Validate
-   questionnaire**. Once it passes, choose **Foodbank questionnaire → Format as
-   JSON**. Review the result on `Generated Questionnaire JSON`, then choose
-   **Foodbank questionnaire → Copy reviewed JSON** and run
-   `import-foodbank-questionnaire` in the client repository.
+2. Replace the complete contents of the existing Rules script with `Code.gs`.
+   Create (or replace) a separate script file named `questionnaire` with
+   `questionnaire.gs`.
+3. Save and reload the workbook. It has one **Foodbank configuration** menu:
 
-The menu action can be assigned to an inserted Google Sheets drawing if the
-charity wants a visible **Generate JSON** button. Assign it to
-`generateRulesJson`.
+   - **Validate configuration** checks both Rules and Referral Form, writes its
+     result to `Configuration validation`, and does not overwrite generated JSON.
+   - **Generate configuration release** first validates both tabs. If valid, it
+     writes Rules JSON, then Questionnaire JSON, then `Generated Configuration
+Release` with a generation ID, date/time, and hashes for both outputs.
+
+   Both actions use a temporary sheet toast, not a dialog: an execution should
+   finish normally rather than remain Paused waiting for a hidden alert.
+
+4. Fill Rules rows from row 3 and maintain the Referral Form tab. The Rules
+   headers are fixed; correct them to the names reported by validation rather
+   than using a sheet-setup action.
+5. Review `Generated Rules JSON` and `Generated Questionnaire JSON`. The future
+   database uploader reads those two cells and the manifest together, shows the
+   generation date for confirmation, and refuses a missing or mismatched
+   manifest. It then validates the bundle against the target stock catalogue
+   before upload.
+
+There are deliberately no separate Rules or Questionnaire generation, copy, or
+Rules-sheet setup actions. A configuration release is the only output that can
+be imported, so its three generated artefacts always describe one validated
+pair.
+
+The combined validation or generation action can be assigned to an inserted
+Google Sheets drawing if the charity wants visible buttons. Assign them to
+`validateConfigurationRelease` and `generateConfigurationRelease`.
 
 ## Rules tab
 
