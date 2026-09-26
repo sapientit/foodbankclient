@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
+import { PublishIcon } from '../../../components/icons';
 import { PageHeader } from '../../../components/page-header';
 import { ShowableError } from '../../../lib/errors';
 import { preloadSheetsAccess, requestSheetsAccess } from '../../../lib/google-auth';
@@ -195,6 +196,7 @@ export function PublishReferralFormScreen() {
               from then on.
             </p>
           }
+          icon={<PublishIcon />}
           title="Publish referral form"
         />
       </div>

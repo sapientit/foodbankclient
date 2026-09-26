@@ -309,3 +309,15 @@ export function RefreshIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+/** Radiating signal arcs: the visual cue for making a new version live. */
+export function PublishIcon({ className }: IconProps) {
+  return (
+    <svg {...shared} className={className}>
+      <circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none" />
+      <path d="M9 15.8a4.2 4.2 0 0 1 6 0" />
+      <path d="M6.3 13.1a8 8 0 0 1 11.4 0" />
+      <path d="M3.5 10.3a11.9 11.9 0 0 1 17 0" />
+    </svg>
+  );
+}
