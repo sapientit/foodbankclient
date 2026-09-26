@@ -72,6 +72,16 @@ touches `questionnaire_json`, `rules_json`, or the hash/generation columns after
 /public/referrals` records `formId` as a plain foreign key and stores `answers` exactly as it does
   today — unvalidated, unknown keys kept. This preserves the removed-in-`0008` boundary; it is not
   something this plan reopens.
+- **`POST /referrals/{id}/copy` sets the new referral's `form_id` to the environment's currently
+  `published` release — never the source referral's `form_id`.** Every other field it copies (per
+  `API.md`, "Copying a referral") is unaffected by this plan. This is a deliberate divergence from
+  the "the original is untouched" framing elsewhere on that endpoint: the _original_ keeps its own
+  `form_id` unchanged; only the newly created _copy_ is pinned to today's release, because it is
+  meant to be interpreted going forward under today's rules and stock, not preserved as of the
+  original's era. `answers` still copies whole and unmodified — a stale or missing key relative to
+  the new release's questionnaire is not an error, it just resolves no preference line for that key
+  (see `resolvePreferenceLines`'s existing absent-key handling, which already treats a missing answer
+  as "nothing selected").
 
 ## 3. API contract to publish before client wiring
 
@@ -104,18 +114,26 @@ this repo's own convention for marking a guess at its call site.
   `generatedAt`, `createdAt`/`createdBy`, `publishedAt`/`publishedBy`. Omits `questionnaire`/`rules`
   bodies — this is the picklist-style summary view, not the bulk bundle read below.
 
-**Authenticated, admin **and** team_lead** (needed by Run-a-session pick-list generation and by
-historic answer rendering, both team-lead screens):
+**Authenticated, admin, team_lead **and** fuel_admin** — every role that renders `answers` needs this,
+not only Run a session. Missed in the first draft of this handoff: `fuel_admin`'s one screen
+(`GET /fuel-help-list`) shows the pre-payment-meter and permission-to-ring answers, which are
+ordinary marker-driven questions on a release the server cannot identify by name (API.md §5e) — it
+needs exactly the same per-`formId` questionnaire lookup a team lead's historic-answer rendering
+does.
 
-- `GET /api/v1/configuration-releases/bulk?formIds=<uuid,uuid,...>` → full bundle
-  (`questionnaire`, `rules`) per id, for every id requested. `x-assumed`: a sane cap on the number of
-  ids per call (e.g. 50) as defensive coding, matching this codebase's existing caps on bulk
-  operations — the client is only ever expected to ask for the handful of distinct releases in one
-  pick-list generation run, never an unbounded list.
+- `GET /api/v1/configuration-releases/bulk?formIds=<uuid,uuid,...>` → **role-shaped response**, the
+  same absent-not-null convention as every other role-scoped field in this API: `admin` and
+  `team_lead` get the full bundle (`questionnaire`, `rules`); `fuel_admin` gets `questionnaire` only
+  — `rules` is absent from its response, not `null`, since it never evaluates a preference rule and
+  has no reason to see the stock-item mapping. `x-assumed`: a sane cap on the number of ids per call
+  (e.g. 50) as defensive coding, matching this codebase's existing caps on bulk operations — the
+  client is only ever expected to ask for the handful of distinct releases in one screen's worth of
+  work, never an unbounded list.
 
 Update `API.md` §2's role table with a `Configuration releases` row (upload/publish/rollback/history:
-admin only; bulk read: admin **and** team_lead — the same split target stock lists already
-established, worth citing directly rather than re-deriving it). Update `openapi.yaml` for all of the
+admin only; bulk read: admin, team_lead **and** fuel_admin, response shaped per role as above — a new
+three-way split with no direct precedent in the existing role table, so call it out explicitly rather
+than assuming it matches the target-stock-lists two-way one). Update `openapi.yaml` for all of the
 above, then the client runs `npm run api:types` only once these land.
 
 ## 4. Contract decisions needing an explicit settle
@@ -154,6 +172,8 @@ missed by that list because they live here:
 - `STATUS.md`'s **Removed** note (currently: _"there was a `modules/forms`... The referral form
   moved to the client, migration `0008` dropped both tables"_) — add the forward pointer to this
   slice, the same instruction the client plan already gives for its own copy of this note.
+- API.md's "Copying a referral" section, "What the copy carries" — add that the new referral's
+  `formId` is set to the environment's active release, not carried across from the original.
 - `INITIAL_SPEC1.txt` §288 — add the one line noted at the top of this document; do not restate the
   rest of that paragraph, which stays correct.
 
@@ -172,9 +192,14 @@ missed by that list because they live here:
   row even mid-publish (no window where it returns none).
 - `POST /public/referrals` compatibility-period backfill of a missing `formId`, and its later `400`
   once the period is ended in config; `422` for a `formId` that is `draft`.
-- Bulk read: role split (admin + team_lead succeed, everyone else `403`), and a request over the
-  proposed cap is rejected without touching the database.
+- Bulk read: role split (admin, team_lead and fuel_admin all succeed, everyone else `403`);
+  fuel_admin's response has `rules` absent while admin/team_lead get the full bundle; a request over
+  the proposed cap is rejected without touching the database.
 - History list ordering and that it never includes bundle content.
+- Copy: the new referral's `formId` is the environment's active release even when the source
+  referral's own `formId` is historic or itself was created before this plan; `answers` copies across
+  unmodified; pick-list generation against the copy uses the active release's rules and current stock,
+  silently producing fewer lines when an old key or value no longer resolves rather than erroring.
 
 Only after these tests and the `API.md`/`openapi.yaml` updates land should the client regenerate
 `src/api/schema.d.ts` and start replacing the static questionnaire/rule imports, per steps 5–6 of the

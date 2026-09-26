@@ -115,7 +115,13 @@ Provide these server capabilities, with OpenAPI-generated client types:
 - publication, history and rollback-to-an-earlier-release actions for
   administrators; and
 - authenticated bulk reads of the distinct releases required to interpret
-  referrals on an operational screen.
+  referrals on an operational screen — needed by every staff **and
+  `fuel_admin`** screen that renders `answers`, not only Run a session: the
+  fuel help list is `fuel_admin`'s one screen and depends on it to find the
+  pre-payment-meter and permission-to-ring questions for each referral's own
+  release. Rules are shaped out of that response for a caller with no reason
+  to see them, the same absent-not-null convention already used for
+  role-shaped fields elsewhere in this API.
 
 The uploader validates the generated Questionnaire and Rules JSON together,
 including questionnaire structure, key compatibility, rule references and the
@@ -132,6 +138,26 @@ client deployment.
 The public form fetches the active questionnaire once, renders and validates
 from it, retains its `formId` in memory with the in-progress form, and submits
 that ID alongside the referral. No referral draft is persisted.
+
+### Copying a referral (admin only)
+
+`POST /referrals/{id}/copy` creates an ordinary new referral in one request — the admin picks a
+session and it exists immediately, with no form or answer review step (`API.md`, "Copying a
+referral"). Under this plan the copy records **the currently active `formId`, never the source
+referral's**: a phoning household given another chance is provisioned under today's questionnaire,
+rules and stock, not a snapshot of whichever release happened to be active when they first came in.
+
+`answers` still copies across whole, unmodified — there is no per-key validity check to make. A key
+the household answered before still means the same thing today, because stable keys and stored
+values are historic identifiers a release must never repurpose. A key the current questionnaire has
+retired, or a current preference the household was never asked, simply produces no automatically
+resolved line for that preference — the rule engine already treats an absent answer key as "nothing
+selected," not an error — rather than blocking the copy or needing to decide what is "valid" to keep.
+
+**Open point:** if an old stored answer value names a stock item that has since gone inactive, that
+preference is currently just dropped, unlike the historic-release path, which surfaces a "No longer
+stocked: X" note instead. Whether a copy under the active release should get the same note when this
+happens is not yet settled.
 
 ### Historic answer rendering
 
