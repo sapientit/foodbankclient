@@ -18,7 +18,6 @@ import { describeSessionChoice, standingFromCapacity } from '../../../lib/sessio
 import { useReferralReasons, type AdminReferralReason } from '../../admin-setup/queries';
 import { useSessions, type Session } from '../../sessions/queries';
 import { describeAnswers, type AnswersDisplay } from '../referral-answers.logic';
-import { referralFormDefinition } from '../referral-form-config';
 import {
   allQuestions,
   dynamicQuestions,
@@ -29,6 +28,7 @@ import {
   type FormPage,
   type KeyFieldName,
   type KeyFieldQuestion,
+  type ReferralFormDefinition,
 } from '../referral-form-definition';
 import { reasonOptionSources } from '../referral-lookups';
 import { buildPageSchema } from '../referral-form-schema';
@@ -46,6 +46,7 @@ import {
   useCopyReferral,
   useMarkReferralReviewed,
   useReferral,
+  useReferralFormDefinitionFor,
   useReviewReferral,
   useRepeatReferrals,
   useSaveFirstTimeReview,
@@ -77,6 +78,15 @@ import {
 import { keyFieldValue } from '../referral-key-fields';
 import { ReferralQuestionField, type QuestionLookups } from './referral-question-field';
 import styles from './referral-detail-screen.module.css';
+
+/**
+ * Stands in for a referral's own release while it has not resolved yet, and
+ * for the "genuinely unknown legacy data" case `useReferralFormDefinitionFor`
+ * folds a missing or unmatched `formId` into. No pages means no question
+ * matches any stored key, so `describeAnswers`'s existing raw-key fallback is
+ * what renders every answer — there is nothing else to special-case.
+ */
+const EMPTY_DEFINITION: ReferralFormDefinition = { version: 0, pages: [] };
 
 /**
  * One referral: its fixed fields, its household preference answers, and —
@@ -144,12 +154,21 @@ function ReferralDetail({ referral }: { referral: Referral }) {
   // `useReferralReasons`'s own comment on why `enabled` exists at all.
   const reasons = useReferralReasons(isAdminView);
   /*
+   * The release this referral actually recorded, never whichever is active
+   * now — `schema.d.ts`'s note on `Referral.formId` is explicit about that.
+   * Skipped for a purged referral: `answers` is empty and `describeAnswers`
+   * returns `{ kind: 'purged' }` regardless of the definition, so there is
+   * nothing here that needs the structure to render.
+   */
+  const form = useReferralFormDefinitionFor(purged ? null : referral.formId);
+  const definition = form.kind === 'ready' ? form.definition : EMPTY_DEFINITION;
+  /*
    * Reading the answers back needs the same lookup the form chose from, because
    * a question drawing on it stored the reason's id. An administrator already
    * has the admin list above, which names retired reasons too; a team lead is
    * refused that endpoint and reads the public list instead.
    */
-  const answerLookupNeeded = needsOptionSources(allQuestions(referralFormDefinition)) && !purged;
+  const answerLookupNeeded = needsOptionSources(allQuestions(definition)) && !purged;
   const publicReasons = useReferralOptionSources(answerLookupNeeded && !isAdminView);
   const answerSources = isAdminView
     ? reasonOptionSources(reasons.data ?? [])
@@ -163,7 +182,7 @@ function ReferralDetail({ referral }: { referral: Referral }) {
   // second time under the form's historical label, "Generated".
   const { [HOUSEHOLD_COMPONENTS_KEY]: _householdComposition, ...otherAnswers } = referral.answers;
   const answers = describeAnswers(
-    referralFormDefinition,
+    definition,
     { ...referral, answers: otherAnswers },
     answerSources,
   );
@@ -224,6 +243,36 @@ function ReferralDetail({ referral }: { referral: Referral }) {
     referral.id,
     saveFirstTimeReview,
   ]);
+
+  if (form.kind === 'pending') {
+    // Deliberately not `title`: that names the household this referral is
+    // about, and a test — or a screen reader user — waiting on that heading
+    // must not read it as "loaded" before the release it needs has arrived.
+    return (
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<ClipboardCheckIcon />} title="Referral" />
+        </div>
+        <Spinner label="Loading the referral form…" />
+      </div>
+    );
+  }
+
+  if (form.kind === 'error') {
+    return (
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<ClipboardCheckIcon />} title="Referral" />
+        </div>
+        <ErrorNotice
+          error={form.error}
+          onRetry={() => {
+            void form.refetch();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
@@ -392,6 +441,7 @@ function ReferralDetail({ referral }: { referral: Referral }) {
           ) : (
             <div className={styles.pairGrid}>
               <DetailsForm
+                definition={definition}
                 isAdminView={isAdminView}
                 locked={locked}
                 lockedId={lockedId}
@@ -986,11 +1036,13 @@ function addKeyFieldPatch(
 }
 
 function AnswerPageEditor({
+  definition,
   page,
   referral,
   reasons,
   onCancel,
 }: {
+  definition: ReferralFormDefinition;
   page: FormPage;
   referral: Referral;
   reasons: readonly AdminReferralReason[];
@@ -999,7 +1051,7 @@ function AnswerPageEditor({
   const amend = useAmendReferral();
   const [answers, setAnswers] = useState<FormAnswers>(() => ({
     ...Object.fromEntries(
-      dynamicQuestions(referralFormDefinition).map((question) => [
+      dynamicQuestions(definition).map((question) => [
         question.key,
         storedEditorAnswer(question, referral.answers[question.key]),
       ]),
@@ -1043,7 +1095,7 @@ function AnswerPageEditor({
       return;
     }
     let next: Record<string, unknown> = { ...referral.answers };
-    const submitted = splitSubmission(referralFormDefinition, answers);
+    const submitted = splitSubmission(definition, answers);
     for (const question of dynamic) {
       // Unchanged answers keep their exact stored form. In particular, a
       // single-choice answer is stored as a string but represented as a
@@ -1114,7 +1166,7 @@ function AnswerPageEditor({
             onChange={(value) => {
               setTouched((current) => new Set(current).add(question.key));
               setAnswers((current) =>
-                clearDisabledAnswers(referralFormDefinition, { ...current, [question.key]: value }),
+                clearDisabledAnswers(definition, { ...current, [question.key]: value }),
               );
               setErrors((current) => {
                 const { [question.key]: _cleared, ...rest } = current;
@@ -1149,12 +1201,14 @@ function AnswerPageEditor({
  * slice's job. See `STATUS.md`.
  */
 function DetailsForm({
+  definition,
   referral,
   isAdminView,
   reasons,
   locked,
   lockedId,
 }: {
+  definition: ReferralFormDefinition;
   referral: Referral;
   isAdminView: boolean;
   reasons: readonly AdminReferralReason[];
@@ -1165,10 +1219,11 @@ function DetailsForm({
   const [showEditMenu, setShowEditMenu] = useState(false);
 
   if (editing !== null) {
-    const page = referralFormDefinition.pages[editing];
+    const page = definition.pages[editing];
     if (page === undefined) return null;
     return (
       <AnswerPageEditor
+        definition={definition}
         onCancel={() => {
           setEditing(null);
         }}
@@ -1226,7 +1281,9 @@ function DetailsForm({
             </>
           )}
         </dl>
-        {isAdminView && (
+        {/* Nothing to edit page-by-page without a known form structure — see
+            `EMPTY_DEFINITION`. This is not expected to happen in practice. */}
+        {isAdminView && definition.pages.length > 0 && (
           <button
             aria-describedby={locked === null ? undefined : lockedId}
             aria-disabled={locked !== null}
@@ -1241,7 +1298,7 @@ function DetailsForm({
         )}
         {isAdminView && showEditMenu && (
           <div className={styles.editMenu}>
-            {referralFormDefinition.pages.map((page, index) => (
+            {definition.pages.map((page, index) => (
               <button
                 className="button-plain"
                 key={page.pageNum}

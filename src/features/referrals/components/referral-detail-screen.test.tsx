@@ -4,6 +4,8 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../../test/msw/server';
 import { renderApp } from '../../../../test/render-app';
+import type { ConfigurationRelease } from '../../configuration-releases/queries';
+import rawFormConfig from '../referral-form.config.json';
 import type { AdminReferralReason } from '../../admin-setup/queries';
 import type { Session } from '../../sessions/queries';
 import type { Referral } from '../queries';
@@ -23,6 +25,31 @@ const REFERRAL_COPY = '/api/v1/referrals/r1/copy';
 const REPEAT_REFERRALS = '/api/v1/referrals/r1/repeat-referrals';
 const SESSIONS = '/api/v1/sessions';
 const REASONS = '/api/v1/referral-reasons';
+const RELEASES_BULK = '/api/v1/configuration-releases/bulk';
+
+/**
+ * Every referral fixture below carries this `formId`, and this is the release
+ * the detail screen resolves it against — the shipped
+ * `referral-form.config.json` verbatim, so every question label and key this
+ * file already asserts on stays true, exactly as `public-referral-screen`'s
+ * own test does for the same reason.
+ */
+const FORM_ID = 'form-1';
+
+const RELEASE: ConfigurationRelease = {
+  formId: FORM_ID,
+  status: 'published',
+  questionnaireHash: 'hash',
+  rulesHash: 'hash',
+  generationId: 'gen-1',
+  generatedAt: '2026-01-01T00:00:00.000Z',
+  sourceWorkbookId: 'workbook-1',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  createdByUserId: null,
+  publishedAt: '2026-01-01T00:00:00.000Z',
+  publishedByUserId: null,
+  questionnaire: JSON.stringify(rawFormConfig),
+};
 
 function referral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral {
   return {
@@ -45,7 +72,7 @@ function referral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral
     refereePhone: null,
     answers: {},
     piiPurgedAt: null,
-    formId: null,
+    formId: FORM_ID,
     reasonId: 'q1',
     referrerEmail: 'referrer@riverside.org',
     referrerPhone: null,
@@ -103,6 +130,7 @@ beforeEach(() => {
         ],
       }),
     ),
+    http.get(RELEASES_BULK, () => HttpResponse.json({ releases: [RELEASE] })),
   );
 });
 
@@ -569,6 +597,86 @@ describe('the admin referral detail screen', () => {
     expect(screen.getByText('legacyQuestion')).toBeInTheDocument();
     expect(screen.getByText('some old answer')).toBeInTheDocument();
     expect(screen.getByText('(no longer on the form)')).toBeInTheDocument();
+  });
+
+  it("renders answers against the release named by the referral's own formId, never the default one this file mocks", async () => {
+    // A deliberately different release from `RELEASE` (which every other
+    // fixture in this file resolves to): if the screen ever fell back to
+    // "whichever release this file happens to mock" instead of asking for
+    // `referral.formId` specifically, this key would not be recognised at
+    // all — it does not exist in `RELEASE` — and would render under its raw
+    // name instead of this label.
+    const OTHER_FORM_ID = 'form-2';
+    const otherRelease: ConfigurationRelease = {
+      ...RELEASE,
+      formId: OTHER_FORM_ID,
+      questionnaire: JSON.stringify({
+        version: 1,
+        pages: [
+          {
+            pageNum: 1,
+            pageTitle: 'Preferences',
+            questions: [
+              {
+                questionNum: 1,
+                questionKey: 'ShoeSize',
+                questionTitle: 'What shoe size do they take?',
+                preference: true,
+                required: false,
+                validation: { type: 'CheckBox', answerMin: 0, answerMax: 1 },
+                answers: ['Size 8'],
+              },
+            ],
+          },
+        ],
+      }),
+    };
+    let requestedFormIds: string | null = null;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({ id: 'r1', formId: OTHER_FORM_ID, answers: { ShoeSize: 'Size 8' } }),
+        ),
+      ),
+      http.get(RELEASES_BULK, ({ request }) => {
+        requestedFormIds = new URL(request.url).searchParams.get('formIds');
+        return HttpResponse.json({ releases: [otherRelease] });
+      }),
+    );
+
+    renderApp('/referrals/r1');
+
+    expect(await screen.findByText('What shoe size do they take?')).toBeInTheDocument();
+    expect(screen.getByText('Size 8')).toBeInTheDocument();
+    expect(requestedFormIds).toBe(OTHER_FORM_ID);
+  });
+
+  it('falls back to the raw-key rendering, and offers no page-editor, for a referral with no known release', async () => {
+    let releasesRequested = false;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({ id: 'r1', formId: null, answers: { Allergies: 'Nut allergy' } }),
+        ),
+      ),
+      http.get(RELEASES_BULK, () => {
+        releasesRequested = true;
+        return HttpResponse.json({ releases: [] });
+      }),
+    );
+
+    renderApp('/referrals/r1');
+
+    // The genuinely-unknown-structure fallback: every stored key renders
+    // under its own name, the same path an unrecognised legacy key already
+    // takes, rather than resolving to a label this screen cannot vouch for.
+    expect(await screen.findByText('Allergies')).toBeInTheDocument();
+    expect(screen.getByText('Nut allergy')).toBeInTheDocument();
+    expect(screen.getByText('(no longer on the form)')).toBeInTheDocument();
+    // There is no known structure to build a page editor from.
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    // A null formId is resolved without ever asking the server for a release.
+    expect(releasesRequested).toBe(false);
   });
 
   it('edits one referral-form page and never logs the referral to the console', async () => {

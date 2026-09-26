@@ -3,6 +3,8 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../../test/msw/server';
 import { renderApp } from '../../../../test/render-app';
+import type { ConfigurationRelease } from '../../configuration-releases/queries';
+import rawFormConfig from '../referral-form.config.json';
 import type { Session } from '../../sessions/queries';
 import type { Referral } from '../queries';
 
@@ -25,6 +27,7 @@ const REPEAT_REFERRALS = '/api/v1/referrals/r1/repeat-referrals';
 const SESSIONS = '/api/v1/sessions';
 const REASONS = '/api/v1/referral-reasons';
 const PUBLIC_REASONS = '/api/v1/public/referral-reasons';
+const RELEASES_BULK = '/api/v1/configuration-releases/bulk';
 
 /*
  * The public reason lookup, which a team lead may read and the admin one they
@@ -32,6 +35,24 @@ const PUBLIC_REASONS = '/api/v1/public/referral-reasons';
  * so this is what stands between them and a UUID on the screen.
  */
 const PUBLIC_REASON = { id: 'q2', code: 'debt', label: 'Debt', displayOrder: 1 };
+
+/** See `referral-detail-screen.test.tsx`'s own `FORM_ID`/`RELEASE` for why. */
+const FORM_ID = 'form-1';
+
+const RELEASE: ConfigurationRelease = {
+  formId: FORM_ID,
+  status: 'published',
+  questionnaireHash: 'hash',
+  rulesHash: 'hash',
+  generationId: 'gen-1',
+  generatedAt: '2026-01-01T00:00:00.000Z',
+  sourceWorkbookId: 'workbook-1',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  createdByUserId: null,
+  publishedAt: '2026-01-01T00:00:00.000Z',
+  publishedByUserId: null,
+  questionnaire: JSON.stringify(rawFormConfig),
+};
 
 function teamLeadReferral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral {
   return {
@@ -54,7 +75,7 @@ function teamLeadReferral(overrides: Partial<Referral> & Pick<Referral, 'id'>): 
     refereePhone: null,
     answers: {},
     piiPurgedAt: null,
-    formId: null,
+    formId: FORM_ID,
     // Deliberately no reasonId, referrerEmail or referrerPhone key at all —
     // that is the shape a team lead actually receives, not `null`.
     ...overrides,
@@ -94,6 +115,7 @@ beforeEach(() => {
     ),
     http.get(SESSIONS, () => HttpResponse.json({ sessions: [session({ id: 's1' })] })),
     http.get(PUBLIC_REASONS, () => HttpResponse.json({ referralReasons: [PUBLIC_REASON] })),
+    http.get(RELEASES_BULK, () => HttpResponse.json({ releases: [RELEASE] })),
   );
 });
 

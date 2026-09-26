@@ -6,7 +6,10 @@ import { unwrap } from '../../api/unwrap';
 import { authorisedReferrerKeys } from '../admin-setup/keys';
 import { pickListKeys } from '../pick-lists/keys';
 import { sessionKeys } from '../sessions/keys';
-import { usePublicQuestionnaire } from '../configuration-releases/queries';
+import {
+  useConfigurationReleasesBulk,
+  usePublicQuestionnaire,
+} from '../configuration-releases/queries';
 import { publicReferralKeys, referralKeys, type ReferralListFilters } from './keys';
 import { looksLikeEmail, sortByStart } from './public-referral.logic';
 import { parseReferralFormConfig } from './referral-form-config';
@@ -460,6 +463,57 @@ export function useReferral(id: string) {
     queryKey: referralKeys.detail(id),
     queryFn: () => unwrap(api.GET('/api/v1/referrals/{id}', { params: { path: { id } } })),
   });
+}
+
+export type HistoricReferralForm =
+  | { readonly kind: 'unknown' }
+  | { readonly kind: 'pending' }
+  | { readonly kind: 'error'; readonly error: unknown; readonly refetch: () => Promise<unknown> }
+  | { readonly kind: 'ready'; readonly definition: ReferralFormDefinition };
+
+/**
+ * The release a referral's own `formId` names, parsed for the staff screens
+ * that render or amend its answers. **Never the currently active release** —
+ * `schema.d.ts`'s note on `Referral.formId` is explicit that a referral's
+ * answers are read against the release it actually recorded, not whichever is
+ * live now.
+ *
+ * **`'unknown'` covers both `formId === null` and a bulk read that comes back
+ * without a matching release.** The migration backfilled every historic
+ * referral to the baseline release, so neither should actually happen, but
+ * either way there is no definition to match answers against, and the effect
+ * is the same one `describeAnswers`'s existing raw-key fallback already
+ * handles: every stored key renders under its own name rather than a label.
+ * This hook simply hands back no definition, so that fallback is all that
+ * runs — it is not a second, parallel notion of "legacy".
+ */
+export function useReferralFormDefinitionFor(formId: string | null): HistoricReferralForm {
+  const releases = useConfigurationReleasesBulk(formId === null ? [] : [formId]);
+
+  return useMemo<HistoricReferralForm>(() => {
+    if (formId === null) return { kind: 'unknown' };
+    if (releases.isPending) return { kind: 'pending' };
+    if (releases.isError) {
+      return { kind: 'error', error: releases.error, refetch: releases.refetch };
+    }
+    const release = releases.data.find((candidate) => candidate.formId === formId);
+    if (release === undefined) return { kind: 'unknown' };
+    try {
+      return {
+        kind: 'ready',
+        definition: parseReferralFormConfig(JSON.parse(release.questionnaire) as unknown),
+      };
+    } catch (error) {
+      return { kind: 'error', error, refetch: releases.refetch };
+    }
+  }, [
+    formId,
+    releases.isPending,
+    releases.isError,
+    releases.error,
+    releases.data,
+    releases.refetch,
+  ]);
 }
 
 /**
