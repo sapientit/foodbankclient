@@ -17,6 +17,18 @@ build direction into an ordered server workstream, including migration/backfill,
 requirements. Its explicitly marked contract choices must be settled before the generated client
 implementation can be wired to a real API.
 
+## Versioned configuration releases
+
+[`versioned-configuration-releases.md`](./versioned-configuration-releases.md) is the agreed
+direction for moving the referral questionnaire and preference rules from client-bundled JSON to
+immutable, server-stored releases keyed by `formId`, while the client stays the sole
+validator/evaluator. It includes the generated-release manifest that proves the questionnaire and
+rules JSON were generated together before upload.
+
+[`versioned-configuration-releases-server-handoff.md`](./versioned-configuration-releases-server-handoff.md)
+turns that plan into an ordered `foodbankserver` workstream — migrations, the API contract, and the
+contract points that still need an explicit settle before they are built.
+
 ## Potential matches attendance confirmation
 
 ![Potential matches attendance confirmation mock-up](potential-matches-attendance-confirmation-mockup.png)
