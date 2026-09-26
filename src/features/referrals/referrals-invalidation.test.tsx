@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 import type { Session } from '../sessions/queries';
+import type { ConfigurationRelease } from '../configuration-releases/queries';
 import type { Parcel, PickList } from '../pick-lists/queries';
+import rawFormConfig from './referral-form.config.json';
 import type { Referral, ReferralSearchResult } from './queries';
 
 vi.mock('../pick-lists/preference-rules.config.json', () => ({ default: { rules: [] } }));
@@ -365,9 +367,29 @@ describe('copying a referral and the session it lands on', () => {
   const SESSION_S2 = '/api/v1/sessions/s2';
   const REFERRAL_COPY = '/api/v1/referrals/r1/copy';
   const REFERRAL_R2 = '/api/v1/referrals/r2';
+  const QUESTIONNAIRE = '/api/v1/public/questionnaire';
+  const RELEASES_BULK = '/api/v1/configuration-releases/bulk';
+  // Matches the fixtures' own `formId` below, so the Copy button takes the
+  // same-request path this describe block exercises rather than opening the
+  // review-onto-today's-form screen — see `referral-detail-screen.tsx`.
+  const FORM_ID = 'form-1';
+  const RELEASE: ConfigurationRelease = {
+    formId: FORM_ID,
+    status: 'published',
+    questionnaireHash: 'hash',
+    rulesHash: 'hash',
+    generationId: 'gen-1',
+    generatedAt: '2026-01-01T00:00:00.000Z',
+    sourceWorkbookId: 'workbook-1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    createdByUserId: null,
+    publishedAt: '2026-01-01T00:00:00.000Z',
+    publishedByUserId: null,
+    questionnaire: JSON.stringify(rawFormConfig),
+  };
 
   function noShowOriginal(): Referral {
-    return referralRow({ id: 'r1', status: 'reviewed', outcome: 'no_show' });
+    return referralRow({ id: 'r1', status: 'reviewed', outcome: 'no_show', formId: FORM_ID });
   }
 
   beforeEach(() => {
@@ -375,7 +397,13 @@ describe('copying a referral and the session it lands on', () => {
       http.get(REFERRAL, () => HttpResponse.json(noShowOriginal())),
       http.get(REFERRAL_R2, () =>
         HttpResponse.json(
-          referralRow({ id: 'r2', sessionId: 's2', status: 'reviewed', outcome: 'booked' }),
+          referralRow({
+            id: 'r2',
+            sessionId: 's2',
+            status: 'reviewed',
+            outcome: 'booked',
+            formId: FORM_ID,
+          }),
         ),
       ),
       http.get(SESSIONS, () =>
@@ -389,6 +417,10 @@ describe('copying a referral and the session it lands on', () => {
       http.get(SESSION_S2, () =>
         HttpResponse.json(sessionRow({ id: 's2', booked: spareBooked, location: 'Spare Hall' })),
       ),
+      http.get(QUESTIONNAIRE, () =>
+        HttpResponse.json({ formId: FORM_ID, questionnaire: JSON.stringify(rawFormConfig) }),
+      ),
+      http.get(RELEASES_BULK, () => HttpResponse.json({ releases: [RELEASE] })),
       http.post(REFERRAL_COPY, () => {
         spareBooked = 3;
         return HttpResponse.json(
@@ -402,7 +434,11 @@ describe('copying a referral and the session it lands on', () => {
   async function copyOntoSpareHall(): Promise<void> {
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
-    await user.click(screen.getByRole('button', { name: 'Copy to another session' }));
+    // Not `getByRole`: the heading appears before the active release has
+    // resolved, and only then does the real "Copy to another session"
+    // control (rather than its temporary, differently-named loading state)
+    // exist — see `referral-detail-screen.tsx`.
+    await user.click(await screen.findByRole('button', { name: 'Copy to another session' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
     await dialog.findByRole('option', { name: /2 of 25 booked/ });
     await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's2');

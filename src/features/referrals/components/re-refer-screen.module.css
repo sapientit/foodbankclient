@@ -1,0 +1,71 @@
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #fdf3f3);
+}
+
+.notice {
+  margin-block-end: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 2px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
+.referrer {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  margin-block: 0 1.5rem;
+}
+
+.referrer dt {
+  font-weight: 600;
+}
+
+.referrer dd {
+  margin: 0;
+}
+
+.progress {
+  font-weight: 600;
+}
+
+.field {
+  margin-block-end: 1.5rem;
+}
+
+.select {
+  display: block;
+  margin-block-start: 0.25rem;
+}
+
+.fieldError {
+  color: var(--error-color, #b3261e);
+}
+
+.warning {
+  font-weight: 600;
+}
+
+.finalNotice {
+  padding: 1rem 1.25rem;
+  border: 2px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  margin-block-start: 1.5rem;
+}
+
+.submit {
+  font-weight: 600;
+}

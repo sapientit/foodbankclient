@@ -26,6 +26,7 @@ const REPEAT_REFERRALS = '/api/v1/referrals/r1/repeat-referrals';
 const SESSIONS = '/api/v1/sessions';
 const REASONS = '/api/v1/referral-reasons';
 const RELEASES_BULK = '/api/v1/configuration-releases/bulk';
+const QUESTIONNAIRE = '/api/v1/public/questionnaire';
 
 /**
  * Every referral fixture below carries this `formId`, and this is the release
@@ -131,6 +132,12 @@ beforeEach(() => {
       }),
     ),
     http.get(RELEASES_BULK, () => HttpResponse.json({ releases: [RELEASE] })),
+    // The active release, for the Copy button's same-form-or-review split.
+    // Matches `FORM_ID` by default, so a referral's own release is the active
+    // one unless a test deliberately publishes a different one.
+    http.get(QUESTIONNAIRE, () =>
+      HttpResponse.json({ formId: FORM_ID, questionnaire: JSON.stringify(rawFormConfig) }),
+    ),
   );
 });
 
@@ -1392,7 +1399,9 @@ describe('copying a referral', () => {
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
     expect(screen.getByText('Outcome')).toBeInTheDocument();
     expect(screen.getByText('No Show/Not in')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Copy to another session' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Copy to another session' }),
+    ).toBeInTheDocument();
   });
 
   // The server refuses both once a parcel has an outcome — "the same stopping
@@ -1439,7 +1448,9 @@ describe('copying a referral', () => {
       'aria-disabled',
       'true',
     );
-    expect(screen.getByRole('button', { name: 'Copy to another session' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Copy to another session' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/Copy it to another session to make a new referral/),
     ).toBeInTheDocument();
@@ -1491,7 +1502,9 @@ describe('copying a referral', () => {
     renderApp('/referrals/r1');
 
     await screen.findByRole('heading', { name: 'Jamie Rowe' });
-    expect(screen.getByRole('button', { name: 'Copy to another session' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Copy to another session' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Still booked')).toBeNull();
     expect(screen.queryByText('Outcome')).toBeNull();
   });

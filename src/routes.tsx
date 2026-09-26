@@ -28,6 +28,7 @@ import { PublishReferralFormScreen } from './features/configuration-releases/com
 import { PreferenceRuleHealthScreen } from './features/pick-lists/components/preference-rule-health-screen';
 import { ReferralDetailScreen } from './features/referrals/components/referral-detail-screen';
 import { FirstTimeReviewScreen } from './features/referrals/components/first-time-review-screen';
+import { ReReferScreen } from './features/referrals/components/re-refer-screen';
 import { ReferralsScreen } from './features/referrals/components/referrals-screen';
 import { ReferralSearchScreen } from './features/referrals/components/referral-search-screen';
 import { AmendRecurringSessionScreen } from './features/sessions/components/amend-recurring-session-screen';
@@ -155,6 +156,7 @@ export const routes: RouteObject[] = [
       { path: 'referrals', element: <ReferralsScreen /> },
       { path: 'referrals/search', element: <ReferralSearchScreen /> },
       { path: 'referrals/:referralId/first-time-review', element: <FirstTimeReviewScreen /> },
+      { path: 'referrals/:referralId/re-refer', element: <ReReferScreen /> },
       { path: 'referrals/:referralId', element: <ReferralDetailScreen /> },
       { path: 'run-sessions', element: <RunSessionsScreen /> },
       /*

@@ -818,6 +818,119 @@ export function useCopyReferral() {
 }
 
 /**
+ * What `copy` becomes once the source referral's `formId` is not the active
+ * release's — see `docs/planning/versioned-configuration-releases.md`,
+ * "Copying a referral (admin only)". `{id}` names the referral being copied
+ * **from**; the referrer fields are carried forward by the server and are
+ * deliberately not part of this body at all, and `formId` is refused if sent
+ * — the server always stamps the release the administrator has just filled
+ * the form in against.
+ */
+export type ReReferInput =
+  paths['/api/v1/referrals/{id}/re-refer']['post']['requestBody']['content']['application/json'];
+
+export type ReReferSubmissionBuild =
+  | { readonly ok: true; readonly body: ReReferInput }
+  | { readonly ok: false; readonly missing: readonly string[] };
+
+/**
+ * Assembles the re-refer request body, field by field from the generated
+ * type — the same reasoning as `buildSubmissionBody`: a gap between a loose
+ * answer map and what the server wants is exactly where a cast would paper
+ * over a released config that had quietly lost a required question.
+ *
+ * `sessionId` and `acknowledgeOverCapacity` are separate parameters rather
+ * than read from `keyFields`: the session is chosen through the same
+ * warn-not-refuse picker Copy and Move already use, not rendered as an
+ * ordinary page question — see `re-refer.logic.ts`.
+ */
+export function buildReReferBody(
+  keyFields: Readonly<Record<string, string | number | boolean | null>>,
+  answers: Readonly<Record<string, unknown>>,
+  sessionId: string,
+  acknowledgeOverCapacity: boolean,
+): ReReferSubmissionBuild {
+  const missing: string[] = [];
+
+  const text = (name: string): string => {
+    const value = keyFields[name];
+    if (typeof value === 'string' && value !== '') return value;
+    missing.push(name);
+    return '';
+  };
+
+  const count = (name: string): number => {
+    const value = keyFields[name];
+    if (typeof value === 'number') return value;
+    missing.push(name);
+    return 0;
+  };
+
+  const collectionMethod = (): ReReferInput['collectionMethod'] => {
+    const value = keyFields.collectionMethod;
+    if (value === 'collection' || value === 'delivery' || value === 'referrer_collect')
+      return value;
+    missing.push('collectionMethod');
+    return 'collection';
+  };
+
+  const optional = (name: string): Readonly<Record<string, string>> => {
+    const value = keyFields[name];
+    return typeof value === 'string' && value !== '' ? { [name]: value } : {};
+  };
+
+  if (sessionId === '') missing.push('sessionId');
+
+  const body: ReReferInput = {
+    sessionId,
+    acknowledgeOverCapacity,
+    reasonId: text('reasonId'),
+    refereeFirstName: text('refereeFirstName'),
+    refereeSurname: text('refereeSurname'),
+    refereeDateOfBirth: text('refereeDateOfBirth'),
+    refereeAddress: text('refereeAddress'),
+    refereePostcode: text('refereePostcode'),
+    adults: count('adults'),
+    children: count('children'),
+    collectionMethod: collectionMethod(),
+    needsFuelHelp: keyFields.needsFuelHelp === true,
+    answers,
+    ...optional('refereePhone'),
+  };
+
+  return missing.length === 0 ? { ok: true, body } : { ok: false, missing };
+}
+
+/**
+ * Creates the new referral from an admin's reviewed, current-form submission.
+ * `id` is the **source** referral — it decides eligibility and supplies the
+ * referrer, never the referral this creates.
+ *
+ * **Invalidations mirror `useCopyReferral` exactly**: this is a copy from the
+ * client's point of view, just one that needed a form filled in first. See
+ * that hook's own comment for why each of these is here.
+ */
+export function useReReferReferral() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: ReReferInput }): Promise<Referral> =>
+      unwrap(api.POST('/api/v1/referrals/{id}/re-refer', { params: { path: { id } }, body })),
+    onSuccess: (created, variables) => {
+      queryClient.setQueryData(referralKeys.detail(created.id), created);
+      void queryClient.invalidateQueries({ queryKey: referralKeys.detail(variables.id) });
+      void queryClient.invalidateQueries({
+        queryKey: referralKeys.repeatReferralsFor(variables.id),
+      });
+      void queryClient.invalidateQueries({ queryKey: referralKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: referralKeys.searches() });
+      void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(created.sessionId) });
+    },
+  });
+}
+
+/**
  * Idempotent on the server — a second cancel of an already-cancelled referral
  * still answers `200` with the same row — so this hook does not need to guard
  * against a double click the way the shop's purchase submit does.

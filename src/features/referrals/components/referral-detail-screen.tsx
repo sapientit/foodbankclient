@@ -46,6 +46,7 @@ import {
   useCancelReferral,
   useCopyReferral,
   useMarkReferralReviewed,
+  usePublicReferralFormDefinition,
   useReferral,
   useReferralFormDefinitionFor,
   useReviewReferral,
@@ -1359,6 +1360,16 @@ function ReferralActionsPanel({
   const markReviewed = useMarkReferralReviewed();
   const navigate = useNavigate();
   const location = useLocation();
+  /**
+   * Whether the source referral's own release is still the active one —
+   * `docs/planning/versioned-configuration-releases.md`, "Copying a referral
+   * (admin only)": copying stays a same-request action only when it is. A
+   * `null` `formId` never equals a real release id, so a referral with no
+   * known release also takes the review path, exactly as one on a genuinely
+   * superseded release does.
+   */
+  const activeForm = usePublicReferralFormDefinition();
+  const formChanged = activeForm.data !== undefined && referral.formId !== activeForm.data.formId;
   const [dialog, setDialog] = useState<'cancel' | 'move' | 'copy' | null>(null);
   const [reason, setReason] = useState('');
   const [targetSessionId, setTargetSessionId] = useState('');
@@ -1392,6 +1403,8 @@ function ReferralActionsPanel({
   const copySelectId = useId();
   const formErrorId = useId();
   const settledId = useId();
+  const copyUnavailableId = useId();
+  const reviewOpensNewTabId = useId();
 
   /**
    * Cancelling and moving have two separate refusals, and both have to be read
@@ -1548,8 +1561,25 @@ function ReferralActionsPanel({
         {/* Deliberately gated on neither refusal, unlike the other two: copying
             is the one action a cancelled, rejected, no-show or completed
             referral still has, and it is the whole point of the button. See
-            `canCopyReferral`. */}
-        {canCopy && (
+            `canCopyReferral`.
+
+            Its behaviour splits on whether the source's own release is still
+            active — `docs/planning/versioned-configuration-releases.md`,
+            "Copying a referral (admin only)". While that is unknown, the
+            control waits rather than guessing which path to offer — and is
+            deliberately not named "Copy to another session" while it does,
+            so a caller waiting for the real control by that exact name is
+            not satisfied by this transient one. */}
+        {canCopy && activeForm.data === undefined && (
+          <button
+            aria-describedby={activeForm.isError ? copyUnavailableId : undefined}
+            aria-disabled
+            type="button"
+          >
+            Copy to another session (checking the referral form)
+          </button>
+        )}
+        {canCopy && activeForm.data !== undefined && !formChanged && (
           <button
             onClick={() => {
               setFormError(null);
@@ -1560,7 +1590,37 @@ function ReferralActionsPanel({
             Copy to another session
           </button>
         )}
+        {/* The referral form has changed since this household last answered
+            it, so the same-request copy is refused server-side — see
+            addendum-1. This opens today's form pre-filled in a new tab
+            instead; nothing is created until it is submitted there, so
+            abandoning the tab leaves this referral exactly as it stands. */}
+        {canCopy && activeForm.data !== undefined && formChanged && (
+          <Link
+            aria-describedby={reviewOpensNewTabId}
+            className="button-link"
+            rel="noopener noreferrer"
+            target="_blank"
+            to={`/referrals/${referral.id}/re-refer`}
+          >
+            Copy to another session
+          </Link>
+        )}
       </div>
+
+      {canCopy && activeForm.data === undefined && activeForm.isError && (
+        <p className={styles.refusal} id={copyUnavailableId}>
+          We could not check whether the referral form has changed, so copying is unavailable.
+          Reload the page to try again.
+        </p>
+      )}
+      {canCopy && activeForm.data !== undefined && formChanged && (
+        <p className={styles.refusal} id={reviewOpensNewTabId}>
+          The referral form has changed since this household last answered it, so this opens
+          today&rsquo;s form in a new tab for review — nothing is created until it is submitted
+          there.
+        </p>
+      )}
 
       {/* The parent already renders `locked`, so this is only the other
           refusal. It says why cancelling and moving are inert, and for a
