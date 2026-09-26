@@ -74,4 +74,31 @@ describe('buildPickListInformation', () => {
       ),
     ).toEqual([]);
   });
+
+  it('appends a deterministic, deduplicated note for stock a historic release resolved to nothing', () => {
+    expect(
+      buildPickListInformation(
+        [{ id: 'referral-1', answers: { Allergies: 'Nut allergy' } }],
+        {},
+        definition,
+        new Map([['referral-1', ['Marmite', 'Beans', 'Marmite']]]),
+      ),
+    ).toEqual([
+      {
+        referralId: 'referral-1',
+        notes: 'Allergies: Nut allergy\nNo longer stocked: Beans, Marmite.',
+      },
+    ]);
+  });
+
+  it('adds the note even when there is no marked-question information at all', () => {
+    expect(
+      buildPickListInformation(
+        [{ id: 'referral-1', answers: {} }],
+        {},
+        definition,
+        new Map([['referral-1', ['Marmite']]]),
+      ),
+    ).toEqual([{ referralId: 'referral-1', notes: 'No longer stocked: Marmite.' }]);
+  });
 });

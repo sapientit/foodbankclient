@@ -42,11 +42,20 @@ export function pickListInformationNeedsOptionSources(
  * configuration explicitly marks for pick-list information. The server never
  * sees form keys or answers: it receives only this finished, human-readable
  * annotation when it creates a new parcel.
+ *
+ * `unavailableStockByReferralId` adds one further, deterministic line —
+ * `No longer stocked: …` — for a referral whose historic release named an
+ * item `resolveHistoricPreferenceLines` could not resolve. See
+ * `docs/planning/versioned-configuration-releases.md`, "Historic unavailable
+ * stock": that note is the only record of the drop, so it is written here
+ * alongside the ordinary marked-question notes rather than lost once the
+ * preference lines have been resolved.
  */
 export function buildPickListInformation(
   referrals: readonly PickListInformationSource[],
   sources: OptionSources,
   definition: ReferralFormDefinition = referralFormDefinition,
+  unavailableStockByReferralId: ReadonlyMap<string, readonly string[]> = new Map(),
 ): PickListInformation[] {
   const configured = pickListInformationQuestions(definition).map((question) => question.key);
 
@@ -56,17 +65,26 @@ export function buildPickListInformation(
       { answers: referral.answers, piiPurgedAt: null },
       sources,
     );
-    if (rendered.kind !== 'answers') return [];
-    const values = new Map(rendered.lines.map((line) => [line.key, line.value.trim()]));
-    const notes = configured
-      .flatMap((key) => {
-        const value = values.get(key);
-        return value === undefined || value === '' || value === '(no answer)'
-          ? []
-          : [`${key}: ${value}`];
-      })
-      .join('\n');
+    const configuredNotes =
+      rendered.kind !== 'answers'
+        ? []
+        : (() => {
+            const values = new Map(rendered.lines.map((line) => [line.key, line.value.trim()]));
+            return configured.flatMap((key) => {
+              const value = values.get(key);
+              return value === undefined || value === '' || value === '(no answer)'
+                ? []
+                : [`${key}: ${value}`];
+            });
+          })();
 
+    const unavailable = unavailableStockByReferralId.get(referral.id) ?? [];
+    const unavailableNote =
+      unavailable.length === 0
+        ? []
+        : [`No longer stocked: ${[...new Set(unavailable)].sort().join(', ')}.`];
+
+    const notes = [...configuredNotes, ...unavailableNote].join('\n');
     return notes === '' ? [] : [{ referralId: referral.id, notes }];
   });
 }

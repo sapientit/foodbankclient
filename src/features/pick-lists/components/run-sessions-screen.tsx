@@ -22,10 +22,18 @@ import {
   readSessionListSelection,
 } from '../../sessions/session-list-filters.logic';
 import { useStockItems, type StockItem } from '../../stock/queries';
-import { useReferrals, useReferralOptionSources } from '../../referrals/queries';
+import { useConfigurationReleasesBulk } from '../../configuration-releases/queries';
+import {
+  useReferralFormDefinitionFor,
+  useReferrals,
+  useReferralOptionSources,
+} from '../../referrals/queries';
 import { describeAnswers } from '../../referrals/referral-answers.logic';
-import { referralFormDefinition } from '../../referrals/referral-form-config';
-import { dynamicQuestions, needsOptionSources } from '../../referrals/referral-form-definition';
+import {
+  EMPTY_REFERRAL_FORM_DEFINITION,
+  dynamicQuestions,
+  needsOptionSources,
+} from '../../referrals/referral-form-definition';
 import {
   HOUSEHOLD_COMPONENTS_KEY,
   isHouseholdComposition,
@@ -55,22 +63,14 @@ import {
 import { SmsRemindersAction } from './sms-panel';
 import styles from './run-sessions-screen.module.css';
 import { StockCheckPanel } from './stock-check-panel';
-import { resolvePreferenceLines, validatePreferenceRules } from '../preference-rules';
+import { validatePreferenceRules } from '../preference-rules';
 import {
-  buildPickListInformation,
-  pickListInformationNeedsOptionSources,
-} from '../pick-list-information';
+  anyReleaseNeedsOptionSources,
+  distinctFormIds,
+  parseReleases,
+  resolvePickListBody,
+} from '../release-pick-list.logic';
 import { splitPrintLines } from '../pick-list-print.logic';
-
-/**
- * Whether a parcel's preferences can only be read with a server lookup in hand
- * — a question choosing from one stores an id, and no screen may show that.
- * Read from the shipped configuration once, because the marker moves with a
- * release and not while a session is being run.
- */
-const PREFERENCES_NEED_OPTION_SOURCES = needsOptionSources(
-  dynamicQuestions(referralFormDefinition).filter((question) => question.preference),
-);
 
 /**
  * The operational view: no session or referral maintenance controls live here.
@@ -531,22 +531,75 @@ export function RunSessionDetailScreen() {
   const [pickListSessionId, setPickListSessionId] = useState('');
   const reconcile = useReconcilePickList(setPickListSessionId);
   /*
-   * The reason lookup, needed only while the form marks a pick-list question
-   * that chooses from it. The notes are composed here once and **saved on the
-   * parcel**, so composing them without the list would print an id on a picking
-   * sheet and leave it there — worth waiting for the list, and worth not
-   * fetching at all the rest of the time, because this is the request standing
-   * between a team lead and their pick lists.
+   * The releases named by this session's own referrals — never "the current
+   * one", per `schema.d.ts`'s note on `Referral.formId`. `parsedReleases` is
+   * `[]`, not `undefined`, the moment there is nothing to fetch: a disabled
+   * query never resolves out of "pending" on its own, and a session with no
+   * referrals — or none with a known release — must not wait forever for a
+   * request it will never make.
+   */
+  const formIds = useMemo(() => distinctFormIds(referrals.data ?? []), [referrals.data]);
+  const releases = useConfigurationReleasesBulk(formIds);
+  const parsedReleases = useMemo(() => {
+    if (formIds.length === 0) return [];
+    return releases.data === undefined ? undefined : parseReleases(releases.data);
+  }, [formIds, releases.data]);
+  const publishedRelease = useMemo(
+    () => parsedReleases?.find((release) => release.status === 'published'),
+    [parsedReleases],
+  );
+  /*
+   * The reason lookup, needed only while a release in play marks a pick-list
+   * question that chooses from it. The notes are composed here once and
+   * **saved on the parcel**, so composing them without the list would print
+   * an id on a picking sheet and leave it there — worth waiting for the
+   * list, and worth not fetching at all the rest of the time, because this
+   * is the request standing between a team lead and their pick lists.
    *
    * A finished session composes nothing, so it does not ask for the lookup at
    * all.
    */
   const reasons = useReferralOptionSources(
-    pickListInformationNeedsOptionSources() && readOnly === false,
+    parsedReleases !== undefined &&
+      anyReleaseNeedsOptionSources(parsedReleases) &&
+      readOnly === false,
   );
+  /*
+   * The shipped local configuration's own health, unrelated to any particular
+   * referral's release — a smoke test on the fixture this client still ships
+   * (the migration baseline, local dev, and every other test's default), kept
+   * exactly as it was before any release was fetched from the server.
+   */
   const preferenceRuleHealth = useMemo(
     () => (stockItems.data === undefined ? null : validatePreferenceRules(stockItems.data)),
     [stockItems.data],
+  );
+  /**
+   * The currently published release's own health, where this session's
+   * referrals actually name one. `resolvePickListBody` runs the identical
+   * check again before generating and throws if it fails — this copy is what
+   * lets the effect below refuse to call it in the first place, rather than
+   * throwing synchronously outside the mutation that would otherwise catch it.
+   */
+  const publishedReleaseHealth = useMemo(
+    () =>
+      stockItems.data === undefined || publishedRelease === undefined
+        ? null
+        : validatePreferenceRules(
+            stockItems.data,
+            publishedRelease.rules,
+            publishedRelease.definition,
+          ),
+    [stockItems.data, publishedRelease],
+  );
+  const preferenceRuleErrors = useMemo(
+    () => [
+      ...new Set([
+        ...(preferenceRuleHealth?.errors ?? []),
+        ...(publishedReleaseHealth?.errors ?? []),
+      ]),
+    ],
+    [preferenceRuleHealth, publishedReleaseHealth],
   );
 
   useEffect(() => {
@@ -576,20 +629,29 @@ export function RunSessionDetailScreen() {
       referrals.data !== undefined &&
       !referrals.isFetching &&
       stockItems.data !== undefined &&
+      parsedReleases !== undefined &&
+      !releases.isError &&
       !reasons.isPending &&
       !reasons.isError &&
-      preferenceRuleHealth?.errors.length === 0
+      preferenceRuleErrors.length === 0
     ) {
       requested.current = sessionId;
       setPickListSessionId('');
+      const { preferenceLines, pickListInformation } = resolvePickListBody(
+        referrals.data,
+        stockItems.data,
+        parsedReleases,
+        reasons.sources,
+      );
       reconcile.mutate({
         sessionId,
-        preferenceLines: resolvePreferenceLines(referrals.data, stockItems.data),
-        pickListInformation: buildPickListInformation(referrals.data, reasons.sources),
+        preferenceLines: [...preferenceLines],
+        pickListInformation: [...pickListInformation],
       });
     }
   }, [
-    preferenceRuleHealth,
+    parsedReleases,
+    preferenceRuleErrors,
     readOnly,
     reasons.isError,
     reasons.isPending,
@@ -597,6 +659,7 @@ export function RunSessionDetailScreen() {
     reconcile,
     referrals.data,
     referrals.isFetching,
+    releases.isError,
     sessionId,
     stockItems.data,
   ]);
@@ -611,7 +674,11 @@ export function RunSessionDetailScreen() {
 
   if (
     session.isPending ||
-    (preparing && (referrals.isPending || stockItems.isPending || reasons.isPending)) ||
+    (preparing &&
+      (referrals.isPending ||
+        stockItems.isPending ||
+        parsedReleases === undefined ||
+        reasons.isPending)) ||
     (preparing && reconcile.isPending && pickList.data === undefined) ||
     (preparing && reconcile.isSuccess && pickList.isPending) ||
     (readOnly === true && pickList.isPending)
@@ -665,7 +732,16 @@ export function RunSessionDetailScreen() {
         <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />
       </div>
     );
-  if (preparing && preferenceRuleHealth !== null && preferenceRuleHealth.errors.length > 0)
+  if (preparing && releases.isError)
+    return (
+      <div className={styles.tabPage}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+        </div>
+        <ErrorNotice error={releases.error} onRetry={() => void releases.refetch()} />
+      </div>
+    );
+  if (preparing && preferenceRuleErrors.length > 0)
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
@@ -675,7 +751,7 @@ export function RunSessionDetailScreen() {
           <h2>Pick-list rules need attention</h2>
           <p>Ask an administrator to fix these rules before preparing the pick lists:</p>
           <ul>
-            {preferenceRuleHealth.errors.map((error) => (
+            {preferenceRuleErrors.map((error) => (
               <li key={error}>{error}</li>
             ))}
           </ul>
@@ -1146,11 +1222,20 @@ function ParcelPanel({
   const review = useReviewParcel();
   const saveLines = useSetParcelLines();
   const stockItems = useStockItems('shelf');
+  /*
+   * The release this parcel's answers were actually given to, never
+   * whichever is active now — the same `schema.d.ts` note on `formId` as the
+   * referral it comes from.
+   */
+  const form = useReferralFormDefinitionFor(parcel.formId);
+  const definition = form.kind === 'ready' ? form.definition : EMPTY_REFERRAL_FORM_DEFINITION;
   // Only the preferences are shown here, so the lookup is fetched only if one
   // of *them* chooses from it — which none do today. It is what keeps an id off
   // the screen if the charity ever marks one that does, and every card shares
   // the one cached query rather than making a request each.
-  const reasons = useReferralOptionSources(PREFERENCES_NEED_OPTION_SOURCES);
+  const reasons = useReferralOptionSources(
+    needsOptionSources(dynamicQuestions(definition).filter((question) => question.preference)),
+  );
   const [savedLines, setSavedLines] = useState(() => toDraftLines(parcel.lines));
   const [draftLines, setDraftLines] = useState(() => toDraftLines(parcel.lines));
   const [savedNotes, setSavedNotes] = useState(parcel.notes ?? '');
@@ -1161,7 +1246,7 @@ function ParcelPanel({
   const parcelLinesLocked = parcel.attendance !== 'pending' || readOnly;
   const notesLocked = readOnly;
   const answers = describeAnswers(
-    referralFormDefinition,
+    definition,
     { answers: parcel.answers, piiPurgedAt: null },
     reasons.sources,
   );
@@ -1177,6 +1262,26 @@ function ParcelPanel({
       onDirtyChange(false);
     };
   }, [isDirty, onDirtyChange]);
+
+  if (form.kind === 'pending') {
+    return (
+      <section className={styles.parcelPanel}>
+        <Spinner label="Loading the referral form…" />
+      </section>
+    );
+  }
+  if (form.kind === 'error') {
+    return (
+      <section className={styles.parcelPanel}>
+        <ErrorNotice
+          error={form.error}
+          onRetry={() => {
+            void form.refetch();
+          }}
+        />
+      </section>
+    );
+  }
 
   /** Puts the draft back to what was last saved, so leaving without saving really does. */
   const discardDraft = () => {

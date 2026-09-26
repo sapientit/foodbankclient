@@ -24,27 +24,37 @@ export function usePublicQuestionnaire() {
 }
 
 /**
- * The releases named by a set of referrals' own `formId`s, in one call. A
- * screen with several referrals in front of it — a pick list, the fuel help
- * list — collects the distinct ids first rather than asking once per
- * referral. `enabled` is off for an empty list: nothing to render yet is not
- * the same request as "every release".
+ * The releases named by a set of referrals' own `formId`s, in one call.
  *
  * `admin` and `team_lead` get `questionnaire` and `rules` both; `fuel_admin`
  * gets `questionnaire` only — `rules` is absent from the response, not
  * `null`, because that role never evaluates a preference rule.
+ *
+ * A plain function rather than only a hook, so a mutation — which cannot call
+ * a hook — can fetch the same way `usePreparePickLists` does, keyed on the
+ * same distinct-`formId`s pattern.
+ */
+export async function fetchConfigurationReleasesBulk(
+  formIds: readonly string[],
+): Promise<readonly ConfigurationRelease[]> {
+  const { releases } = await unwrap(
+    api.GET('/api/v1/configuration-releases/bulk', {
+      params: { query: { formIds: formIds.join(',') } },
+    }),
+  );
+  return releases;
+}
+
+/**
+ * The hook a screen with several referrals in front of it — a pick list, the
+ * fuel help list — uses once it has collected the distinct ids, rather than
+ * asking once per referral. `enabled` is off for an empty list: nothing to
+ * render yet is not the same request as "every release".
  */
 export function useConfigurationReleasesBulk(formIds: readonly string[]) {
   return useQuery({
     queryKey: configurationReleaseKeys.bulk(formIds),
-    queryFn: async (): Promise<readonly ConfigurationRelease[]> => {
-      const { releases } = await unwrap(
-        api.GET('/api/v1/configuration-releases/bulk', {
-          params: { query: { formIds: formIds.join(',') } },
-        }),
-      );
-      return releases;
-    },
+    queryFn: () => fetchConfigurationReleasesBulk(formIds),
     enabled: formIds.length > 0,
   });
 }

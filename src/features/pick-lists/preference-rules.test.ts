@@ -6,6 +6,7 @@ vi.mock('./preference-rules.config.json', () => ({ default: { rules: [] } }));
 
 import {
   parsePreferenceRuleConfig,
+  resolveHistoricPreferenceLines,
   resolvePreferenceLines,
   validatePreferenceRules,
   type PreferenceRule,
@@ -349,5 +350,73 @@ describe('validatePreferenceRules', () => {
         HOUSEHOLD_PREFERENCE,
       ),
     ).toEqual([{ referralId: 'r1', lines: [{ stockItemId: 'wipes', quantity: -1 }] }]);
+  });
+});
+
+describe('resolveHistoricPreferenceLines', () => {
+  it('drops a line naming stock that is no longer active, and names it as unavailable', () => {
+    // `Bleach` is not in `STOCK_ITEMS` at all — the historic release's own
+    // stand-in for an item discontinued since this referral was submitted.
+    const result = resolveHistoricPreferenceLines(
+      [{ id: 'r1', adults: 1, children: 0, answers: { Household: ['Bleach'] } }],
+      STOCK_ITEMS,
+      SELECTED_ANSWER_RULE,
+    );
+
+    expect(result).toEqual([{ referralId: 'r1', lines: [], unavailableStock: ['Bleach'] }]);
+  });
+
+  it('never throws for rules that would fail the live health check', () => {
+    // Exactly the configuration `validatePreferenceRules` refuses — proving
+    // this path is deliberately not gated on it, per "Historic unavailable
+    // stock" in the plan: a discontinued item is expected here, not a fault.
+    expect(() =>
+      resolveHistoricPreferenceLines(
+        [{ id: 'r1', adults: 3, children: 0, answers: { Household: ['Bleach'] } }],
+        STOCK_ITEMS,
+        SELECTED_ANSWER_RULE,
+      ),
+    ).not.toThrow();
+  });
+
+  it('still resolves the lines it can, alongside the ones it cannot', () => {
+    const rules: readonly PreferenceRule[] = [
+      {
+        when: { key: 'Household' },
+        cases: [],
+        otherwise: { set: [{ stock: '$selectedAnswer', quantity: 1 }] },
+      },
+    ];
+
+    const result = resolveHistoricPreferenceLines(
+      [
+        {
+          id: 'r1',
+          adults: 1,
+          children: 0,
+          answers: { Household: ['Detergent', 'Bleach'] },
+        },
+      ],
+      STOCK_ITEMS,
+      rules,
+    );
+
+    expect(result).toEqual([
+      {
+        referralId: 'r1',
+        lines: [{ stockItemId: 'detergent', quantity: 1 }],
+        unavailableStock: ['Bleach'],
+      },
+    ]);
+  });
+
+  it('returns every referral, even one with no lines and nothing unavailable, so callers keep a 1:1 mapping', () => {
+    const result = resolveHistoricPreferenceLines(
+      [{ id: 'r1', adults: 1, children: 0, answers: {} }],
+      STOCK_ITEMS,
+      SELECTED_ANSWER_RULE,
+    );
+
+    expect(result).toEqual([{ referralId: 'r1', lines: [], unavailableStock: [] }]);
   });
 });

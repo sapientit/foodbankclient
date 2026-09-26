@@ -234,6 +234,17 @@ export interface ReferralFormDefinition {
   readonly pages: readonly FormPage[];
 }
 
+/**
+ * Stands in for a referral or parcel's own release while a staff screen
+ * cannot name one — a `formId` of `null`, or a bulk read that comes back
+ * without a matching release. Both are folded into the same "genuinely
+ * unknown legacy data" case: no pages means no question matches any stored
+ * key, so `describeAnswers`'s existing raw-key fallback is what renders every
+ * answer, and nothing that needs a real page to edit against — an answer
+ * editor, a preference-questions filter — has one to offer.
+ */
+export const EMPTY_REFERRAL_FORM_DEFINITION: ReferralFormDefinition = { version: 0, pages: [] };
+
 export function allQuestions(definition: ReferralFormDefinition): readonly FormQuestion[] {
   return definition.pages.flatMap((page) => page.questions);
 }

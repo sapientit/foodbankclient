@@ -24,6 +24,7 @@ import {
   isAnswerableQuestion,
   isDynamicQuestion,
   needsOptionSources,
+  EMPTY_REFERRAL_FORM_DEFINITION,
   type DynamicQuestion,
   type FormPage,
   type KeyFieldName,
@@ -78,15 +79,6 @@ import {
 import { keyFieldValue } from '../referral-key-fields';
 import { ReferralQuestionField, type QuestionLookups } from './referral-question-field';
 import styles from './referral-detail-screen.module.css';
-
-/**
- * Stands in for a referral's own release while it has not resolved yet, and
- * for the "genuinely unknown legacy data" case `useReferralFormDefinitionFor`
- * folds a missing or unmatched `formId` into. No pages means no question
- * matches any stored key, so `describeAnswers`'s existing raw-key fallback is
- * what renders every answer — there is nothing else to special-case.
- */
-const EMPTY_DEFINITION: ReferralFormDefinition = { version: 0, pages: [] };
 
 /**
  * One referral: its fixed fields, its household preference answers, and —
@@ -161,7 +153,7 @@ function ReferralDetail({ referral }: { referral: Referral }) {
    * nothing here that needs the structure to render.
    */
   const form = useReferralFormDefinitionFor(purged ? null : referral.formId);
-  const definition = form.kind === 'ready' ? form.definition : EMPTY_DEFINITION;
+  const definition = form.kind === 'ready' ? form.definition : EMPTY_REFERRAL_FORM_DEFINITION;
   /*
    * Reading the answers back needs the same lookup the form chose from, because
    * a question drawing on it stored the reason's id. An administrator already
@@ -1282,7 +1274,7 @@ function DetailsForm({
           )}
         </dl>
         {/* Nothing to edit page-by-page without a known form structure — see
-            `EMPTY_DEFINITION`. This is not expected to happen in practice. */}
+            `EMPTY_REFERRAL_FORM_DEFINITION`. This is not expected to happen in practice. */}
         {isAdminView && definition.pages.length > 0 && (
           <button
             aria-describedby={locked === null ? undefined : lockedId}

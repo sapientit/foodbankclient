@@ -2,14 +2,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, publicApi } from '../../api/client';
 import type { components, paths } from '../../api/schema';
 import { unwrap, unwrapVoid } from '../../api/unwrap';
+import { fetchConfigurationReleasesBulk } from '../configuration-releases/queries';
+import type { Referral } from '../referrals/queries';
 import { reasonOptionSources } from '../referrals/referral-lookups';
 import { sessionKeys } from '../sessions/keys';
 import { pickListKeys } from './keys';
+import { validatePreferenceRules } from './preference-rules';
 import {
-  buildPickListInformation,
-  pickListInformationNeedsOptionSources,
-} from './pick-list-information';
-import { resolvePreferenceLines, validatePreferenceRules } from './preference-rules';
+  anyReleaseNeedsOptionSources,
+  distinctFormIds,
+  parseReleases,
+  resolvePickListBody,
+} from './release-pick-list.logic';
 
 export type PickList = components['schemas']['PickList'];
 export type Parcel = components['schemas']['Parcel'];
@@ -170,27 +174,46 @@ export function usePreparePickLists() {
       if (ruleHealth.errors.length > 0)
         throw new Error(`Preference rule configuration is invalid: ${ruleHealth.errors.join(' ')}`);
 
-      const sources = pickListInformationNeedsOptionSources()
-        ? reasonOptionSources(
-            (await unwrap(publicApi.GET('/api/v1/public/referral-reasons'))).referralReasons,
-          )
-        : reasonOptionSources([]);
       const openSessions = sessions.filter(
         (session) => session.status === 'planned' || session.status === 'in_progress',
       );
 
+      // Every open session's referrals, gathered before any release is
+      // fetched or any pick list generated — so a release shared by several
+      // sessions is fetched once, and a failure here leaves nothing posted.
+      const referralsBySession = new Map<string, readonly Referral[]>();
       for (const session of openSessions) {
         const { referrals } = await unwrap(
           api.GET('/api/v1/referrals', { params: { query: { sessionId: session.id } } }),
         );
-        const preferenceLines = resolvePreferenceLines(referrals, stockItems);
-        const pickListInformation = buildPickListInformation(referrals, sources);
+        referralsBySession.set(session.id, referrals);
+      }
+
+      const formIds = distinctFormIds([...referralsBySession.values()].flat());
+      const releases =
+        formIds.length === 0 ? [] : parseReleases(await fetchConfigurationReleasesBulk(formIds));
+      const sources = anyReleaseNeedsOptionSources(releases)
+        ? reasonOptionSources(
+            (await unwrap(publicApi.GET('/api/v1/public/referral-reasons'))).referralReasons,
+          )
+        : reasonOptionSources([]);
+
+      for (const session of openSessions) {
+        const referrals = referralsBySession.get(session.id) ?? [];
+        const { preferenceLines, pickListInformation } = resolvePickListBody(
+          referrals,
+          stockItems,
+          releases,
+          sources,
+        );
         await unwrap(
           api.POST('/api/v1/sessions/{sessionId}/pick-list', {
             params: { path: { sessionId: session.id } },
             body: {
-              preferenceLines,
-              ...(pickListInformation.length === 0 ? {} : { pickListInformation }),
+              preferenceLines: [...preferenceLines],
+              ...(pickListInformation.length === 0
+                ? {}
+                : { pickListInformation: [...pickListInformation] }),
             },
           }),
         );

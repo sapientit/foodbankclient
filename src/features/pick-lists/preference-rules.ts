@@ -143,6 +143,65 @@ export function validatePreferenceRules(
   return { errors: [...new Set(errors)] };
 }
 
+export interface ResolvedReferralLines {
+  readonly referralId: string;
+  readonly lines: readonly { stockItemId: string; quantity: number }[];
+  /**
+   * Stock a rule outcome named that could not be resolved to a unique active
+   * item. Populated regardless of caller — `resolvePreferenceLines` never
+   * reaches a referral with one of these, because it refuses to run at all
+   * once `validatePreferenceRules` has already proven none can occur; see
+   * `resolveHistoricPreferenceLines` for the caller that actually reads it.
+   */
+  readonly unavailableStock: readonly string[];
+}
+
+function resolveReferralLines(
+  referral: Pick<Referral, 'id' | 'adults' | 'children' | 'answers'>,
+  rules: readonly PreferenceRule[],
+  activeByName: ReadonlyMap<string, readonly StockItem[]>,
+): ResolvedReferralLines {
+  const lines = new Map<string, number>();
+  const unavailable = new Set<string>();
+  const remainingAnswers = new Map<string, string[]>();
+  for (const rule of rules) {
+    const answers = remainingAnswers.get(rule.when.key) ?? [
+      ...selectedAnswers(referral.answers[rule.when.key]),
+    ];
+    remainingAnswers.set(rule.when.key, answers);
+    for (const selectedAnswer of [...answers]) {
+      if (rule.when.hasAnswer !== undefined && selectedAnswer !== rule.when.hasAnswer) continue;
+      const outcome = firstOutcome(rule, referral);
+      if (outcome === undefined) continue;
+      for (const line of outcome.set) {
+        if (line.stock === DUMMY_STOCK) continue;
+        const wanted = line.stock === SELECTED_ANSWER_STOCK ? selectedAnswer : line.stock;
+        const item = activeByName.get(normaliseStockItemName(wanted))?.[0];
+        if (item === undefined) {
+          unavailable.add(wanted);
+          continue;
+        }
+        const oldQuantity = lines.get(item.id);
+        lines.set(
+          item.id,
+          oldQuantity === -1 || line.quantity === -1 ? -1 : (oldQuantity ?? 0) + line.quantity,
+        );
+      }
+      // Rules are deliberately ordered. Once one has dealt with this answer,
+      // later rules for the same preference see only the unanswered choices.
+      remainingAnswers.set(
+        rule.when.key,
+        answers.filter((answer) => answer !== selectedAnswer),
+      );
+    }
+  }
+  return {
+    referralId: referral.id,
+    lines: [...lines].map(([stockItemId, quantity]) => ({ stockItemId, quantity })),
+    unavailableStock: [...unavailable].sort(),
+  };
+}
+
 export function resolvePreferenceLines(
   referrals: readonly Pick<Referral, 'id' | 'adults' | 'children' | 'answers'>[],
   stockItems: readonly StockItem[],
@@ -154,48 +213,27 @@ export function resolvePreferenceLines(
     throw new Error(`Preference rule configuration is invalid: ${health.errors.join(' ')}`);
   const activeByName = activeStockItemsByName(stockItems);
   return referrals.flatMap((referral) => {
-    const lines = new Map<string, number>();
-    const remainingAnswers = new Map<string, string[]>();
-    for (const rule of rules) {
-      const answers = remainingAnswers.get(rule.when.key) ?? [
-        ...selectedAnswers(referral.answers[rule.when.key]),
-      ];
-      remainingAnswers.set(rule.when.key, answers);
-      for (const selectedAnswer of [...answers]) {
-        if (rule.when.hasAnswer !== undefined && selectedAnswer !== rule.when.hasAnswer) continue;
-        const outcome = firstOutcome(rule, referral);
-        if (outcome === undefined) continue;
-        for (const line of outcome.set) {
-          if (line.stock === DUMMY_STOCK) continue;
-          const item = activeByName.get(
-            normaliseStockItemName(
-              line.stock === SELECTED_ANSWER_STOCK ? selectedAnswer : line.stock,
-            ),
-          )?.[0];
-          if (item === undefined) continue;
-          const oldQuantity = lines.get(item.id);
-          lines.set(
-            item.id,
-            oldQuantity === -1 || line.quantity === -1 ? -1 : (oldQuantity ?? 0) + line.quantity,
-          );
-        }
-        // Rules are deliberately ordered. Once one has dealt with this answer,
-        // later rules for the same preference see only the unanswered choices.
-        remainingAnswers.set(
-          rule.when.key,
-          answers.filter((answer) => answer !== selectedAnswer),
-        );
-      }
-    }
-    return lines.size === 0
-      ? []
-      : [
-          {
-            referralId: referral.id,
-            lines: [...lines].map(([stockItemId, quantity]) => ({ stockItemId, quantity })),
-          },
-        ];
+    const { referralId, lines } = resolveReferralLines(referral, rules, activeByName);
+    return lines.length === 0 ? [] : [{ referralId, lines: [...lines] }];
   });
+}
+
+/**
+ * The same resolution, for a release that is not the currently active one.
+ * **Never throws.** A historic release naming a stock item that has since
+ * been discontinued is expected, not a configuration fault — see
+ * `docs/planning/versioned-configuration-releases.md`, "Historic unavailable
+ * stock". Every referral is returned, even one that resolves no lines at all,
+ * because `unavailableStock` — read by `buildPickListInformation` to note
+ * `No longer stocked: …` on the new parcel — can be non-empty either way.
+ */
+export function resolveHistoricPreferenceLines(
+  referrals: readonly Pick<Referral, 'id' | 'adults' | 'children' | 'answers'>[],
+  stockItems: readonly StockItem[],
+  rules: readonly PreferenceRule[],
+): readonly ResolvedReferralLines[] {
+  const activeByName = activeStockItemsByName(stockItems);
+  return referrals.map((referral) => resolveReferralLines(referral, rules, activeByName));
 }
 
 function selectedAnswers(value: unknown): readonly string[] {

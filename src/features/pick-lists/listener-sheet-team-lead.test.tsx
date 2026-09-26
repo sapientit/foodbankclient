@@ -5,12 +5,14 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
+import type { ConfigurationRelease } from '../configuration-releases/queries';
 import { referralKeys } from '../referrals/keys';
 import { listenerColumns } from './listener-sheet.logic';
 import type { ListenerSheet } from './queries';
 import type { ReferralReason } from '../referrals/queries';
 
 const SESSION_ID = 'session-1';
+const RELEASES_BULK = '/api/v1/configuration-releases/bulk';
 
 // A minimal valid rule makes the fresh referral contribute a distinctive line
 // to reconciliation. The maintained rules themselves are covered separately.
@@ -25,6 +27,56 @@ vi.mock('./preference-rules.config.json', () => ({
     ],
   },
 }));
+
+/**
+ * The release the fresh referral in "refreshes the client list…" below is
+ * generated against. Its `Tea/Coffee` rule matches this file's own mocked
+ * bundled config exactly, so the fetched release — never the bundled one —
+ * is what actually drives that test's reconciliation.
+ */
+const FORM_ID = 'form-1';
+const RELEASE: ConfigurationRelease = {
+  formId: FORM_ID,
+  status: 'published',
+  questionnaireHash: 'hash',
+  rulesHash: 'hash',
+  generationId: 'gen-1',
+  generatedAt: '2026-01-01T00:00:00.000Z',
+  sourceWorkbookId: 'workbook-1',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  createdByUserId: null,
+  publishedAt: '2026-01-01T00:00:00.000Z',
+  publishedByUserId: null,
+  questionnaire: JSON.stringify({
+    version: 1,
+    pages: [
+      {
+        pageNum: 1,
+        pageTitle: 'Preferences',
+        questions: [
+          {
+            questionNum: 1,
+            questionKey: 'Tea/Coffee',
+            questionTitle: 'Tea/Coffee',
+            preference: true,
+            required: false,
+            validation: { type: 'CheckBox', answerMin: 0, answerMax: 1 },
+            answers: ['Tea', 'Decaf Tea', 'Coffee', 'Decaf Coffee', 'Hot Chocolate'],
+          },
+        ],
+      },
+    ],
+  }),
+  rules: JSON.stringify({
+    rules: [
+      {
+        when: { key: 'Tea/Coffee' },
+        cases: [],
+        otherwise: { set: [{ stock: '$selectedAnswer', quantity: 1 }] },
+      },
+    ],
+  }),
+};
 
 /*
  * The maintained reason lookup. A question choosing from it — the secondary
@@ -197,7 +249,13 @@ describe('a team lead listener sheet', () => {
         referralReads += 1;
         return HttpResponse.json({
           referrals: [
-            { id: 'referral-new', adults: 1, children: 0, answers: { 'Tea/Coffee': 'Tea' } },
+            {
+              id: 'referral-new',
+              adults: 1,
+              children: 0,
+              formId: FORM_ID,
+              answers: { 'Tea/Coffee': 'Tea' },
+            },
           ],
         });
       }),
@@ -323,6 +381,7 @@ describe('a team lead listener sheet', () => {
           ],
         }),
       ),
+      http.get(RELEASES_BULK, () => HttpResponse.json({ releases: [RELEASE] })),
       reasonsHandler(),
     );
 

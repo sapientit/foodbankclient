@@ -4,6 +4,8 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
+import type { ConfigurationRelease } from '../configuration-releases/queries';
+import rawFormConfig from '../referrals/referral-form.config.json';
 import type { Session } from '../sessions/queries';
 import type { Parcel, PickList } from './queries';
 import { PRINT_UNAVAILABLE_REASON } from './run-session.logic';
@@ -13,6 +15,33 @@ import { PRINT_UNAVAILABLE_REASON } from './run-session.logic';
 // own matching catalogue; loading them here would make unrelated navigation
 // assertions depend on every maintained stock name.
 vi.mock('./preference-rules.config.json', () => ({ default: { rules: [] } }));
+
+const RELEASES_BULK = '/api/v1/configuration-releases/bulk';
+
+/**
+ * Every referral and parcel fixture in this file carries this `formId`. Its
+ * questionnaire is the shipped `referral-form.config.json` verbatim — so
+ * `Allergies`/`Pulses` are still recognised, pick-list-information questions —
+ * and its rules match this file's own mocked bundled config: empty, so a
+ * generation assertion here is never about which rules fired.
+ */
+const FORM_ID = 'form-1';
+
+const RELEASE: ConfigurationRelease = {
+  formId: FORM_ID,
+  status: 'published',
+  questionnaireHash: 'hash',
+  rulesHash: 'hash',
+  generationId: 'gen-1',
+  generatedAt: '2026-01-01T00:00:00.000Z',
+  sourceWorkbookId: 'workbook-1',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  createdByUserId: null,
+  publishedAt: '2026-01-01T00:00:00.000Z',
+  publishedByUserId: null,
+  questionnaire: JSON.stringify(rawFormConfig),
+  rules: JSON.stringify({ rules: [] }),
+};
 
 /**
  * A team lead starts their shift in the operational view. The screen creates
@@ -63,7 +92,7 @@ const PARCEL: Parcel = {
   notes: null,
   firstTimeMarker: null,
   voucherInstruction: null,
-  formId: null,
+  formId: FORM_ID,
   answers: {
     Allergies: 'Gluten-free food for one person',
     Pulses: 'Vegetarian',
@@ -94,6 +123,7 @@ beforeEach(() => {
     // that needs a different status still overrides this with its own handler.
     http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
     http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
+    http.get(RELEASES_BULK, () => HttpResponse.json({ releases: [RELEASE] })),
     http.get('/api/v1/stock/items', () =>
       HttpResponse.json({
         items: [
@@ -460,6 +490,7 @@ describe('a team lead running a session', () => {
               id: PARCEL.referralId,
               adults: PARCEL.adults,
               children: PARCEL.children,
+              formId: FORM_ID,
               answers: {
                 Allergies: 'Gluten-free food for one person',
                 Pulses: 'Kidney beans please',
@@ -851,7 +882,10 @@ describe('a team lead running a session', () => {
     const user = userEvent.setup();
     await screen.findByRole('heading', { level: 1, name: 'Pick #1: Sam Taylor' });
 
-    const toggle = screen.getByRole('checkbox', { name: 'Show unselected Stock items' });
+    // Not `getByRole`: the heading above depends only on the session and pick
+    // list, but the panel's own content waits on the referral's own release —
+    // one more async hop the heading's readiness says nothing about.
+    const toggle = await screen.findByRole('checkbox', { name: 'Show unselected Stock items' });
     expect(toggle).not.toBeChecked();
     expect(screen.queryByRole('spinbutton', { name: 'Apples' })).toBeNull();
     expect(await screen.findByRole('spinbutton', { name: /Baked beans/ })).toBeInTheDocument();
@@ -941,8 +975,10 @@ describe('a team lead running a session', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Pick #2: Jo Patel' }),
     ).toBeInTheDocument();
-    // Jo Patel's own five tins, not Sam Taylor's abandoned nine.
-    expect(screen.getByRole('spinbutton', { name: /Baked beans/ })).toHaveValue(5);
+    // Jo Patel's own five tins, not Sam Taylor's abandoned nine. Not
+    // `getByRole`: the heading says nothing about whether the panel's own
+    // release fetch, for the newly navigated-to parcel, has resolved yet.
+    expect(await screen.findByRole('spinbutton', { name: /Baked beans/ })).toHaveValue(5);
   });
 
   it('lets a team lead leave a pick list without saving, and does not save when they do', async () => {
