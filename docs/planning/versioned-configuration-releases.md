@@ -96,11 +96,18 @@ deliberately staged:
 2. Add the referral column as nullable and backfill existing referrals to that
    baseline release.
 3. Deploy client support for loading the active form and submitting `formId`.
-4. After the bounded old-client compatibility period, require `formId` for new
-   public referrals.
 
 The baseline step is essential: existing referrals must not be linked to a
 later edited release simply because it is active at migration time.
+
+**`formId` on a public referral submission stays permanently optional. A
+missing value always means the currently active release, indefinitely — there
+is no compatibility period after which it becomes required.** An old cached
+client that never learns about `formId` at all keeps working forever, not just
+for a bounded window; the server backfills a missing value to the active
+release's id at the moment it accepts the referral, which is also exactly
+correct behaviour rather than a shim, since a referral genuinely was submitted
+against whatever was active at that moment.
 
 ## Publication and form APIs
 

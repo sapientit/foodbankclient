@@ -34,6 +34,10 @@ supersedes that handoff's guidance on copying a referral: instead of silently re
 referral's answers under today's rules, a copy whose form has since changed opens a review of today's
 form instead of creating anything.
 
+[`versioned-configuration-releases-server-handoff-addendum-2.md`](./versioned-configuration-releases-server-handoff-addendum-2.md)
+settles that `formId` never becomes required on a public referral submission — a missing value always
+means the currently active release, permanently, not just for a bounded compatibility window.
+
 ## Potential matches attendance confirmation
 
 ![Potential matches attendance confirmation mock-up](potential-matches-attendance-confirmation-mockup.png)
