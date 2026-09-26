@@ -24,6 +24,7 @@ import {
   SmsReferrerMessagesScreen,
   SmsUnknownMessagesScreen,
 } from './features/pick-lists/components/sms-panel';
+import { PublishReferralFormScreen } from './features/configuration-releases/components/publish-referral-form-screen';
 import { PreferenceRuleHealthScreen } from './features/pick-lists/components/preference-rule-health-screen';
 import { ReferralDetailScreen } from './features/referrals/components/referral-detail-screen';
 import { FirstTimeReviewScreen } from './features/referrals/components/first-time-review-screen';
@@ -192,6 +193,7 @@ export const routes: RouteObject[] = [
       },
       { path: 'run-sessions/:sessionId/clients/:parcelId', element: <RunSessionClientScreen /> },
       { path: 'preference-rules', element: <PreferenceRuleHealthScreen /> },
+      { path: 'configuration-releases', element: <PublishReferralFormScreen /> },
       { path: 'voucher-config', element: <VoucherConfigScreen /> },
       { path: 'fuel-help', element: <FuelHelpListScreen /> },
       { path: 'extracts', element: <ExtractScreen /> },

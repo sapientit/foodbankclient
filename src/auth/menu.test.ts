@@ -159,6 +159,7 @@ describe('contextual navigation', () => {
       'Christmas vouchers',
       'Reasons for Crisis',
       'Rule check',
+      'Publish referral form',
       'Stock validation',
       'Cloudflare statistics',
     ]);
@@ -171,6 +172,7 @@ describe('contextual navigation', () => {
       'Christmas vouchers',
       'Reasons for Crisis',
       'Rule check',
+      'Publish referral form',
       'Stock validation',
       'Cloudflare statistics',
     ]);

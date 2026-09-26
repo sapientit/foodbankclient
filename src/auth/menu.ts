@@ -88,6 +88,7 @@ export const MENU: readonly MenuItem[] = [
   { to: '/sms', label: 'SMS Messages', roles: ADMIN_ONLY },
   { to: '/extracts', label: 'Send to Sheets', roles: ADMIN_ONLY },
   { to: '/preference-rules', label: 'Rule check', roles: ADMIN_ONLY },
+  { to: '/configuration-releases', label: 'Publish referral form', roles: ADMIN_ONLY },
   { to: '/voucher-config', label: 'Christmas vouchers', roles: ADMIN_ONLY },
   { to: '/platform-stats/usage', label: 'Cloudflare statistics', roles: ADMIN_ONLY },
   // A fuel administrator is not a reduced staff account. This is their whole
@@ -176,6 +177,7 @@ export function navigationSectionsFor(role: Role): readonly NavigationSection[] 
       '/voucher-config',
       '/referral-reasons',
       '/preference-rules',
+      '/configuration-releases',
       '/stock/validation',
       '/platform-stats/usage',
     ]),

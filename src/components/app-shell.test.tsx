@@ -139,6 +139,7 @@ describe('AppShell', () => {
           'Christmas vouchers',
           'Reasons for Crisis',
           'Rule check',
+          'Publish referral form',
           'Stock validation',
           'Cloudflare statistics',
         ],

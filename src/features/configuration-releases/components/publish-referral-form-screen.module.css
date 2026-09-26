@@ -1,0 +1,39 @@
+/* Master Data is neutral, so this deliberately does not set --category-tint
+   itself — it inherits whatever the shell resolves for the current page,
+   the same as every other Master Data screen. */
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+}
+
+.panel {
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #d5e5ef;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1fafd);
+  box-shadow: 0 0.1rem 0.35rem rgb(23 72 101 / 7%);
+}
+
+.panel h2 {
+  margin-block-start: 0;
+}
+
+.progress {
+  margin-block-end: 0;
+}
+
+.results {
+  margin-block-start: 1rem;
+}
+
+.results p:first-child {
+  margin-block-start: 0;
+}
