@@ -112,6 +112,13 @@ const QUESTIONNAIRE_JSON = JSON.stringify({
         },
         {
           questionNum: 11,
+          questionKey: 'sessionId',
+          questionTitle: 'Session date',
+          keyField: 'sessionId',
+          required: true,
+        },
+        {
+          questionNum: 12,
           questionKey: 'Collection method',
           questionTitle: 'How will the parcel be collected?',
           preference: false,
@@ -120,7 +127,7 @@ const QUESTIONNAIRE_JSON = JSON.stringify({
           answers: ['Car', 'Delivery Requested', 'Referrer will collect'],
         },
         {
-          questionNum: 12,
+          questionNum: 13,
           questionKey: 'reasonId',
           questionTitle: 'Main cause of crisis',
           keyField: 'reasonId',
@@ -206,6 +213,10 @@ async function fillHouseholdComposition(user: ReturnType<typeof userEvent.setup>
   await user.type(adultFemale, '2');
 }
 
+async function selectSession(user: ReturnType<typeof userEvent.setup>, sessionId: string) {
+  await user.selectOptions(screen.getByRole('combobox', { name: /Session date/ }), sessionId);
+}
+
 beforeEach(() => {
   server.use(
     http.post(REFRESH, () =>
@@ -252,7 +263,10 @@ describe('reviewing a referral onto today’s form', () => {
     expect(screen.getByText(/Sam Referrer, Riverside Church/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Referrer's name/)).toBeNull();
     expect(screen.queryByLabelText(/Referrer's email/)).toBeNull();
-    expect(screen.queryByRole('combobox', { name: /Session/ })).toBeNull();
+
+    // The session sits in its configured page position, like any other
+    // question — not bolted on after the last page.
+    expect(screen.getByRole('combobox', { name: /Session date/ })).toBeInTheDocument();
 
     // Pre-filled from the source referral.
     expect(screen.getByLabelText(/Client's first name/)).toHaveValue('Jamie');
@@ -281,14 +295,17 @@ describe('reviewing a referral onto today’s form', () => {
       'Car',
     );
     await user.selectOptions(screen.getByRole('combobox', { name: /Main cause of crisis/ }), 'q1');
+
+    // Leaving the session unchosen is refused on this page, exactly like any
+    // other required question here — it is one now, not a separate check at
+    // the end.
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('Session date is required.')).toBeInTheDocument();
+
+    await selectSession(user, 's1');
     await user.click(screen.getByRole('button', { name: 'Next' }));
 
     await screen.findByText(/Page 2 of 2/);
-    await user.click(screen.getByRole('button', { name: 'Submit this referral' }));
-
-    expect(await screen.findByText('Choose a session for this referral.')).toBeInTheDocument();
-
-    await user.selectOptions(screen.getByLabelText('Choose session'), 's1');
     await user.click(screen.getByRole('button', { name: 'Submit this referral' }));
 
     await waitFor(() => {
@@ -308,7 +325,49 @@ describe('reviewing a referral onto today’s form', () => {
     expect(submittedBody).not.toHaveProperty('referrerEmail');
   });
 
-  it('never offers a closed or already-past session in the review-and-submit picker', async () => {
+  it('moves focus only once the page it is moving to has actually rendered', async () => {
+    // The same fix `public-referral-screen.tsx`'s own `goNext`/`goBack` needed:
+    // focusing the progress paragraph synchronously, in the same tick as
+    // `setPageIndex`, scrolls against the outgoing page's still-current,
+    // taller layout; React then swaps in the new, shorter page a moment
+    // later and the browser clamps that scroll offset to the new document,
+    // landing at the bottom instead of the top. A native `focusin` listener
+    // catches the instant focus actually fires, which is invisible once React
+    // has settled — a plain `findByText` assertion after the click would not
+    // tell the two apart.
+    const headingAtFocusTime: string[] = [];
+    const recordHeading = () => {
+      headingAtFocusTime.push(document.querySelector('h2')?.textContent ?? '');
+    };
+    document.addEventListener('focusin', recordHeading);
+
+    try {
+      const user = userEvent.setup();
+      renderApp('/referrals/r1/re-refer');
+
+      await screen.findByLabelText(/Client's first name/);
+      await fillHouseholdComposition(user);
+      await selectSession(user, 's1');
+      await user.selectOptions(
+        screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
+        'Car',
+      );
+      await user.selectOptions(
+        screen.getByRole('combobox', { name: /Main cause of crisis/ }),
+        'q1',
+      );
+      const pageOneHeading = screen.getByRole('heading', { level: 2 }).textContent;
+      await user.click(screen.getByRole('button', { name: 'Next' }));
+      await screen.findByText(/Page 2 of 2/);
+
+      expect(headingAtFocusTime).not.toHaveLength(0);
+      expect(headingAtFocusTime.at(-1)).not.toBe(pageOneHeading);
+    } finally {
+      document.removeEventListener('focusin', recordHeading);
+    }
+  });
+
+  it('never offers a closed or already-past session in the picker', async () => {
     server.use(
       http.get(SESSIONS, () =>
         HttpResponse.json({
@@ -327,20 +386,9 @@ describe('reviewing a referral onto today’s form', () => {
       ),
     );
 
-    const user = userEvent.setup();
     renderApp('/referrals/r1/re-refer');
 
     await screen.findByLabelText(/Client's first name/);
-    await fillHouseholdComposition(user);
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: /How will the parcel be collected/ }),
-      'Car',
-    );
-    await user.selectOptions(screen.getByRole('combobox', { name: /Main cause of crisis/ }), 'q1');
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-
-    await screen.findByText(/Page 2 of 2/);
-    await user.click(screen.getByRole('button', { name: 'Submit this referral' }));
 
     await screen.findByRole('option', { name: /3 of 10 booked/ });
     expect(screen.queryByRole('option', { name: /5 of 20 booked/ })).toBeNull();

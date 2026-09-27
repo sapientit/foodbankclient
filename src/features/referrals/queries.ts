@@ -840,9 +840,11 @@ export type ReReferSubmissionBuild =
  * over a released config that had quietly lost a required question.
  *
  * `sessionId` and `acknowledgeOverCapacity` are separate parameters rather
- * than read from `keyFields`: the session is chosen through the same
- * warn-not-refuse picker Copy and Move already use, not rendered as an
- * ordinary page question — see `re-refer.logic.ts`.
+ * than read from `keyFields`, even though the session is now an ordinary page
+ * question like every other key field (see `re-refer.logic.ts`). Nothing in a
+ * generic `keyField` schema knows about capacity, so `acknowledgeOverCapacity`
+ * has to be computed from the same session once it is chosen — the caller
+ * already has both to hand.
  */
 export function buildReReferBody(
   keyFields: Readonly<Record<string, string | number | boolean | null>>,

@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
@@ -13,7 +13,9 @@ import { openSessionTargets } from '../../sessions/session-list-filters.logic';
 import { usePublicReferralFormDefinition } from '../queries';
 import {
   isAnswerableQuestion,
+  keyFieldKey,
   type AnswerableQuestion,
+  type KeyFieldQuestion,
   type OptionSources,
   type ReferralFormDefinition,
 } from '../referral-form-definition';
@@ -36,6 +38,7 @@ import {
 } from '../referrals.logic';
 import { buildReReferBody, useReferral, useReReferReferral, type Referral } from '../queries';
 import { ReferralQuestionField, type QuestionLookups } from './referral-question-field';
+import fieldStyles from './referral-question-field.module.css';
 import styles from './re-refer-screen.module.css';
 
 /**
@@ -50,9 +53,13 @@ import styles from './re-refer-screen.module.css';
  * a request field entirely — see `useReReferReferral`. It is shown read-only
  * for context.
  *
- * **The session is chosen through the same warn-not-refuse picker Copy and
- * Move already use**, not as an ordinary page question — see
- * `re-refer.logic.ts` for why.
+ * **The session sits where today's form itself asks for it** — an ordinary
+ * `keyField` question, in its configured page position, in the same label and
+ * control styling as every other question here. Only its source list and the
+ * capacity note beneath it are this screen's own: an admin needs the same
+ * warn-not-refuse picture Copy and Move already give, with real booked/capacity
+ * counts, which the public form's session list does not carry. See
+ * `SessionField` below and `re-refer.logic.ts`.
  */
 export function ReReferScreen() {
   const { referralId = '' } = useParams();
@@ -193,13 +200,36 @@ function ReReferForm({
   );
   const [pageIndex, setPageIndex] = useState(0);
   const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
-  const [sessionId, setSessionId] = useState('');
-  const [sessionError, setSessionError] = useState<string | null>(null);
   const [misconfigured, setMisconfigured] = useState<readonly string[]>([]);
   const submitting = useRef(false);
 
-  const sessionFieldId = useId();
-  const sessionErrorId = useId();
+  const progressId = useId();
+
+  // The question key the session is answered under — independent of its
+  // column name, like every other key field. See `keyFieldKey`.
+  const sessionKey = keyFieldKey(reReferDefinition, 'sessionId');
+  const sessionId =
+    sessionKey !== undefined && typeof answers[sessionKey] === 'string' ? answers[sessionKey] : '';
+
+  /*
+   * Focus has to wait for the page it is moving *to*, not the one it is
+   * leaving — the same fix `public-referral-screen.tsx` made to `goNext`/
+   * `goBack` there. Calling `.focus()` synchronously in the same tick as
+   * `setPageIndex` scrolls the progress paragraph into view against the
+   * outgoing page's still-current, often taller layout; a moment later React
+   * swaps in the new, shorter page and the browser clamps that scroll offset
+   * to the new document, landing at the bottom instead of the top. An effect
+   * runs after the swap has painted, once the new page's height is the one
+   * being measured. Skips the initial mount: nothing has moved yet.
+   */
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    document.getElementById(progressId)?.focus();
+  }, [pageIndex, progressId]);
 
   const page = pages[pageIndex];
   const isLastPage = pageIndex === pages.length - 1;
@@ -255,12 +285,10 @@ function ReReferForm({
   };
 
   const submit = async () => {
+    // Covers the session question too — it validates as a required `keyField`
+    // like any other, on whichever page it sits, and `goNext` already refused
+    // to leave that page without it. See `SessionField`.
     if (!validatePage()) return;
-    if (sessionId === '') {
-      setSessionError('Choose a session for this referral.');
-      return;
-    }
-    setSessionError(null);
 
     const { keyFields, answers: dynamic } = splitSubmission(reReferDefinition, answers);
     const built = buildReReferBody(keyFields, dynamic, sessionId, sessionWarning !== null);
@@ -321,7 +349,7 @@ function ReReferForm({
         )}
       </dl>
 
-      <p className={styles.progress}>
+      <p className={styles.progress} id={progressId} tabIndex={-1}>
         {describePageProgress(reReferDefinition, pageIndex)}
         {refereeName(source) !== null && ` — ${refereeName(source) ?? ''}`}
       </p>
@@ -345,56 +373,33 @@ function ReReferForm({
           else goNext();
         }}
       >
-        {page.questions.map((question) => (
-          <ReferralQuestionField
-            enabled={isEnabled(question, answers)}
-            error={question.type === 'information' ? undefined : errors[question.key]}
-            key={question.type === 'information' ? question.label : question.key}
-            lookups={lookups}
-            onChange={(value) => {
-              if (question.type !== 'information') change(question.key, value);
-            }}
-            question={question}
-            value={question.type === 'information' ? '' : (answers[question.key] ?? '')}
-            variables={{}}
-          />
-        ))}
-
-        {isLastPage && (
-          <div className={styles.field}>
-            <label htmlFor={sessionFieldId}>Choose session</label>
-            <select
-              aria-describedby={sessionError === null ? undefined : sessionErrorId}
-              className={styles.select}
-              id={sessionFieldId}
-              onChange={(event) => {
-                setSessionId(event.target.value);
-                setSessionError(null);
+        {page.questions.map((question) =>
+          question.type === 'keyField' && question.field === 'sessionId' ? (
+            <SessionField
+              error={errors[question.key]}
+              key={question.key}
+              onChange={(value) => {
+                change(question.key, value);
               }}
+              question={question}
+              sessions={sessions}
               value={sessionId}
-            >
-              <option value="">Choose a session</option>
-              {sessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {describeSessionChoice(
-                    `${formatSessionDate(session.sessionDate)}, ${session.startTime}`,
-                    standingFromCapacity(session.deliveryCapacity),
-                  )}{' '}
-                  ({session.booked} of {session.capacity} booked)
-                </option>
-              ))}
-            </select>
-            {sessionError !== null && (
-              <p className={styles.fieldError} id={sessionErrorId} role="alert">
-                {sessionError}
-              </p>
-            )}
-            {sessionWarning !== null && (
-              <p className={styles.warning} role="status">
-                {sessionWarning}
-              </p>
-            )}
-          </div>
+              warning={sessionWarning}
+            />
+          ) : (
+            <ReferralQuestionField
+              enabled={isEnabled(question, answers)}
+              error={question.type === 'information' ? undefined : errors[question.key]}
+              key={question.type === 'information' ? question.label : question.key}
+              lookups={lookups}
+              onChange={(value) => {
+                if (question.type !== 'information') change(question.key, value);
+              }}
+              question={question}
+              value={question.type === 'information' ? '' : (answers[question.key] ?? '')}
+              variables={{}}
+            />
+          ),
         )}
 
         <div className={styles.actions}>
@@ -408,6 +413,78 @@ function ReReferForm({
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/**
+ * The session question, in the same page position `referral-form.config.json`
+ * gives it and styled identically to `ReferralQuestionField`'s own `keyField`
+ * rendering — the same label, required marker, `<select>` and error text.
+ *
+ * **What is deliberately not shared** is where the options come from and the
+ * paragraph beneath them. `ReferralQuestionField`'s `LookupControl` draws on
+ * `PublicSession`, the unauthenticated list a referrer sees, which carries no
+ * booked or capacity count at all. This is an authenticated admin screen doing
+ * exactly what Copy and Move already do here: offering every open session with
+ * its real numbers and warning, never refusing, where it is already at or over
+ * capacity — see `copyCapacityWarning`.
+ */
+function SessionField({
+  question,
+  sessions,
+  value,
+  error,
+  warning,
+  onChange,
+}: {
+  question: KeyFieldQuestion;
+  sessions: readonly Session[];
+  value: string;
+  error: string | undefined;
+  warning: string | null;
+  onChange: (value: string) => void;
+}) {
+  const fieldId = useId();
+  const errorId = useId();
+
+  return (
+    <div className={fieldStyles.field}>
+      <label className={fieldStyles.label} htmlFor={fieldId}>
+        {question.label}
+        {question.required && <span className={fieldStyles.required}> (required)</span>}
+      </label>
+      <select
+        aria-describedby={error === undefined ? undefined : errorId}
+        aria-invalid={error === undefined ? undefined : true}
+        className={fieldStyles.select}
+        id={fieldId}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+        value={value}
+      >
+        <option value="">Choose one</option>
+        {sessions.map((session) => (
+          <option key={session.id} value={session.id}>
+            {describeSessionChoice(
+              `${formatSessionDate(session.sessionDate)}, ${session.startTime}`,
+              standingFromCapacity(session.deliveryCapacity),
+            )}{' '}
+            ({session.booked} of {session.capacity} booked)
+          </option>
+        ))}
+      </select>
+      {error !== undefined && (
+        <p className={fieldStyles.error} id={errorId} role="alert">
+          {error}
+        </p>
+      )}
+      {warning !== null && (
+        <p className={styles.warning} role="status">
+          {warning}
+        </p>
+      )}
     </div>
   );
 }

@@ -37,17 +37,11 @@
   font-weight: 600;
 }
 
-.field {
-  margin-block-end: 1.5rem;
-}
-
-.select {
-  display: block;
-  margin-block-start: 0.25rem;
-}
-
-.fieldError {
-  color: var(--error-color, #b3261e);
+/* Focused programmatically on every page change, so a keyboard or screen-reader
+   user is not left on a button that no longer exists. */
+.progress:focus-visible {
+  outline: 2px solid currentcolor;
+  outline-offset: 2px;
 }
 
 .warning {

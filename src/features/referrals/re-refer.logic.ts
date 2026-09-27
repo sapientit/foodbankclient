@@ -34,17 +34,22 @@ import {
  * Never editable here: the referrer is carried forward by the server from the
  * source referral, unquestioned, and is not a field on
  * `POST /referrals/{id}/re-refer` at all — see the server handoff addendum.
- * The session is excluded for a different reason: it is not one of the
- * "cannot have changed" fields `screenDetails.md` pre-fills, and this screen
- * offers it through the same warn-not-refuse picker Copy and Move already
- * use, not as an ordinary page question.
+ *
+ * **The session stays in.** It used to be excluded and offered through a
+ * bolted-on picker after the last page instead, but it is not one of the
+ * "cannot have changed" fields `screenDetails.md` pre-fills either — it is an
+ * ordinary required `keyField` question like any other, and belongs in
+ * whatever page position the config gives it. `re-refer-screen.tsx`'s
+ * `SessionField` still renders it from the admin session list rather than the
+ * public one, so it carries real booked/capacity numbers and the same
+ * warn-not-refuse note Copy and Move give; only its source and that note are
+ * this screen's own, not its place on the page.
  */
 const EXCLUDED_KEY_FIELDS: readonly KeyFieldName[] = [
   'referrerName',
   'referrerEmail',
   'referrerOrganisation',
   'referrerPhone',
-  'sessionId',
 ];
 
 const CARRIED_KEY_FIELDS = [

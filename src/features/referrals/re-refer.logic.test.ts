@@ -171,14 +171,21 @@ const ACTIVE_REASONS: OptionSources = {
 };
 
 describe('reReferPages', () => {
-  it('removes the referrer and session key fields, keeping the rest of the page', () => {
+  it('removes the referrer key fields, keeping the session and the rest of the page', () => {
     const pages = reReferPages(DEFINITION);
 
     expect(
       pages[0]?.questions.map((question) =>
         question.type === 'information' ? null : question.key,
       ),
-    ).toEqual(['refereeFirstName', 'refereeSurname', 'reasonId', 'Secondary', 'Collection method']);
+    ).toEqual([
+      'refereeFirstName',
+      'refereeSurname',
+      'sessionId',
+      'reasonId',
+      'Secondary',
+      'Collection method',
+    ]);
     expect(
       pages[1]?.questions.map((question) =>
         question.type === 'information' ? null : question.key,
