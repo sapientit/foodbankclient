@@ -77,7 +77,7 @@ describe('splitSubmission', () => {
     expect(result.keyFields).toEqual({ needsFuelHelp: false });
   });
 
-  it('derives the server collection method from the collection-method answer', () => {
+  it('derives the server collection method from the collection-method answer, keeping the answer itself too', () => {
     const collectionMethod: FormQuestion = {
       key: COLLECTION_METHOD_KEY,
       type: 'choice',
@@ -92,17 +92,19 @@ describe('splitSubmission', () => {
       ],
     };
 
+    // The typed `collectionMethod` column is what the server acts on, but it
+    // cannot tell "Car" from "Public Transport" from "On Foot" apart — all
+    // three collapse into `'collection'`. The answer itself is what survives
+    // that, stored like any other dynamic answer.
     expect(
       splitSubmission(form(collectionMethod), { [COLLECTION_METHOD_KEY]: [DELIVERY_REQUESTED] }),
     ).toEqual({
       keyFields: { collectionMethod: 'delivery' },
-      answers: {},
+      answers: { [COLLECTION_METHOD_KEY]: DELIVERY_REQUESTED },
     });
-    expect(
-      splitSubmission(form(collectionMethod), { [COLLECTION_METHOD_KEY]: ['Car'] }).keyFields,
-    ).toEqual({
-      collectionMethod: 'collection',
-    });
+    const car = splitSubmission(form(collectionMethod), { [COLLECTION_METHOD_KEY]: ['Car'] });
+    expect(car.keyFields).toEqual({ collectionMethod: 'collection' });
+    expect(car.answers).toEqual({ [COLLECTION_METHOD_KEY]: 'Car' });
     expect(
       splitSubmission(form(collectionMethod), {
         [COLLECTION_METHOD_KEY]: ['Referrer will collect'],

@@ -15,7 +15,14 @@ import {
   type HouseholdComposition,
 } from './household-composition';
 
-/** The form's label for the fixed, structured collection-method column. */
+/**
+ * The dynamic question's own key. Its answer is stored like any other — see
+ * `splitSubmission` — and also drives the server's typed `collectionMethod`
+ * column, which is what the server acts on (delivery capacity, the driver's
+ * round) and what other screens here read back; the JSON answer is the one
+ * place the household's actual choice of "Car", "Public Transport" or
+ * "On Foot" survives, since all three collapse into the same typed column.
+ */
 export const COLLECTION_METHOD_KEY = 'Collection method';
 export const DELIVERY_REQUESTED = 'Delivery Requested';
 export const REFERRER_WILL_COLLECT = 'Referrer will collect';
@@ -94,18 +101,17 @@ export function splitSubmission(
         continue;
       }
 
-      if (question.key === COLLECTION_METHOD_KEY) {
-        const collectionMethod = collectionMethodForAnswer(toAnswerValue(question, held));
-        if (collectionMethod !== null) keyFields.collectionMethod = collectionMethod;
-        continue;
-      }
-
       const value = toAnswerValue(question, held);
       if (value === null) continue;
       dynamic[question.key] = value;
 
       if (question.type === 'householdComposition' && isHouseholdComposition(value)) {
         Object.assign(keyFields, operationalHouseholdCounts(value));
+      }
+
+      if (question.key === COLLECTION_METHOD_KEY) {
+        const collectionMethod = collectionMethodForAnswer(value);
+        if (collectionMethod !== null) keyFields.collectionMethod = collectionMethod;
       }
     }
   }

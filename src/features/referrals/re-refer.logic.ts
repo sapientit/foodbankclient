@@ -11,6 +11,12 @@ import { defaultAnswers } from './referral-form-schema';
 import type { AnswerValue, FormAnswers } from './referral-form.logic';
 import { isHouseholdComposition } from './household-composition';
 import { YES } from './referral-key-fields';
+import {
+  COLLECTION_METHOD_KEY,
+  DELIVERY_REQUESTED,
+  REFERRER_WILL_COLLECT,
+  type CollectionMethod,
+} from './referral-submission.logic';
 
 /**
  * What "Copy this referral" becomes once the referral form has changed since
@@ -74,6 +80,21 @@ export interface ReReferSource {
   readonly refereePhone: string | null;
   readonly needsFuelHelp: boolean;
   readonly reasonId: string;
+  readonly collectionMethod: CollectionMethod;
+}
+
+/**
+ * `collectionMethodForAnswer` collapses "Car", "Public Transport" and "On
+ * Foot" into the same `'collection'` column at submission time, so which of
+ * those three the source referral actually chose is gone, not merely
+ * unrendered here — it is left blank like any other answer with no obvious
+ * match on today's form. Delivery and referrer-collect are the one-to-one
+ * inverse of `collectionMethodForAnswer` and can be carried forward exactly.
+ */
+function collectionMethodStoredAnswer(collectionMethod: CollectionMethod): string | undefined {
+  if (collectionMethod === 'delivery') return DELIVERY_REQUESTED;
+  if (collectionMethod === 'referrer_collect') return REFERRER_WILL_COLLECT;
+  return undefined;
 }
 
 function carriedKeyFieldValue(
@@ -129,6 +150,15 @@ export function reReferPages(definition: ReferralFormDefinition): readonly FormP
  * household was never asked — there is no partial-copy heuristic to get
  * right, because the admin resolves anything ambiguous by looking at the
  * current question and answering it.
+ *
+ * "Collection method" reads from `source.answers` like any other dynamic
+ * question, so a referral submitted new carries its exact answer forward
+ * (still subject to the "still offered" check below). A referral submitted
+ * before `splitSubmission` started storing that answer alongside the typed
+ * `collectionMethod` column has no answer to read there, so
+ * `collectionMethodStoredAnswer` reconstructs what it can from that column —
+ * which cannot say "Car" from "Public Transport" from "On Foot", all three
+ * having collapsed into the same value, so a plain collection stays blank.
  */
 export function buildReReferInitialAnswers(
   source: ReReferSource,
@@ -144,7 +174,11 @@ export function buildReReferInitialAnswers(
   }
 
   for (const question of dynamicQuestions(definition)) {
-    const stored = source.answers[question.key];
+    const fromAnswers = source.answers[question.key];
+    const stored =
+      question.key === COLLECTION_METHOD_KEY && fromAnswers === undefined
+        ? collectionMethodStoredAnswer(source.collectionMethod)
+        : fromAnswers;
     if (stored === undefined) continue;
 
     if (question.type === 'choice') {

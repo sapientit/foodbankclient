@@ -172,10 +172,15 @@ function ReferralDetail({ referral }: { referral: Referral }) {
   const answerLookupError = isAdminView ? reasons.error : publicReasons.error;
 
   const session = sessions.data?.find((candidate) => candidate.id === referral.sessionId);
-  // Household composition has its own compact grid in the referral details.
-  // Keeping it out of the generic list prevents the stored JSON appearing a
-  // second time under the form's historical label, "Generated".
-  const { [HOUSEHOLD_COMPONENTS_KEY]: _householdComposition, ...otherAnswers } = referral.answers;
+  // Household composition and collection method each have their own fixed
+  // line above, in the `dl`. Keeping their raw JSON answers out of this
+  // generic list prevents the same fact appearing on the screen twice — once
+  // under its fixed label, once under the form's question label.
+  const {
+    [HOUSEHOLD_COMPONENTS_KEY]: _householdComposition,
+    [COLLECTION_METHOD_KEY]: _collectionMethod,
+    ...otherAnswers
+  } = referral.answers;
   const answers = describeAnswers(
     definition,
     { ...referral, answers: otherAnswers },

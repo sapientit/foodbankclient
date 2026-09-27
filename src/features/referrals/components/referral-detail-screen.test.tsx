@@ -471,6 +471,28 @@ describe('the admin referral detail screen', () => {
     expect(screen.queryByText('Generated')).toBeNull();
   });
 
+  it('shows the collection method once, under its fixed label, not again in the generic answers list', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          referral({
+            id: 'r1',
+            collectionMethod: 'collection',
+            answers: { 'Collection method': 'On Foot' },
+          }),
+        ),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+
+    await screen.findByRole('heading', { name: 'Answers from the referral form' });
+    expect(screen.getByText('Collection method')).toBeInTheDocument();
+    expect(screen.getByText('Collection')).toBeInTheDocument();
+    expect(screen.queryByText('How will the parcel be collected')).toBeNull();
+    expect(screen.queryByText('On Foot')).toBeNull();
+  });
+
   it('prefills stored page-one answers in their editing controls', async () => {
     let receivedBody: unknown = null;
     server.use(
@@ -501,6 +523,11 @@ describe('the admin referral detail screen', () => {
     await user.click(screen.getByRole('button', { name: 'Referrer and client details' }));
 
     expect(await screen.findByLabelText("Client's gender")).toHaveValue('Female');
+    // Regression: the stored answer used to never reach here — `splitSubmission`
+    // diverted it into the typed `collectionMethod` column only, so this
+    // control always opened on "-- choose --" regardless of what the
+    // household had actually said.
+    expect(screen.getByLabelText('How will the parcel be collected')).toHaveValue('On Foot');
     await user.clear(screen.getByLabelText('0–4, Male'));
     await user.type(screen.getByLabelText('0–4, Male'), '2');
     await user.selectOptions(
@@ -537,6 +564,10 @@ describe('the admin referral detail screen', () => {
           ethnicity: 'White -British',
           languages: 'English',
           'Household Components': { '0-4': { male: 2 }, 'working-age': { female: 1 } },
+          // Regression: saving used to delete this key rather than update it,
+          // because `splitSubmission` never put an answer here for the save
+          // path to find.
+          'Collection method': 'Delivery Requested',
           // An array, not a bare value: the question now takes two answers, and
           // a multi-answer choice stores a list even when it is fully ticked.
           deliveryConfirm: [
