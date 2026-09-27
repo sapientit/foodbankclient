@@ -1776,6 +1776,64 @@ describe('copying a referral', () => {
     expect(screen.queryByText('Something went wrong. Please try again.')).toBeNull();
   });
 
+  // A `409` here can mean the screen's own belief about the active release was
+  // stale — a release was published (even a rules-only one) after this screen
+  // last checked, so it still offered the same-request dialog instead of the
+  // review-onto-today's-form link. Refetching the active questionnaire on that
+  // refusal is what stops a second press walking into the same `409` again.
+  it('refetches the active form after a same-request copy is refused, so the button offers review instead of repeating the 409', async () => {
+    let questionnaireRequests = 0;
+
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'cancelled', outcome: 'booked' })),
+      ),
+      http.get(QUESTIONNAIRE, () => {
+        questionnaireRequests += 1;
+        // The first fetch still matches the referral's own `formId` — the
+        // screen genuinely believed a same-request copy was available. The
+        // one after the refusal reflects a release published since.
+        const formId = questionnaireRequests === 1 ? FORM_ID : 'form-2';
+        return HttpResponse.json({ formId, questionnaire: JSON.stringify(rawFormConfig) });
+      }),
+      http.post(REFERRAL_COPY, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'CONFLICT',
+              message:
+                'The referral form has changed since this referral was made, so it must be reviewed on the current form rather than copied.',
+              requestId: 'r1',
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Copy to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
+    await dialog.findByRole('option', { name: /10 of 25 booked/ });
+    await user.selectOptions(dialog.getByLabelText('Choose session to copy to'), 's1');
+    await user.click(dialog.getByRole('button', { name: 'Copy to this session' }));
+
+    expect(await dialog.findByRole('alert')).toHaveTextContent(
+      'must be reviewed on the current form rather than copied',
+    );
+
+    await user.click(dialog.getByRole('button', { name: 'Cancel' }));
+
+    // Closing the dialog leaves the corrected button behind: a link to
+    // review, not the same-request button that would repeat the 409.
+    expect(
+      await screen.findByRole('link', { name: 'Copy to another session' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy to another session' })).toBeNull();
+  });
+
   /**
    * The route is not idempotent and the server does not refuse a second copy
    * (`API.md`, "Guard the button against a double press") — two landed clicks

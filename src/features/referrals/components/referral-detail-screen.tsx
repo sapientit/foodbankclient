@@ -1484,6 +1484,12 @@ function ReferralActionsPanel({
           // Only a `4xx` proves nothing was written. See the `copying` comment.
           if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
             copying.current = false;
+            // A `409` here can be the backstop `API.md` describes for a stale
+            // screen: a release published after this component last checked,
+            // so `formChanged` was still reading the old answer when Copy was
+            // offered. Refetching corrects it, so closing this dialog offers
+            // the review-onto-today's-form path instead of the same refusal.
+            void activeForm.refetch();
             return;
           }
           // Otherwise the lock stays on, because the copy may well have landed.
