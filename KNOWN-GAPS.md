@@ -171,10 +171,12 @@ watch the first time it runs for real, because a copy holds a real place on a re
 - **That the copy really arrives `status: "reviewed"`.** The screen shows whatever it gets and does
   not assert it, so a copy arriving `active` or `pending_review` would put the household back in the
   review queue silently rather than breaking anything visible.
-- **The `409` when the target session is confirmed or cancelled.** The copy dialog offers every
-  session `useSessions` returns and does not filter those out, on the grounds that the server's
-  refusal carries the one useful sentence and this client should not maintain a second copy of the
-  rule. Nobody has seen that sentence.
+- **The `409` when the target session is confirmed or cancelled.** The copy dialog, the move dialog
+  and the re-refer picker now filter the session list itself to sessions that are not closed —
+  confirmed, cancelled, or whose own date has passed (`session-list-filters.logic.ts`'s
+  `openSessionTargets`) — so this cause is no longer reachable from a stale picker in the ordinary
+  case. It is still reachable if a session closes in the gap between the list being fetched and the
+  copy being submitted, and nobody has seen that sentence.
 
 **The whole of Slice 7 (referrers and reasons) was built from `openapi.yaml` and `API.md` alone,
 with no running server to confirm against — unlike every stock and model-parcels claim in this file

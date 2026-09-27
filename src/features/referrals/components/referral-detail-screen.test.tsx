@@ -4,11 +4,20 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../../test/msw/server';
 import { renderApp } from '../../../../test/render-app';
+import { addCalendarDays, londonToday } from '../../../lib/london-time';
 import type { ConfigurationRelease } from '../../configuration-releases/queries';
 import rawFormConfig from '../referral-form.config.json';
 import type { AdminReferralReason } from '../../admin-setup/queries';
 import type { Session } from '../../sessions/queries';
 import type { Referral } from '../queries';
+
+/**
+ * A week out from whenever the suite runs, never a fixed calendar date — a
+ * session fixture the move/copy picker offers has to stay open (today
+ * onwards, not closed; `session-list-filters.logic.ts`) for as long as this
+ * suite exists, not just on the day it was written.
+ */
+const FUTURE_SESSION_DATE = addCalendarDays(londonToday(), 7);
 
 /**
  * Signed in as Pete, an administrator — see `test/render-app.tsx`. The
@@ -85,9 +94,9 @@ function referral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral
 
 function session(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
   return {
-    sessionDate: '2026-08-04',
+    sessionDate: FUTURE_SESSION_DATE,
     startTime: '10:00',
-    startsAtUtc: '2026-08-04T09:00:00.000Z',
+    startsAtUtc: `${FUTURE_SESSION_DATE}T09:00:00.000Z`,
     durationMinutes: 90,
     location: 'St Mary’s Hall',
     deliveryWindowStart: null,
@@ -887,6 +896,53 @@ describe('the admin referral detail screen', () => {
     expect(screen.queryByText(/places booked/)).toBeNull();
   });
 
+  it('never offers a closed or already-past session as a move destination', async () => {
+    server.use(
+      http.get(SESSIONS, () =>
+        HttpResponse.json({
+          sessions: [
+            session({ id: 's1', location: 'Church Hall' }),
+            session({ id: 's-open', location: 'Spare Hall', booked: 3, capacity: 10 }),
+            session({
+              id: 's-confirmed',
+              location: 'Confirmed Hall',
+              status: 'confirmed',
+              booked: 5,
+              capacity: 20,
+            }),
+            session({
+              id: 's-cancelled',
+              location: 'Cancelled Hall',
+              status: 'cancelled',
+              booked: 6,
+              capacity: 25,
+            }),
+            session({
+              id: 's-past',
+              location: 'Past Hall',
+              sessionDate: addCalendarDays(londonToday(), -1),
+              startsAtUtc: `${addCalendarDays(londonToday(), -1)}T09:00:00.000Z`,
+              booked: 7,
+              capacity: 30,
+            }),
+          ],
+        }),
+      ),
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1' }))),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Move to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Move to another session?' }));
+    await dialog.findByRole('option', { name: /3 of 10 booked/ });
+    expect(dialog.queryByRole('option', { name: /5 of 20 booked/ })).toBeNull();
+    expect(dialog.queryByRole('option', { name: /6 of 25 booked/ })).toBeNull();
+    expect(dialog.queryByRole('option', { name: /7 of 30 booked/ })).toBeNull();
+  });
+
   it('renders a purged referral as purged, with no amend form and no crash', async () => {
     server.use(
       http.get(REFERRAL, () =>
@@ -1550,6 +1606,50 @@ describe('copying a referral', () => {
     // The screen now shows the copy, not the referral it was made from.
     expect(await screen.findByRole('heading', { name: 'Alex Carter' })).toBeInTheDocument();
     expect(screen.getByText('Copied from referral dated 2026-07-01')).toBeInTheDocument();
+  });
+
+  it('never offers a closed or already-past session as a copy destination, not even the referral’s own', async () => {
+    server.use(
+      http.get(SESSIONS, () =>
+        HttpResponse.json({
+          sessions: [
+            // The referral's own session (`s1`, from `referral()`'s default),
+            // now closed — so the usual "copy back onto your own session"
+            // exception no longer applies to it either.
+            session({ id: 's1', location: 'Church Hall', status: 'confirmed' }),
+            session({ id: 's-open', location: 'Spare Hall', booked: 3, capacity: 10 }),
+            session({
+              id: 's-cancelled',
+              location: 'Cancelled Hall',
+              status: 'cancelled',
+              booked: 6,
+              capacity: 25,
+            }),
+            session({
+              id: 's-past',
+              location: 'Past Hall',
+              sessionDate: addCalendarDays(londonToday(), -1),
+              startsAtUtc: `${addCalendarDays(londonToday(), -1)}T09:00:00.000Z`,
+              booked: 7,
+              capacity: 30,
+            }),
+          ],
+        }),
+      ),
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', status: 'cancelled', outcome: 'booked' })),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Copy to another session' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Copy this referral?' }));
+    await dialog.findByRole('option', { name: /3 of 10 booked/ });
+    expect(dialog.queryByRole('option', { name: /10 of 25 booked/ })).toBeNull();
+    expect(dialog.queryByRole('option', { name: /6 of 25 booked/ })).toBeNull();
+    expect(dialog.queryByRole('option', { name: /7 of 30 booked/ })).toBeNull();
   });
 
   it('refuses to confirm with no session chosen, and sends no request', async () => {

@@ -104,3 +104,29 @@ export function filterSessionsByStatus<T extends { readonly status: SessionStatu
   if (showCompleted) return [...sessions];
   return sessions.filter((session) => OPEN_STATUSES.includes(session.status));
 }
+
+/**
+ * **A session closes when it is confirmed or cancelled, or when its own date
+ * has passed** — the same definition the SMS messages screen uses
+ * (`screenDetails.md`, "Administrators have an SMS Messages screen"). Nothing
+ * that offers a session as a destination — moving or copying a referral,
+ * re-referring onto a changed form — should offer a closed one; booking
+ * somebody onto a session that already happened or was called off makes no
+ * sense, so the picker for each of those simply never lists one.
+ *
+ * Structural rather than typed on the generated `Session`, like
+ * `filterSessionsByStatus` above, so it is testable without a full fixture.
+ */
+export function isClosedSession(
+  session: { readonly status: SessionStatus; readonly sessionDate: string },
+  today: string,
+): boolean {
+  return !OPEN_STATUSES.includes(session.status) || session.sessionDate < today;
+}
+
+/** Every session from `sessions` that is not closed, per `isClosedSession`. */
+export function openSessionTargets<
+  T extends { readonly status: SessionStatus; readonly sessionDate: string },
+>(sessions: readonly T[], today: string): T[] {
+  return sessions.filter((session) => !isClosedSession(session, today));
+}

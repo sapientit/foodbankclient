@@ -4,6 +4,8 @@ import {
   DAYS_BACK,
   defaultSessionDateRange,
   filterSessionsByStatus,
+  isClosedSession,
+  openSessionTargets,
   readSessionListSelection,
 } from './session-list-filters.logic';
 
@@ -98,5 +100,40 @@ describe('filterSessionsByStatus', () => {
       'b',
       'a',
     ]);
+  });
+});
+
+describe('isClosedSession', () => {
+  const today = '2026-08-17';
+
+  it('is closed once confirmed or cancelled, even today or in the future', () => {
+    expect(isClosedSession({ status: 'confirmed', sessionDate: '2026-08-20' }, today)).toBe(true);
+    expect(isClosedSession({ status: 'cancelled', sessionDate: '2026-08-20' }, today)).toBe(true);
+  });
+
+  it('is closed once its own date has passed, even while still planned', () => {
+    expect(isClosedSession({ status: 'planned', sessionDate: '2026-08-16' }, today)).toBe(true);
+  });
+
+  it('is open today and going forward while still planned or in progress', () => {
+    expect(isClosedSession({ status: 'planned', sessionDate: today }, today)).toBe(false);
+    expect(isClosedSession({ status: 'in_progress', sessionDate: '2026-08-25' }, today)).toBe(
+      false,
+    );
+  });
+});
+
+describe('openSessionTargets', () => {
+  const today = '2026-08-17';
+  const sessions = [
+    { id: 'past', status: 'planned' as const, sessionDate: '2026-08-16' },
+    { id: 'today', status: 'planned' as const, sessionDate: today },
+    { id: 'future', status: 'in_progress' as const, sessionDate: '2026-08-24' },
+    { id: 'confirmed', status: 'confirmed' as const, sessionDate: '2026-08-24' },
+    { id: 'cancelled', status: 'cancelled' as const, sessionDate: '2026-08-24' },
+  ];
+
+  it('offers only what is neither past nor closed', () => {
+    expect(openSessionTargets(sessions, today).map((row) => row.id)).toEqual(['today', 'future']);
   });
 });

@@ -5,6 +5,7 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
+import { addCalendarDays, formatSessionDate, londonToday } from '../../lib/london-time';
 import type { Session } from '../sessions/queries';
 import type { ConfigurationRelease } from '../configuration-releases/queries';
 import type { Parcel, PickList } from '../pick-lists/queries';
@@ -63,11 +64,19 @@ const PARCEL: Parcel = {
 let booked = 10;
 let spareBooked = 2;
 
+/**
+ * A week out from whenever the suite runs — the move/copy session picker
+ * only offers sessions from today onwards that are not closed
+ * (`session-list-filters.logic.ts`), so a fixed calendar date would stop
+ * appearing in it once real time passed it by.
+ */
+const FUTURE_SESSION_DATE = addCalendarDays(londonToday(), 7);
+
 function sessionRow(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
   return {
-    sessionDate: '2026-08-04',
+    sessionDate: FUTURE_SESSION_DATE,
     startTime: '10:00',
-    startsAtUtc: '2026-08-04T09:00:00.000Z',
+    startsAtUtc: `${FUTURE_SESSION_DATE}T09:00:00.000Z`,
     durationMinutes: 90,
     location: 'St Mary’s Hall',
     deliveryWindowStart: null,
@@ -344,10 +353,9 @@ describe('moving a referral away and the session it left', () => {
     // sessions run on the same date at the same time, and the line no longer
     // names a location to tell them apart by.
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Aug 2026/ })).toHaveAttribute(
-        'href',
-        '/sessions/s2',
-      );
+      expect(
+        screen.getByRole('link', { name: new RegExp(formatSessionDate(FUTURE_SESSION_DATE)) }),
+      ).toHaveAttribute('href', '/sessions/s2');
     });
     cleanup();
 

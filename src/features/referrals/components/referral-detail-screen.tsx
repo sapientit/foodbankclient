@@ -12,11 +12,13 @@ import {
   formatCalendarDate,
   formatLondonDateTime,
   formatSessionDate,
+  londonToday,
 } from '../../../lib/london-time';
 import { listReturnContext, returnContextFromState } from '../../../lib/list-return';
 import { describeSessionChoice, standingFromCapacity } from '../../../lib/session-description';
 import { useReferralReasons, type AdminReferralReason } from '../../admin-setup/queries';
 import { useSessions, type Session } from '../../sessions/queries';
+import { openSessionTargets } from '../../sessions/session-list-filters.logic';
 import { describeAnswers, type AnswersDisplay } from '../referral-answers.logic';
 import {
   allQuestions,
@@ -1418,7 +1420,8 @@ function ReferralActionsPanel({
   const blocked = locked ?? settled;
   const blockedId = locked === null ? settledId : lockedId;
 
-  const options = sessions.filter((session) => session.id !== referral.sessionId);
+  const openSessions = openSessionTargets(sessions, londonToday());
+  const options = openSessions.filter((session) => session.id !== referral.sessionId);
   const target = sessions.find((session) => session.id === targetSessionId);
   const warning = target === undefined ? null : moveCapacityWarning(target);
   const copyWarning = target === undefined ? null : copyCapacityWarning(target);
@@ -1697,11 +1700,12 @@ function ReferralActionsPanel({
               value={targetSessionId}
             >
               <option value="">Choose a session</option>
-              {/* Every session, unlike the move list below, which leaves out the
-                  one the referral is already on. A household who cancelled and
-                  rang back can be copied onto the very session they cancelled
-                  from, and that is the ordinary case rather than an edge. */}
-              {sessions.map((session) => (
+              {/* Every open session, unlike the move list below, which also
+                  leaves out the one the referral is already on. A household
+                  who cancelled and rang back can be copied onto the very
+                  session they cancelled from, and that is the ordinary case
+                  rather than an edge. */}
+              {openSessions.map((session) => (
                 <option key={session.id} value={session.id}>
                   {describeSessionChoice(
                     `${formatSessionDate(session.sessionDate)}, ${session.startTime}`,

@@ -3,10 +3,17 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../../test/msw/server';
 import { renderApp } from '../../../../test/render-app';
+import { addCalendarDays, londonToday } from '../../../lib/london-time';
 import type { ConfigurationRelease } from '../../configuration-releases/queries';
 import rawFormConfig from '../referral-form.config.json';
 import type { Session } from '../../sessions/queries';
 import type { Referral } from '../queries';
+
+/**
+ * A week out from whenever the suite runs — see `referral-detail-screen.test.tsx`'s own
+ * `FUTURE_SESSION_DATE` for why a fixed calendar date is not used here.
+ */
+const FUTURE_SESSION_DATE = addCalendarDays(londonToday(), 7);
 
 /**
  * The priority-four test `CLAUDE.md` names for this slice: "a team lead's
@@ -84,9 +91,9 @@ function teamLeadReferral(overrides: Partial<Referral> & Pick<Referral, 'id'>): 
 
 function session(overrides: Partial<Session> & Pick<Session, 'id'>): Session {
   return {
-    sessionDate: '2026-08-04',
+    sessionDate: FUTURE_SESSION_DATE,
     startTime: '10:00',
-    startsAtUtc: '2026-08-04T09:00:00.000Z',
+    startsAtUtc: `${FUTURE_SESSION_DATE}T09:00:00.000Z`,
     durationMinutes: 90,
     location: 'St Mary’s Hall',
     deliveryWindowStart: null,

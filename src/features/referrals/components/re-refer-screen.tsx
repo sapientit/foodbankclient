@@ -5,10 +5,11 @@ import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { EmptyState } from '../../../components/empty-state';
 import { ApiError } from '../../../lib/errors';
-import { formatSessionDate } from '../../../lib/london-time';
+import { formatSessionDate, londonToday } from '../../../lib/london-time';
 import { describeSessionChoice, standingFromCapacity } from '../../../lib/session-description';
 import { useReferralReasons, type AdminReferralReason } from '../../admin-setup/queries';
 import { useSessions, type Session } from '../../sessions/queries';
+import { openSessionTargets } from '../../sessions/session-list-filters.logic';
 import { usePublicReferralFormDefinition } from '../queries';
 import {
   isAnswerableQuestion,
@@ -145,7 +146,7 @@ export function ReReferScreen() {
     <ReReferForm
       definition={form.data.definition}
       reasons={reasons.data}
-      sessions={sessions.data}
+      sessions={openSessionTargets(sessions.data, londonToday())}
       source={source.data}
     />
   );
