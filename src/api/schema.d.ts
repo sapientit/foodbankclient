@@ -994,7 +994,7 @@ export interface paths {
                         deliveryWindowStart?: components["schemas"]["LocalTime"];
                         /** @description End of that window. **Both ends are sent together or neither is** — a half-set window is a `400`, and so is an end at or before the start. Absent on both means the session delivers across its own hours. */
                         deliveryWindowEnd?: components["schemas"]["LocalTime"];
-                        /** @description How many of `capacity`'s places may be deliveries. Zero means this session takes no deliveries at all. Must not exceed `capacity` — a `400` otherwise. See `Session.deliveryCapacity`. */
+                        /** @description How many of `capacity`'s places may be deliveries. Zero means this session takes no deliveries at all. Must not exceed `capacity` unless `capacity` is 0 — a `400` otherwise. See `Session.deliveryCapacity`. */
                         deliveryCapacity: number;
                     };
                 };
@@ -1088,7 +1088,7 @@ export interface paths {
                          *     Explicit `null` on **both** clears the window, putting deliveries back across the session's own hours.
                          */
                         deliveryWindowEnd?: components["schemas"]["LocalTime"] | null;
-                        /** @description Must not exceed the resulting `capacity` — a `422` otherwise, checked against whichever of the two this patch does not touch. */
+                        /** @description Must not exceed the resulting `capacity` unless that `capacity` is 0 — a `422` otherwise, checked against whichever of the two this patch does not touch. */
                         deliveryCapacity?: number;
                     };
                 };
@@ -1308,7 +1308,7 @@ export interface paths {
                         deliveryWindowStart?: components["schemas"]["LocalTime"];
                         /** @description Copied onto every occurrence. **Both ends together or neither** — a half-set window is a `400`, and so is an end at or before the start. Absent on both means every occurrence delivers across its own hours. */
                         deliveryWindowEnd?: components["schemas"]["LocalTime"];
-                        /** @description Copied onto every occurrence. How many of `capacity`'s places may be deliveries; zero means no occurrence takes them. Must not exceed `capacity` — a `400` otherwise. */
+                        /** @description Copied onto every occurrence. How many of `capacity`'s places may be deliveries; zero means no occurrence takes them. Must not exceed `capacity` unless `capacity` is 0 — a `400` otherwise. */
                         deliveryCapacity: number;
                         /** @default 25 */
                         capacity?: number;
@@ -1402,7 +1402,7 @@ export interface paths {
                         deliveryWindowStart?: components["schemas"]["LocalTime"] | null;
                         /** @description **The pair moves together.** One key without the other is a `400`, as is an end at or before the start. Explicit `null` on **both** puts deliveries back across the session's own hours. */
                         deliveryWindowEnd?: components["schemas"]["LocalTime"] | null;
-                        /** @description Must not exceed the resulting `capacity` — a `422` otherwise, checked against whichever of the two this patch does not touch. */
+                        /** @description Must not exceed the resulting `capacity` unless that `capacity` is 0 — a `422` otherwise, checked against whichever of the two this patch does not touch. */
                         deliveryCapacity?: number;
                         capacity?: number;
                         /** Format: date */
@@ -7043,6 +7043,7 @@ export interface components {
             deliveryWindowEnd: string | null;
             /**
              * @description How many of `capacity`'s places may be deliveries. Zero means this session takes no deliveries at all — nobody is driving.
+             *     Never more than `capacity`, **except where `capacity` is 0**: setting capacity to 0 is how a session is blocked for a while, and its delivery capacity is left as it was so reopening means restoring one number. A blocked session takes no referrals of either kind — the overall capacity refuses them first — so a delivery capacity above a zero `capacity` books nothing.
              *     **`POST /public/referrals` refuses a delivery outright once this is reached** — a `409`, the same hard stop as a session at its overall capacity. A collection is never affected by this figure, however full it is. This check applies to public submission only; an admin move or copy is unaffected by delivery capacity, same as before.
              */
             deliveryCapacity: number;

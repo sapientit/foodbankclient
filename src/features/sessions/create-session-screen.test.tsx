@@ -127,7 +127,7 @@ describe('adding an ad hoc session', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Location is not valid.');
   });
 
-  it('disables and un-marks the delivery times until the delivery capacity is above nought', async () => {
+  it('marks the delivery times required only once the delivery capacity is above nought', async () => {
     server.use(http.get(SESSIONS, () => HttpResponse.json({ sessions: [] })));
 
     renderApp('/sessions/new');
@@ -135,15 +135,13 @@ describe('adding an ad hoc session', () => {
 
     const start = await screen.findByLabelText('Delivery window starts');
     const end = screen.getByLabelText('Delivery window ends');
-    expect(start).toBeDisabled();
-    expect(end).toBeDisabled();
+    expect(start).toBeEnabled();
+    expect(end).toBeEnabled();
     expect(start).not.toBeRequired();
     expect(end).not.toBeRequired();
 
     await setDeliveryCapacity(user, '8');
 
-    expect(start).toBeEnabled();
-    expect(end).toBeEnabled();
     expect(start).toBeRequired();
     expect(end).toBeRequired();
   });
@@ -184,7 +182,7 @@ describe('adding an ad hoc session', () => {
     });
   });
 
-  it('clears the delivery times and omits the pair again when the capacity returns to nought', async () => {
+  it('keeps the delivery times and still sends them when the capacity returns to nought', async () => {
     let posted: unknown = null;
     server.use(
       http.get(SESSIONS, () => HttpResponse.json({ sessions: [] })),
@@ -204,20 +202,23 @@ describe('adding an ad hoc session', () => {
     await setDeliveryCapacity(user, '8');
     await user.type(screen.getByLabelText('Delivery window starts'), '09:00');
     await user.type(screen.getByLabelText('Delivery window ends'), '11:00');
-    // Back to nought: the window is cleared the instant it is, never left
-    // stale for a later submit to paper over.
+    // Back to nought: deliveries are paused, not forgotten, so the window
+    // stays for when they resume.
     await setDeliveryCapacity(user, '0');
 
     const start = screen.getByLabelText('Delivery window starts');
     const end = screen.getByLabelText('Delivery window ends');
-    expect(start).toHaveValue('');
-    expect(end).toHaveValue('');
+    expect(start).toHaveValue('09:00');
+    expect(end).toHaveValue('11:00');
 
     await user.click(screen.getByRole('button', { name: 'Add session' }));
     await screen.findByRole('heading', { name: 'Sessions' });
 
-    expect(posted).not.toHaveProperty('deliveryWindowStart');
-    expect(posted).not.toHaveProperty('deliveryWindowEnd');
+    expect(posted).toMatchObject({
+      deliveryCapacity: 0,
+      deliveryWindowStart: '09:00',
+      deliveryWindowEnd: '11:00',
+    });
   });
 
   it('refuses a delivering session’s window missing its start or end, before making a request', async () => {

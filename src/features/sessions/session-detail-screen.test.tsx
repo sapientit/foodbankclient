@@ -120,15 +120,15 @@ describe('the session detail screen', () => {
     expect(await screen.findByText('09:00–11:00')).toBeInTheDocument();
   });
 
-  it('disables and un-marks the delivery times until the delivery capacity is above nought', async () => {
+  it('leaves the delivery times editable but optional while the delivery capacity is nought', async () => {
     server.use(http.get(SESSION_URL, () => HttpResponse.json(session())));
 
     renderApp('/sessions/s1');
 
     const start = await screen.findByLabelText('Delivery window starts');
     const end = screen.getByLabelText('Delivery window ends');
-    expect(start).toBeDisabled();
-    expect(end).toBeDisabled();
+    expect(start).toBeEnabled();
+    expect(end).toBeEnabled();
     expect(start).not.toBeRequired();
     expect(end).not.toBeRequired();
   });
@@ -163,7 +163,9 @@ describe('the session detail screen', () => {
     });
   });
 
-  it('clears an existing delivery window by sending explicit null on both keys when the capacity returns to nought', async () => {
+  it('keeps an existing delivery window when the delivery capacity is set to nought', async () => {
+    // Nought only pauses deliveries; resuming them should be one number, not
+    // three.
     let posted: unknown = null;
     server.use(
       http.get(SESSION_URL, () =>
@@ -189,15 +191,106 @@ describe('the session detail screen', () => {
 
     const start = screen.getByLabelText('Delivery window starts');
     const end = screen.getByLabelText('Delivery window ends');
-    expect(start).toBeDisabled();
-    expect(start).toHaveValue('');
-    expect(end).toHaveValue('');
+    expect(start).toBeEnabled();
+    expect(start).toHaveValue('09:00');
+    expect(end).toHaveValue('11:00');
 
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await screen.findByRole('heading', { name: 'Sessions' });
 
+    expect(posted).toMatchObject({
+      deliveryCapacity: 0,
+      deliveryWindowStart: '09:00',
+      deliveryWindowEnd: '11:00',
+    });
+  });
+
+  it('clears the delivery window with explicit null on both keys when both times are emptied at nought', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.get(SESSION_URL, () =>
+        HttpResponse.json(session({ deliveryWindowStart: '09:00', deliveryWindowEnd: '11:00' })),
+      ),
+      http.patch(SESSION_URL, async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(session());
+      }),
+    );
+
+    renderApp('/sessions/s1');
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('09:00');
+    await user.clear(screen.getByLabelText('Delivery window starts'));
+    await user.clear(screen.getByLabelText('Delivery window ends'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await screen.findByRole('heading', { name: 'Sessions' });
+
     expect(posted).toMatchObject({ deliveryWindowStart: null, deliveryWindowEnd: null });
+  });
+
+  it('asks for both delivery times or neither when half a window is left at nought, before making a request', async () => {
+    // Optional at nought is not the same as "anything goes": a half-set window
+    // is still refused, and saying "required" here would contradict the help.
+    const patched = vi.fn();
+    server.use(
+      http.get(SESSION_URL, () =>
+        HttpResponse.json(session({ deliveryWindowStart: '09:00', deliveryWindowEnd: '11:00' })),
+      ),
+      http.patch(SESSION_URL, () => {
+        patched();
+        return HttpResponse.json(session());
+      }),
+    );
+
+    renderApp('/sessions/s1');
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('09:00');
+    await user.clear(screen.getByLabelText('Delivery window ends'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(
+      await screen.findByText('Enter both delivery times, or leave both blank.'),
+    ).toBeInTheDocument();
+    expect(patched).not.toHaveBeenCalled();
+  });
+
+  it('keeps the delivery places standing when the session is blocked with a capacity of nought', async () => {
+    // Nought capacity is how a session is blocked for a while; reopening it
+    // should be one number, not two, so its delivery capacity is not forced
+    // down with it.
+    let posted: unknown = null;
+    server.use(
+      http.get(SESSION_URL, () =>
+        HttpResponse.json(
+          session({
+            deliveryWindowStart: '09:00',
+            deliveryWindowEnd: '11:00',
+            deliveryCapacity: 8,
+          }),
+        ),
+      ),
+      http.patch(SESSION_URL, async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(session());
+      }),
+    );
+
+    renderApp('/sessions/s1');
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('09:00');
+    const capacity = screen.getByLabelText('Capacity');
+    await user.clear(capacity);
+    await user.type(capacity, '0');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await screen.findByRole('heading', { name: 'Sessions' });
+
+    expect(posted).toMatchObject({ capacity: 0, deliveryCapacity: 8 });
   });
 
   /**
@@ -242,11 +335,10 @@ describe('the session detail screen', () => {
   });
 
   /**
-   * The two inputs are required together and disabled together, and the rule
-   * that says so sits under the first of them. Somebody who tabs straight to
-   * the second — or lands there from a screen reader's field list — would
-   * otherwise meet a bare box with no hint of why it is greyed out or why it
-   * later refuses to save on its own.
+   * The two inputs are required together, and the rule that says so sits
+   * under the first of them. Somebody who tabs straight to the second — or
+   * lands there from a screen reader's field list — would otherwise meet a
+   * bare box with no hint of why it later refuses to save on its own.
    */
   it('tells both delivery inputs that they are a pair, not two independent fields', async () => {
     server.use(http.get(SESSION_URL, () => HttpResponse.json(session())));
@@ -254,16 +346,12 @@ describe('the session detail screen', () => {
     renderApp('/sessions/s1');
 
     const guidance =
-      'Both times are required while the delivery capacity is above nought, and are disabled and cleared while it is not.';
+      'Both times are required while the delivery capacity is above nought. While it is nought they are kept for when deliveries resume — fill in both or leave both blank.';
     const start = await screen.findByLabelText('Delivery window starts');
     const end = screen.getByLabelText('Delivery window ends');
-    // The capacity box too. This session takes no deliveries, so both inputs
-    // are disabled — skipped by the tab order and by a screen reader's field
-    // list — and the capacity box is the only place left to learn what a
-    // figure above nought turns on. Without this, the guidance exists on a
-    // control nobody can reach.
+    // The capacity box too: it is where a figure above nought is typed, and
+    // that is what makes the two times required.
     const capacity = screen.getByLabelText('Delivery capacity');
-    expect(start).toBeDisabled();
 
     for (const control of [capacity, start, end]) {
       const described = (control.getAttribute('aria-describedby') ?? '')

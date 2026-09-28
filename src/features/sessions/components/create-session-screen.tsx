@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useId, type ChangeEvent } from 'react';
+import { useId } from 'react';
 import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
 import * as z from 'zod';
@@ -65,6 +65,8 @@ const DELIVERY_WINDOW_MESSAGES: Record<
   'end-not-after-start': 'The delivery window must end after it starts.',
 };
 
+const HALF_WINDOW_MESSAGE = 'Enter both delivery times, or leave both blank.';
+
 const createSessionSchema = z
   .object({
     sessionDate: z.string().min(1, 'Choose a date.'),
@@ -99,14 +101,21 @@ const createSessionSchema = z
     const capacity = parseWholeNumber(values.capacity, CAPACITY_BOUNDS);
     const deliveryCapacity = parseWholeNumber(values.deliveryCapacity, DELIVERY_CAPACITY_BOUNDS);
 
+    const takesDeliveries = deliveryCapacity.ok && deliveryCapacity.value > 0;
     const problem = validateDeliveryWindow(
-      deliveryCapacity.ok && deliveryCapacity.value > 0,
+      takesDeliveries,
       values.deliveryWindowStart,
       values.deliveryWindowEnd,
     );
     if (problem !== null) {
       const path = problem === 'start-required' ? 'deliveryWindowStart' : 'deliveryWindowEnd';
-      ctx.addIssue({ code: 'custom', path: [path], message: DELIVERY_WINDOW_MESSAGES[problem] });
+      // At nought the window is optional, so a missing half is not "required"
+      // — the fix is to finish the pair or clear it.
+      const message =
+        !takesDeliveries && problem !== 'end-not-after-start'
+          ? HALF_WINDOW_MESSAGE
+          : DELIVERY_WINDOW_MESSAGES[problem];
+      ctx.addIssue({ code: 'custom', path: [path], message });
     }
 
     // Only checked once both numbers parse — a box that already fails on its
@@ -151,7 +160,6 @@ export function CreateSessionScreen() {
     handleSubmit,
     register,
     setError,
-    setValue,
   } = useForm<CreateSessionValues>({
     resolver: zodResolver(createSessionSchema),
     defaultValues: {
@@ -196,12 +204,12 @@ export function CreateSessionScreen() {
         location: values.location,
         capacity: capacity.value,
         deliveryCapacity: deliveryCapacity.value,
-        // Omitted entirely for a session that takes no deliveries — never a
-        // window for a session with nobody to drive. The validation above
-        // already requires both boxes once the delivery capacity is above
-        // nought, so by the time this runs it is either nought (omit both) or
-        // both a time (send both).
-        ...(deliveryCapacity.value > 0
+        // Sent whenever both boxes hold a time, even at nought delivery
+        // capacity — nought only pauses deliveries. The validation above
+        // makes the pair both-or-neither and requires it above nought, so by
+        // the time this runs it is either both blank (omit both) or both a
+        // time (send both).
+        ...(values.deliveryWindowStart !== '' && values.deliveryWindowEnd !== ''
           ? {
               deliveryWindowStart: values.deliveryWindowStart,
               deliveryWindowEnd: values.deliveryWindowEnd,
@@ -316,22 +324,12 @@ export function CreateSessionScreen() {
         <div className={styles.field}>
           <label htmlFor={deliveryCapacityId}>Delivery capacity</label>
           <p className={styles.help} id={`${deliveryCapacityId}-help`}>
-            Households, not people — and must not exceed the session’s capacity. Nought means this
+            Households, not people — and no more than the session’s capacity, except while that
+            capacity is nought and the session is blocked. A delivery capacity of nought means this
             session takes no deliveries.
           </p>
           <input
-            {...register('deliveryCapacity', {
-              onChange: (event: ChangeEvent<HTMLInputElement>) => {
-                // Off means no window: the pair is cleared the instant the
-                // typed value parses to nought, not left stale for a later
-                // submit to paper over — see `windowStartId`'s help text.
-                const parsed = parseWholeNumber(event.target.value, DELIVERY_CAPACITY_BOUNDS);
-                if (parsed.ok && parsed.value === 0) {
-                  setValue('deliveryWindowStart', '');
-                  setValue('deliveryWindowEnd', '');
-                }
-              },
-            })}
+            {...register('deliveryCapacity')}
             aria-describedby={
               [
                 `${deliveryCapacityId}-help`,
@@ -358,8 +356,8 @@ export function CreateSessionScreen() {
         <div className={styles.field}>
           <label htmlFor={windowStartId}>Delivery window starts</label>
           <p className={styles.help} id={`${windowStartId}-help`}>
-            Both times are required while the delivery capacity is above nought, and are disabled
-            and cleared while it is not.
+            Both times are required while the delivery capacity is above nought. While it is nought
+            they are kept for when deliveries resume — fill in both or leave both blank.
           </p>
           <input
             {...register('deliveryWindowStart')}
@@ -373,7 +371,6 @@ export function CreateSessionScreen() {
             }
             aria-invalid={errors.deliveryWindowStart === undefined ? undefined : true}
             className={styles.input}
-            disabled={!takesDeliveries}
             id={windowStartId}
             required={takesDeliveries}
             type="time"
@@ -397,7 +394,6 @@ export function CreateSessionScreen() {
               .join(' ')}
             aria-invalid={errors.deliveryWindowEnd === undefined ? undefined : true}
             className={styles.input}
-            disabled={!takesDeliveries}
             id={windowEndId}
             required={takesDeliveries}
             type="time"

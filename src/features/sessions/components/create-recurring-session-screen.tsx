@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useId, type ChangeEvent } from 'react';
+import { useId } from 'react';
 import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
 import * as z from 'zod';
@@ -54,6 +54,8 @@ const DELIVERY_WINDOW_MESSAGES: Record<
   'end-not-after-start': 'The delivery window must end after it starts.',
 };
 
+const HALF_WINDOW_MESSAGE = 'Enter both delivery times, or leave both blank.';
+
 const createRecurringSessionSchema = z
   .object({
     name: z
@@ -104,14 +106,21 @@ const createRecurringSessionSchema = z
     const capacity = parseWholeNumber(values.capacity, CAPACITY_BOUNDS);
     const deliveryCapacity = parseWholeNumber(values.deliveryCapacity, DELIVERY_CAPACITY_BOUNDS);
 
+    const takesDeliveries = deliveryCapacity.ok && deliveryCapacity.value > 0;
     const problem = validateDeliveryWindow(
-      deliveryCapacity.ok && deliveryCapacity.value > 0,
+      takesDeliveries,
       values.deliveryWindowStart,
       values.deliveryWindowEnd,
     );
     if (problem !== null) {
       const path = problem === 'start-required' ? 'deliveryWindowStart' : 'deliveryWindowEnd';
-      ctx.addIssue({ code: 'custom', path: [path], message: DELIVERY_WINDOW_MESSAGES[problem] });
+      // At nought the window is optional, so a missing half is not "required"
+      // — the fix is to finish the pair or clear it.
+      const message =
+        !takesDeliveries && problem !== 'end-not-after-start'
+          ? HALF_WINDOW_MESSAGE
+          : DELIVERY_WINDOW_MESSAGES[problem];
+      ctx.addIssue({ code: 'custom', path: [path], message });
     }
 
     // Only checked once both numbers parse — a box that already fails on its
@@ -167,7 +176,6 @@ export function CreateRecurringSessionScreen() {
     handleSubmit,
     register,
     setError,
-    setValue,
   } = useForm<CreateRecurringSessionValues>({
     resolver: zodResolver(createRecurringSessionSchema),
     defaultValues: {
@@ -209,9 +217,9 @@ export function CreateRecurringSessionScreen() {
         activeFrom: values.activeFrom,
         activeUntil: values.activeUntil === '' ? null : values.activeUntil,
         deliveryCapacity: deliveryCapacity.value,
-        // Omitted entirely for a template that takes no deliveries — see
-        // `create-session-screen.tsx`.
-        ...(deliveryCapacity.value > 0
+        // Sent whenever both boxes hold a time, even at nought delivery
+        // capacity — see `create-session-screen.tsx`.
+        ...(values.deliveryWindowStart !== '' && values.deliveryWindowEnd !== ''
           ? {
               deliveryWindowStart: values.deliveryWindowStart,
               deliveryWindowEnd: values.deliveryWindowEnd,
@@ -402,22 +410,12 @@ export function CreateRecurringSessionScreen() {
         <div className={styles.field}>
           <label htmlFor={deliveryCapacityId}>Delivery capacity</label>
           <p className={styles.help} id={`${deliveryCapacityId}-help`}>
-            Copied onto every occurrence, and overridable there. Households, not people — and must
-            not exceed the capacity above. Nought means no occurrence takes deliveries.
+            Copied onto every occurrence, and overridable there. Households, not people — and no
+            more than the capacity above, except while that capacity is nought. A delivery capacity
+            of nought means no occurrence takes deliveries.
           </p>
           <input
-            {...register('deliveryCapacity', {
-              onChange: (event: ChangeEvent<HTMLInputElement>) => {
-                // Off means no window: the pair is cleared the instant the
-                // typed value parses to nought — see `windowStartId`'s help
-                // text.
-                const parsed = parseWholeNumber(event.target.value, DELIVERY_CAPACITY_BOUNDS);
-                if (parsed.ok && parsed.value === 0) {
-                  setValue('deliveryWindowStart', '');
-                  setValue('deliveryWindowEnd', '');
-                }
-              },
-            })}
+            {...register('deliveryCapacity')}
             aria-describedby={
               [
                 `${deliveryCapacityId}-help`,
@@ -445,7 +443,8 @@ export function CreateRecurringSessionScreen() {
           <label htmlFor={windowStartId}>Delivery window starts</label>
           <p className={styles.help} id={`${windowStartId}-help`}>
             Copied onto every occurrence. Both times are required while the delivery capacity is
-            above nought, and are disabled and cleared while it is not.
+            above nought. While it is nought they are kept for when deliveries resume — fill in both
+            or leave both blank.
           </p>
           <input
             {...register('deliveryWindowStart')}
@@ -459,7 +458,6 @@ export function CreateRecurringSessionScreen() {
             }
             aria-invalid={errors.deliveryWindowStart === undefined ? undefined : true}
             className={styles.input}
-            disabled={!takesDeliveries}
             id={windowStartId}
             required={takesDeliveries}
             type="time"
@@ -483,7 +481,6 @@ export function CreateRecurringSessionScreen() {
               .join(' ')}
             aria-invalid={errors.deliveryWindowEnd === undefined ? undefined : true}
             className={styles.input}
-            disabled={!takesDeliveries}
             id={windowEndId}
             required={takesDeliveries}
             type="time"

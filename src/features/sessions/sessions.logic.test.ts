@@ -290,11 +290,18 @@ describe('describeMaterialisation', () => {
 });
 
 describe('validateDeliveryWindow', () => {
-  it('ignores both boxes while deliveries are off, however they read', () => {
+  it('allows no window while deliveries are off', () => {
     expect(validateDeliveryWindow(false, '', '')).toBeNull();
-    expect(validateDeliveryWindow(false, '09:00', '')).toBeNull();
-    expect(validateDeliveryWindow(false, '', '11:00')).toBeNull();
-    expect(validateDeliveryWindow(false, '11:00', '09:00')).toBeNull();
+  });
+
+  it('keeps a whole window while deliveries are off, ready for when they resume', () => {
+    expect(validateDeliveryWindow(false, '09:00', '11:00')).toBeNull();
+  });
+
+  it('still refuses a half-filled or backwards window while deliveries are off', () => {
+    expect(validateDeliveryWindow(false, '09:00', '')).toBe('end-required');
+    expect(validateDeliveryWindow(false, '', '11:00')).toBe('start-required');
+    expect(validateDeliveryWindow(false, '11:00', '09:00')).toBe('end-not-after-start');
   });
 
   it('accepts a start strictly before the end while deliveries are on', () => {
@@ -382,10 +389,10 @@ describe('validateDeliveryCapacity', () => {
     expect(validateDeliveryCapacity(25, 26)).toBe('exceeds-capacity');
   });
 
-  it('refuses any delivery place at all on a session closed to referrals', () => {
-    // A capacity of nought is a real, valid state — a session closed to new
-    // referrals without being deleted — and nothing can be delivered from it.
-    expect(validateDeliveryCapacity(0, 1)).toBe('exceeds-capacity');
+  it('leaves the delivery places standing on a session blocked with a capacity of nought', () => {
+    // Nought capacity is how a session is blocked for a while; its delivery
+    // capacity is kept so that reopening it is one number, not two.
+    expect(validateDeliveryCapacity(0, 8)).toBeNull();
     expect(validateDeliveryCapacity(0, 0)).toBeNull();
   });
 });

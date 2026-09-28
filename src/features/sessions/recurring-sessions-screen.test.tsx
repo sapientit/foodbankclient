@@ -375,15 +375,17 @@ describe('adding a weekly session', () => {
     expect(posted).not.toHaveProperty('deliveryWindowEnd');
   });
 
-  it('disables the delivery times until the checkbox is ticked', async () => {
+  it('leaves the delivery times editable but optional while the delivery capacity is nought', async () => {
     server.use(http.get(RECURRING, () => HttpResponse.json({ recurringSessions: [] })));
 
     renderApp('/sessions/recurring/new');
 
     const start = await screen.findByLabelText('Delivery window starts');
     const end = screen.getByLabelText('Delivery window ends');
-    expect(start).toBeDisabled();
-    expect(end).toBeDisabled();
+    expect(start).toBeEnabled();
+    expect(end).toBeEnabled();
+    expect(start).not.toBeRequired();
+    expect(end).not.toBeRequired();
   });
 
   it('sends the delivery window pair together once ticked on', async () => {
@@ -489,7 +491,7 @@ describe('amending a weekly session', () => {
     expect(posted).toMatchObject({ location: 'St Mary’s Hall' });
   });
 
-  it('disables the delivery times until the checkbox is ticked', async () => {
+  it('leaves the delivery times editable but optional while the delivery capacity is nought', async () => {
     server.use(
       http.get(RECURRING, () =>
         HttpResponse.json({ recurringSessions: [template({ id: 't1', name: 'Tuesday session' })] }),
@@ -500,8 +502,10 @@ describe('amending a weekly session', () => {
 
     const start = await screen.findByLabelText('Delivery window starts');
     const end = screen.getByLabelText('Delivery window ends');
-    expect(start).toBeDisabled();
-    expect(end).toBeDisabled();
+    expect(start).toBeEnabled();
+    expect(end).toBeEnabled();
+    expect(start).not.toBeRequired();
+    expect(end).not.toBeRequired();
   });
 
   it('sets a delivery window on amend, once the checkbox is ticked', async () => {
@@ -541,7 +545,7 @@ describe('amending a weekly session', () => {
     });
   });
 
-  it('clears an existing delivery window by sending explicit null on both keys when the capacity returns to nought', async () => {
+  it('keeps an existing delivery window when the delivery capacity is set to nought', async () => {
     let posted: unknown = null;
     server.use(
       http.get(RECURRING, () =>
@@ -571,15 +575,55 @@ describe('amending a weekly session', () => {
 
     const start = screen.getByLabelText('Delivery window starts');
     const end = screen.getByLabelText('Delivery window ends');
-    expect(start).toBeDisabled();
-    expect(start).toHaveValue('');
-    expect(end).toHaveValue('');
+    expect(start).toBeEnabled();
+    expect(start).toHaveValue('09:00');
+    expect(end).toHaveValue('11:00');
 
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await screen.findByRole('heading', { name: 'Weekly sessions' });
 
-    expect(posted).toMatchObject({ deliveryWindowStart: null, deliveryWindowEnd: null });
+    expect(posted).toMatchObject({
+      deliveryCapacity: 0,
+      deliveryWindowStart: '09:00',
+      deliveryWindowEnd: '11:00',
+    });
+  });
+
+  it('keeps the delivery places standing when the weekly session is blocked with a capacity of nought', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.get(RECURRING, () =>
+        HttpResponse.json({
+          recurringSessions: [
+            template({
+              id: 't1',
+              name: 'Tuesday session',
+              deliveryWindowStart: '09:00',
+              deliveryWindowEnd: '11:00',
+              deliveryCapacity: 8,
+            }),
+          ],
+        }),
+      ),
+      http.patch(`${RECURRING}/t1`, async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json(template({ id: 't1' }));
+      }),
+    );
+
+    renderApp('/sessions/recurring/t1');
+    const user = userEvent.setup();
+
+    await screen.findByDisplayValue('09:00');
+    const capacity = screen.getByLabelText('Capacity');
+    await user.clear(capacity);
+    await user.type(capacity, '0');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await screen.findByRole('heading', { name: 'Weekly sessions' });
+
+    expect(posted).toMatchObject({ capacity: 0, deliveryCapacity: 8 });
   });
 
   it('changes the delivery capacity and round-trips it and its now-required window in the save', async () => {

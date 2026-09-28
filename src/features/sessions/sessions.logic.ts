@@ -198,14 +198,14 @@ export type DeliveryWindowProblem = 'start-required' | 'end-required' | 'end-not
  * The client's own rule for the two delivery-window boxes on the four
  * maintenance forms — settled 2026-08-16 — which is stricter than the
  * server's `400`s (`API.md` "A session's delivery window") because the form
- * no longer lets "both blank while deliveries are on" happen at all: **while
- * the session's delivery capacity is nought the two times are irrelevant** and
- * this reports no problem however the boxes read, because the form clears and
- * disables them; **above nought, both are required**, and an end at or before
- * the start is still invalid. A *stored* both-null window on a session that
- * does deliver is still a real, valid state the server can return — see
- * `describeDeliveryWindow` — it just cannot be produced from this form any
- * more.
+ * no longer lets "both blank while deliveries are on" happen at all: **above
+ * nought, both are required**. At nought the window is kept rather than
+ * cleared — nought is how deliveries are paused, and reopening them should be
+ * one number, not three (settled 2026-09-28) — so both blank is fine, but a
+ * half-filled pair or an end at or before the start is still invalid either
+ * way. A *stored* both-null window on a session that does deliver is still a
+ * real, valid state the server can return — see `describeDeliveryWindow` — it
+ * just cannot be produced from this form any more.
  *
  * `HH:MM` compares correctly as a plain string because it is always
  * zero-padded to two digits either side of the colon — the same reasoning
@@ -216,7 +216,7 @@ export function validateDeliveryWindow(
   start: string,
   end: string,
 ): DeliveryWindowProblem | null {
-  if (!takesDeliveries) return null;
+  if (!takesDeliveries && start === '' && end === '') return null;
   if (start === '') return 'start-required';
   if (end === '') return 'end-required';
   if (end <= start) return 'end-not-after-start';
@@ -260,7 +260,10 @@ export type DeliveryCapacityProblem = 'exceeds-capacity';
 /**
  * The client's mirror of the server's one cross-field rule on these two
  * numbers: **a session's delivery places are a share of its overall capacity
- * and can never exceed it.**
+ * and can never exceed it — except while that capacity is nought.** Nought
+ * capacity is how a session is blocked for a while, and its delivery capacity
+ * is left standing so that reopening it is one number, not two (`API.md` "A
+ * session has a numeric delivery capacity").
  *
  * Worth checking here rather than leaving to the server, because the two
  * endpoints disagree about how they refuse it — a `400` on create, whose field
@@ -273,7 +276,7 @@ export function validateDeliveryCapacity(
   capacity: number,
   deliveryCapacity: number,
 ): DeliveryCapacityProblem | null {
-  return deliveryCapacity > capacity ? 'exceeds-capacity' : null;
+  return capacity > 0 && deliveryCapacity > capacity ? 'exceeds-capacity' : null;
 }
 
 /** A cancellation `reason`: `maxLength: 500`. */
