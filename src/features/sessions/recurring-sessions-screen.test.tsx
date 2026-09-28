@@ -366,9 +366,9 @@ describe('adding a weekly session', () => {
       capacity: 25,
       activeFrom: '2026-01-01',
       activeUntil: null,
-      // Deliberately the opposite of the server's own create default of
-      // `true` — settled 2026-08-16 — so an untouched checkbox opts a new
-      // template out of deliveries and the window pair is omitted entirely.
+      // A new template takes no deliveries until somebody says otherwise, so
+      // the untouched box sends nought, and with both times blank the window
+      // pair is omitted entirely.
       deliveryCapacity: 0,
     });
     expect(posted).not.toHaveProperty('deliveryWindowStart');
@@ -388,7 +388,7 @@ describe('adding a weekly session', () => {
     expect(end).not.toBeRequired();
   });
 
-  it('sends the delivery window pair together once ticked on', async () => {
+  it('sends the delivery window pair together once the template delivers', async () => {
     let posted: unknown = null;
     server.use(
       http.get(RECURRING, () => HttpResponse.json({ recurringSessions: [] })),
@@ -420,7 +420,7 @@ describe('adding a weekly session', () => {
     });
   });
 
-  it('refuses a ticked-on window missing its start, before making a request', async () => {
+  it('refuses a delivering template’s window missing its start, before making a request', async () => {
     const created = vi.fn();
     server.use(
       http.get(RECURRING, () => HttpResponse.json({ recurringSessions: [] })),
@@ -508,7 +508,7 @@ describe('amending a weekly session', () => {
     expect(end).not.toBeRequired();
   });
 
-  it('sets a delivery window on amend, once the checkbox is ticked', async () => {
+  it('sets a delivery window on amend, once the template is given delivery places', async () => {
     let posted: unknown = null;
     server.use(
       http.get(RECURRING, () =>
