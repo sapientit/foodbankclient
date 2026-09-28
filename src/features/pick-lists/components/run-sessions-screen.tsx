@@ -387,7 +387,7 @@ export function PickListPrintScreen() {
     return (
       <>
         <PageHeader icon={<ClipboardCheckIcon />} title="Pick lists" />
-        <p role="alert">Review every pick list before printing.</p>
+        <p role="alert">Check every pick list before printing.</p>
       </>
     );
   if (print.isError)
@@ -1045,7 +1045,7 @@ function ClientRow({
             className={classNames(styles.pickListLink, 'button-link')}
             to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
           >
-            Review Pick list
+            Check pick list
           </Link>
         ) : (
           /*
@@ -1354,7 +1354,7 @@ function ParcelPanel({
               }}
               type="button"
             >
-              {review.isPending ? 'Marking reviewed…' : 'Mark pick list reviewed'}
+              {review.isPending ? 'Marking checked…' : 'Mark as checked'}
             </button>
           )}
           {needsAttention && (

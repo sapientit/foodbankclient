@@ -71,19 +71,19 @@ describe('parcelStatus', () => {
     expect(parcelStatus(delivery)).toEqual({ state: 'no_show', label: 'Not in' });
   });
 
-  it('is "Pending Review" before a pick list has been reviewed, whichever way the outcome will go', () => {
+  it('is "To check" before a pick list has been reviewed, whichever way the outcome will go', () => {
     const parcel: Parcel = { ...BASE_PARCEL, attendance: 'pending', reviewedAt: null };
 
-    expect(parcelStatus(parcel)).toEqual({ state: 'pending', label: 'Pending Review' });
+    expect(parcelStatus(parcel)).toEqual({ state: 'pending', label: 'To check' });
   });
 
-  it('is "Pick List reviewed" once reviewed but before an outcome is recorded', () => {
+  it('is "Checked" once reviewed but before an outcome is recorded', () => {
     const parcel: Parcel = {
       ...BASE_PARCEL,
       attendance: 'pending',
       reviewedAt: '2026-08-05T10:00:00.000Z',
     };
 
-    expect(parcelStatus(parcel)).toEqual({ state: 'reviewed', label: 'Pick List reviewed' });
+    expect(parcelStatus(parcel)).toEqual({ state: 'reviewed', label: 'Checked' });
   });
 });

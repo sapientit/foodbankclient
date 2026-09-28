@@ -10,19 +10,19 @@ import {
 } from './session-list-filters.logic';
 
 describe('defaultSessionDateRange', () => {
-  it('reaches a fortnight back and six days ahead', () => {
+  it('reaches a fortnight either side of today', () => {
     expect(defaultSessionDateRange('2026-08-17')).toEqual({
       from: '2026-08-03',
-      to: '2026-08-23',
+      to: '2026-08-31',
     });
     expect(DAYS_BACK).toBe(14);
-    expect(DAYS_AHEAD).toBe(6);
+    expect(DAYS_AHEAD).toBe(14);
   });
 
   it('crosses a month and a year end without arithmetic of its own', () => {
     expect(defaultSessionDateRange('2026-01-07')).toEqual({
       from: '2025-12-24',
-      to: '2026-01-13',
+      to: '2026-01-21',
     });
   });
 
@@ -39,7 +39,7 @@ describe('readSessionListSelection', () => {
   it('falls back to the default window when the query string says nothing', () => {
     expect(readSessionListSelection(new URLSearchParams(), today)).toEqual({
       from: '2026-08-03',
-      to: '2026-08-23',
+      to: '2026-08-31',
       showCompleted: false,
     });
   });
@@ -57,7 +57,7 @@ describe('readSessionListSelection', () => {
     const params = new URLSearchParams({ from: 'last week', to: '2026-02-30' });
     const selection = readSessionListSelection(params, today);
     expect(selection.from).toBe('2026-08-03');
-    expect(selection.to).toBe('2026-08-23');
+    expect(selection.to).toBe('2026-08-31');
   });
 
   it('shows completed sessions only when the query string asks for it exactly', () => {

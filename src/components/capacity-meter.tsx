@@ -16,12 +16,19 @@ export function CapacityMeter({
   const isOver = value > capacity;
   const isFull = value === capacity;
   const state = isOver ? 'over' : isFull ? 'full' : 'open';
-  const percentage =
-    capacity === 0 ? (value === 0 ? 0 : 100) : Math.min(100, (value / capacity) * 100);
+  // A zero session capacity is an administrator's temporary block on new
+  // bookings, not empty space. Draw it as a full bar rather than the otherwise
+  // misleading zero-width green fill for `0 of 0`.
+  const isZeroCapacity = capacity === 0;
+  const percentage = isZeroCapacity ? 100 : Math.min(100, (value / capacity) * 100);
   const status = isOver ? ' (over capacity)' : isFull ? ' (full)' : '';
 
   return (
-    <span className={styles.meter} data-state={state}>
+    <span
+      className={styles.meter}
+      data-state={state}
+      data-zero-capacity={isZeroCapacity ? 'true' : undefined}
+    >
       <span>{`${String(value)} of ${String(capacity)}${noun === '' ? '' : ` ${noun}`}${status}`}</span>
       <span aria-hidden="true" className={styles.track}>
         <span className={styles.fill} style={{ inlineSize: `${String(percentage)}%` }} />

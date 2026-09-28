@@ -31,6 +31,12 @@ to disk is not. A shared laptop in a church hall is the normal deployment, not t
 history, `Referer` headers, and any log the request passes through. This is why the referrer check
 puts the address in a `POST` body rather than a query string, and why that address is never logged.
 
+**Cross-site referrers disclose the origin only.** The document's
+`strict-origin-when-cross-origin` policy lets Google Sign-In identify this authorised site in Safari's
+non-FedCM flow, while withholding the path and query string from Google and every other cross-site
+request. `same-origin` is too strict for that protocol: Safari then sends neither `Referer` nor
+`Origin`, and Google rejects the sign-in button.
+
 **There is no referral edit key, and nothing may reintroduce one.** A referrer cannot amend or
 withdraw after submitting (`screenDetails.md`, "After a referral is submitted"), so the credential
 that authorised `GET|PATCH|DELETE` on one referral — that is, access to somebody's name and address —

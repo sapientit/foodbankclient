@@ -38,13 +38,13 @@ export const OPEN_STATUSES: readonly SessionStatus[] = ['planned', 'in_progress'
 export const DAYS_BACK = 14;
 
 /**
- * And how far forward. Six days for both roles, which is exactly a team lead's
- * horizon and deliberately narrower than an administrator's six weeks: this is
- * the list somebody opens to run a session this week, and an administrator who
- * wants further out types a later date. A `to` past the caller's horizon is
- * clamped by the server rather than refused, so widening it is always safe.
+ * And how far forward. The client requests a fortnight for both roles: this
+ * makes the default a useful planning window as well as a view of the work
+ * immediately at hand. An administrator who wants further out can type a
+ * later date. The server still clamps a `to` past the caller's own horizon,
+ * so widening it is always safe.
  */
-export const DAYS_AHEAD = 6;
+export const DAYS_AHEAD = 14;
 
 export interface SessionDateRange {
   readonly from: string;

@@ -54,8 +54,8 @@ export function missedLabel(parcel: Parcel): string {
  * How far along a client is, as the word the client list shows and a state the
  * badge is drawn from.
  *
- * **The four words are `screenDetails.md`'s, not this screen's**: Pending
- * Review, Pick List reviewed, and then Attended/Delivered or No Show/Not in.
+ * **The four words are `screenDetails.md`'s, not this screen's**: To
+ * check, Checked, and then Attended/Delivered or No Show/Not in.
  * They are what a team lead is told to look for, so they are quoted rather than
  * paraphrased.
  *
@@ -74,8 +74,8 @@ export function parcelStatus(parcel: Parcel): {
 } {
   if (parcel.attendance === 'attended') return { state: 'attended', label: attendedLabel(parcel) };
   if (parcel.attendance === 'no_show') return { state: 'no_show', label: missedLabel(parcel) };
-  if (parcel.reviewedAt === null) return { state: 'pending', label: 'Pending Review' };
-  return { state: 'reviewed', label: 'Pick List reviewed' };
+  if (parcel.reviewedAt === null) return { state: 'pending', label: 'To check' };
+  return { state: 'reviewed', label: 'Checked' };
 }
 
 /**
@@ -102,8 +102,8 @@ export function allParcelsReviewed(parcels: readonly Parcel[]): boolean {
  * and the toast a control's own tab or button repeats on a press can never
  * read differently for the same reason.
  */
-export const PRINT_UNAVAILABLE_REASON = 'Review every pick list before printing.';
+export const PRINT_UNAVAILABLE_REASON = 'Check every pick list before printing.';
 export const STOCK_CHECK_UNAVAILABLE_REASON =
-  'Review every pick list before checking stock — until then the quantities are still moving.';
+  'Check every pick list before the stock check — until then the quantities are still moving.';
 export const COMPLETE_SESSION_UNAVAILABLE_REASON =
   'Record an outcome for every client before completing session.';

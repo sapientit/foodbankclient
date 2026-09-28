@@ -29,3 +29,9 @@
 .meter[data-state='over'] .fill {
   background: #b3261e;
 }
+
+/* `0 of 0` is a temporary booking block, so it is full and red rather than an
+   empty-looking green bar. */
+.meter[data-state='full'][data-zero-capacity='true'] .fill {
+  background: #b3261e;
+}

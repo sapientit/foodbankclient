@@ -584,7 +584,7 @@ describe('a team lead running a session', () => {
     });
     expect(print).toHaveAttribute('aria-disabled', 'true');
     expect(print).not.toBeDisabled();
-    await user.click(screen.getByRole('link', { name: 'Review Pick list' }));
+    await user.click(screen.getByRole('link', { name: 'Check pick list' }));
 
     // The pick number and household name are the screen's own heading, and the
     // only place they appear — queried at level one because a second copy below
@@ -601,7 +601,7 @@ describe('a team lead running a session', () => {
     expect(screen.queryByText(/Adults\/children/)).toBeNull();
     expect(screen.getByText('Baked beans')).toBeInTheDocument();
     expect(screen.getByText('Vegetarian')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Mark pick list reviewed' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Mark as checked' })).toBeEnabled();
     // Attendance and completion belong to the client list, and printing is a
     // whole-session action — none of the three may reach this screen. Matched
     // loosely on purpose: each attendance button is named for its household as
@@ -611,7 +611,7 @@ describe('a team lead running a session', () => {
     expect(screen.queryByRole('button', { name: /^No show/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Complete session' })).toBeNull();
     expect(screen.queryByText('Print all pick lists')).toBeNull();
-    expect(screen.queryByText('Review every pick list before printing.')).toBeNull();
+    expect(screen.queryByText('Check every pick list before printing.')).toBeNull();
 
     const quantity = screen.getByRole('spinbutton', { name: /Baked beans/ });
     await user.click(quantity);
@@ -620,7 +620,7 @@ describe('a team lead running a session', () => {
       screen.getByRole('textbox', { name: 'Information for pickers' }),
       'Allergies: no dairy',
     );
-    await user.click(screen.getByRole('button', { name: 'Mark pick list reviewed' }));
+    await user.click(screen.getByRole('button', { name: 'Mark as checked' }));
     await waitFor(() => {
       expect(savedLines).toBe(1);
       expect(savedNotes).toBe('Allergies: no dairy');
@@ -803,7 +803,7 @@ describe('a team lead running a session', () => {
     // Absent rather than disabled: nothing on a locked panel can become dirty,
     // so a greyed-out Save would only ever say that something is wrong.
     expect(screen.queryByRole('button', { name: 'Save pick list' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Mark pick list reviewed' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mark as checked' })).toBeNull();
     expect(noteRequests).toBe(0);
   });
 
@@ -1231,7 +1231,7 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}/print`);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Review every pick list before printing.',
+      'Check every pick list before printing.',
     );
     expect(printFetched).toBe(false);
     expect(markedPrinted).toBe(false);
@@ -1322,9 +1322,9 @@ describe('a team lead running a session', () => {
     expect(
       screen.getByRole('cell', { name: 'Provide voucher for this client' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: 'Pending Review' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'To check' })).toBeInTheDocument();
     expect(
-      screen.getByRole('cell', { name: 'Review Pick list' }).querySelector('a'),
+      screen.getByRole('cell', { name: 'Check pick list' }).querySelector('a'),
     ).toHaveAttribute('href', `/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
   });
 

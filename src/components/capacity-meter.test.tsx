@@ -12,4 +12,15 @@ describe('CapacityMeter', () => {
 
     expect(screen.getByText(label).parentElement).toHaveAttribute('data-state', state);
   });
+
+  it('shows zero capacity as a full booking block, rather than empty space', () => {
+    render(<CapacityMeter capacity={0} noun="booked" value={0} />);
+
+    const meter = screen.getByText('0 of 0 booked (full)').parentElement;
+    expect(meter).toHaveAttribute('data-state', 'full');
+    expect(meter).toHaveAttribute('data-zero-capacity', 'true');
+    expect(meter?.querySelector('span[aria-hidden="true"] > span')).toHaveStyle({
+      inlineSize: '100%',
+    });
+  });
 });

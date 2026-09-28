@@ -273,7 +273,7 @@ describe('the session stock check', () => {
     // `aria-disabled` rather than `disabled`, so the sentence explaining it
     // stays reachable from the keyboard.
     expect(check).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByText(/Review every pick list before checking stock/)).toBeInTheDocument();
+    expect(screen.getByText(/Check every pick list before the stock check/)).toBeInTheDocument();
 
     await user.click(check);
 

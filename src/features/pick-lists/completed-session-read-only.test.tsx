@@ -275,7 +275,7 @@ describe('a completed session', () => {
     expect(quantity).toBeDisabled();
     expect(screen.getByRole('textbox', { name: 'Information for pickers' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Save pick list' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Mark pick list reviewed' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mark as checked' })).toBeNull();
     expect(writes.lines).toBe(0);
     expect(writes.notes).toBe(0);
     expect(writes.review).toBe(0);

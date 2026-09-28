@@ -6,7 +6,10 @@
     <!-- Referrals hold personal data. Nothing about this app belongs in a search
          index or a third-party referrer log. -->
     <meta name="robots" content="noindex, nofollow" />
-    <meta name="referrer" content="same-origin" />
+    <!-- Google Sign-In needs the site origin to identify this authorised UAT
+         client in Safari's non-FedCM button flow. This sends only the origin
+         cross-site, never a referral path, query or other page detail. -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>Food Bank</title>
   </head>
