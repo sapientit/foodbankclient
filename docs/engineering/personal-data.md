@@ -120,7 +120,8 @@ is indistinguishable from no sign-off six months later. What they accepted:
   `https://accounts.google.com/gsi/client` to obtain a Sheets token. That script has the same access
   to the page as our own code, and the page holds referrals. This is inherent to browser OAuth and
   there is no meaningfully safer way to do it from a client; the mitigation available is a CSP
-  `script-src` naming that origin, and nothing else.
+  `script-src` naming that origin, and nothing else. Google explicitly asks which account to use,
+  so an administrator can choose their charity account instead of a separately signed-in personal one.
 - **The Google token is held in memory for the length of the run.** A `useRef`, never storage,
   cleared when the run finishes — the same rule as the API access token.
 

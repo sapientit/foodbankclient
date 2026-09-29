@@ -18,7 +18,9 @@
       "Bash(node -e ' *)",
       "Bash(grep *)",
       "Bash(node --input-type=module -e ' *)",
-      "Bash(git diff *)"
+      "Bash(git diff *)",
+      "Bash(git merge *)",
+      "Bash(git branch *)"
     ]
   }
 }

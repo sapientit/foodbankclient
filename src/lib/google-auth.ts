@@ -78,7 +78,10 @@ export function requestSheetsAccess(
           reject(new ShowableError('Google sign-in could not start.'));
           return;
         }
-        client.requestAccessToken({ prompt: 'consent' });
+        // The Foodbank session and the browser's active Google account can
+        // legitimately differ. Ask Google to show its chooser rather than
+        // silently authorising whichever account happens to be active.
+        client.requestAccessToken({ prompt: 'select_account consent' });
       }),
   );
 }
