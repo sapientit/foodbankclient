@@ -3118,7 +3118,10 @@ export interface paths {
          *     A `referrer_collect` referral is reminded on `referrerPhone` instead
          *     of `refereePhone`, with its own third wording that greets the
          *     referrer by their own first name rather than the household's and
-         *     never reuses the collection or delivery text.
+         *     never reuses the collection or delivery text. That wording is the
+         *     same whichever household it is for, even when one referrer is
+         *     collecting for several at once — settled 2026-09-29: rare enough to
+         *     sort out if the referrer asks.
          */
         post: {
             parameters: {
@@ -6462,8 +6465,7 @@ export interface paths {
          *     takes it again. Flip as often as needed; the level is always the sum of
          *     what is actually there.
          *
-         *     This is the only way to fix a mis-tap: the hand correction that used to
-         *     do it went with the stock simplification.
+         *     This is how to fix a mis-tap.
          *
          *     **Confirming the session ends it.** After `POST /sessions/{id}/confirm`
          *     an outcome can no longer be changed and this returns `409`, because a
@@ -8326,7 +8328,7 @@ export interface components {
             /** Format: date-time */
             committedAt: string | null;
         };
-        /** @description A measure Cloudflare puts a free-plan cap on. `cap` is that published limit, a fact; `threshold` is the assumed level for "worrying" — `x-assumed`, see below — and `exceeded` is `value >= threshold`. */
+        /** @description A measure Cloudflare puts a free-plan cap on. `cap` is that published limit, a fact; `threshold` is the level the charity treats as "worrying" and `exceeded` is `value >= threshold`. `threshold` is 80% of `cap` for every capped measure; for `workerSubrequestsAvgPerInvocation` that is an average of 40 against the 50-per-invocation cap (settled 2026-09-29). */
         CappedMeasure: {
             value: number;
             cap: number;
