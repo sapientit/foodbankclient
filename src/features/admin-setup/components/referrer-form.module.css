@@ -113,3 +113,21 @@
 .submit {
   padding: 0.6rem 1.25rem;
 }
+
+/* Focused programmatically when the welcome email's tab was blocked, so it
+   needs a focus ring of its own — it is not a control. Matches the referral
+   detail screen's decided notice. */
+.notice {
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  max-inline-size: 60ch;
+  color: #14532d;
+  background: #f0fdf4;
+  border: 1px solid #14532d;
+  border-radius: 0.25rem;
+}
+
+.notice:focus-visible {
+  outline: 3px solid #14532d;
+  outline-offset: 2px;
+}

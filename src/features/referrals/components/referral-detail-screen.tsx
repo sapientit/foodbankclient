@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { useAuth } from '../../../auth/auth-context';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { ErrorNotice } from '../../../components/error-notice';
 import { HouseholdCompositionGrid } from '../../../components/household-composition-grid';
@@ -15,6 +16,7 @@ import {
   londonToday,
 } from '../../../lib/london-time';
 import { listReturnContext, returnContextFromState } from '../../../lib/list-return';
+import { openWelcomeEmail, welcomeEmailComposeUrl } from '../../../lib/referrer-welcome-email';
 import { describeSessionChoice, standingFromCapacity } from '../../../lib/session-description';
 import { useReferralReasons, type AdminReferralReason } from '../../admin-setup/queries';
 import { useSessions, type Session } from '../../sessions/queries';
@@ -219,7 +221,7 @@ function ReferralDetail({ referral }: { referral: Referral }) {
    * who rejects or approves a referral needs to hear what happened and land
    * somewhere real, not on the button that just left the page.
    */
-  const [decidedNotice, setDecidedNotice] = useState<string | null>(null);
+  const [decidedNotice, setDecidedNotice] = useState<DecidedNotice | null>(null);
   const decidedNoticeRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (decidedNotice !== null) decidedNoticeRef.current?.focus();
@@ -295,7 +297,18 @@ function ReferralDetail({ referral }: { referral: Referral }) {
 
       {decidedNotice !== null && (
         <p className={styles.copiedNotice} ref={decidedNoticeRef} role="status" tabIndex={-1}>
-          {decidedNotice}
+          {decidedNotice.message}
+          {decidedNotice.blockedEmailUrl !== null &&
+            ' Your browser did not open the welcome email.'}
+        </p>
+      )}
+      {/* Outside the live region: a link folded into an announced sentence is
+          not reliably exposed as something to activate. */}
+      {typeof decidedNotice?.blockedEmailUrl === 'string' && (
+        <p>
+          <a href={decidedNotice.blockedEmailUrl} rel="noreferrer" target="_blank">
+            Open the welcome email in Gmail (opens in a new tab)
+          </a>
         </p>
       )}
 
@@ -697,6 +710,12 @@ function PreviousReferralsTable({ matches }: { matches: readonly RepeatReferralM
   );
 }
 
+interface DecidedNotice {
+  readonly message: string;
+  /** Set only when the welcome email should have opened and the browser blocked it. */
+  readonly blockedEmailUrl: string | null;
+}
+
 /**
  * Accept or reject a referral whose referrer the charity did not recognise.
  *
@@ -724,10 +743,11 @@ function ReviewPanel({
   onDecided,
   referral,
 }: {
-  onDecided: (message: string) => void;
+  onDecided: (notice: DecidedNotice) => void;
   referral: Referral;
 }) {
   const review = useReviewReferral();
+  const { state: authState } = useAuth();
   const [comment, setComment] = useState('');
   const [confirming, setConfirming] = useState<'authorise' | 'reject' | null>(null);
   const [organisationName, setOrganisationName] = useState('');
@@ -754,13 +774,31 @@ function ReviewPanel({
         comment: decision === 'reject' ? comment : '',
         ...(authoriseReferrer === undefined ? {} : { authoriseReferrer }),
       });
-      onDecided(
-        decision === 'reject'
-          ? 'Referral rejected.'
-          : decision === 'authorise'
-            ? 'Referral approved and referrer authorised.'
-            : 'Referral approved.',
-      );
+      if (authoriseReferrer === undefined) {
+        onDecided({
+          message: decision === 'reject' ? 'Referral rejected.' : 'Referral approved.',
+          blockedEmailUrl: null,
+        });
+        return;
+      }
+      // Only authorising opens the welcome email: that is the step that adds a
+      // referrer to the list. Plain approval leaves the list unchanged.
+      const emailUrl =
+        typeof referral.referrerEmail === 'string' && authState.status === 'signed-in'
+          ? welcomeEmailComposeUrl({
+              adminEmail: authState.user.email,
+              referrerEmail: referral.referrerEmail,
+              values: {
+                referrerName: referral.referrerName,
+                organisationName: authoriseReferrer.organisationName,
+                adminName: authState.user.displayName,
+              },
+            })
+          : null;
+      onDecided({
+        message: 'Referral approved and referrer authorised.',
+        blockedEmailUrl: emailUrl === null || openWelcomeEmail(emailUrl) ? null : emailUrl,
+      });
     } catch {
       // Rendered by `ErrorNotice` below — a 409 here means another
       // administrator reviewed it first, and its message says so.
@@ -831,7 +869,7 @@ function ReviewPanel({
           <p>
             {confirming === 'reject'
               ? 'This household will not be booked in, and the place it was holding on the session is given back.'
-              : 'This household will be booked in for the session and will appear on its pick list.'}
+              : 'This household will be booked in for the session and will appear on its pick list. A new tab then opens with a welcome email to the referrer, ready for you to check and send.'}
           </p>
           {confirming === 'authorise' && (
             <>

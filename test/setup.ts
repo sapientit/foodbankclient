@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, configure } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, vi, type MockInstance } from 'vitest';
 import { server } from './msw/server';
 
 /*
@@ -100,4 +100,23 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+});
+
+/*
+ * jsdom's `window.open` does nothing and returns `undefined`, which no browser
+ * does — a browser returns the new tab, or `null` when it blocked one. Left
+ * alone, authorising a referrer's address in any screen test throws inside
+ * `openWelcomeEmail` and the success path silently stops. Every test gets a
+ * tab that opened; a test about the blocked case returns `null` itself, and
+ * reads the calls through `vi.mocked(window.open)`.
+ */
+let openTab: MockInstance<typeof window.open> | undefined;
+
+beforeEach(() => {
+  // A stand-in tab: `openWelcomeEmail` only ever sets its `opener`.
+  openTab = vi.spyOn(window, 'open').mockReturnValue({ opener: null } as unknown as Window);
+});
+
+afterEach(() => {
+  openTab?.mockRestore();
 });

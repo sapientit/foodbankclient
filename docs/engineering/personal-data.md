@@ -132,6 +132,24 @@ rather than merely dropped. Neither changes what the charity agreed to.
 session replay remain out without a fresh conversation — a stack trace from the referral form carries
 somebody's name, address and reason for referral to a company the charity has no agreement with.
 
+## Welcoming a newly authorised referrer by Gmail
+
+**The charity has accepted this**, on 29 September 2026 (Pete, while settling the requirement in
+`screenDetails.md`, "#Valid referrers"). When an administrator authorises one exact referrer address,
+the client opens a Gmail compose window in the administrator's own Google account, pre-filled from
+`src/lib/referrer-welcome-email.config.json`. What they accepted:
+
+- **The referrer's address, name and organisation, and the administrator's name and address, travel
+  to Google in a URL.** A compose link carries its recipient, subject and body in the query string.
+  This is the one place the client puts personal data in a URL, and the rule against it in
+  [`.claude/rules/pii-security.md`](../../.claude/rules/pii-security.md) still governs this app's own
+  URLs without exception. It is a referrer's details, never a household's: nothing from a referral's
+  answers, and never a reason for referral, may be added to the template.
+- **No OAuth scope, token or Google project setting is involved.** It is a link; Gmail recognises the
+  account from the browser's own Google sign-in, and the administrator sends the email themselves.
+
+**This acceptance covers the welcome email and nothing else.**
+
 ## Cloudflare Turnstile on the public referral form
 
 **The charity has accepted this**, on 23 August 2026. Turnstile runs Cloudflare's bot-check script in

@@ -147,6 +147,8 @@ Alerts sit in their own non-scrolling column on the right, about one fifth of th
 #Valid referrers
 A table of valid referrers is maintained. These are either full email addresses or any email address for a given domain (*@organisation.com). Only administrators can maintain these
 
+When an administrator adds one exact email address to the table — from Master Data's approved referrers, or with "Approve and authorise referrer" on a referral waiting for its referrer to be approved — a new tab opens and takes focus, with a Gmail email already written to that referrer in the administrator's own Google account. The administrator reads it, changes whatever they like, and sends it themselves; nothing is sent automatically. Adding a domain never does this, and neither does approving a referral without authorising its referrer. The email's default subject and text are kept in one easily edited file, and can use the referrer's name, their organisation and the administrator's name wherever the charity wants them; a detail that is not known is replaced by a fallback phrase from the same file rather than left as a gap. If the browser refuses to open the new tab, the screen says so and offers the same email as a link.
+
 #Referrals
 
 Check referrals, Search referrals and Send to Sheets use the shared circular-icon page heading: a checked clipboard for checking referrals, a magnifying glass for search, and a spreadsheet for the export. Each puts its concise explanation beside the title rather than in a separate introductory panel.

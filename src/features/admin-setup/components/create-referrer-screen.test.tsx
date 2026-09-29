@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { server } from '../../../../test/msw/server';
 import { renderApp } from '../../../../test/render-app';
 import type { AuthorisedReferrer } from '../queries';
@@ -18,7 +18,12 @@ const EXISTING: AuthorisedReferrer = {
   notes: null,
 };
 
+/** Stubbed in `test/setup.ts` as a tab that opened; the blocked case sets `null` itself. */
+let openTab: MockInstance<typeof window.open>;
+
 beforeEach(() => {
+  // The spy `test/setup.ts` installed; spying again returns it, implementation intact.
+  openTab = vi.spyOn(window, 'open');
   server.use(
     http.post(REFRESH, () =>
       HttpResponse.json({
@@ -140,5 +145,78 @@ describe('authorising a referrer', () => {
     await user.click(screen.getByRole('button', { name: 'Authorise referrer' }));
 
     expect(await screen.findByText('Enter a valid email address.')).toBeInTheDocument();
+  });
+});
+
+describe('welcoming a newly authorised referrer', () => {
+  async function authoriseEmail() {
+    server.use(
+      http.get(REFERRERS, () => HttpResponse.json({ authorisedReferrers: [] })),
+      http.post(REFERRERS, () =>
+        HttpResponse.json({ id: 'r9', matchValue: 'anna@example.org' }, { status: 201 }),
+      ),
+    );
+
+    renderApp('/referrers/new');
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('Email address'), 'anna@example.org');
+    await user.type(screen.getByLabelText('Organisation'), 'Example Org');
+    await user.click(screen.getByRole('button', { name: 'Authorise referrer' }));
+  }
+
+  it('opens a Gmail email to an exact address in the administrator’s own account, then returns to the list', async () => {
+    await authoriseEmail();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Authorised referrers' }),
+    ).toBeInTheDocument();
+    expect(openTab).toHaveBeenCalledTimes(1);
+    const params = new URL(String(openTab.mock.calls[0]?.[0])).searchParams;
+    expect(params.get('authuser')).toBe('pete@x.com');
+    expect(params.get('to')).toBe('anna@example.org');
+    expect(params.get('body')).toContain('Example Org');
+    expect(params.get('body')).toContain('Pete Bennett');
+  });
+
+  it('never opens an email for a domain, which names nobody to write to', async () => {
+    server.use(
+      http.get(REFERRERS, () => HttpResponse.json({ authorisedReferrers: [] })),
+      http.post(REFERRERS, () =>
+        HttpResponse.json({ id: 'r9', matchValue: 'example.org' }, { status: 201 }),
+      ),
+    );
+
+    renderApp('/referrers/new');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('radio', { name: 'Any address at a domain' }));
+    await user.type(screen.getByLabelText('Domain'), 'example.org');
+    await user.type(screen.getByLabelText('Organisation'), 'Example Org');
+    await user.click(screen.getByRole('button', { name: 'Authorise referrer' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Authorised referrers' }),
+    ).toBeInTheDocument();
+    expect(openTab).not.toHaveBeenCalled();
+  });
+
+  it('stays on the screen with the email as a link when the browser blocks the new tab', async () => {
+    openTab.mockReturnValue(null);
+
+    await authoriseEmail();
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'The referrer is authorised. Your browser did not open the welcome email.',
+    );
+    expect(screen.getByRole('status')).toHaveFocus();
+    const link = screen.getByRole('link', {
+      name: 'Open the welcome email in Gmail (opens in a new tab)',
+    });
+    expect(new URL(link.getAttribute('href') ?? '').searchParams.get('to')).toBe(
+      'anna@example.org',
+    );
+    expect(screen.getByRole('link', { name: 'Back to authorised referrers' })).toHaveAttribute(
+      'href',
+      '/referrers',
+    );
   });
 });

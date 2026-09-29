@@ -39,6 +39,9 @@ into.
   referrals. Recorded in
   [`docs/engineering/personal-data.md`](../../docs/engineering/personal-data.md). That acceptance
   covers `/extracts` and nothing else; anything new that sends data off-origin needs its own.
+- **The referrer welcome email is the one sanctioned personal data in a URL** — a Gmail compose link
+  to Google carrying the referrer's address, name and organisation, accepted on 2026-09-29 in the
+  same document. Referrer details only: never a household's, never a reason for referral.
 - **No third-party analytics, error reporting or session replay without asking first.** A stack trace
   or a replay from the referral form ships somebody's name, address and reason for referral to a
   company the charity has no agreement with. If error reporting is ever added it must scrub request

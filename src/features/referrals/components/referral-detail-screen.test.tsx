@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { server } from '../../../../test/msw/server';
 import { renderApp } from '../../../../test/render-app';
 import { addCalendarDays, londonToday } from '../../../lib/london-time';
@@ -121,6 +121,22 @@ const REASON: AdminReferralReason = {
   displayOrder: 0,
   isActive: true,
 };
+
+/** Stubbed in `test/setup.ts` as a tab that opened; the blocked case sets `null` itself. */
+let openTab: MockInstance<typeof window.open>;
+
+beforeEach(() => {
+  // The spy `test/setup.ts` installed; spying again returns it, implementation intact.
+  openTab = vi.spyOn(window, 'open');
+});
+
+/** The one compose URL a test opened, as its query parameters. */
+function openedComposeParams(): URLSearchParams {
+  expect(openTab).toHaveBeenCalledTimes(1);
+  const [url] = openTab.mock.calls[0] ?? [];
+  expect(typeof url).toBe('string');
+  return new URL(String(url)).searchParams;
+}
 
 beforeEach(() => {
   server.use(
@@ -1887,5 +1903,104 @@ describe('copying a referral', () => {
     await waitFor(() => {
       expect(posts).toBe(1);
     });
+  });
+});
+
+describe('welcoming a newly authorised referrer', () => {
+  async function approveAndAuthorise(organisation?: string) {
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Approve and authorise referrer' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Authorise this referrer' }));
+    if (organisation !== undefined) {
+      await user.clear(dialog.getByLabelText('Organisation'));
+      await user.type(dialog.getByLabelText('Organisation'), organisation);
+    }
+    await user.click(dialog.getByRole('button', { name: 'Approve and authorise referrer' }));
+  }
+
+  it('opens a Gmail email to the referrer in the administrator’s own account once authorised', async () => {
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
+      http.post(REFERRAL_ACCEPT, () => HttpResponse.json(referral({ id: 'r1', status: 'active' }))),
+    );
+
+    await approveAndAuthorise('Riverside Community Church');
+
+    expect(
+      await screen.findByText(/Referral approved and referrer authorised\./),
+    ).toBeInTheDocument();
+    const params = openedComposeParams();
+    expect(params.get('authuser')).toBe('pete@x.com');
+    expect(params.get('to')).toBe('referrer@riverside.org');
+    // The organisation as confirmed in the dialog, not as the referral gave it.
+    expect(params.get('body')).toContain('Riverside Community Church');
+    expect(params.get('body')).toContain('Sam Referrer');
+    expect(params.get('body')).toContain('Pete Bennett');
+    expect(
+      screen.queryByRole('link', { name: 'Open the welcome email in Gmail (opens in a new tab)' }),
+    ).toBeNull();
+  });
+
+  it('never opens an email for a plain approval, which adds nobody to the list', async () => {
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
+      http.post(REFERRAL_ACCEPT, () => HttpResponse.json(referral({ id: 'r1', status: 'active' }))),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Approve this referral' }));
+
+    expect(await screen.findByText('Referral approved.')).toBeInTheDocument();
+    expect(openTab).not.toHaveBeenCalled();
+  });
+
+  it('never opens an email when the server refuses to authorise the referrer', async () => {
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
+      http.post(REFERRAL_ACCEPT, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'CONFLICT',
+              message: 'That referrer is already on the authorised list.',
+              requestId: 'r1',
+            },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    await approveAndAuthorise();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'That referrer is already on the authorised list.',
+    );
+    expect(openTab).not.toHaveBeenCalled();
+  });
+
+  it('offers the email as a link when the browser blocks the new tab', async () => {
+    openTab.mockReturnValue(null);
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
+      http.post(REFERRAL_ACCEPT, () => HttpResponse.json(referral({ id: 'r1', status: 'active' }))),
+    );
+
+    await approveAndAuthorise();
+
+    const link = await screen.findByRole('link', {
+      name: 'Open the welcome email in Gmail (opens in a new tab)',
+    });
+    const params = new URL(link.getAttribute('href') ?? '').searchParams;
+    expect(params.get('to')).toBe('referrer@riverside.org');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Referral approved and referrer authorised.',
+    );
   });
 });

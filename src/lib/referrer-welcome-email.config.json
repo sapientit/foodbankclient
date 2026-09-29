@@ -1,0 +1,18 @@
+{
+  "subject": "You are now an approved referrer",
+  "body": [
+    "Hello {referrerName},",
+    "",
+    "You have been added to our list of approved referrers for {organisationName}. Referrals you make from this email address will no longer wait for us to recognise you before they are accepted.",
+    "",
+    "Thank you for supporting households in your area.",
+    "",
+    "Best wishes,",
+    "{adminName}"
+  ],
+  "blanks": {
+    "referrerName": "there",
+    "organisationName": "your organisation",
+    "adminName": "The food bank team"
+  }
+}

@@ -1,11 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useForm, useWatch, type UseFormSetError } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
 import * as z from 'zod';
+import { useAuth } from '../../../auth/auth-context';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { ApiError, issuesToFieldErrors } from '../../../lib/errors';
+import { openWelcomeEmail, welcomeEmailComposeUrl } from '../../../lib/referrer-welcome-email';
 import {
   MAX_ORGANISATION_NAME_LENGTH,
   displayMatchValue,
@@ -55,6 +57,14 @@ export function CreateReferrerScreen() {
   const navigate = useNavigate();
   const referrers = useAuthorisedReferrers();
   const authorise = useAuthoriseReferrer();
+  const { state: authState } = useAuth();
+  const [blockedEmailUrl, setBlockedEmailUrl] = useState<string | null>(null);
+  // The form and its submit button leave the page together, so focus would
+  // otherwise fall to <body> with nothing said.
+  const blockedNotice = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (blockedEmailUrl !== null) blockedNotice.current?.focus();
+  }, [blockedEmailUrl]);
 
   const matchTypeId = useId();
   const matchValueId = useId();
@@ -97,6 +107,25 @@ export function CreateReferrerScreen() {
         organisationName: values.organisationName,
         notes: values.notes === '' ? null : values.notes,
       });
+      // A domain rule names no one to write to; only an exact address is welcomed.
+      if (values.matchType === 'email' && authState.status === 'signed-in') {
+        const emailUrl = welcomeEmailComposeUrl({
+          adminEmail: authState.user.email,
+          referrerEmail: normalisedValue,
+          values: {
+            // An authorised-referrer row has no person's name; the template's
+            // blank stands in.
+            referrerName: null,
+            organisationName: values.organisationName,
+            adminName: authState.user.displayName,
+          },
+        });
+        if (!openWelcomeEmail(emailUrl)) {
+          // Stay here, where the link is, rather than lose it to the list.
+          setBlockedEmailUrl(emailUrl);
+          return;
+        }
+      }
       await navigate('/referrers');
     } catch (error) {
       applyFieldErrors(error, setError);
@@ -106,6 +135,27 @@ export function CreateReferrerScreen() {
   const matchValueError = errors.matchValue?.message;
   const organisationError = errors.organisationName?.message;
   const refused = duplicate !== undefined;
+
+  if (blockedEmailUrl !== null) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Referrer authorised" />
+        </div>
+        <p className={styles.notice} ref={blockedNotice} role="status" tabIndex={-1}>
+          The referrer is authorised. Your browser did not open the welcome email.
+        </p>
+        <div className={styles.formActions}>
+          <a className="button-link" href={blockedEmailUrl} rel="noreferrer" target="_blank">
+            Open the welcome email in Gmail (opens in a new tab)
+          </a>
+          <Link className="button-link button-secondary" to="/referrers">
+            Back to authorised referrers
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
@@ -147,7 +197,7 @@ export function CreateReferrerScreen() {
           <p className={styles.help} id={`${matchValueId}-help`}>
             {matchType === 'domain'
               ? 'For example guildford.gov.uk, @guildford.gov.uk or *@guildford.gov.uk — they are all the same to the server, and stored as guildford.gov.uk.'
-              : 'The exact address that may refer. An exact address always overrides a domain entry, in both directions.'}
+              : 'The exact address that may refer. An exact address always overrides a domain entry, in both directions. Authorising it opens a new tab with a welcome email to that address, ready for you to check and send.'}
           </p>
           <input
             {...register('matchValue')}
