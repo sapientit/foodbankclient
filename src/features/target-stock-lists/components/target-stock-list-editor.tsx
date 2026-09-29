@@ -3,6 +3,8 @@ import { Link } from 'react-router';
 import { parseWholeNumber } from '../../../lib/whole-number';
 import {
   TARGET_QUANTITY_BOUNDS,
+  nearestPackTarget,
+  packTargetToItems,
   type AttentionRow,
   type CrateTargetDraft,
   type EditorRow,
@@ -38,6 +40,7 @@ export function TargetStockListEditor({
   onRemoveAttention,
   onAllResolved,
   focusRow,
+  crateTargetedItemIds = new Set<string>(),
 }: {
   rows: readonly EditorRow[];
   onRowsChange: (rows: readonly EditorRow[]) => void;
@@ -47,15 +50,18 @@ export function TargetStockListEditor({
   onAllResolved?: () => void;
   /** `{ stockItemId }` with a fresh `nonce` moves focus to that item's box; `null` does nothing. */
   focusRow?: { readonly stockItemId: string; readonly nonce: number } | null;
+  /** Members of a non-zero crate target cannot also be targeted individually. */
+  crateTargetedItemIds?: ReadonlySet<string>;
 }) {
   const attentionHeadingId = useId();
   const errorIdBase = useId();
   const inputRefs = useRef(new Map<string, HTMLInputElement | null>());
   const removeRefs = useRef(new Map<string, HTMLButtonElement | null>());
   const focusAfterRemove = useRef<string | null>(null);
+  const focusAfterUnitChange = useRef<string | null>(null);
 
-  const setTarget = (stockItemId: string, target: string) => {
-    onRowsChange(rows.map((row) => (row.stockItemId === stockItemId ? { ...row, target } : row)));
+  const replaceRow = (next: EditorRow) => {
+    onRowsChange(rows.map((row) => (row.stockItemId === next.stockItemId ? next : row)));
   };
 
   useEffect(() => {
@@ -70,6 +76,15 @@ export function TargetStockListEditor({
     if (wanted === '') onAllResolved?.();
     else removeRefs.current.get(wanted)?.focus();
   }, [attention, onAllResolved]);
+
+  // Activating the other quantity replaces the clicked button with a new input.
+  // Move focus to that input so keyboard users can continue entering the target.
+  useEffect(() => {
+    const stockItemId = focusAfterUnitChange.current;
+    if (stockItemId === null) return;
+    focusAfterUnitChange.current = null;
+    inputRefs.current.get(stockItemId)?.focus();
+  }, [rows]);
 
   const removeAttention = (stockItemId: string) => {
     const remaining = attention.filter((row) => row.stockItemId !== stockItemId);
@@ -130,11 +145,20 @@ export function TargetStockListEditor({
         <tbody>
           {rows.map((row, index) => {
             const newCategory = index === 0 || rows[index - 1]?.category !== row.category;
-            const trimmed = row.target.trim();
+            const activeText = row.activeTargetUnit === 'pack' ? row.packTarget : row.target;
             const parsed =
-              trimmed === '' ? null : parseWholeNumber(row.target, TARGET_QUANTITY_BOUNDS);
+              activeText.trim() === ''
+                ? null
+                : parseWholeNumber(activeText, { ...TARGET_QUANTITY_BOUNDS, minimum: 0 });
             const problem = parsed !== null && !parsed.ok ? parsed.problem : null;
             const errorId = `${errorIdBase}-${row.stockItemId}`;
+            const hasPackingUnit = row.unitsPerPack !== null;
+            const crateTargeted = crateTargetedItemIds.has(row.stockItemId);
+            const configuredPackLabel = row.packUnitLabel?.trim();
+            const packLabel =
+              configuredPackLabel === undefined || configuredPackLabel === ''
+                ? 'packs'
+                : configuredPackLabel;
 
             return (
               <Fragment key={row.stockItemId}>
@@ -156,22 +180,108 @@ export function TargetStockListEditor({
                     )}
                   </th>
                   <td className={styles.numeric}>
-                    <input
-                      aria-describedby={problem !== null ? errorId : undefined}
-                      aria-invalid={problem !== null ? true : undefined}
-                      aria-label={`Target quantity for ${row.name}`}
-                      autoComplete="off"
-                      className={styles.quantity}
-                      inputMode="numeric"
-                      onChange={(event) => {
-                        setTarget(row.stockItemId, event.target.value);
-                      }}
-                      ref={(el) => {
-                        inputRefs.current.set(row.stockItemId, el);
-                      }}
-                      type="text"
-                      value={row.target}
-                    />
+                    {hasPackingUnit ? (
+                      <span className={styles.compactTarget}>
+                        {row.activeTargetUnit === 'item' ? (
+                          <input
+                            aria-describedby={problem !== null ? errorId : undefined}
+                            aria-invalid={problem !== null ? true : undefined}
+                            aria-label={`Target items for ${row.name}`}
+                            autoComplete="off"
+                            className={styles.quantity}
+                            disabled={crateTargeted}
+                            inputMode="numeric"
+                            onChange={(event) => {
+                              replaceRow({ ...row, target: event.target.value });
+                            }}
+                            ref={(el) => {
+                              inputRefs.current.set(row.stockItemId, el);
+                            }}
+                            type="text"
+                            value={row.target}
+                          />
+                        ) : (
+                          <button
+                            aria-label={`Change ${row.name} to item target entry`}
+                            className={styles.inactiveQuantity}
+                            disabled={crateTargeted}
+                            onClick={() => {
+                              focusAfterUnitChange.current = row.stockItemId;
+                              replaceRow({ ...row, activeTargetUnit: 'item' });
+                            }}
+                            type="button"
+                          >
+                            {row.target}
+                          </button>
+                        )}
+                        <span>items</span>
+                        <span aria-hidden="true">–</span>
+                        {row.activeTargetUnit === 'pack' ? (
+                          <input
+                            aria-describedby={problem !== null ? errorId : undefined}
+                            aria-invalid={problem !== null ? true : undefined}
+                            aria-label={`Target ${packLabel} for ${row.name}`}
+                            autoComplete="off"
+                            className={styles.quantity}
+                            disabled={crateTargeted}
+                            inputMode="numeric"
+                            onChange={(event) => {
+                              replaceRow({
+                                ...row,
+                                packTarget: event.target.value,
+                                target: packTargetToItems(event.target.value, row.unitsPerPack),
+                              });
+                            }}
+                            ref={(el) => {
+                              inputRefs.current.set(row.stockItemId, el);
+                            }}
+                            type="text"
+                            value={row.packTarget}
+                          />
+                        ) : (
+                          <button
+                            aria-label={`Change ${row.name} to ${packLabel} target entry`}
+                            className={styles.inactiveQuantity}
+                            disabled={crateTargeted}
+                            onClick={() => {
+                              const packTarget = nearestPackTarget(row.target, row.unitsPerPack);
+                              focusAfterUnitChange.current = row.stockItemId;
+                              replaceRow({
+                                ...row,
+                                activeTargetUnit: 'pack',
+                                packTarget,
+                                target: packTargetToItems(packTarget, row.unitsPerPack),
+                              });
+                            }}
+                            type="button"
+                          >
+                            {nearestPackTarget(row.target, row.unitsPerPack)}
+                          </button>
+                        )}
+                        <span>{packLabel}</span>
+                      </span>
+                    ) : (
+                      <input
+                        aria-describedby={problem !== null ? errorId : undefined}
+                        aria-invalid={problem !== null ? true : undefined}
+                        aria-label={`Target quantity for ${row.name}`}
+                        autoComplete="off"
+                        className={styles.quantity}
+                        disabled={crateTargeted}
+                        inputMode="numeric"
+                        onChange={(event) => {
+                          replaceRow({ ...row, target: event.target.value });
+                        }}
+                        ref={(el) => {
+                          inputRefs.current.set(row.stockItemId, el);
+                        }}
+                        type="text"
+                        value={row.target}
+                      />
+                    )}
+                    {crateTargeted && (
+                      <span className={styles.fieldHelp}>Set by a crate target.</span>
+                    )}
                     {problem !== null && (
                       <span className={styles.fieldError} id={errorId}>
                         {QUANTITY_MESSAGES[problem] ?? 'Check this number.'}
@@ -194,11 +304,13 @@ export function CrateTargetEditor({
   onRowsChange,
   focusCrate,
   errorCrateId,
+  individuallyTargetedItemIds = new Set<string>(),
 }: {
   readonly rows: readonly CrateTargetDraft[];
   readonly onRowsChange: (rows: readonly CrateTargetDraft[]) => void;
   readonly focusCrate?: { readonly crateId: string; readonly nonce: number } | null;
   readonly errorCrateId?: string | null;
+  readonly individuallyTargetedItemIds?: ReadonlySet<string>;
 }) {
   const inputRefs = useRef(new Map<string, HTMLInputElement | null>());
   useEffect(() => {
@@ -219,6 +331,9 @@ export function CrateTargetEditor({
         {rows.map((row) => {
           const inputId = `crate-target-${row.crateId}`;
           const invalid = errorCrateId === row.crateId;
+          const itemTargeted = row.memberStockItemIds.some((id) =>
+            individuallyTargetedItemIds.has(id),
+          );
           return (
             <tr key={row.crateId}>
               <th scope="row">{row.crateName}</th>
@@ -229,6 +344,7 @@ export function CrateTargetEditor({
                   aria-invalid={invalid || undefined}
                   autoComplete="off"
                   className={styles.quantity}
+                  disabled={itemTargeted}
                   id={inputId}
                   inputMode="decimal"
                   onChange={(event) => {
@@ -248,8 +364,11 @@ export function CrateTargetEditor({
                 />
                 {invalid && (
                   <span className={styles.fieldError} id={`${inputId}-error`}>
-                    Use a positive number with at most one decimal place.
+                    Use a number from 0 to 99,999.9.
                   </span>
+                )}
+                {itemTargeted && (
+                  <span className={styles.fieldHelp}>Set member item targets to 0 first.</span>
                 )}
               </td>
             </tr>

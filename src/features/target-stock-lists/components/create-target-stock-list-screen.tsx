@@ -13,7 +13,9 @@ import {
   MAX_TARGET_STOCK_LIST_NAME_LENGTH,
   buildEditorModel,
   buildTargetPayload,
+  crateMemberIdsWithTargets,
   findTargetStockListByName,
+  itemIdsWithTargets,
   type CrateTargetDraft,
   type EditorRow,
 } from '../target-stock-lists.logic';
@@ -76,22 +78,27 @@ export function CreateTargetStockListScreen() {
 
   const initialRows = useMemo(() => {
     if (stockItems.data === undefined || crates.data === undefined) return null;
-    const memberIds = new Set(
-      crates.data.flatMap((crate) => crate.members.map((member) => member.stockItemId)),
-    );
-    return buildEditorModel(
-      stockItems.data.filter((item) => !memberIds.has(item.id)),
-      [],
-    ).rows;
+    return buildEditorModel(stockItems.data, []).rows;
   }, [crates.data, stockItems.data]);
   const currentRows = rows ?? initialRows;
   const initialCrateRows = useMemo(
     () =>
-      crates.data?.map((crate) => ({ crateId: crate.id, crateName: crate.name, target: '' })) ??
-      null,
+      crates.data?.map((crate) => ({
+        crateId: crate.id,
+        crateName: crate.name,
+        memberStockItemIds: crate.members.map((member) => member.stockItemId),
+        target: '',
+      })) ?? null,
     [crates.data],
   );
   const currentCrateRows = crateRows ?? initialCrateRows;
+  const crateTargetedItemIds =
+    currentCrateRows === null ? new Set<string>() : crateMemberIdsWithTargets(currentCrateRows);
+  const individuallyTargetedItemIds = new Set(
+    currentRows === null
+      ? []
+      : [...itemIdsWithTargets(currentRows)].filter((id) => !crateTargetedItemIds.has(id)),
+  );
 
   useEffect(() => {
     if (focusLinesError > 0) linesErrorRef.current?.focus();
@@ -207,6 +214,7 @@ export function CreateTargetStockListScreen() {
               onRemoveAttention={() => undefined}
               onRowsChange={setRows}
               rows={currentRows}
+              crateTargetedItemIds={crateTargetedItemIds}
             />
           )}
         </div>
@@ -228,6 +236,7 @@ export function CreateTargetStockListScreen() {
               focusCrate={focusCrate}
               onRowsChange={setCrateRows}
               rows={currentCrateRows}
+              individuallyTargetedItemIds={individuallyTargetedItemIds}
             />
           )}
         </div>

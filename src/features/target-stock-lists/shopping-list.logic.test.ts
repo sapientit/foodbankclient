@@ -92,6 +92,27 @@ describe('computeShoppingList', () => {
 });
 
 describe('computeShoppingListWithCrates', () => {
+  it('shops an individual target for a crate member when that crate has no target', () => {
+    const result = computeShoppingListWithCrates(
+      [{ kind: 'item', stockItemId: 'jam', name: 'Jam', targetQuantity: 12 }],
+      [],
+      [
+        {
+          id: 'c1',
+          name: 'Spread',
+          sizePerCrate: 10,
+          members: [{ stockItemId: 'jam', shoppingCompositionPercent: 100 }],
+        },
+      ],
+      [level('jam', 'Jam', 'Spreads', 5)],
+    );
+
+    expect(result.groups[0]?.items).toEqual([
+      expect.objectContaining({ name: 'Jam', targetQuantity: 12, need: 7 }),
+    ]);
+    expect(result.attention).toEqual([]);
+  });
+
   it('decomposes a fractional crate target and combines it with ordinary shopping rows', () => {
     const result = computeShoppingListWithCrates(
       [],

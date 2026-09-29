@@ -3,8 +3,11 @@ import {
   buildEditorModel,
   buildCrateTargetLines,
   buildListPayload,
+  buildTargetPayload,
   findTargetStockListByName,
   hasUnresolvedLines,
+  nearestPackTarget,
+  packTargetToItems,
   reconcileLines,
   sortTargetStockLists,
   type EditorCatalogueItem,
@@ -31,7 +34,11 @@ describe('sortTargetStockLists', () => {
 
 describe('crate target payloads', () => {
   it('keeps the crate id and name snapshot with a one-decimal target', () => {
-    expect(buildCrateTargetLines([{ crateId: 'c1', crateName: 'Spread', target: '2.5' }])).toEqual({
+    expect(
+      buildCrateTargetLines([
+        { crateId: 'c1', crateName: 'Spread', memberStockItemIds: [], target: '2.5' },
+      ]),
+    ).toEqual({
       ok: true,
       lines: [{ kind: 'crate', crateId: 'c1', crateName: 'Spread', targetQuantity: 2.5 }],
     });
@@ -39,7 +46,9 @@ describe('crate target payloads', () => {
 
   it('rejects more than one decimal place', () => {
     expect(
-      buildCrateTargetLines([{ crateId: 'c1', crateName: 'Spread', target: '2.55' }]),
+      buildCrateTargetLines([
+        { crateId: 'c1', crateName: 'Spread', memberStockItemIds: [], target: '2.55' },
+      ]),
     ).toMatchObject({ ok: false });
   });
 });
@@ -186,12 +195,12 @@ describe('buildListPayload', () => {
     });
   });
 
-  it('rejects 0 with advice to clear the box instead', () => {
+  it('treats 0 as removing the item from the list', () => {
     const result = buildListPayload([{ stockItemId: 's1', name: 'Baked beans', target: '0' }]);
     expect(result).toEqual({
       ok: false,
-      message: 'Enter 1 or more for Baked beans, or clear the box to leave it off the list.',
-      focusStockItemId: 's1',
+      message: 'Set a target quantity for at least one item.',
+      focusStockItemId: null,
     });
   });
 
@@ -201,6 +210,70 @@ describe('buildListPayload', () => {
       ok: false,
       message: 'Set a target quantity for at least one item.',
       focusStockItemId: null,
+    });
+  });
+});
+
+describe('compact packing targets', () => {
+  it('rounds an inactive pack view to the nearest non-zero pack', () => {
+    expect(nearestPackTarget('47', 24)).toBe('2');
+    expect(nearestPackTarget('1', 24)).toBe('1');
+    expect(nearestPackTarget('0', 24)).toBe('0');
+  });
+
+  it('turns an active pack count into the stored individual quantity', () => {
+    expect(packTargetToItems('2', 24)).toBe('48');
+  });
+
+  it('omits a zero pack target rather than storing it', () => {
+    expect(
+      buildListPayload([
+        {
+          stockItemId: 's1',
+          name: 'Baby formula',
+          activeTargetUnit: 'pack',
+          packTarget: '0',
+          target: '0',
+          unitsPerPack: 24,
+        },
+      ]),
+    ).toMatchObject({ ok: false, focusStockItemId: null });
+  });
+});
+
+describe('crate and individual targets', () => {
+  it('refuses a crate target beside a target for one of its members', () => {
+    expect(
+      buildTargetPayload(
+        [{ stockItemId: 's1', name: 'Beans', target: '24' }],
+        [
+          {
+            crateId: 'c1',
+            crateName: 'Mixed crate',
+            memberStockItemIds: ['s1'],
+            target: '1',
+          },
+        ],
+      ),
+    ).toMatchObject({ ok: false, focusCrateId: 'c1' });
+  });
+
+  it('allows a crate member to have an individual target once the crate is zero', () => {
+    expect(
+      buildTargetPayload(
+        [{ stockItemId: 's1', name: 'Beans', target: '24' }],
+        [
+          {
+            crateId: 'c1',
+            crateName: 'Mixed crate',
+            memberStockItemIds: ['s1'],
+            target: '0',
+          },
+        ],
+      ),
+    ).toEqual({
+      ok: true,
+      lines: [{ kind: 'item', stockItemId: 's1', name: 'Beans', targetQuantity: 24 }],
     });
   });
 });

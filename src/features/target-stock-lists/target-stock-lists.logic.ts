@@ -41,6 +41,8 @@ export interface StoredCrateTargetLine {
 export interface CrateTargetDraft {
   readonly crateId: string;
   readonly crateName: string;
+  /** Current crate members, used only to keep a list's crate and item targets exclusive. */
+  readonly memberStockItemIds: readonly string[];
   readonly target: string;
 }
 
@@ -173,6 +175,8 @@ export interface EditorCatalogueItem {
   readonly name: string;
   readonly category: string;
   readonly isActive: boolean;
+  readonly unitsPerPack?: number | null;
+  readonly packUnitLabel?: string | null;
 }
 
 export interface EditorRow {
@@ -182,6 +186,12 @@ export interface EditorRow {
   readonly category: string;
   /** The current target as text: `''` when this item is not on the list. */
   readonly target: string;
+  /** The current, transient editing unit; the saved target always remains individual items. */
+  readonly activeTargetUnit: 'item' | 'pack';
+  readonly unitsPerPack: number | null;
+  readonly packUnitLabel: string | null;
+  /** Text currently typed in the pack field. It is a derived editor detail, not saved. */
+  readonly packTarget: string;
   /** The stored snapshot name when it differs from the live one — a renamed line. */
   readonly renamedFrom: string | null;
 }
@@ -227,6 +237,10 @@ export function buildEditorModel(
         name: item.name,
         category: item.category,
         target: line === undefined ? '' : String(line.targetQuantity),
+        activeTargetUnit: 'item',
+        unitsPerPack: item.unitsPerPack ?? null,
+        packUnitLabel: item.packUnitLabel ?? null,
+        packTarget: '',
         renamedFrom: line?.discrepancy === 'renamed' ? line.storedName : null,
       };
     });
@@ -261,6 +275,9 @@ export interface DraftRow {
   /** The live name — this is what gets snapshotted onto the saved line. */
   readonly name: string;
   readonly target: string;
+  readonly activeTargetUnit?: 'item' | 'pack';
+  readonly unitsPerPack?: number | null;
+  readonly packTarget?: string;
 }
 
 export type ListPayloadResult =
@@ -283,9 +300,13 @@ export function buildListPayload(rows: readonly DraftRow[]): ListPayloadResult {
   const lines: StoredTargetLine[] = [];
 
   for (const row of rows) {
-    if (row.target.trim() === '') continue;
+    const enteredTarget =
+      row.activeTargetUnit === 'pack'
+        ? packTargetToItems(row.packTarget ?? '', row.unitsPerPack)
+        : row.target;
+    if (enteredTarget.trim() === '') continue;
 
-    const parsed = parseWholeNumber(row.target, TARGET_QUANTITY_BOUNDS);
+    const parsed = parseWholeNumber(enteredTarget, { ...TARGET_QUANTITY_BOUNDS, minimum: 0 });
     if (!parsed.ok) {
       const message =
         parsed.problem === 'below-minimum'
@@ -293,6 +314,10 @@ export function buildListPayload(rows: readonly DraftRow[]): ListPayloadResult {
           : `Check the target quantity for ${row.name}.`;
       return { ok: false, message, focusStockItemId: row.stockItemId };
     }
+
+    // A zero is the compact editor's explicit "take this off the list" value.
+    // It is deliberately omitted rather than sent: the API stores positive targets only.
+    if (parsed.value === 0) continue;
 
     lines.push({
       kind: 'item',
@@ -313,7 +338,50 @@ export function buildListPayload(rows: readonly DraftRow[]): ListPayloadResult {
   return { ok: true, lines };
 }
 
-/** Build crate snapshot lines, accepting positive values with no more than one decimal place. */
+/** The compact pack field always converts to whole individual items before a list is saved. */
+export function packTargetToItems(
+  packTarget: string,
+  unitsPerPack: number | null | undefined,
+): string {
+  if (packTarget.trim() === '') return '';
+  if (unitsPerPack === null || unitsPerPack === undefined) return packTarget;
+  const parsed = parseWholeNumber(packTarget, { minimum: 0, maximum: 99_999 });
+  return parsed.ok ? String(parsed.value * unitsPerPack) : packTarget;
+}
+
+/** The inactive pack field is a nearest non-zero whole-pack view of an item target. */
+export function nearestPackTarget(itemTarget: string, unitsPerPack: number | null): string {
+  if (itemTarget.trim() === '' || unitsPerPack === null) return '';
+  const parsed = parseWholeNumber(itemTarget, { minimum: 0, maximum: 99_999 });
+  if (!parsed.ok) return '';
+  if (parsed.value === 0) return '0';
+  return String(Math.max(1, Math.round(parsed.value / unitsPerPack)));
+}
+
+/** Item ids whose current editor value is a positive individual target. */
+export function itemIdsWithTargets(
+  rows: readonly Pick<DraftRow, 'stockItemId' | 'target'>[],
+): Set<string> {
+  return new Set(
+    rows
+      .filter((row) => {
+        const parsed = parseWholeNumber(row.target, { minimum: 0, maximum: 99_999 });
+        return parsed.ok && parsed.value > 0;
+      })
+      .map((row) => row.stockItemId),
+  );
+}
+
+/** Current members whose crate row has a positive target. */
+export function crateMemberIdsWithTargets(rows: readonly CrateTargetDraft[]): Set<string> {
+  return new Set(
+    rows
+      .filter((row) => /^\d+(?:\.\d)?$/.test(row.target.trim()) && Number(row.target) > 0)
+      .flatMap((row) => row.memberStockItemIds),
+  );
+}
+
+/** Build crate snapshot lines; a zero removes that crate target. */
 export function buildCrateTargetLines(
   rows: readonly CrateTargetDraft[],
 ):
@@ -326,16 +394,17 @@ export function buildCrateTargetLines(
     if (!/^\d+(?:\.\d)?$/.test(value))
       return {
         ok: false,
-        message: `Enter a positive number with at most one decimal place for ${row.crateName}.`,
+        message: `Enter a number from 0 to 99,999.9 for ${row.crateName}.`,
         focusCrateId: row.crateId,
       };
     const targetQuantity = Number(value);
-    if (!Number.isFinite(targetQuantity) || targetQuantity < 0.1 || targetQuantity > 99_999.9)
+    if (!Number.isFinite(targetQuantity) || targetQuantity < 0 || targetQuantity > 99_999.9)
       return {
         ok: false,
         message: `Enter a positive number with at most one decimal place for ${row.crateName}.`,
         focusCrateId: row.crateId,
       };
+    if (targetQuantity === 0) continue;
     lines.push({ kind: 'crate', crateId: row.crateId, crateName: row.crateName, targetQuantity });
   }
   return { ok: true, lines };
@@ -368,6 +437,19 @@ export function buildTargetPayload(
       focusCrateId: crates.focusCrateId,
     };
   const lines = [...items.lines, ...crates.lines];
+  const itemIds = new Set(items.lines.map((line) => line.stockItemId));
+  const conflictingCrate = crateRows.find(
+    (crate) =>
+      crates.lines.some((line) => line.crateId === crate.crateId) &&
+      crate.memberStockItemIds.some((stockItemId) => itemIds.has(stockItemId)),
+  );
+  if (conflictingCrate !== undefined)
+    return {
+      ok: false,
+      message: `Set the target for ${conflictingCrate.crateName} to 0 before adding targets for its items.`,
+      focusStockItemId: null,
+      focusCrateId: conflictingCrate.crateId,
+    };
   if (lines.length === 0)
     return {
       ok: false,

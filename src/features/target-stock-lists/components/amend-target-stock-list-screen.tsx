@@ -14,10 +14,12 @@ import {
   MAX_TARGET_STOCK_LIST_NAME_LENGTH,
   buildEditorModel,
   buildTargetPayload,
+  crateMemberIdsWithTargets,
   isCrateTargetLine,
   isItemTargetLine,
   findTargetStockListByName,
   hasUnresolvedLines,
+  itemIdsWithTargets,
   type AttentionRow,
   type CrateTargetDraft,
   type EditorRow,
@@ -131,13 +133,7 @@ function AmendForm({
   const amend = useAmendTargetStockList();
 
   const [model] = useState(() => {
-    const memberIds = new Set(
-      crates.flatMap((crate) => crate.members.map((member) => member.stockItemId)),
-    );
-    return buildEditorModel(
-      stockItems.filter((item) => !memberIds.has(item.id)),
-      list.lines.filter(isItemTargetLine),
-    );
+    return buildEditorModel(stockItems, list.lines.filter(isItemTargetLine));
   });
   const [rows, setRows] = useState<readonly EditorRow[]>(model.rows);
   const [crateRows, setCrateRows] = useState<readonly CrateTargetDraft[]>(() => {
@@ -147,6 +143,7 @@ function AmendForm({
     return crates.map((crate) => ({
       crateId: crate.id,
       crateName: crate.name,
+      memberStockItemIds: crate.members.map((member) => member.stockItemId),
       target: String(targets.get(crate.id)?.targetQuantity ?? ''),
     }));
   });
@@ -187,6 +184,10 @@ function AmendForm({
 
   const blocked = hasUnresolvedLines(attention) || missingCrateLines.length > 0;
   const refused = duplicate !== undefined || blocked;
+  const crateTargetedItemIds = crateMemberIdsWithTargets(crateRows);
+  const individuallyTargetedItemIds = new Set(
+    [...itemIdsWithTargets(rows)].filter((id) => !crateTargetedItemIds.has(id)),
+  );
 
   const submit = handleSubmit(async (values) => {
     if (refused) return;
@@ -296,6 +297,7 @@ function AmendForm({
             }}
             onRowsChange={setRows}
             rows={rows}
+            crateTargetedItemIds={crateTargetedItemIds}
           />
         </div>
 
@@ -311,6 +313,7 @@ function AmendForm({
             focusCrate={focusCrate}
             onRowsChange={setCrateRows}
             rows={crateRows}
+            individuallyTargetedItemIds={individuallyTargetedItemIds}
           />
           {missingCrateLines.length > 0 && (
             <section className={styles.attention}>

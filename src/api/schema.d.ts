@@ -5420,12 +5420,12 @@ export interface paths {
          * Create a target stock list
          * @description Admin only. `lines` is stored **exactly as sent** — the server does
          *     not check `stockItemId` against the stock item catalogue and does not
-         *     overwrite `name`, settled 2026-08-31 (was Q46). **One exception**: an
-         *     item-kind line naming a stock item that is currently a crate member is
-         *     refused with a `422` — the crate is what gets bought for that item,
-         *     not an individual target. This only checks lines being newly saved;
-         *     see the `PATCH` below for a line already stored before an item became
-         *     a crate member.
+         *     overwrite `name`, settled 2026-08-31 (was Q46). **One exception**: a
+         *     payload containing both an item-kind line and a crate-kind line for a
+         *     crate that item is currently a member of is refused with a `422` — the
+         *     item would be bought twice. An item-kind line for a crate member on
+         *     its own is allowed. An item in more than one crate is refused if any
+         *     of them is on the list.
          */
         post: {
             parameters: {
@@ -5460,7 +5460,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description An item-kind line names a stock item that is currently a crate member */
+                /** @description The lines target both a stock item and a crate it is currently a member of */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -5519,11 +5519,10 @@ export interface paths {
          *     unlike a model parcel's, nothing else refers to a target stock list by
          *     name. `lines`, if sent, **replaces the array wholesale**, like
          *     `PUT /parcel-grid` — there is no line-by-line merge, and the same
-         *     crate-member exclusion as `POST` applies to whatever is sent (a `422`
-         *     on an item-kind line naming a current crate member). **Omitting
-         *     `lines` leaves whatever is stored untouched** — including a line for
-         *     an item that has since become a crate member, which is deliberately
-         *     not retroactively refused; see `TargetStockLine`.
+         *     item-and-its-crate exclusion as `POST` applies to everything sent,
+         *     including a pair stored before the item joined the crate — it cannot
+         *     be saved again with both. **Omitting `lines` leaves whatever is
+         *     stored untouched** and checks nothing.
          */
         patch: {
             parameters: {
@@ -5567,7 +5566,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description An item-kind line names a stock item that is currently a crate member */
+                /** @description The lines target both a stock item and a crate it is currently a member of */
                 422: {
                     headers: {
                         [name: string]: unknown;

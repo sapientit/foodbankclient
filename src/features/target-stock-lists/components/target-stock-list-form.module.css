@@ -136,9 +136,49 @@
   text-align: end;
 }
 
+.compactTarget {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: end;
+  gap: 0.3rem;
+}
+
+/* The inactive quantity is still a control: activating it changes the editor's
+   unit and, for a pack, rounds the stored item quantity to that whole pack. */
+.inactiveQuantity {
+  inline-size: 5rem;
+  min-block-size: 2.5rem;
+  padding: 0.5rem;
+  border: 1px solid #767676;
+  border-radius: 4px;
+  background: #f5f5f5;
+  color: inherit;
+  font: inherit;
+  text-align: end;
+  cursor: pointer;
+}
+
+.inactiveQuantity:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.fieldHelp {
+  display: block;
+  margin-block-start: 0.25rem;
+  color: #595959;
+  font-size: 0.85rem;
+  text-align: end;
+}
+
 /* ~120 boxes get tapped in on a phone — give the rows and targets room there. */
 @media (pointer: coarse) {
   .quantity {
+    min-block-size: 2.75rem;
+  }
+
+  .inactiveQuantity {
     min-block-size: 2.75rem;
   }
 

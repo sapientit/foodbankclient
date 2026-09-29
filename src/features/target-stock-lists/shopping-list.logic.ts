@@ -228,17 +228,24 @@ export function computeShoppingListWithCrates(
   crates: readonly (ShoppingCrate & { readonly id: string; readonly name: string })[],
   stockLevels: readonly ShoppingStockLevel[],
 ): ShoppingList {
-  const memberIds = new Set(
-    crates.flatMap((crate) => crate.members.map((member) => member.stockItemId)),
+  const cratesById = new Map(crates.map((crate) => [crate.id, crate]));
+  // An item target is valid for a crate member unless this same list also has
+  // a target for its crate. The editor prevents that overlap; old or manually
+  // written data still receives the crate-member attention rather than being
+  // bought twice.
+  const memberIdsOfTargetedCrates = new Set(
+    crateLines.flatMap(
+      (line) => cratesById.get(line.crateId)?.members.map((member) => member.stockItemId) ?? [],
+    ),
   );
   const base = computeShoppingList(
-    itemLines.filter((line) => !memberIds.has(line.stockItemId)),
+    itemLines.filter((line) => !memberIdsOfTargetedCrates.has(line.stockItemId)),
     stockLevels,
   );
   const attention = [
     ...base.attention,
     ...itemLines
-      .filter((line) => memberIds.has(line.stockItemId))
+      .filter((line) => memberIdsOfTargetedCrates.has(line.stockItemId))
       .map((line) => ({
         storedName: line.name,
         targetQuantity: line.targetQuantity,
@@ -247,7 +254,6 @@ export function computeShoppingListWithCrates(
   ];
   const additions: ShoppingItem[] = base.groups.flatMap((group) => group.items);
   const levelsById = new Map(stockLevels.map((level) => [level.id, level]));
-  const cratesById = new Map(crates.map((crate) => [crate.id, crate]));
   for (const line of crateLines) {
     const crate = cratesById.get(line.crateId);
     if (crate === undefined) {
