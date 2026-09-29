@@ -22,3 +22,7 @@ public/client-version.json
 # cannot commit one; a leftover breaks `npm run lint`, which is the right noise.
 src/features/lint-fixture/
 src/**/lint-fixture-*
+
+# Office lock files, present only while a .docx here is open in Word. Ignored so
+# an open document does not mark a build -dirty (scripts/build.mjs).
+~$*
