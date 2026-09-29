@@ -134,25 +134,3 @@ specific grey or charcoal, drawn from the same darker-shade convention as the ot
 **A:**
 
 ---
-
----
-
-## Q53 — What should the welcome email to a newly authorised referrer say?
-
-`Status: open` · `Raised by: client` · `Blocks: nothing — the shipped wording is the guess`
-
-Authorising one exact referrer address now opens a Gmail email to that referrer, written in the
-administrator's own account for them to edit and send (`screenDetails.md`, "#Valid referrers"). The
-default subject, text and fallbacks in `src/lib/referrer-welcome-email.config.json` were written by
-the client, not the charity: a subject of "You are now an approved referrer", a short paragraph
-saying their referrals will no longer wait to be recognised, and a sign-off with the
-administrator's name.
-
-Each detail has a fallback phrase used when it is not known. The referrer's name is never known
-when an address is added from Master Data, because an approved-referrer entry records no person —
-so that email always opens "Hello there,".
-
-**Question for the charity:** what subject and text should the email start with, and what should
-stand in for a name the system does not know?
-
-**A:**

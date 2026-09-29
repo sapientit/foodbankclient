@@ -1935,10 +1935,7 @@ describe('welcoming a newly authorised referrer', () => {
     const params = openedComposeParams();
     expect(params.get('authuser')).toBe('pete@x.com');
     expect(params.get('to')).toBe('referrer@riverside.org');
-    // The organisation as confirmed in the dialog, not as the referral gave it.
-    expect(params.get('body')).toContain('Riverside Community Church');
-    expect(params.get('body')).toContain('Sam Referrer');
-    expect(params.get('body')).toContain('Pete Bennett');
+    expect(params.get('body')).toMatch(/^Hi Sam Referrer\n/);
     expect(
       screen.queryByRole('link', { name: 'Open the welcome email in Gmail (opens in a new tab)' }),
     ).toBeNull();

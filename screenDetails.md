@@ -147,7 +147,19 @@ Alerts sit in their own non-scrolling column on the right, about one fifth of th
 #Valid referrers
 A table of valid referrers is maintained. These are either full email addresses or any email address for a given domain (*@organisation.com). Only administrators can maintain these
 
-When an administrator adds one exact email address to the table — from Master Data's approved referrers, or with "Approve and authorise referrer" on a referral waiting for its referrer to be approved — a new tab opens and takes focus, with a Gmail email already written to that referrer in the administrator's own Google account. The administrator reads it, changes whatever they like, and sends it themselves; nothing is sent automatically. Adding a domain never does this, and neither does approving a referral without authorising its referrer. The email's default subject and text are kept in one easily edited file, and can use the referrer's name, their organisation and the administrator's name wherever the charity wants them; a detail that is not known is replaced by a fallback phrase from the same file rather than left as a gap. If the browser refuses to open the new tab, the screen says so and offers the same email as a link.
+When an administrator adds one exact email address to the table — from Master Data's approved referrers, or with "Approve and authorise referrer" on a referral waiting for its referrer to be approved — a new tab opens and takes focus, with a Gmail email already written to that referrer in the administrator's own Google account. The administrator reads it, changes whatever they like, and sends it themselves; nothing is sent automatically. Adding a domain never does this, and neither does approving a referral without authorising its referrer. The email's default subject and text are kept in one easily edited file, and can use the referrer's name, their organisation and the administrator's name wherever the charity wants them; a detail that is not known is replaced by a fallback phrase from the same file. The referrer's name is simply left out when it is not known, so the email opens "Hi". Both places open the same text, including when an address is added from Master Data for somebody who has not sent a referral: the administrator changes the text to fit, or does not send it. The subject is "Approval from foodbank", and the text is:
+
+```text
+Hi <referrer's name>
+You have now been added to our approved list of referrers and your recent food bank referral has been received. Future referrals from this email address will be accepted and we will contact you or your client with any queries we have.
+
+Thank you for supporting those in need in our area.
+
+Best wishes
+Guildford Food Bank
+```
+
+If the browser refuses to open the new tab, the screen says so and offers the same email as a link.
 
 #Referrals
 

@@ -53,6 +53,16 @@ describe('filling the welcome email', () => {
       ),
     ).toBe('Hello there, The team');
   });
+
+  it('leaves an unknown name out, without a stray space where it would have been', () => {
+    expect(
+      fillWelcomeEmailText(
+        'Hi {referrerName}',
+        { referrerName: null, organisationName: null, adminName: null },
+        { ...TEMPLATE.blanks, referrerName: '' },
+      ),
+    ).toBe('Hi');
+  });
 });
 
 describe('the Gmail compose URL', () => {

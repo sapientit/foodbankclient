@@ -174,8 +174,8 @@ describe('welcoming a newly authorised referrer', () => {
     const params = new URL(String(openTab.mock.calls[0]?.[0])).searchParams;
     expect(params.get('authuser')).toBe('pete@x.com');
     expect(params.get('to')).toBe('anna@example.org');
-    expect(params.get('body')).toContain('Example Org');
-    expect(params.get('body')).toContain('Pete Bennett');
+    // An approved-referrer entry records no person, so the greeting has no name.
+    expect(params.get('body')).toMatch(/^Hi\n/);
   });
 
   it('never opens an email for a domain, which names nobody to write to', async () => {

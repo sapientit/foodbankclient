@@ -1,17 +1,16 @@
 {
-  "subject": "You are now an approved referrer",
+  "subject": "Approval from foodbank",
   "body": [
-    "Hello {referrerName},",
+    "Hi {referrerName}",
+    "You have now been added to our approved list of referrers and your recent food bank referral has been received. Future referrals from this email address will be accepted and we will contact you or your client with any queries we have.",
     "",
-    "You have been added to our list of approved referrers for {organisationName}. Referrals you make from this email address will no longer wait for us to recognise you before they are accepted.",
+    "Thank you for supporting those in need in our area.",
     "",
-    "Thank you for supporting households in your area.",
-    "",
-    "Best wishes,",
-    "{adminName}"
+    "Best wishes",
+    "Guildford Food Bank"
   ],
   "blanks": {
-    "referrerName": "there",
+    "referrerName": "",
     "organisationName": "your organisation",
     "adminName": "The food bank team"
   }

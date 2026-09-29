@@ -108,13 +108,15 @@ export function CreateReferrerScreen() {
         notes: values.notes === '' ? null : values.notes,
       });
       // A domain rule names no one to write to; only an exact address is welcomed.
+      // The same text as from a referral, even when there was none: the
+      // administrator edits it or does not send it (screenDetails.md).
       if (values.matchType === 'email' && authState.status === 'signed-in') {
         const emailUrl = welcomeEmailComposeUrl({
           adminEmail: authState.user.email,
           referrerEmail: normalisedValue,
           values: {
-            // An authorised-referrer row has no person's name; the template's
-            // blank stands in.
+            // An authorised-referrer row has no person's name, so the greeting
+            // is just "Hi".
             referrerName: null,
             organisationName: values.organisationName,
             adminName: authState.user.displayName,

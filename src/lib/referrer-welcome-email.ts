@@ -13,10 +13,9 @@ import rawTemplate from './referrer-welcome-email.config.json';
  * that URL — the charity accepted that on 2026-09-29, recorded in
  * `docs/engineering/personal-data.md`.
  *
- * **The default wording in `referrer-welcome-email.config.json` is a guess**,
- * as are its blank fallbacks — OPEN-QUESTIONS Q53. It is JSON so the charity's
- * own text can replace it without touching code; a change still needs a
- * redeploy.
+ * The wording in `referrer-welcome-email.config.json` is the charity's, and is
+ * the same from both places that open it. It is JSON so the charity's own text can
+ * replace it without touching code; a change still needs a redeploy.
  */
 
 const PLACEHOLDERS = ['referrerName', 'organisationName', 'adminName'] as const;
@@ -43,7 +42,8 @@ const templateSchema = z.object({
   subject: templateText,
   body: z.array(templateText).min(1),
   blanks: z.object({
-    referrerName: z.string().min(1),
+    // Empty on purpose: the charity wants an unknown name left out, so the greeting is just "Hi".
+    referrerName: z.string(),
     organisationName: z.string().min(1),
     adminName: z.string().min(1),
   }),
@@ -58,17 +58,23 @@ export function parseWelcomeEmailTemplate(value: unknown): WelcomeEmailTemplate 
 
 export const welcomeEmailTemplate = parseWelcomeEmailTemplate(rawTemplate);
 
-/** A missing or blank value takes the template's own fallback, never an empty gap. */
+/**
+ * A missing or blank value takes the template's own fallback. A fallback may be
+ * empty, so a line is trimmed at its end rather than left with the space
+ * before a name that is not there.
+ */
 export function fillWelcomeEmailText(
   text: string,
   values: WelcomeEmailValues,
   blanks: WelcomeEmailTemplate['blanks'],
 ): string {
-  return text.replace(PLACEHOLDER_PATTERN, (match, name: string) => {
-    if (!isPlaceholder(name)) return match;
-    const value = values[name]?.trim() ?? '';
-    return value === '' ? blanks[name] : value;
-  });
+  return text
+    .replace(PLACEHOLDER_PATTERN, (match, name: string) => {
+      if (!isPlaceholder(name)) return match;
+      const value = values[name]?.trim() ?? '';
+      return value === '' ? blanks[name] : value;
+    })
+    .trimEnd();
 }
 
 /**
