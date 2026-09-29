@@ -11,8 +11,8 @@ then confirms both deployed commit versions, server health/readiness, the client
 the deployed proxy. Those automatic checks are necessary but do not
 replace the deployed-browser checks below.
 
-The same checklist is tracked, with what has and has not been confirmed so far, in
-[`KNOWN-GAPS.md`](../../KNOWN-GAPS.md) under "Deploy-time checks only a human can do". The reasoning
+The session and `Set-Cookie` checks are covered by ordinary use of the test deployment; the
+rate-limit partitioning check is still open in [`KNOWN-GAPS.md`](../../KNOWN-GAPS.md). The reasoning
 behind all three is in
 [`docs/architecture/deployment-topology.md`](../architecture/deployment-topology.md).
 

@@ -7,7 +7,7 @@ import { ConfirmDialog } from './confirm-dialog';
 /**
  * jsdom implements no part of `<dialog>` — not `showModal`, not the top layer,
  * not native focus containment. So these tests exercise the fallback path, which
- * is also what a browser without `<dialog>` support gets. See KNOWN-GAPS.md.
+ * is also what a browser without `<dialog>` support gets.
  */
 function Host({ onConfirm = vi.fn() }: { onConfirm?: () => void }) {
   const [open, setOpen] = useState(false);

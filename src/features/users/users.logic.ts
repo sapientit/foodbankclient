@@ -154,8 +154,7 @@ export type LockoutConflict = RefusalCode | 'unclassified';
  * classification decides is whether to refetch the list. When it fails, the
  * caller shows the server's sentence verbatim and **adds nothing** — no
  * manufactured next step, because a wrong next step is worse than none. There is
- * a `details` discriminator on the server's wishlist for exactly this; see
- * KNOWN-GAPS.md.
+ * a `details` discriminator on the server's wishlist for exactly this.
  */
 export function classifyLockoutConflict(message: string): LockoutConflict {
   const text = message.toLowerCase();

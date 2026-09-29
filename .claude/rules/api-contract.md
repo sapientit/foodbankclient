@@ -31,8 +31,7 @@ rules that `openapi.yaml` cannot express.
   was declared `{type: object, minProperties: 1}` with no `properties`, generating
   `Record<string, never>` — a type that refuses every real field. When the server named the
   properties, `tsc` failed on the now-**unused** directive and that is what announced the fix. A cast
-  would have gone on silently working and hidden it. The entry is kept in `KNOWN-GAPS.md` for that
-  reason.
+  would have gone on silently working and hidden it.
 
 ## The import boundary
 

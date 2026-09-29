@@ -160,8 +160,8 @@ response, and occasionally the prose is the only discriminator available.
 - **The users `409` classification keys off fragments of the server's prose** — `'your own account'`,
   `'last active admin'` — because both lockout refusals are `code: 'CONFLICT'` and differ only by
   message. It is fragile, **deliberately contained** (all it decides is whether to refetch), and when
-  it fails the message is shown verbatim with nothing added. In `KNOWN-GAPS.md`; a `details`
-  discriminator is on the server's wishlist.
+  it fails the message is shown verbatim with nothing added. A `details` discriminator is on the
+  server's wishlist.
 - **The over-capacity warning on a referral move is computed here and never disables the control.**
   `screenDetails.md` says an admin can move a referral "even if that exceeds capacity with a client
   generated warning". `wouldExceedCapacity` reads the same `booked`/`capacity` the operator can see in
