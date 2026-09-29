@@ -16,6 +16,8 @@ import { stockKeys } from './keys';
  * adjustment screen are both projections of a list query rather than fetches of
  * their own. Both lists are fetched with `includeInactive=true` and split
  * client-side, because a retired item still holds its name and its balance.
+ * The stock take is the exception: it counts active items only, so it asks the
+ * server for exactly those.
  */
 
 export type StockItem = components['schemas']['StockItem'];
@@ -62,6 +64,14 @@ async function fetchStockLevels(): Promise<StockLevel[]> {
   return [...items];
 }
 
+async function fetchActiveStockLevels(): Promise<StockLevel[]> {
+  const { items } = await unwrap(api.GET('/api/v1/stock/levels'));
+
+  // Server order, never re-sorted: shelf labels compare as plain strings, so
+  // `A10` comes before `A2`.
+  return [...items];
+}
+
 export function useStockItems(order: 'category' | 'shelf' = 'category') {
   return useQuery({
     queryKey: stockKeys.items(order),
@@ -79,6 +89,11 @@ export function useStockItem(id: string) {
 
 export function useStockLevels() {
   return useQuery({ queryKey: stockKeys.levels(), queryFn: fetchStockLevels });
+}
+
+/** The stock take's rows: a retired item is never counted. */
+export function useActiveStockLevels() {
+  return useQuery({ queryKey: stockKeys.activeLevels(), queryFn: fetchActiveStockLevels });
 }
 
 export function useStockTakeGroupings() {

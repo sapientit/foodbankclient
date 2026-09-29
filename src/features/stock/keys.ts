@@ -13,15 +13,18 @@
  * obviously touched. There are two lists and they refetch in a second; being
  * clever here buys nothing and costs correctness.
  *
- * Neither list key carries `includeInactive`: it never varies. Both are always
- * fetched including retired items and split client-side, because a retired item
- * still holds its name — so the duplicate-name check needs it — and still has a
- * ledger balance a stock take has to account for.
+ * Neither list key carries `includeInactive`. Both are fetched including
+ * retired items and split client-side, because a retired item still holds its
+ * name — so the duplicate-name check needs it — and still has a ledger balance
+ * the Stock list shows. The stock take alone counts active items only, and has
+ * its own `activeLevels` entry under the same root so it is invalidated with
+ * the rest.
  */
 export const stockKeys = {
   all: ['stock'] as const,
   items: (order: 'category' | 'shelf' = 'category') => [...stockKeys.all, 'items', order] as const,
   levels: () => [...stockKeys.all, 'levels'] as const,
+  activeLevels: () => [...stockKeys.all, 'levels', 'active'] as const,
   lowStockSummary: () => [...stockKeys.all, 'low-stock-summary'] as const,
   latestVolunteerCode: () => [...stockKeys.all, 'latest-volunteer-code'] as const,
   groupings: () => [...stockKeys.all, 'groupings'] as const,

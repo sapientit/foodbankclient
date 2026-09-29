@@ -70,6 +70,37 @@ function directLevels(count: number): StockLevel[] {
   });
 }
 
+describe('which items a stock take counts', () => {
+  it('asks the server for active items only, so a retired item is never on the count sheet', async () => {
+    const RETIRED: StockLevel = {
+      ...BEANS,
+      id: 's3',
+      name: 'Retired soup',
+      shelfNumber: 'A3',
+      isActive: false,
+      quantityOnHand: 5,
+    };
+    const asked: (string | null)[] = [];
+    server.use(
+      http.get(LEVELS, ({ request }) => {
+        const includeInactive = new URL(request.url).searchParams.get('includeInactive');
+        asked.push(includeInactive);
+        return HttpResponse.json({
+          items: includeInactive === 'true' ? [BEANS, RETIRED, RICE] : [BEANS, RICE],
+        });
+      }),
+    );
+    renderApp('/stock/take');
+    const user = userEvent.setup();
+    await chooseGrouping(user);
+
+    expect(await screen.findByLabelText('Counted Baked beans individually')).toBeInTheDocument();
+    expect(screen.queryByText('Retired soup')).not.toBeInTheDocument();
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked.every((value) => value === null)).toBe(true);
+  });
+});
+
 describe('saving a stock take page', () => {
   it('keeps a crate at combined row forty on page one and excludes an unsaved page-two count', async () => {
     const firstThirtyNine = directLevels(39);

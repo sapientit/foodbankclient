@@ -370,15 +370,6 @@ from having always pointed at it. Guarding against it would mean tracking an
 id the contract never exposes to this client. Worth knowing before assuming a
 grid cell's meaning is stable across a delete-and-recreate.
 
-**The count sheet shows a retired item only when it still holds a balance.**
-`countableLevels` includes every active item plus any retired one whose
-`quantityOnHand` is not zero, on the reasoning that a retired row with stock
-against it is exactly what a stock take exists to find and is invisible on the
-levels screen. It is a rule this client invented; nothing in the server or the
-spec says a stock take should behave that way, and a warehouse that expected the
-count sheet to match the shelf labels exactly would find the extra row
-surprising.
-
 **Recording attendance does not invalidate stock queries.** `useRecordAttendance`
 (`src/features/pick-lists/queries.ts`) invalidates `pickListKeys.all` and
 `sessionKeys.all` but not `stockKeys`, though `attended` decrements stock

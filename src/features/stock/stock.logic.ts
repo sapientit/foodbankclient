@@ -65,14 +65,6 @@ export function parseOneDecimalQuantity(text: string, minimum: number): Quantity
   return { ok: true, value };
 }
 
-/**
- * Every active item, plus a retired item that still has a balance to reset.
- * `filter` preserves the shelf order supplied by the API.
- */
-export function countableLevels(levels: readonly StockLevel[]): StockLevel[] {
-  return levels.filter((level) => level.isActive || level.quantityOnHand !== 0);
-}
-
 /** The server's low-stock summary is active watched items strictly below their threshold. */
 export function isLowStock(
   level: Pick<StockLevel, 'isActive' | 'lowStockThreshold' | 'quantityOnHand'>,

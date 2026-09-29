@@ -8,16 +8,15 @@ import { ApiError } from '../../../lib/errors';
 import {
   applyPackingUnit,
   computeCrateReferenceCount,
-  countableLevels,
   packUnitLabelFor,
   parseOneDecimalQuantity,
   parseWholeQuantity,
   type QuantityProblem,
 } from '../stock.logic';
 import {
+  useActiveStockLevels,
   useCrates,
   useSaveStockTake,
-  useStockLevels,
   useStockTakeGroupings,
   type Crate,
   type StockTakeCount,
@@ -53,7 +52,7 @@ type StockTakeRow =
  * here.
  */
 export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => void } = {}) {
-  const levels = useStockLevels();
+  const levels = useActiveStockLevels();
   const groupings = useStockTakeGroupings();
   const crates = useCrates();
   const save = useSaveStockTake();
@@ -69,7 +68,7 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
     const crateMemberIds = new Set(
       crates.data.flatMap((crate) => crate.members.map((member) => member.stockItemId)),
     );
-    const direct = countableLevels(levels.data).filter(
+    const direct = levels.data.filter(
       (level) => level.groupingId === groupingId && !crateMemberIds.has(level.id),
     );
     const groupingCrates = crates.data.filter((crate) => crate.groupingId === groupingId);

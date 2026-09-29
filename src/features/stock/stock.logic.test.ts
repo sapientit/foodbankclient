@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { StockItem, StockLevel } from './queries';
+import type { StockItem } from './queries';
 import {
   applyPackingUnit,
-  countableLevels,
   computeCrateReferenceCount,
   findStockItemByName,
   isLowStock,
@@ -115,40 +114,6 @@ describe('parseOneDecimalQuantity', () => {
       ok: false,
       problem: 'not-a-whole-number',
     });
-  });
-});
-
-describe('countableLevels', () => {
-  const level = (id: string, isActive: boolean, quantityOnHand: number): StockLevel => ({
-    id,
-    name: id,
-    category: 'Test',
-    description: null,
-    shelfNumber: 'A1',
-    lowStockThreshold: null,
-    groupingId: null,
-    unitsPerPack: null,
-    packUnitLabel: null,
-    isActive,
-    quantityOnHand,
-  });
-
-  it('counts a retired item that still holds a balance', () => {
-    // Invisible on the levels screen, still on the ledger. A stock take is the
-    // only thing that would ever find it.
-    const rows = countableLevels([level('a', true, 0), level('b', false, 12)]);
-
-    expect(rows.map((row) => row.id)).toEqual(['a', 'b']);
-  });
-
-  it('leaves off a retired item that is already at zero', () => {
-    expect(countableLevels([level('a', false, 0)])).toEqual([]);
-  });
-
-  it('keeps the server’s shelf order', () => {
-    const rows = countableLevels([level('a', true, 1), level('b', true, 1), level('c', true, 1)]);
-
-    expect(rows.map((row) => row.id)).toEqual(['a', 'b', 'c']);
   });
 });
 
