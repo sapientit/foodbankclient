@@ -21,8 +21,9 @@ import { groupByPhone, type SmsPhoneGroup } from '../sms-inbox.logic';
 import { formatSmsReminderOutcome, formatSmsReplyOutcome } from '../sms-outcomes';
 import {
   useMarkSmsRead,
-  useMarkSmsInboxMessageRead,
+  useMarkSmsThreadRead,
   useReplyBySms,
+  useReplyToSmsInboxMessage,
   useSendSmsReminders,
   useSessionPickList,
   useSmsSummary,
@@ -251,9 +252,6 @@ function SmsConversation({
   const [open, setOpen] = useState(false);
   const thread = useSmsThread(referralId, open);
   const markRead = useMarkSmsRead();
-  const reply = useReplyBySms();
-  const [body, setBody] = useState('');
-  const [replyResult, setReplyResult] = useState<'sent' | 'simulated'>();
   return (
     <li>
       <details
@@ -272,46 +270,81 @@ function SmsConversation({
           <ErrorNotice error={thread.error} onRetry={() => void thread.refetch()} />
         )}
         {thread.data !== undefined && <SmsThreadMessages messages={thread.data.messages} />}
-        {!readOnly && (
-          <>
-            <label>
-              Reply by SMS
-              <textarea
-                maxLength={480}
-                onChange={(event) => {
-                  setBody(event.target.value);
-                }}
-                value={body}
-              />
-            </label>
-            <p className={styles.warning}>
-              Do not include the household’s name, address, or anything that identifies them.
-            </p>
-            <button
-              disabled={body.trim() === '' || reply.isPending}
-              onClick={() => {
-                reply.mutate(
-                  { referralId, body: body.trim() },
-                  {
-                    onSuccess: (message) => {
-                      setBody('');
-                      setReplyResult(message.simulated ? 'simulated' : 'sent');
-                    },
-                  },
-                );
-              }}
-              type="button"
-            >
-              Send reply
-            </button>
-            {reply.isError && <ErrorNotice error={reply.error} />}
-            {replyResult !== undefined && (
-              <p role="status">{formatSmsReplyOutcome(replyResult === 'simulated')}</p>
-            )}
-          </>
-        )}
+        {!readOnly && <SmsReplyForm to={{ referralId }} />}
       </details>
     </li>
+  );
+}
+
+/**
+ * Where a reply goes. A household's thread replies through its referral, and
+ * the server picks the number from it (the referrer's, for a
+ * `referrer_collect` referral). A loose number or a referrer has no referral
+ * thread, so it replies by naming one of its inbound messages instead — never
+ * through one of a referrer's candidate referrals, which would file the reply
+ * on that household's thread where a team leader can see it.
+ */
+type ReplyTarget = { readonly referralId: string } | { readonly messageId: string };
+
+/**
+ * The one reply control, shared by a team lead's household conversation and
+ * the administrator inbox so the two cannot drift in what they warn about.
+ */
+function SmsReplyForm({ to }: { to: ReplyTarget }) {
+  const replyByReferral = useReplyBySms();
+  const replyByMessage = useReplyToSmsInboxMessage();
+  const reply = 'referralId' in to ? replyByReferral : replyByMessage;
+  const [body, setBody] = useState('');
+  const [replyResult, setReplyResult] = useState<'sent' | 'simulated'>();
+  // Neither reply endpoint has an idempotency key, and a second press texts
+  // the number twice, so the lock is synchronous. It is released when the
+  // text is sent, or on a refusal that proves nothing was; a network failure
+  // or a 5xx may have sent it already.
+  const sending = useRef(false);
+  const callbacks = {
+    onSuccess: (message: SmsMessage) => {
+      sending.current = false;
+      setBody('');
+      setReplyResult(message.simulated ? 'simulated' : 'sent');
+    },
+    onError: (error: Error) => {
+      if (error instanceof ApiError && error.status >= 400 && error.status < 500)
+        sending.current = false;
+    },
+  };
+  return (
+    <>
+      <label>
+        Reply by SMS
+        <textarea
+          maxLength={918}
+          onChange={(event) => {
+            setBody(event.target.value);
+          }}
+          value={body}
+        />
+      </label>
+      <p className={styles.warning}>
+        Do not include the household’s name, address, or anything that identifies them.
+      </p>
+      <button
+        aria-disabled={body.trim() === '' || reply.isPending}
+        onClick={() => {
+          if (sending.current || body.trim() === '') return;
+          sending.current = true;
+          if ('referralId' in to)
+            replyByReferral.mutate({ referralId: to.referralId, body: body.trim() }, callbacks);
+          else replyByMessage.mutate({ messageId: to.messageId, body: body.trim() }, callbacks);
+        }}
+        type="button"
+      >
+        Send reply
+      </button>
+      {reply.isError && <ErrorNotice error={reply.error} />}
+      {replyResult !== undefined && (
+        <p role="status">{formatSmsReplyOutcome(replyResult === 'simulated')}</p>
+      )}
+    </>
   );
 }
 
@@ -460,11 +493,7 @@ export function SmsNormalMessagesScreen() {
             sentence="Nothing from a session still planned or under way in the last thirty days."
           />
         ) : (
-          <SmsInboxGroupSection
-            heading="Messages for active sessions"
-            groups={active}
-            markReadMode="none"
-          />
+          <SmsInboxGroupSection heading="Messages for active sessions" groups={active} />
         ))}
     </div>
   );
@@ -495,7 +524,7 @@ export function SmsClosedMessagesScreen() {
         ) : (
           <ul className={styles.messageList}>
             {groups.map((group) => (
-              <SmsInboxThread key={group.key} group={group} markReadMode="referral" />
+              <SmsInboxThread key={group.key} group={group} marksRead />
             ))}
           </ul>
         ))}
@@ -507,7 +536,12 @@ export function SmsUnknownMessagesScreen() {
   const inbox = useSmsInbox();
   const groups = groupByPhone(
     (inbox.data?.messages ?? []).filter(
-      (message) => message.location === 'unmatched' && message.kind !== 'referrer_reply',
+      // A reply to a referrer is stored `unmatched` too, but belongs to the
+      // referrer's conversation on the Referrer tab.
+      (message) =>
+        message.location === 'unmatched' &&
+        message.kind !== 'referrer_reply' &&
+        message.recipientRole !== 'referrer',
     ),
   );
   return (
@@ -517,7 +551,7 @@ export function SmsUnknownMessagesScreen() {
       </div>
       <p>
         A reply with no referral behind it at all — a wrong number, or somebody the food bank has
-        never heard of. The phone number is the only way to act on one of these.
+        never heard of. Reply from the conversation, or search referrals for the number.
       </p>
       {inbox.isPending && <Spinner label="Loading SMS messages…" />}
       {inbox.isError && <ErrorNotice error={inbox.error} onRetry={() => void inbox.refetch()} />}
@@ -530,7 +564,7 @@ export function SmsUnknownMessagesScreen() {
         ) : (
           <ul className={styles.messageList}>
             {groups.map((group) => (
-              <SmsInboxThread key={group.key} group={group} markReadMode="message" />
+              <SmsInboxThread key={group.key} group={group} marksRead />
             ))}
           </ul>
         ))}
@@ -547,8 +581,18 @@ export function SmsUnknownMessagesScreen() {
  */
 export function SmsReferrerMessagesScreen() {
   const inbox = useSmsInbox();
+  const messages = inbox.data?.messages ?? [];
+  const referrerPhones = new Set(
+    messages.filter((message) => message.kind === 'referrer_reply').map((message) => message.phone),
+  );
+  // What went to that referrer — a reminder, or a reply sent from here — sits
+  // on the parcel's own session too, but belongs beside what it answered.
   const groups = groupByPhone(
-    (inbox.data?.messages ?? []).filter((message) => message.kind === 'referrer_reply'),
+    messages.filter(
+      (message) =>
+        message.kind === 'referrer_reply' ||
+        (message.recipientRole === 'referrer' && referrerPhones.has(message.phone)),
+    ),
   );
   return (
     <div className={styles.page}>
@@ -570,7 +614,7 @@ export function SmsReferrerMessagesScreen() {
         ) : (
           <ul className={styles.messageList}>
             {groups.map((group) => (
-              <SmsInboxThread key={group.key} group={group} markReadMode="message" />
+              <SmsInboxThread key={group.key} group={group} marksRead />
             ))}
           </ul>
         ))}
@@ -578,22 +622,14 @@ export function SmsReferrerMessagesScreen() {
   );
 }
 
-function SmsInboxGroupSection({
-  heading,
-  groups,
-  markReadMode,
-}: {
-  heading: string;
-  groups: SmsPhoneGroup[];
-  markReadMode: 'referral' | 'none';
-}) {
+function SmsInboxGroupSection({ heading, groups }: { heading: string; groups: SmsPhoneGroup[] }) {
   if (groups.length === 0) return null;
   return (
     <section aria-labelledby={`sms-${heading.replaceAll(' ', '-').toLowerCase()}`}>
       <h2 id={`sms-${heading.replaceAll(' ', '-').toLowerCase()}`}>{heading}</h2>
       <ul className={styles.messageList}>
         {groups.map((group) => (
-          <SmsInboxThread key={group.key} group={group} markReadMode={markReadMode} />
+          <SmsInboxThread key={group.key} group={group} marksRead={false} />
         ))}
       </ul>
     </section>
@@ -608,19 +644,14 @@ function hasSession(
 
 /**
  * One phone number's thread in the administrator inbox — an accordion, the
- * same shape as `SmsConversation`'s. `markReadMode` is what tells it whether
- * opening the thread is allowed to mark anything read, and by which call:
- *
- * - `'referral'` — a closed-session thread. Marking read is
- *   `POST /referrals/{id}/sms-messages/read`, the same call a team lead's own
- *   thread view uses, looped once per `referralIds` entry because a phone
- *   reused across a repeat referral can carry unread replies against more
- *   than one.
- * - `'message'` — an unknown or referrer thread with no single referral to mark
- *   read, so `POST /sms-messages/{id}/read` is looped once per unread reply.
- * - `'none'` — an active session's thread. Expandable and readable, but never
- *   marks anything read: those replies remain the team leader's, the same
- *   exclusion `SmsInboxTabs`'s own badge count and `attention-summary` make.
+ * same shape as `SmsConversation`'s. `marksRead` is whether opening it marks
+ * the conversation read: true on the Closed session, Unknown and Referrer
+ * tabs, with one `POST /sms-messages/{id}/thread/read` naming any unread reply
+ * in it — the administrator's version of opening a household's messages. That
+ * clears the number's unread replies wherever they are listed, not only on
+ * this tab. False on the Normal tab: those replies remain the team leader's,
+ * the same exclusion `SmsInboxTabs`'s own badge count and `attention-summary`
+ * make, and the server would leave them unread anyway.
  *
  * Collapsed, the summary line is the only thing shown — a household name or,
  * for an unknown thread, the phone number, the message count, and the unread
@@ -629,28 +660,23 @@ function hasSession(
  * `SmsConversation` rather than the flat card this replaces, which showed
  * everything at once.
  */
-function SmsInboxThread({
-  group,
-  markReadMode,
-}: {
-  group: SmsPhoneGroup;
-  markReadMode: 'referral' | 'message' | 'none';
-}) {
+function SmsInboxThread({ group, marksRead }: { group: SmsPhoneGroup; marksRead: boolean }) {
   const [open, setOpen] = useState(false);
-  const markReferralRead = useMarkSmsRead();
-  const markMessageRead = useMarkSmsInboxMessageRead();
+  const markThreadRead = useMarkSmsThreadRead();
   const searchMemory = useReferralSearchMemory();
-  // A shared mutation hook loses track of any call but the last once a
-  // second `.mutate()` re-points its observer — so a thread whose unread
-  // replies span more than one referralId/message id tracks its own
-  // read-marking outcome here instead of trusting `markReferralRead.error`/
-  // `markMessageRead.error`, which would silently drop an earlier failure
-  // the moment a later call in the same loop succeeds.
-  const [readError, setReadError] = useState<unknown>();
   const unreadCount = group.unreadReplyIds.length;
   const primaryReferralId = group.referralIds[0];
   const mostRecentSessionMessage = group.messages.findLast(hasSession);
-  const isReferrerThread = group.messages.every((message) => message.kind === 'referrer_reply');
+  // `some`, not `every`: the Referrer tab also carries what was sent to that
+  // referrer, so a staff reply is seen next to the message it answered.
+  const isReferrerThread = group.messages.some((message) => message.kind === 'referrer_reply');
+  // A referrer or a loose number is answered by naming its latest inbound
+  // message; the server texts the number that message came from.
+  const replyToMessage = group.messages.findLast((message) =>
+    isReferrerThread
+      ? message.kind === 'referrer_reply'
+      : message.kind === 'household_reply' && message.referralId === null,
+  );
 
   return (
     <li className={classNames(styles.messageCard, unreadCount > 0 && styles.unreadMessageCard)}>
@@ -658,23 +684,9 @@ function SmsInboxThread({
         onToggle={(event) => {
           const expanded = event.currentTarget.open;
           setOpen(expanded);
-          if (!expanded || unreadCount === 0) return;
-          setReadError(undefined);
-          if (markReadMode === 'referral') {
-            void Promise.allSettled(
-              group.referralIds.map((referralId) => markReferralRead.mutateAsync(referralId)),
-            ).then((results) => {
-              const failure = results.find((result) => result.status === 'rejected');
-              if (failure?.status === 'rejected') setReadError(failure.reason);
-            });
-          } else if (markReadMode === 'message') {
-            void Promise.allSettled(
-              group.unreadReplyIds.map((id) => markMessageRead.mutateAsync(id)),
-            ).then((results) => {
-              const failure = results.find((result) => result.status === 'rejected');
-              if (failure?.status === 'rejected') setReadError(failure.reason);
-            });
-          }
+          const unreadReplyId = group.unreadReplyIds[0];
+          if (expanded && marksRead && unreadReplyId !== undefined)
+            markThreadRead.mutate(unreadReplyId);
         }}
       >
         <summary className={unreadCount > 0 ? styles.unreadButton : undefined}>
@@ -741,10 +753,22 @@ function SmsInboxThread({
                 </>
               )}
             </div>
+            {primaryReferralId !== undefined && !isReferrerThread ? (
+              <>
+                {/* A `referrer_collect` parcel's thread is named for the
+                    household, but the server texts its referrer. */}
+                {group.messages.some((message) => message.recipientRole === 'referrer') && (
+                  <p>This parcel is collected by its referrer, so a reply goes to the referrer.</p>
+                )}
+                <SmsReplyForm to={{ referralId: primaryReferralId }} />
+              </>
+            ) : (
+              replyToMessage !== undefined && <SmsReplyForm to={{ messageId: replyToMessage.id }} />
+            )}
           </>
         )}
       </details>
-      {readError !== undefined && <ErrorNotice error={readError} />}
+      {markThreadRead.isError && <ErrorNotice error={markThreadRead.error} />}
     </li>
   );
 }

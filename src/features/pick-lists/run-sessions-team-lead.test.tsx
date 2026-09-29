@@ -257,16 +257,19 @@ describe('a team lead running a session', () => {
         }),
       ),
       http.post('/api/v1/referrals/:id/sms-messages', () =>
-        HttpResponse.json({
-          id: 'sms-2',
-          referralId: PARCEL.referralId,
-          kind: 'staff_reply',
-          body: 'We will keep your parcel for you.',
-          occurredAt: '2026-08-06T09:01:00.000Z',
-          readAt: '2026-08-06T09:01:00.000Z',
-          simulated: true,
-          phone: null,
-        }),
+        HttpResponse.json(
+          {
+            id: 'sms-2',
+            referralId: PARCEL.referralId,
+            kind: 'staff_reply',
+            body: 'We will keep your parcel for you.',
+            occurredAt: '2026-08-06T09:01:00.000Z',
+            readAt: '2026-08-06T09:01:00.000Z',
+            simulated: true,
+            phone: null,
+          },
+          { status: 201 },
+        ),
       ),
       http.post('/api/v1/referrals/:id/sms-messages/read', () =>
         HttpResponse.json({ markedRead: 1 }),

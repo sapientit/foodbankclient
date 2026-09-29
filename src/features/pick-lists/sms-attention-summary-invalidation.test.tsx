@@ -7,7 +7,7 @@ import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 
 /**
- * Regression test for a bug found in review: `useMarkSmsInboxMessageRead`
+ * Regression test for a bug found in review: marking an inbox message read
  * invalidated the inbox's own query but not the dashboard's
  * `smsAttentionSummary` — so clearing a flagged message on `/sms` left the
  * dashboard's unknown-message alert reading a stale, too-high count
@@ -26,7 +26,7 @@ const REFERRALS = '/api/v1/referrals';
 const LOW_STOCK = '/api/v1/stock/items/low-stock-summary';
 const ATTENTION = '/api/v1/sms-messages/attention-summary';
 const INBOX = '/api/v1/sms-messages';
-const READ = '/api/v1/sms-messages/:id/read';
+const READ = '/api/v1/sms-messages/:id/thread/read';
 
 const MESSAGE = {
   id: 'message-1',
@@ -82,7 +82,7 @@ describe('marking an inbox message read', () => {
       ),
       http.post(READ, () => {
         unmatchedUnread = 0;
-        return HttpResponse.json({ ...MESSAGE, readAt: '2026-08-22T09:05:00.000Z' });
+        return new HttpResponse(null, { status: 204 });
       }),
     );
 

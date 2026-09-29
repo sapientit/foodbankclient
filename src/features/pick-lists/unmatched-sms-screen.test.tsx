@@ -9,6 +9,7 @@ import type { Referral } from '../referrals/queries';
 const INBOX = '/api/v1/sms-messages';
 const MESSAGE_READ = '/api/v1/sms-messages/:id/read';
 const REFERRAL_READ = '/api/v1/referrals/:id/sms-messages/read';
+const THREAD_READ = '/api/v1/sms-messages/:id/thread/read';
 const REFRESH = '/api/v1/auth/refresh';
 const REFERRAL_2 = '/api/v1/referrals/referral-2';
 const REFERRAL_3 = '/api/v1/referrals/referral-3';
@@ -248,6 +249,9 @@ beforeEach(() => {
     http.post(REFERRAL_READ, () =>
       HttpResponse.json({ error: { code: 'INTERNAL_ERROR' } }, { status: 500 }),
     ),
+    http.post(THREAD_READ, () =>
+      HttpResponse.json({ error: { code: 'INTERNAL_ERROR' } }, { status: 500 }),
+    ),
   );
 });
 
@@ -322,7 +326,12 @@ describe('SmsInboxLayout — Normal messages tab', () => {
   it('does not mark an active-session reply read on open, even though it is unread', async () => {
     let messageReadCalls = 0;
     let referralReadCalls = 0;
+    let threadReadCalls = 0;
     server.use(
+      http.post(THREAD_READ, () => {
+        threadReadCalls += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
       http.post(MESSAGE_READ, () => {
         messageReadCalls += 1;
         return HttpResponse.json(MESSAGES[2]);
@@ -344,55 +353,45 @@ describe('SmsInboxLayout — Normal messages tab', () => {
 
     expect(messageReadCalls).toBe(0);
     expect(referralReadCalls).toBe(0);
+    expect(threadReadCalls).toBe(0);
   });
 
-  it('fires one mark-read call per referralId when a closed-session thread spanning two referrals is opened', async () => {
-    const readReferralIds: string[] = [];
+  it('marks a closed-session conversation read with one call when it is opened', async () => {
+    const readIds: string[] = [];
     server.use(
-      http.post(REFERRAL_READ, ({ params }) => {
-        readReferralIds.push(String(params.id));
+      http.post(THREAD_READ, ({ params }) => {
+        readIds.push(String(params.id));
         return new HttpResponse(null, { status: 204 });
       }),
     );
     renderApp('/sms/closed');
     const user = userEvent.setup();
 
+    // Two unread replies against two referrals on one number: one call for
+    // the conversation, naming either of them.
     await user.click(await screen.findByText('Dee Rowe'));
 
     await waitFor(() => {
-      expect([...readReferralIds].sort()).toEqual(['referral-3', 'referral-5']);
+      expect(readIds).toHaveLength(1);
     });
-    // Idempotent per referral, not per message: two unread messages on the
-    // thread but only one referral each, so exactly two calls in total.
-    expect(readReferralIds).toHaveLength(2);
+    expect(['message-3', 'message-5']).toContain(readIds[0]);
   });
 
-  it('surfaces an error when one of two referrals on a thread fails to mark read, even though the other succeeds', async () => {
-    server.use(
-      http.post(REFERRAL_READ, ({ params }) => {
-        if (params.id === 'referral-3') {
-          return HttpResponse.json({ error: { code: 'INTERNAL_ERROR' } }, { status: 500 });
-        }
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
+  it('shows an error when marking a conversation read fails', async () => {
     renderApp('/sms/closed');
     const user = userEvent.setup();
 
+    // `THREAD_READ` fails by default in `beforeEach`.
     await user.click(await screen.findByText('Dee Rowe'));
 
-    // A shared mutation hook re-pointed at the second (successful) call
-    // would silently drop the first call's failure — this proves the
-    // component tracks the loop's outcome itself rather than trusting
-    // `useMarkSmsRead()`'s own `isError`/`error`.
     expect(await screen.findByRole('alert')).toBeInTheDocument();
   });
 
   it('never fires a mark-read call for a closed-session thread with no unread reply', async () => {
-    let referralReadCalls = 0;
+    let threadReadCalls = 0;
     server.use(
-      http.post(REFERRAL_READ, () => {
-        referralReadCalls += 1;
+      http.post(THREAD_READ, () => {
+        threadReadCalls += 1;
         return new HttpResponse(null, { status: 204 });
       }),
     );
@@ -401,7 +400,7 @@ describe('SmsInboxLayout — Normal messages tab', () => {
 
     await user.click(await screen.findByText('Cass Rowe'));
     expect(await screen.findByText('staff reply (simulated)')).toBeInTheDocument();
-    expect(referralReadCalls).toBe(0);
+    expect(threadReadCalls).toBe(0);
   });
 });
 
@@ -417,12 +416,12 @@ describe('SmsInboxLayout — Unknown messages tab', () => {
     expect(screen.getByRole('link', { name: 'Unknown messages (2 unread)' })).toBeInTheDocument();
   });
 
-  it('fires one mark-read call per unread message when an unknown thread is opened', async () => {
-    const readMessageIds: string[] = [];
+  it('marks an unknown conversation read with one call when it is opened', async () => {
+    const readIds: string[] = [];
     server.use(
-      http.post(MESSAGE_READ, ({ params }) => {
-        readMessageIds.push(String(params.id));
-        return HttpResponse.json({ ...MESSAGES[0], readAt: '2026-08-22T09:10:00.000Z' });
+      http.post(THREAD_READ, ({ params }) => {
+        readIds.push(String(params.id));
+        return new HttpResponse(null, { status: 204 });
       }),
     );
     renderApp('/sms/unknown');
@@ -431,8 +430,9 @@ describe('SmsInboxLayout — Unknown messages tab', () => {
     await user.click(await screen.findByText('Phone: +441111111111'));
 
     await waitFor(() => {
-      expect([...readMessageIds].sort()).toEqual(['message-1', 'message-1b']);
+      expect(readIds).toHaveLength(1);
     });
+    expect(['message-1', 'message-1b']).toContain(readIds[0]);
   });
 
   it('opens referral search with an unmatched sender number pre-filled without putting it in the URL', async () => {
@@ -464,11 +464,7 @@ describe('SmsInboxLayout — Unknown messages tab', () => {
 
 describe('SmsInboxLayout — Referrer messages tab', () => {
   it('keeps a referrer reply out of the other inbox tabs and shows all possible parcels without household details', async () => {
-    server.use(
-      http.post(MESSAGE_READ, () =>
-        HttpResponse.json({ ...MESSAGES[7], readAt: '2026-08-23T09:10:00.000Z' }),
-      ),
-    );
+    server.use(http.post(THREAD_READ, () => new HttpResponse(null, { status: 204 })));
     renderApp('/sms');
     const user = userEvent.setup();
 
@@ -489,12 +485,12 @@ describe('SmsInboxLayout — Referrer messages tab', () => {
     expect(screen.queryByText(/Jamie|Rowe|Elm Street/)).toBeNull();
   });
 
-  it('marks referrer replies read individually when their thread is opened', async () => {
-    const readMessageIds: string[] = [];
+  it('marks a referrer conversation read with one call when it is opened', async () => {
+    const readIds: string[] = [];
     server.use(
-      http.post(MESSAGE_READ, ({ params }) => {
-        readMessageIds.push(String(params.id));
-        return HttpResponse.json({ ...MESSAGES[7], readAt: '2026-08-23T09:10:00.000Z' });
+      http.post(THREAD_READ, ({ params }) => {
+        readIds.push(String(params.id));
+        return new HttpResponse(null, { status: 204 });
       }),
     );
     renderApp('/sms');
@@ -502,7 +498,273 @@ describe('SmsInboxLayout — Referrer messages tab', () => {
 
     await user.click(await screen.findByText('Referrer: +446666666666'));
     await waitFor(() => {
-      expect(readMessageIds).toEqual(['message-7']);
+      expect(readIds).toEqual(['message-7']);
     });
+  });
+});
+
+describe('SmsInboxLayout — replying', () => {
+  const REPLY = '/api/v1/referrals/:id/sms-messages';
+
+  const MESSAGE_REPLY = '/api/v1/sms-messages/:id/replies';
+
+  type Reply = { referralId: string; body: unknown } | { messageId: string; body: unknown };
+
+  function captureReplies(): Reply[] {
+    const replies: Reply[] = [];
+    server.use(
+      http.post(MESSAGE_REPLY, async ({ params, request }) => {
+        const messageId = String(params.id);
+        const body = await request.json();
+        replies.push({ messageId, body });
+        return HttpResponse.json(
+          {
+            id: 'sent-2',
+            referralId: null,
+            kind: 'staff_reply' as const,
+            body: 'See you then.',
+            occurredAt: '2026-08-23T10:00:00.000Z',
+            readAt: '2026-08-23T10:00:00.000Z',
+            recipientRole: null,
+            simulated: false,
+          },
+          { status: 201 },
+        );
+      }),
+      http.post(REPLY, async ({ params, request }) => {
+        const referralId = String(params.id);
+        const body = await request.json();
+        replies.push({ referralId, body });
+        return HttpResponse.json(
+          {
+            id: 'sent-1',
+            referralId,
+            kind: 'staff_reply' as const,
+            body: 'See you then.',
+            occurredAt: '2026-08-23T10:00:00.000Z',
+            readAt: '2026-08-23T10:00:00.000Z',
+            recipientRole: 'referee' as const,
+            simulated: false,
+          },
+          { status: 201 },
+        );
+      }),
+      http.post(THREAD_READ, () => new HttpResponse(null, { status: 204 })),
+    );
+    return replies;
+  }
+
+  it('replies to a closed-session thread through its most recent referral', async () => {
+    const replies = captureReplies();
+    renderApp('/sms/closed');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByText('Dee Rowe'));
+    expect(
+      screen.getByText(
+        'Do not include the household’s name, address, or anything that identifies them.',
+      ),
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Reply by SMS'), 'See you then.');
+    await user.click(screen.getByRole('button', { name: 'Send reply' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Message sent.');
+    expect(replies).toEqual([{ referralId: 'referral-5', body: { body: 'See you then.' } }]);
+  });
+
+  it('replies to an active-session thread through its referral', async () => {
+    const replies = captureReplies();
+    renderApp('/sms/normal');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByText('Ada Rowe'));
+    await user.type(screen.getByLabelText('Reply by SMS'), 'See you then.');
+    await user.click(screen.getByRole('button', { name: 'Send reply' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Message sent.');
+    expect(replies).toEqual([{ referralId: 'referral-2', body: { body: 'See you then.' } }]);
+  });
+
+  it('says a reply goes to the referrer on a household line whose parcel the referrer collects', async () => {
+    server.use(
+      http.get(INBOX, () =>
+        HttpResponse.json({
+          messages: [
+            {
+              id: 'message-9',
+              referralId: 'referral-2',
+              kind: 'failure' as const,
+              body: 'Not a mobile number.',
+              occurredAt: '2026-08-22T07:00:00.000Z',
+              readAt: '2026-08-22T07:00:00.000Z',
+              recipientRole: 'referrer' as const,
+              location: 'active_session' as const,
+              session: {
+                id: 'session-2',
+                sessionDate: '2026-08-23',
+                startTime: '10:00',
+                status: 'planned' as const,
+              },
+              simulated: false,
+              phone: '+447777777777',
+            },
+          ],
+        }),
+      ),
+    );
+    renderApp('/sms/normal');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByText('Ada Rowe'));
+    expect(
+      screen.getByText(
+        'This parcel is collected by its referrer, so a reply goes to the referrer.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('does not say a household reply goes to a referrer', async () => {
+    captureReplies();
+    renderApp('/sms/normal');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByText('Ada Rowe'));
+    expect(await screen.findByLabelText('Reply by SMS')).toBeInTheDocument();
+    expect(screen.queryByText(/a reply goes to the referrer/)).toBeNull();
+  });
+
+  it('answers a referrer by their message, never through a candidate parcel', async () => {
+    const replies = captureReplies();
+    renderApp('/sms');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByText('Referrer: +446666666666'));
+    expect(screen.queryByLabelText('Reply about')).toBeNull();
+    await user.type(screen.getByLabelText('Reply by SMS'), 'See you then.');
+    await user.click(screen.getByRole('button', { name: 'Send reply' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Message sent.');
+    expect(replies).toEqual([{ messageId: 'message-7', body: { body: 'See you then.' } }]);
+  });
+
+  it('shows what was sent to a referrer in the referrer thread', async () => {
+    server.use(
+      http.get(INBOX, () =>
+        HttpResponse.json({
+          messages: [
+            ...MESSAGES,
+            {
+              id: 'message-8',
+              referralId: 'referral-8',
+              kind: 'staff_reply' as const,
+              body: 'Thanks, see you Wednesday.',
+              occurredAt: '2026-08-23T09:30:00.000Z',
+              readAt: '2026-08-23T09:30:00.000Z',
+              recipientRole: 'referrer' as const,
+              location: 'active_session' as const,
+              session: {
+                id: 'session-8',
+                sessionDate: '2026-08-26',
+                startTime: '11:30',
+                status: 'planned' as const,
+              },
+              simulated: false,
+              phone: '+446666666666',
+            },
+          ],
+        }),
+      ),
+      http.post(THREAD_READ, () => new HttpResponse(null, { status: 204 })),
+    );
+    renderApp('/sms');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByText('Referrer: +446666666666'));
+    expect(await screen.findByText(/Thanks, see you Wednesday\./)).toBeInTheDocument();
+  });
+
+  it('texts a number once however quickly Send reply is pressed twice', async () => {
+    let sends = 0;
+    server.use(
+      http.post(THREAD_READ, () => new HttpResponse(null, { status: 204 })),
+      http.post('/api/v1/sms-messages/:id/replies', async () => {
+        sends += 1;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return HttpResponse.json(
+          {
+            id: 'sent-3',
+            referralId: null,
+            kind: 'staff_reply' as const,
+            body: 'See you then.',
+            occurredAt: '2026-08-23T10:00:00.000Z',
+            readAt: '2026-08-23T10:00:00.000Z',
+            recipientRole: null,
+            simulated: false,
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    renderApp('/sms/unknown');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByText('Phone: +441111111111'));
+    await user.type(screen.getByLabelText('Reply by SMS'), 'See you then.');
+    await user.dblClick(screen.getByRole('button', { name: 'Send reply' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Message sent.');
+    expect(sends).toBe(1);
+  });
+
+  it('allows a reply up to the contract limit of 918 characters', async () => {
+    captureReplies();
+    renderApp('/sms/unknown');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByText('Phone: +441111111111'));
+    expect(screen.getByLabelText('Reply by SMS')).toHaveAttribute('maxlength', '918');
+  });
+
+  it('replies to an unknown number by its latest message', async () => {
+    const replies = captureReplies();
+    renderApp('/sms/unknown');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByText('Phone: +441111111111'));
+    await user.type(screen.getByLabelText('Reply by SMS'), 'See you then.');
+    await user.click(screen.getByRole('button', { name: 'Send reply' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Message sent.');
+    expect(replies).toEqual([{ messageId: 'message-1b', body: { body: 'See you then.' } }]);
+  });
+
+  it('keeps a reply to a referrer off the Unknown tab and on the Referrer tab', async () => {
+    const referrerReply = {
+      id: 'message-10',
+      referralId: null,
+      kind: 'staff_reply' as const,
+      body: 'Either day is fine.',
+      occurredAt: '2026-08-23T09:40:00.000Z',
+      readAt: '2026-08-23T09:40:00.000Z',
+      recipientRole: 'referrer' as const,
+      location: 'unmatched' as const,
+      session: null,
+      simulated: false,
+      phone: '+446666666666',
+    };
+    server.use(
+      http.get(INBOX, () => HttpResponse.json({ messages: [...MESSAGES, referrerReply] })),
+      http.post(THREAD_READ, () => new HttpResponse(null, { status: 204 })),
+    );
+    const { router } = renderApp('/sms/unknown');
+    const user = userEvent.setup();
+
+    expect(await screen.findByText('Phone: +441111111111')).toBeInTheDocument();
+    expect(screen.queryByText('Phone: +446666666666')).toBeNull();
+    expect(screen.queryByText('Referrer: +446666666666')).toBeNull();
+
+    await router.navigate('/sms');
+    await user.click(await screen.findByText('Referrer: +446666666666'));
+    expect(await screen.findByText(/Either day is fine\./)).toBeInTheDocument();
   });
 });

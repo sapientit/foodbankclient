@@ -3289,7 +3289,7 @@ export interface paths {
             };
             responses: {
                 /** @description Sent */
-                200: {
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -3329,6 +3329,118 @@ export interface paths {
          * @description Fire this when the user expands the household's line — opening the messages is what marks them read, and there is nothing further for anybody to press.
          *     Separate from the `GET` on purpose: a `GET` that writes gets retried by browsers and cleared by any prefetch, and somebody's unread count would vanish without anyone having looked.
          *     Idempotent. Only inbound messages are ever unread, so this never touches what the food bank sent.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Marked. No body. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sms-messages/{id}/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Text a loose number or a referrer back
+         * @description **Admin only.** The way to answer a number that has no referral thread of its own: a loose reply (`household_reply` with no `referralId` and no `session`), or a `referrer_reply`. `{id}` is the id of that inbound message — any one of them from the number; the latest is the natural choice. The server texts the number the message came from. **The client never sends a phone number.**
+         *     The reply is recorded as a `staff_reply` with `referralId: null` and the same `phone` as the message it answers, so it appears in `GET /api/v1/sms-messages` in that number's conversation (`location: unmatched`), and anything the number texts afterwards joins the same conversation. On a referrer, `recipientRole` is `referrer` and the reply is **not** filed against any of `candidateParcels`.
+         *     **Do not answer a `referrer_reply` through `POST /api/v1/referrals/{id}/sms-messages` on one of its candidate referrals.** That does reach the referrer's number, but it files the reply on that one household's thread, where a team leader can see it, whichever household the referrer was actually asking about.
+         *     Same rules as any staff reply: no name and nothing that says whose number it is — say so on the screen. It changes no count. No double-submit guard; a second press sends a second text.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        body: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Sent */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SmsMessage"];
+                    };
+                };
+                /** @description No such message, or it is not a loose household reply or a referrer message — a reminder, a failure, a staff reply, or a reply on a referral's own thread (answer that one through the referral instead). Also what a message deleted by the thirty-day purge returns. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The number cannot be texted, sending is not configured, or the provider would not take it. **Nothing is recorded.** */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sms-messages/{id}/thread/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clear a number's whole conversation
+         * @description **Admin only.** The administrator screen's equivalent of opening a household's messages: marks read, in one go, everything unread from the same number as `{id}` that is an administrator's to read — loose replies, referrer messages, and replies on sessions that have closed (`location: closed_session`).
+         *     **A reply on an `active_session` is left unread.** It stays the team leader's until that session closes, as with `POST /api/v1/sms-messages/{id}/read`.
+         *     `{id}` is any `household_reply` or `referrer_reply` in the conversation. Idempotent; only inbound messages are ever unread, so nothing the food bank sent is touched.
          */
         post: {
             parameters: {
@@ -7261,13 +7373,13 @@ export interface components {
             id: string;
             /**
              * Format: uuid
-             * @description Null on a loose reply — a text with no upcoming referral behind it. A `referrer_reply` never reaches this response at all — see `kind`.
+             * @description Null on a loose reply — a text with no upcoming referral behind it — and on a `staff_reply` an administrator sent to a loose number or a referrer through `POST /api/v1/sms-messages/{id}/replies`. A `referrer_reply` itself never reaches this response — see `kind`.
              */
             referralId: string | null;
             /**
              * @description `reminder` — what the food bank sent about the session.
              *     `household_reply` — what the household texted back. **The only kind that is ever unread**, along with `referrer_reply`.
-             *     `staff_reply` — a person answering from the session screen.
+             *     `staff_reply` — a person answering from the session screen, or an administrator answering a loose number or a referrer from the administrator screen (then `referralId` is null).
              *     `referrer_reply` — a text from a referrer currently collecting one or more open `referrer_collect` parcels. **Cannot appear here** — this response is scoped to one referral's thread, and a `referrer_reply` is never attached to one; it only ever appears on `SmsInboxMessage`, the administrator-only inbox.
              *     `failure` — the reminder did not go: no number, a number that is not a mobile, or the provider refused it. Not a message anybody sent, but it belongs where somebody will see it, and it arrives already read because it is not somebody waiting for an answer.
              * @enum {string}
@@ -7280,7 +7392,7 @@ export interface components {
             /** Format: date-time */
             readAt: string | null;
             /**
-             * @description Whose number `phone` is. `referrer` when this referral's collection method is `referrer_collect`; `referee` otherwise. Null only on a loose reply with nothing to derive it from.
+             * @description Whose number `phone` is. `referrer` when this referral's collection method is `referrer_collect`; `referee` otherwise. `referrer` too on an administrator's reply to a referrer. Null on a loose reply, and on an administrator's reply to one, with nothing to derive it from.
              * @enum {string|null}
              */
             recipientRole: "referee" | "referrer" | null;

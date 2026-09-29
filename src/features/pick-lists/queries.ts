@@ -346,18 +346,49 @@ export function useSmsAttentionSummary(enabled: boolean) {
   });
 }
 
-export function useMarkSmsInboxMessageRead() {
+/**
+ * Replies to a number with no referral thread — a loose reply or a referrer —
+ * by naming one of its inbound messages; the server texts the number that
+ * message came from, so the client never sends one. Never answer a referrer
+ * through a candidate referral instead: that files the reply on one
+ * household's thread, where a team leader would see it (`API.md`, "Replying
+ * to a number").
+ */
+export function useReplyToSmsInboxMessage() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string): Promise<SmsMessage> =>
-      unwrap(api.POST('/api/v1/sms-messages/{id}/read', { params: { path: { id } } })),
+    mutationFn: ({ messageId, body }: { messageId: string; body: string }): Promise<SmsMessage> =>
+      unwrap(
+        api.POST('/api/v1/sms-messages/{id}/replies', {
+          params: { path: { id: messageId } },
+          body: { body },
+        }),
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: pickListKeys.smsInbox() });
-      // The dashboard's attention count counts exactly the rows this marks
-      // read (unmatched or closed-session replies) — see `attention-summary`'s
-      // own doc comment — so clearing one here must not leave that count stale.
-      void queryClient.invalidateQueries({ queryKey: pickListKeys.smsAttentionSummary() });
     },
+  });
+}
+
+/**
+ * Opening a number's conversation in the administrator inbox: marks read, in
+ * one call, everything unread from that number that is an administrator's to
+ * read. The server leaves an `active_session` reply unread for its team
+ * leader, so this is never the Normal tab's to call. `messageId` is any
+ * inbound reply in the conversation.
+ */
+export function useMarkSmsThreadRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (messageId: string) =>
+      unwrapVoid(
+        api.POST('/api/v1/sms-messages/{id}/thread/read', {
+          params: { path: { id: messageId } },
+        }),
+      ),
+    // A closed session's reply counts on its own `sms-summary` as well as the
+    // inbox and the dashboard's attention summary, all under this root.
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: pickListKeys.all }),
   });
 }
 
