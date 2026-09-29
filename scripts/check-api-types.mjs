@@ -11,6 +11,12 @@
  * there is nothing to compare against and failing would only teach people to
  * skip `npm run check`.
  *
+ * FOODBANK_SERVER_DIR names the server checkout instead of the sibling. The
+ * deploy scripts set it when promoting, where the client and server are
+ * temporary worktrees side by side and the sibling path does not exist. A
+ * server named that way is required: skipping would promote a pair whose
+ * contracts were never compared.
+ *
  * Plain Node, no dependency, same house style as the server's check-openapi.mjs.
  */
 import { execFileSync } from 'node:child_process';
@@ -19,10 +25,15 @@ import { tmpdir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-const SPEC = '../foodbankserver/openapi.yaml';
+const SERVER_DIR = process.env.FOODBANK_SERVER_DIR || undefined;
+const SPEC = join(SERVER_DIR ?? '../foodbankserver', 'openapi.yaml');
 const COMMITTED = 'src/api/schema.d.ts';
 
 if (!existsSync(SPEC)) {
+  if (SERVER_DIR !== undefined) {
+    console.error(`api:types:check — ${SPEC} not found (FOODBANK_SERVER_DIR is ${SERVER_DIR}).`);
+    process.exit(1);
+  }
   console.log(`api:types:check — skipped, ${SPEC} not found (the API repo is not checked out).`);
   process.exit(0);
 }

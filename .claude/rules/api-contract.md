@@ -22,7 +22,8 @@ rules that `openapi.yaml` cannot express.
   somebody depends on.
 - **Commit `schema.d.ts`.** It is generated, but committing it means a build does not need the
   sibling repo checked out. `npm run api:types:check` fails when it is stale and skips when the API
-  repo is absent.
+  repo is absent — unless `FOODBANK_SERVER_DIR` names the server checkout (as a promote does), when
+  a missing `openapi.yaml` fails.
 - Regenerate whenever the server's spec changes and let the type errors show what to fix.
 - Where the generated type is genuinely unusable, the call site carries a documented
   `@ts-expect-error` — never an unchecked cast — and an entry in `KNOWN-GAPS.md`. **There are none in
