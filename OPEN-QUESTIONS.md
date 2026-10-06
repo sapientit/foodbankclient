@@ -57,30 +57,6 @@ is a limit, does it apply to the whole session or only to the reasons for referr
 
 ---
 
-## Q39 — Referral red and the "cannot be undone" red now sit close together
-
-`Status: open` · `Raised by: client` · `Blocks: nothing — a working pair of reds is in place, this asks whether it reads right`
-
-The new brand palette makes the referral category red. The palette already reserved red for the one
-"this cannot be undone from here" action — cancelling a session, deleting a model parcel, cancelling
-or rejecting a referral. Those two reds now have to live on the same screens, and on the referral
-screens they land side by side: an ordinary red referral-category button, and a red destructive
-button, a shade apart.
-
-The build keeps the destructive red (`button-danger`, `#b3261e`) as it was, a little deeper than
-the referral category's `#c62828`, and leans on the confirmation dialog to carry the real weight —
-which is what `screenDetails.md` already says the confirmation is for. The two reds are only about
-1.2:1 apart, so on a washed-out screen they read as one colour. That is a guess at what the
-look-and-feel owner will accept, not a settled instruction.
-
-**Question for the design owner (via Pete):** is a deeper destructive red against the referral red
-enough, or should destructive actions on referral screens be drawn some other way — an outline, a
-different treatment — so "cancel this referral" never reads as just another referral button?
-
-**A:**
-
----
-
 ## Q40 — The accepted category hues cannot carry text; darker shades are standing in
 
 `Status: open` · `Raised by: client` · `Blocks: nothing — a working palette is in place, this asks whether the substitution is right`

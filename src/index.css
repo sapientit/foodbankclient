@@ -11,8 +11,6 @@
 }
 
 :root {
-  --button-action: #007a46;
-  --button-action-hover: #005a34;
   --category-action: #0b5cab;
   --category-action-hover: #084684;
   --category-action-tint: #eaf1f9;
@@ -74,8 +72,8 @@ a:not(.button-link) {
 /* ---------------------------------------------------------------------------
  * Controls
  *
- * **Whether a control can be used is said by its colour: green works, grey does
- * not.** Settled by Pete on 2026-08-17, recorded in `screenDetails.md` under
+ * **Whether a control can be used is said by its colour: the current section's
+ * colour works, grey does not.** Recorded in `screenDetails.md` under
  * "#Buttons and other controls", and drawn here — once, for every screen at
  * once.
  *
@@ -90,16 +88,18 @@ a:not(.button-link) {
  * That is the whole point: the failure this replaces was fifteen stylesheets
  * each drawing their own.
  *
- * Four looks, and only four:
+ * Four forms, built from three clear states:
  *
- *   - the default, green — an action that can be taken;
- *   - `button-secondary`, white with a green edge — the other half of a pair,
+ *   - the default, the current section colour — an action that can be taken;
+ *   - `button-secondary`, white with a section-coloured edge — the other half of a pair,
  *     the Cancel beside a Save. Available, and deliberately not where the eye
  *     lands first. The one variant a `button-link` may carry too, because the
  *     way back out of a form is usually a link and must not compete with
  *     saving;
- *   - `button-danger`, red — an action that **cannot be undone from this
- *     screen**. Deactivate is not one of them: Reactivate is beside it;
+ *   - `button-danger`, white with red text and edge — an action that **cannot
+ *     be undone from this screen**. The unfilled treatment keeps it visibly
+ *     separate even where the surrounding section is referrals. Deactivate is
+ *     not one of them: Reactivate is beside it;
  *   - `button-plain`, no box at all — a control that is really a row in a list
  *     or a word inside a sentence, where a filled block would be a lie about
  *     what it is.
@@ -133,15 +133,15 @@ a:not(.button-link) {
    dead control back to looking live. The one exception is the plain control's
    own grey, which ties with the general one and wins by sitting after it.
 
-   Square, not rounded: `screenDetails.md` describes the printing control as
-   "blue, square", and every button in the application is the same shape. */
+   Every button has a modest rounded corner. This is set here so a new control
+   cannot silently reintroduce square buttons. */
 button,
 a:where(.button-link) {
   padding: 0.6rem 1rem;
   font: inherit;
-  border: 1px solid var(--button-action);
-  background: var(--button-action);
-  /* #ffffff on #007a46 is 5.2:1. */
+  border: 1px solid var(--category-action, #0b5cab);
+  border-radius: 0.375rem;
+  background: var(--category-action, #0b5cab);
   color: #ffffff;
   cursor: pointer;
 }
@@ -155,9 +155,9 @@ a:where(.button-link) {
 }
 
 button:not(:disabled, [aria-disabled='true']):hover,
-a:where(.button-link):hover {
-  background: var(--button-action-hover);
-  border-color: var(--button-action-hover);
+a:where(.button-link):not([aria-disabled='true']):hover {
+  background: var(--category-action-hover, #084684);
+  border-color: var(--category-action-hover, #084684);
 }
 
 /* The fill is dark enough that the page's own blue focus ring disappears into
@@ -183,23 +183,19 @@ a:where(.button-link):where(.button-secondary):hover {
   color: var(--category-action-hover, #084684);
 }
 
-/* GUESS about how far this has to sit from the referral category — OPEN-QUESTIONS.md
-   Q39. Since the palette change, referrals are red (`--category-action: #c62828`),
-   so on a referral screen this destructive red now sits a shade away from an
-   ordinary referral button rather than a category apart. It is left deeper than
-   the referral hue and the weight is carried by the confirmation dialog; whether
-   that is enough, or destructive actions on referral screens should be drawn
-   unfilled, is Q39. */
+/* A danger button is deliberately not filled. This remains distinct from a
+   normal referral action even though referrals use a red section colour. */
 button:where(.button-danger) {
-  background: #b3261e;
+  background: #ffffff;
   border-color: #b3261e;
-  /* #ffffff on #b3261e is 6.5:1. */
-  color: #ffffff;
+  /* #b3261e on #ffffff is 6.5:1. */
+  color: #b3261e;
 }
 
 button:where(.button-danger):not(:disabled, [aria-disabled='true']):hover {
-  background: #8c1e18;
+  background: #fbeaea;
   border-color: #8c1e18;
+  color: #8c1e18;
 }
 
 /* No box, because it is not one: a row in a list, or a word in a sentence.
@@ -222,24 +218,24 @@ a:where(.button-link):where(.button-plain):hover {
 
 /* Unavailable, and last so that it wins. `aria-disabled` is drawn the same as
    `disabled` because a control that stays in the tab order to explain itself
-   must still look dead. Kept well clear of the edge of readability, because
-   somebody will land on it and read it: #333333 on #dcdcdc is 9.2:1, and the
-   border is 3.3:1 against the fill and 4.5:1 against the page behind it. */
+   must still look inactive. The text is visibly grey rather than black but
+   remains readable: #4b5560 on #e5e7e9 is 6.1:1. */
 button:disabled,
-button[aria-disabled='true'] {
-  background: #dcdcdc;
-  border-color: #767676;
-  color: #333333;
+button[aria-disabled='true'],
+a:where(.button-link)[aria-disabled='true'] {
+  background: #e5e7e9;
+  border-color: #7c838e;
+  color: #4b5560;
   cursor: not-allowed;
 }
 
-/* A plain control has no box to grey, so it says it in the only way it has.
-   #595959 on white is 7:1. */
+/* An inactive control is always a quiet grey box, even when its active form is
+   plain text: inactivity needs to be recognisable before somebody presses it. */
 button:where(.button-plain):disabled,
 button:where(.button-plain)[aria-disabled='true'],
 a:where(.button-link):where(.button-plain)[aria-disabled='true'] {
-  background: none;
-  color: #595959;
+  background: #e5e7e9;
+  color: #4b5560;
   cursor: not-allowed;
 }
 

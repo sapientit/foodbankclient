@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest';
 /**
  * Tests the stylesheets, not the app.
  *
- * **Whether a control can be used is said by its colour: blue works, grey does
- * not**, and that has to hold on every screen or it is not a signal at all. The
+ * **Whether a control can be used is said by its colour: the current section
+ * works, grey does not**, and that has to hold on every screen or it is not a signal at all. The
  * failure it guards against already happened: an available control and an
  * unavailable one differed by a shade of grey inside identical white boxes, a
  * working stock check was read as the dead control beside it, and it was
@@ -37,7 +37,8 @@ const REPO_ROOT = process.cwd();
 const CONTROL_ONLY_COLOURS = [
   '#0b5cab', // available
   '#084684', // available, hovered
-  '#dcdcdc', // unavailable
+  '#e5e7e9', // unavailable
+  '#7c838e', // unavailable edge
   '#8c1e18', // cannot be undone, hovered
 ];
 
@@ -55,6 +56,24 @@ describe('the global control style', () => {
   it('draws visible link controls without an underline', () => {
     expect(globalStyles).toMatch(
       /a:where\(\.button-link\)\s*\{[^}]*display:\s*inline-block;[^}]*text-decoration:\s*none;/,
+    );
+  });
+
+  it('uses the current section colour and rounded corners for normal controls', () => {
+    expect(globalStyles).toMatch(
+      /button,\s*a:where\(\.button-link\)\s*\{[^}]*border:\s*1px solid var\(--category-action, #0b5cab\);[^}]*border-radius:\s*0\.375rem;[^}]*background:\s*var\(--category-action, #0b5cab\);/,
+    );
+  });
+
+  it('keeps a danger control white with red text and edge', () => {
+    expect(globalStyles).toMatch(
+      /button:where\(\.button-danger\)\s*\{[^}]*background:\s*#ffffff;[^}]*border-color:\s*#b3261e;[^}]*color:\s*#b3261e;/,
+    );
+  });
+
+  it('keeps every inactive control light grey with readable grey text', () => {
+    expect(globalStyles).toMatch(
+      /button:disabled,\s*button\[aria-disabled='true'\],\s*a:where\(\.button-link\)\[aria-disabled='true'\]\s*\{[^}]*background:\s*#e5e7e9;[^}]*border-color:\s*#7c838e;[^}]*color:\s*#4b5560;/,
     );
   });
 
@@ -103,8 +122,8 @@ describe('the global control style', () => {
   it.each([
     ['available', '#ffffff', '#0b5cab', 4.5],
     ['available, hovered', '#ffffff', '#084684', 4.5],
-    ['cannot be undone', '#ffffff', '#b3261e', 4.5],
-    ['cannot be undone, hovered', '#ffffff', '#8c1e18', 4.5],
+    ['cannot be undone', '#b3261e', '#ffffff', 4.5],
+    ['cannot be undone, hovered', '#8c1e18', '#fbeaea', 4.5],
     ['quieter half', '#0b5cab', '#ffffff', 4.5],
     ['quieter half, hovered', '#084684', '#eaf1f9', 4.5],
     // The readable shade of each category's brand hue — the one a button fill,
@@ -118,10 +137,9 @@ describe('the global control style', () => {
     ['referrals, hovered', '#ffffff', '#9e2020', 4.5],
     ['stock', '#ffffff', '#0f6f99', 4.5],
     ['stock, hovered', '#ffffff', '#0a5573', 4.5],
-    ['unavailable', '#333333', '#dcdcdc', 4.5],
-    ['unavailable, plain', '#595959', '#ffffff', 4.5],
-    ['the edge of an unavailable control', '#767676', '#dcdcdc', 3],
-    ['that edge against the page', '#767676', '#ffffff', 3],
+    ['unavailable', '#4b5560', '#e5e7e9', 4.5],
+    ['the edge of an unavailable control', '#7c838e', '#e5e7e9', 3],
+    ['that edge against the page', '#7c838e', '#ffffff', 3],
     ['the focus ring against the page', '#1a1a1a', '#ffffff', 3],
   ])('reads %s at the contrast the guidelines ask for', (_label, ink, ground, minimum) => {
     expect(contrastRatio(ink, ground)).toBeGreaterThanOrEqual(minimum);
