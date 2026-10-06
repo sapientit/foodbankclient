@@ -20,9 +20,6 @@
   background: var(--category-tint, #f1fafd);
 }
 
-/* `.results` below now carries the same tint on its own, so this modifier is
-   redundant on the stock-take groupings table — left alone rather than
-   edited on `stock-groupings-screen.tsx`'s behalf, outside this task's scope. */
 .groupingsResults {
   background: var(--category-tint, #f1fafd);
 }
@@ -85,14 +82,31 @@
   block-size: 1.25rem;
 }
 
-/* This is a form action, not the compact icon-control row above. Keeping it
-   separate prevents the shared action-row sizing from turning its text button
-   into a small square. */
-.groupingActions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
+.groupingField {
+  display: grid;
+  gap: 0.375rem;
+}
+
+/* The same width and comfortable depth make the list's editable names and
+   the new-name field read as one aligned maintenance form. */
+.groupingInput {
+  inline-size: 100%;
+  box-sizing: border-box;
+  border: 1px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
+.groupingError {
+  margin: 0.5rem 0 0;
+}
+
+.groupingsResults .table th:last-child,
+.groupingsResults .table td:last-child {
+  inline-size: 9rem;
+}
+
+.groupingsResults .table tfoot td {
+  border-block-start: 1px solid #b3cee0;
 }
 
 @media (min-width: 80rem) {

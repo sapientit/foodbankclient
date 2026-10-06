@@ -131,6 +131,16 @@ describe('crate composition inputs', () => {
     );
   });
 
+  it('asks for the shelf before the rest of a new crate definition', async () => {
+    server.use(http.get('/api/v1/stock/crates', () => HttpResponse.json({ items: [] })));
+    renderApp('/stock/crates');
+
+    const shelf = await screen.findByLabelText('Shelf');
+    const name = screen.getByLabelText('Name');
+
+    expect(shelf.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
   it('does not offer a shelf or retired item when it has only one active stock item', async () => {
     server.use(
       http.get('/api/v1/stock/crates', () => HttpResponse.json({ items: [] })),

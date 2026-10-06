@@ -345,17 +345,6 @@ export function CratesScreen() {
           {deletedName !== null && `Deleted ${deletedName}.`}
         </p>
         <div className={styles.field}>
-          <label htmlFor="crate-name">Name</label>
-          <input
-            id="crate-name"
-            onChange={(event) => {
-              setDraft((value) => ({ ...value, name: event.target.value }));
-            }}
-            type="text"
-            value={draft.name}
-          />
-        </div>
-        <div className={styles.field}>
           <label htmlFor="crate-shelf">Shelf</label>
           <select
             id="crate-shelf"
@@ -371,6 +360,17 @@ export function CratesScreen() {
               </option>
             ))}
           </select>
+        </div>
+        <div className={styles.field}>
+          <label htmlFor="crate-name">Name</label>
+          <input
+            id="crate-name"
+            onChange={(event) => {
+              setDraft((value) => ({ ...value, name: event.target.value }));
+            }}
+            type="text"
+            value={draft.name}
+          />
         </div>
         <div className={styles.field}>
           <label htmlFor="crate-grouping">Stock-take grouping</label>

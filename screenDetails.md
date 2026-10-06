@@ -19,6 +19,9 @@ The sign-on screen and the public referral form carry the Foodbank logo as a ban
 
 The browser tab uses the Foodbank heart, leaf and hands emblem as its icon, rather than the full wordmark.
 
+#Stock-take grouping and Crates editors
+The Stock-take groupings list and its New grouping entry are one card: the new name box sits under the same Name column and its Add grouping control under the Action column. Every grouping-name box is the same comfortable depth and alignment. The Crates Add and Amend editor places Shelf first, then its other definition fields in aligned rows with deeper controls; the membership percentage boxes are deeper but do not become wider. Text-entry boxes and dropdowns share that same comfortable depth throughout the application, while each screen chooses only their width for its layout.
+
 #Stock maintenance
 Saving a stock-item amendment returns to the same filtered list, brings the amended item into view and focuses its Amend control.
 

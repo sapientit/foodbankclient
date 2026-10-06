@@ -154,6 +154,16 @@ a:where(.button-link) {
   text-decoration: none;
 }
 
+/* Text-entry and choice controls use one comfortable height across the app.
+   Screens may choose their width for their layout, but not a smaller touch
+   target; checks, radios and hidden inputs are different controls entirely. */
+input:not([type='checkbox']):not([type='radio']):not([type='hidden']),
+select {
+  min-block-size: 2.75rem;
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+}
+
 button:not(:disabled, [aria-disabled='true']):hover,
 a:where(.button-link):not([aria-disabled='true']):hover {
   background: var(--category-action-hover, #084684);

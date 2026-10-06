@@ -59,6 +59,12 @@ describe('the global control style', () => {
     );
   });
 
+  it('gives text-entry boxes and dropdowns one shared comfortable height', () => {
+    expect(globalStyles).toMatch(
+      /input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\):not\(\[type='hidden'\]\),\s*select\s*\{[^}]*min-block-size:\s*2\.75rem;/,
+    );
+  });
+
   it('uses the current section colour and rounded corners for normal controls', () => {
     expect(globalStyles).toMatch(
       /button,\s*a:where\(\.button-link\)\s*\{[^}]*border:\s*1px solid var\(--category-action, #0b5cab\);[^}]*border-radius:\s*0\.375rem;[^}]*background:\s*var\(--category-action, #0b5cab\);/,
@@ -208,7 +214,7 @@ describe('the CSS modules', () => {
     }
   });
 
-  it('keeps the Stock groupings Add button out of the compact icon-action row', () => {
+  it('keeps the Stock groupings entry in the list card, aligned under its columns', () => {
     const screen = readFileSync(
       join(REPO_ROOT, 'src/features/stock/components/stock-groupings-screen.tsx'),
       'utf8',
@@ -218,8 +224,9 @@ describe('the CSS modules', () => {
       'utf8',
     );
 
-    expect(screen).toContain('className={styles.groupingActions}');
-    expect(stockItemsStyles).toMatch(/\.groupingActions\s*\{[^}]*display:\s*flex;/);
-    expect(stockItemsStyles).not.toMatch(/\.groupingActions\s+button\s*\{[^}]*inline-size:/);
+    expect(screen).toContain('<tfoot>');
+    expect(screen).toContain('className={styles.groupingInput}');
+    expect(stockItemsStyles).toMatch(/\.groupingsResults \.table tfoot td\s*\{/);
+    expect(stockItemsStyles).toMatch(/\.groupingsResults \.table td:last-child\s*\{/);
   });
 });

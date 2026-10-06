@@ -58,7 +58,7 @@ export function StockGroupingsScreen() {
         <ErrorNotice error={create.error ?? amend.error} />
       )}
       <section
-        aria-label="Stock-take groupings results"
+        aria-label="Stock-take groupings"
         className={classNames(styles.results, styles.groupingsResults)}
       >
         <table className={styles.table}>
@@ -73,24 +73,37 @@ export function StockGroupingsScreen() {
               <GroupingRow grouping={grouping} key={grouping.id} />
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <td>
+                <div className={styles.groupingField}>
+                  <label htmlFor={inputId}>New grouping name</label>
+                  <input
+                    className={styles.groupingInput}
+                    id={inputId}
+                    onChange={(event) => {
+                      setName(event.target.value);
+                      setNewError(null);
+                    }}
+                    type="text"
+                    value={name}
+                  />
+                </div>
+                {newError !== null && (
+                  <p className={styles.groupingError} role="alert">
+                    {newError}
+                  </p>
+                )}
+              </td>
+              <td>
+                <button disabled={create.isPending} onClick={() => void add()} type="button">
+                  {create.isPending ? 'Adding…' : 'Add grouping'}
+                </button>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </section>
-      <div className={styles.groupingActions}>
-        <label htmlFor={inputId}>New grouping name</label>
-        <input
-          id={inputId}
-          onChange={(event) => {
-            setName(event.target.value);
-            setNewError(null);
-          }}
-          type="text"
-          value={name}
-        />
-        <button disabled={create.isPending} onClick={() => void add()} type="button">
-          {create.isPending ? 'Adding…' : 'Add grouping'}
-        </button>
-      </div>
-      {newError !== null && <p role="alert">{newError}</p>}
     </div>
   );
 }
@@ -137,6 +150,7 @@ function GroupingRow({ grouping }: { readonly grouping: StockTakeGrouping }) {
           Name for {grouping.name}
         </label>
         <input
+          className={styles.groupingInput}
           id={id}
           onChange={(event) => {
             setName(event.target.value);
