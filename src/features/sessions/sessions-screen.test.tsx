@@ -55,6 +55,8 @@ describe('an admin’s planning view', () => {
     renderApp('/sessions');
 
     expect(await screen.findByRole('heading', { name: 'Sessions' })).toBeInTheDocument();
+    const filters = screen.getByRole('region', { name: 'Session filters' });
+    expect(within(filters).getByRole('group', { name: 'Date range' })).toBeInTheDocument();
     const main = screen.getByRole('main');
     expect(within(main).getByRole('link', { name: 'Add a session' })).toBeInTheDocument();
     expect(within(main).queryByRole('link', { name: 'Weekly sessions' })).toBeNull();

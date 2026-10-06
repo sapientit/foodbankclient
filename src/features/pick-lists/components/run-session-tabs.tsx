@@ -116,7 +116,7 @@ function PrintTab({
   if (readyToPrint) {
     return (
       <NavLink end to={`/run-sessions/${sessionId}/print`}>
-        {readOnly ? 'View all pick lists' : 'Print all pick lists'}
+        {readOnly ? 'Print pick lists' : 'Print all pick lists'}
       </NavLink>
     );
   }

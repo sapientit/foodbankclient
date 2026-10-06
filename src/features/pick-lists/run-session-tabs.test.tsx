@@ -105,6 +105,8 @@ describe('the run-session tab strip', () => {
     renderApp(`/run-sessions/${SESSION_ID}`);
 
     const nav = await screen.findByRole('navigation', { name: 'Session navigation' });
+    const sessionDetails = screen.getByRole('region', { name: 'Session details' });
+    expect(sessionDetails).toHaveTextContent('6 Aug 2099');
     const clients = within(nav).getByRole('link', { name: 'Clients' });
     expect(clients).toHaveAttribute('href', `/run-sessions/${SESSION_ID}`);
     expect(clients).toHaveAttribute('aria-current', 'page');
@@ -169,7 +171,7 @@ describe('the run-session tab strip', () => {
     // `screenDetails.md`: "it did not run, so it usually has no pick lists at
     // all" — which is the server's `404` on the read, not a `200` with an
     // empty `parcels` array. `allParcelsReviewed` is vacuously true for `[]`,
-    // so a `200` with no parcels renders "View all pick lists" instead; only
+    // so a `200` with no parcels renders "Print pick lists" instead; only
     // the `404` reaches this branch. Matches the fixture
     // `completed-session-read-only.test.tsx` uses for the same case.
     server.use(

@@ -172,47 +172,52 @@ export function ListenerSheetScreen() {
           }
         />
       </div>
-      <p className={styles.screenOnly}>
-        This sensitive sheet is for the selected listeners only. It lists non-delivery households on
-        this session.
-      </p>
-      {sheet.data.households.length === 0 ? (
-        <p>No non-delivery households are on this session.</p>
-      ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Pick number</th>
-              {columns.map((column) => (
-                <th key={column.key} scope="col">
-                  {column.label}
-                </th>
-              ))}
-              <th scope="col">First time / voucher</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sheet.data.households.map((household) => (
-              <tr key={household.referralId}>
-                <td>#{household.pickNumber}</td>
-                {columns.map((column, index) => {
-                  const value = listenerColumnValue(column, household, reasons.sources);
-                  // The first column heads its row: a listener finds a household
-                  // by whatever the form puts first, which is their name.
-                  return index === 0 ? (
-                    <th key={column.key} scope="row">
-                      {value}
-                    </th>
-                  ) : (
-                    <td key={column.key}>{value}</td>
-                  );
-                })}
-                <td>{listenerFirstTimeOrVoucherText(household)}</td>
+      <section aria-label="Listener sheet details" className={styles.detailsCard}>
+        <p className={styles.screenOnly}>
+          This sensitive sheet is for the selected listeners only. It lists non-delivery households
+          on this session.
+        </p>
+        <p className={styles.confidentialNotice}>
+          Confidential: this sheet is for the selected listeners only. Destroy it after use.
+        </p>
+        {sheet.data.households.length === 0 ? (
+          <p>No non-delivery households are on this session.</p>
+        ) : (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Pick number</th>
+                {columns.map((column) => (
+                  <th key={column.key} scope="col">
+                    {column.label}
+                  </th>
+                ))}
+                <th scope="col">First time / voucher</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {sheet.data.households.map((household) => (
+                <tr key={household.referralId}>
+                  <td>#{household.pickNumber}</td>
+                  {columns.map((column, index) => {
+                    const value = listenerColumnValue(column, household, reasons.sources);
+                    // The first column heads its row: a listener finds a household
+                    // by whatever the form puts first, which is their name.
+                    return index === 0 ? (
+                      <th key={column.key} scope="row">
+                        {value}
+                      </th>
+                    ) : (
+                      <td key={column.key}>{value}</td>
+                    );
+                  })}
+                  <td>{listenerFirstTimeOrVoucherText(household)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
     </div>
   );
 }

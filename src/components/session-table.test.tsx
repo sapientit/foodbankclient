@@ -66,4 +66,19 @@ describe('SessionTable', () => {
 
     expect(screen.getByText('Sessions').className).toMatch(/openCaption/);
   });
+
+  it('offers the sessions working-surface tone for the green session lists', () => {
+    render(
+      <MemoryRouter>
+        <SessionTable
+          caption="Sessions"
+          hrefFor={(row) => `/sessions/${row.id}`}
+          sessions={[session]}
+          tone="session"
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('table').parentElement).toHaveAttribute('data-tone', 'session');
+  });
 });

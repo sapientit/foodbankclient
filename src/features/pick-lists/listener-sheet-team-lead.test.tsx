@@ -231,6 +231,11 @@ describe('a team lead listener sheet', () => {
     expect(screen.getByText('#1')).toBeInTheDocument();
     expect(screen.getByText('#2')).toBeInTheDocument();
     expect(screen.getByText('#3')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Confidential: this sheet is for the selected listeners only. Destroy it after use.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('refreshes the client list before returning to rebuild pick lists after new clients are acknowledged', async () => {

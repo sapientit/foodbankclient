@@ -146,6 +146,32 @@ beforeEach(() => {
 });
 
 describe('a team lead running a session', () => {
+  it('keeps session controls and their explanations separate from the client list', async () => {
+    server.use(
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    const actions = await screen.findByRole('region', { name: 'Session actions' });
+    const clients = screen.getByRole('region', { name: 'Clients' });
+
+    expect(actions).not.toContainElement(clients);
+    expect(clients).not.toContainElement(actions);
+    expect(within(actions).getByRole('button', { name: 'Send SMS reminders' })).toBeInTheDocument();
+    expect(within(actions).getByText(PRINT_UNAVAILABLE_REASON)).toBeInTheDocument();
+    expect(
+      within(clients).getByRole('table', { name: 'Clients on this session' }),
+    ).toBeInTheDocument();
+    expect(within(clients).getByRole('link', { name: 'Check pick list' })).toBeInTheDocument();
+  });
+
   it('sends reminders from the Clients tab without leaving the run session screen', async () => {
     let sent = 0;
     server.use(
@@ -340,7 +366,10 @@ describe('a team lead running a session', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sessions' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Referrals' })).toBeNull();
-    expect(await screen.findByRole('link', { name: /6 Aug 2099/ })).toBeInTheDocument();
+    const filters = screen.getByRole('region', { name: 'Session filters' });
+    const results = await screen.findByRole('region', { name: 'Session results' });
+    expect(within(filters).getByRole('group', { name: 'Date range' })).toBeInTheDocument();
+    expect(await within(results).findByRole('link', { name: /6 Aug 2099/ })).toBeInTheDocument();
   });
 
   /**
@@ -1154,6 +1183,7 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}`);
 
     await screen.findByRole('heading', { name: 'Clients' });
+    expect(screen.queryByRole('region', { name: 'Session actions' })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Attended/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^No show/ })).toBeNull();
   });

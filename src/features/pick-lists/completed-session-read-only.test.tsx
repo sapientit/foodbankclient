@@ -260,7 +260,7 @@ describe('a completed session', () => {
 
     expect(await screen.findByRole('heading', { name: 'Clients' })).toBeInTheDocument();
     // The sheets are still there to read — this is the one control that goes.
-    expect(screen.getByRole('link', { name: 'View all pick lists' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Print pick lists' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Stock check' })).toBeNull();
     expect(screen.queryByText(/before checking stock/)).toBeNull();
   });

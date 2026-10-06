@@ -99,11 +99,13 @@ export function RunSessionsScreen() {
       <div className={styles.headerCard}>
         <PageHeader icon={<CalendarIcon />} title="Run a session" />
       </div>
-      <p>
+      <p className={styles.listIntro}>
         Select the session you are running. Pick lists are prepared when you open it. A completed
         session opens as a record of what happened and cannot be changed.
       </p>
-      <SessionListFilters />
+      <section aria-label="Session filters" className={styles.listFiltersCard}>
+        <SessionListFilters />
+      </section>
       {sessions.isPending && <Spinner label="Loading sessions…" />}
       {sessions.isError && (
         <ErrorNotice error={sessions.error} onRetry={() => void sessions.refetch()} />
@@ -119,16 +121,19 @@ export function RunSessionsScreen() {
             }
           />
         ) : (
-          <SessionTable
-            caption={
-              selection.showCompleted
-                ? 'Sessions in this date range, completed ones included'
-                : 'Open sessions in this date range'
-            }
-            emphasiseCaption={!selection.showCompleted}
-            hrefFor={(session) => `/run-sessions/${session.id}`}
-            sessions={shown}
-          />
+          <section aria-label="Session results" className={styles.listResults}>
+            <SessionTable
+              caption={
+                selection.showCompleted
+                  ? 'Sessions in this date range, completed ones included'
+                  : 'Open sessions in this date range'
+              }
+              emphasiseCaption={!selection.showCompleted}
+              hrefFor={(session) => `/run-sessions/${session.id}`}
+              sessions={shown}
+              tone="session"
+            />
+          </section>
         ))}
     </div>
   );
@@ -385,17 +390,21 @@ export function PickListPrintScreen() {
   if (list.isError) return <ErrorNotice error={list.error} onRetry={() => void list.refetch()} />;
   if (!readyToPrint)
     return (
-      <>
-        <PageHeader icon={<ClipboardCheckIcon />} title="Pick lists" />
-        <p role="alert">Check every pick list before printing.</p>
-      </>
+      <div className={styles.tabPage}>
+        <div className={styles.headerCard}>
+          <PageHeader icon={<ClipboardCheckIcon />} title="Pick lists" />
+        </div>
+        <section aria-label="Pick list details" className={styles.card}>
+          <p role="alert">Check every pick list before printing.</p>
+        </section>
+      </div>
     );
   if (print.isError)
     return <ErrorNotice error={print.error} onRetry={() => void print.refetch()} />;
   if (print.data === undefined) return <Spinner label="Preparing print sheets…" />;
   return (
-    <>
-      <div className={styles.screenOnly}>
+    <div className={styles.tabPage}>
+      <div className={classNames(styles.headerCard, styles.screenOnly)}>
         <PageHeader
           icon={<ClipboardCheckIcon />}
           title="Pick lists"
@@ -411,7 +420,7 @@ export function PickListPrintScreen() {
           }
         />
       </div>
-      <div className={styles.printSheets}>
+      <section aria-label="Pick lists" className={styles.printSheets}>
         {print.data.parcels
           .filter((parcel) =>
             currentParcels.some((current) => current.pickNumber === parcel.pickNumber),
@@ -491,8 +500,8 @@ export function PickListPrintScreen() {
               </section>
             );
           })}
-      </div>
-    </>
+      </section>
+    </div>
   );
 }
 
@@ -822,86 +831,92 @@ export function RunSessionDetailScreen() {
       <div className={styles.headerCard}>
         <PageHeader icon={<CalendarIcon />} title="Run a session" />
       </div>
-      {reconcile.data !== undefined &&
-        pickList.data !== undefined &&
-        (reconcile.data.parcelsCreated ?? 0) > 0 && (
-          <p className={styles.reconciledNotice} role="status">
-            {reconcile.data.parcelsCreated} new pick list
-            {reconcile.data.parcelsCreated === 1 ? '' : 's'}{' '}
-            {pickList.data.pickList.firstPrintedAt === null
-              ? 'created.'
-              : 'created — print again to include them.'}
-          </p>
-        )}
-      <SessionActions
-        allOutcomesRecorded={allOutcomesRecorded}
-        completing={complete.isPending}
-        onComplete={() => {
-          complete.mutate(sessionId);
-        }}
-        onToggleStockCheck={() => {
-          setStockCheckOpen((open) => !open);
-        }}
-        readOnly={readOnly === true}
-        readyToPrint={readyToPrint}
-        sessionId={sessionId}
-        stockCheckOpen={stockCheckOnScreen}
-        stockCheckPanelId={stockCheckPanelId}
-      />
-      {complete.error !== null && <SessionRefusal error={complete.error} />}
-      {/* Between the actions and the client list: it answers a question about
-          the session as a whole, and it belongs under the control that opened
-          it rather than below twenty households. */}
-      <StockCheckPanel id={stockCheckPanelId} open={stockCheckOnScreen} sessionId={sessionId} />
-      <h2>Clients</h2>
-      {currentParcels.length === 0 ? (
-        <p>No clients on this session.</p>
-      ) : (
-        /*
-         * Focusable, because a table that scrolls sideways on a phone is
-         * unreachable by keyboard otherwise — the same wrapper `SessionTable`
-         * uses, and this is the screen a volunteer runs a hall from.
-         */
-        <div
-          className={styles.clientsTableWrap}
-          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- The scrollable table needs a keyboard focus target.
-          tabIndex={0}
-        >
-          <table className={styles.clientsTable}>
-            {/* Named for anyone who cannot see the `Clients` heading above it,
-                and drawn only for them: the heading is already saying this. */}
-            <caption className={styles.visuallyHidden}>Clients on this session</caption>
-            <thead>
-              <tr>
-                <th scope="col">Pick #</th>
-                <th scope="col">Client</th>
-                <th className={styles.compactColumn} scope="col">
-                  First?
-                </th>
-                {voucherSchemeApplies && (
-                  <th className={styles.compactColumn} scope="col">
-                    Voucher
-                  </th>
-                )}
-                <th scope="col">Status</th>
-                <th scope="col">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentParcels.map((parcel) => (
-                <ClientRow
-                  canOpenReferral={canOpenReferral}
-                  key={parcel.id}
-                  parcel={parcel}
-                  readOnly={readOnly === true}
-                  sessionId={sessionId}
-                  voucherSchemeApplies={voucherSchemeApplies}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {readOnly === false && (
+        <section aria-label="Session actions" className={styles.card}>
+          {reconcile.data !== undefined &&
+            pickList.data !== undefined &&
+            (reconcile.data.parcelsCreated ?? 0) > 0 && (
+              <p className={styles.reconciledNotice} role="status">
+                {reconcile.data.parcelsCreated} new pick list
+                {reconcile.data.parcelsCreated === 1 ? '' : 's'}{' '}
+                {pickList.data.pickList.firstPrintedAt === null
+                  ? 'created.'
+                  : 'created — print again to include them.'}
+              </p>
+            )}
+          <SessionActions
+            allOutcomesRecorded={allOutcomesRecorded}
+            completing={complete.isPending}
+            onComplete={() => {
+              complete.mutate(sessionId);
+            }}
+            onToggleStockCheck={() => {
+              setStockCheckOpen((open) => !open);
+            }}
+            readOnly={false}
+            readyToPrint={readyToPrint}
+            sessionId={sessionId}
+            stockCheckOpen={stockCheckOnScreen}
+            stockCheckPanelId={stockCheckPanelId}
+          />
+          {complete.error !== null && <SessionRefusal error={complete.error} />}
+          {/* Between the actions and the client list: it answers a question about
+              the session as a whole, and it belongs under the control that opened
+              it rather than below twenty households. */}
+          <StockCheckPanel id={stockCheckPanelId} open={stockCheckOnScreen} sessionId={sessionId} />
+        </section>
       )}
+      <section aria-labelledby="clients-heading" className={styles.card}>
+        <h2 id="clients-heading">Clients</h2>
+        {currentParcels.length === 0 ? (
+          <p>No clients on this session.</p>
+        ) : (
+          /*
+           * Focusable, because a table that scrolls sideways on a phone is
+           * unreachable by keyboard otherwise — the same wrapper `SessionTable`
+           * uses, and this is the screen a volunteer runs a hall from.
+           */
+          <div
+            className={styles.clientsTableWrap}
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- The scrollable table needs a keyboard focus target.
+            tabIndex={0}
+          >
+            <table className={styles.clientsTable}>
+              {/* Named for anyone who cannot see the `Clients` heading above it,
+                  and drawn only for them: the heading is already saying this. */}
+              <caption className={styles.visuallyHidden}>Clients on this session</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Pick #</th>
+                  <th scope="col">Client</th>
+                  <th className={styles.compactColumn} scope="col">
+                    First?
+                  </th>
+                  {voucherSchemeApplies && (
+                    <th className={styles.compactColumn} scope="col">
+                      Voucher
+                    </th>
+                  )}
+                  <th scope="col">Status</th>
+                  <th scope="col">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentParcels.map((parcel) => (
+                  <ClientRow
+                    canOpenReferral={canOpenReferral}
+                    key={parcel.id}
+                    parcel={parcel}
+                    readOnly={readOnly === true}
+                    sessionId={sessionId}
+                    voucherSchemeApplies={voucherSchemeApplies}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

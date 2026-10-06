@@ -55,6 +55,7 @@ export function SessionTable({
   captionHidden = false,
   emphasiseCaption = false,
   capacityNouns = true,
+  tone,
 }: {
   /** Names the table for anyone who cannot see which screen it is on. */
   readonly caption: string;
@@ -64,6 +65,8 @@ export function SessionTable({
   readonly emphasiseCaption?: boolean;
   /** The dashboard's column headings already say what each capacity count measures. */
   readonly capacityNouns?: boolean;
+  /** Sessions screens present their list as a category-coloured working surface. */
+  readonly tone?: 'session';
   readonly hrefFor: (session: TabulatedSession) => string;
   readonly sessions: readonly TabulatedSession[];
   /** An optional per-row control, used by the dashboard without coupling it to this table. */
@@ -76,6 +79,7 @@ export function SessionTable({
      */
     <div
       className={styles.tableWrap}
+      data-tone={tone}
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- The scrollable table needs a keyboard focus target.
       tabIndex={0}
     >

@@ -23,6 +23,22 @@
   max-inline-size: 70ch;
 }
 
+.detailsCard {
+  margin-block: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid #c7e2d2;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1faf5);
+  box-shadow: 0 0.2rem 0.7rem rgb(15 122 68 / 7%);
+}
+
+.confidentialNotice {
+  max-inline-size: 70ch;
+  padding: 0.75rem 1rem;
+  border-inline-start: 4px solid #b3261e;
+  font-weight: 700;
+}
+
 .newClientsAssigned {
   max-inline-size: 70ch;
   padding: 1rem;
@@ -52,12 +68,29 @@
 }
 
 @media print {
+  .page {
+    background: #ffffff;
+  }
+
   .screenOnly {
     display: none;
   }
 
   .newClientsAssigned {
     display: none;
+  }
+
+  .detailsCard {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .confidentialNotice {
+    border: 0;
+    padding: 0;
   }
 
   .table {

@@ -26,6 +26,15 @@
   background: var(--category-tint, #f1faf5);
 }
 
+.detailsCard {
+  margin-block: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid #c7e2d2;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1faf5);
+  box-shadow: 0 0.2rem 0.7rem rgb(15 122 68 / 7%);
+}
+
 /* On screen the table sizes itself and scrolls sideways in its own frame, the
    same treatment as the session client list: a volunteer opens this on a phone,
    and a layout cut to the width of a sheet of paper squeezes a postcode into
@@ -69,6 +78,10 @@
 }
 
 @media print {
+  .page {
+    background: #ffffff;
+  }
+
   /*
    * **Fixed columns, and every cell wraps.** Left to itself a table widens to
    * fit its longest cell, so one long address pushes the last columns — the
@@ -86,6 +99,14 @@
 
   .tableWrap {
     overflow-x: visible;
+  }
+
+  .detailsCard {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
   }
 
   /*

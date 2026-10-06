@@ -92,6 +92,25 @@
   color: #595959;
 }
 
+/* Manage Sessions and Run a session use the sessions category's green working
+   surface. The status pills stay white, so their words do not disappear into
+   a table row of the same green. */
+.tableWrap[data-tone='session'] .table,
+.tableWrap[data-tone='session'] .openCaption,
+.tableWrap[data-tone='session'] .table th,
+.tableWrap[data-tone='session'] .table td {
+  background: var(--category-tint, #f1faf5);
+}
+
+.tableWrap[data-tone='session'] .table thead th {
+  background: #e8f4ec;
+}
+
+.tableWrap[data-tone='session'] .status,
+.tableWrap[data-tone='session'] .status[data-status='cancelled'] {
+  background: #ffffff;
+}
+
 @media print {
   .tableWrap {
     overflow-x: visible;

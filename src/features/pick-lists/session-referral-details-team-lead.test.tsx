@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -72,6 +72,10 @@ describe('team-lead session referral details', () => {
     const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
     expect(await screen.findByRole('row', { name: /Jamie Rowe/ })).toBeInTheDocument();
+    const details = screen.getByRole('region', { name: 'Referral details' });
+    expect(
+      within(details).getByRole('button', { name: 'Print referral details' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('St Mary’s Hall')).toBeNull();
     expect(screen.getByRole('row', { name: /Jamie Rowe/ })).toHaveTextContent('#1');
     expect(screen.getByText('Sam Referrer')).toBeInTheDocument();

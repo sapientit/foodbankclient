@@ -35,20 +35,22 @@ export function RunSessionLayout() {
   const readOnlyReason = describeReadOnlySession(session.data.status);
 
   return (
-    <>
+    <div className={styles.page}>
       {/* Hidden on paper: none of the four printable tabs showed this line or
           this navigation before today, and a printed sheet gaining a stray
           date line and a row of tab labels is not the change this was. */}
-      <div className={styles.screenOnly}>
+      <section aria-label="Session details" className={styles.sessionCard}>
         <SessionLine session={session.data} />
         {readOnlyReason !== null && (
           <p className={styles.readOnlyNotice} role="status">
             {readOnlyReason}
           </p>
         )}
+      </section>
+      <div className={styles.navigationCard}>
         <RunSessionTabs readOnly={readOnly} sessionId={sessionId} />
       </div>
       <Outlet />
-    </>
+    </div>
   );
 }

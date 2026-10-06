@@ -74,7 +74,9 @@ export function SessionsScreen() {
         />
       </div>
 
-      <SessionListFilters />
+      <section aria-label="Session filters" className={styles.filtersCard}>
+        <SessionListFilters />
+      </section>
 
       {sessions.isPending && <Spinner label="Loading sessions…" />}
 
@@ -98,49 +100,52 @@ export function SessionsScreen() {
             }
           />
         ) : (
-          <SessionTable
-            action={(session) => {
-              const when = formatSessionDate(session.sessionDate);
-              const hours = formatTimeRange(session.startTime, session.durationMinutes);
-              return (
-                <span className={styles.rowActions}>
-                  <Link
-                    aria-label={`Run session, ${when}, ${hours}`}
-                    className={styles.rowAction}
-                    to={`/run-sessions/${session.id}`}
-                  >
-                    <ResponsiveIconLabel label="Run">
-                      <PlayIcon />
-                    </ResponsiveIconLabel>
-                  </Link>
-                  {isAdmin && (
+          <section aria-label="Session results" className={styles.results}>
+            <SessionTable
+              action={(session) => {
+                const when = formatSessionDate(session.sessionDate);
+                const hours = formatTimeRange(session.startTime, session.durationMinutes);
+                return (
+                  <span className={styles.rowActions}>
                     <Link
-                      aria-label={`Amend session, ${when}, ${hours}`}
+                      aria-label={`Run session, ${when}, ${hours}`}
                       className={styles.rowAction}
-                      ref={session.id === returnedSessionId ? returnedSessionRef : undefined}
-                      state={listReturnContext(
-                        listPathFor(location.pathname, location.search),
-                        session.id,
-                      )}
-                      to={`/sessions/${session.id}`}
+                      to={`/run-sessions/${session.id}`}
                     >
-                      <ResponsiveIconLabel label="Edit">
-                        <PencilIcon />
+                      <ResponsiveIconLabel label="Run">
+                        <PlayIcon />
                       </ResponsiveIconLabel>
                     </Link>
-                  )}
-                </span>
-              );
-            }}
-            caption={
-              selection.showCompleted
-                ? 'Sessions in this date range, completed ones included'
-                : 'Open sessions in this date range'
-            }
-            emphasiseCaption={!selection.showCompleted}
-            hrefFor={(session) => `/run-sessions/${session.id}`}
-            sessions={shown}
-          />
+                    {isAdmin && (
+                      <Link
+                        aria-label={`Amend session, ${when}, ${hours}`}
+                        className={styles.rowAction}
+                        ref={session.id === returnedSessionId ? returnedSessionRef : undefined}
+                        state={listReturnContext(
+                          listPathFor(location.pathname, location.search),
+                          session.id,
+                        )}
+                        to={`/sessions/${session.id}`}
+                      >
+                        <ResponsiveIconLabel label="Edit">
+                          <PencilIcon />
+                        </ResponsiveIconLabel>
+                      </Link>
+                    )}
+                  </span>
+                );
+              }}
+              caption={
+                selection.showCompleted
+                  ? 'Sessions in this date range, completed ones included'
+                  : 'Open sessions in this date range'
+              }
+              emphasiseCaption={!selection.showCompleted}
+              hrefFor={(session) => `/run-sessions/${session.id}`}
+              sessions={shown}
+              tone="session"
+            />
+          </section>
         ))}
     </div>
   );

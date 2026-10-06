@@ -23,6 +23,15 @@
   background: var(--category-tint, #f1faf5);
 }
 
+.detailsCard {
+  margin-block: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid #c7e2d2;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1faf5);
+  box-shadow: 0 0.2rem 0.7rem rgb(15 122 68 / 7%);
+}
+
 .households,
 .thread {
   padding-inline-start: 1.25rem;

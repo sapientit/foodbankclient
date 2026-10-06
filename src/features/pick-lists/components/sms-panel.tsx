@@ -206,11 +206,13 @@ export function RunSessionMessagesScreen() {
         <div className={styles.headerCard}>
           <PageHeader title="Text messages" />
         </div>
-        <p>
-          This session's pick lists have not been prepared yet.{' '}
-          <Link to={`/run-sessions/${sessionId}`}>Open the Clients tab</Link> first, which prepares
-          them.
-        </p>
+        <section aria-label="Text message details" className={styles.detailsCard}>
+          <p>
+            This session's pick lists have not been prepared yet.{' '}
+            <Link to={`/run-sessions/${sessionId}`}>Open the Clients tab</Link> first, which
+            prepares them.
+          </p>
+        </section>
       </div>
     );
   if (pickList.isError)
@@ -227,11 +229,13 @@ export function RunSessionMessagesScreen() {
       <div className={styles.headerCard}>
         <PageHeader title="Text messages" />
       </div>
-      <SessionSmsPanel
-        parcels={currentParcels}
-        readOnly={isSessionReadOnly(session.data.status)}
-        sessionId={sessionId}
-      />
+      <div className={styles.detailsCard}>
+        <SessionSmsPanel
+          parcels={currentParcels}
+          readOnly={isSessionReadOnly(session.data.status)}
+          sessionId={sessionId}
+        />
+      </div>
     </div>
   );
 }

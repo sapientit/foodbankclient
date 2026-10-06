@@ -10,8 +10,37 @@
   background: #eef4f9;
 }
 
+/* The green cards need a white page between them, like Weekly sessions: a
+   coloured card on the same coloured surface no longer reads as a card. */
+.page {
+  margin: -1.5rem -1rem;
+  padding: 1.5rem 1rem;
+  background: #ffffff;
+}
+
+/* The session being worked on and its destinations are shared by every tab,
+   so they belong to one distinct overview card rather than floating on the
+   category-coloured surface above whichever tab is open. */
+.sessionCard {
+  padding: 1rem 1.5rem;
+  border: 1px solid #c7e2d2;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1faf5);
+  box-shadow: 0 0.2rem 0.7rem rgb(15 122 68 / 7%);
+}
+
+.navigationCard {
+  margin-block: 1.5rem;
+  padding: 0.5rem 1.5rem 0;
+  border: 1px solid #c7e2d2;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1faf5);
+  box-shadow: 0 0.2rem 0.7rem rgb(15 122 68 / 7%);
+}
+
 @media print {
-  .screenOnly {
+  .sessionCard,
+  .navigationCard {
     display: none;
   }
 }
