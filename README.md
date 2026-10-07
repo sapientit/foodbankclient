@@ -89,6 +89,15 @@ the checks have passed, normally through `deploy_foodbank`. The client command
 never selects production, and the combined command intentionally has no
 production mode.
 
+The client helper never publishes a freshly uploaded asset set immediately. It
+uploads an isolated Worker Version, fetches that Version URL, and requires its
+HTML to exactly match the build, its commit stamp to match, and every emitted
+asset (including JavaScript and CSS MIME types) to load. Only then does it
+promote that already-checked version to 100% of traffic. If either of two
+candidate uploads fails this check, the current live version remains live and
+the command fails for attention. This prevents a missing hashed module from
+becoming an overnight user-facing outage.
+
 Before building the test client, the helper verifies the private-account
 `foodbank-referral-test` Turnstile widget and its
 `foodbank-client.losttemple.workers.dev` hostname, then passes that widget's

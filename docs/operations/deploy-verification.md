@@ -11,6 +11,21 @@ then confirms both deployed commit versions, server health/readiness, the client
 the deployed proxy. Those automatic checks are necessary but do not
 replace the deployed-browser checks below.
 
+## Automated client release gate
+
+`deploy-foodbank-client` stages a client as a Cloudflare Worker Version before
+it changes live traffic. The staged Version URL must return the just-built
+`index.html`, the build's `client-version.json`, and every emitted static
+asset. JavaScript and CSS are also required to have their correct MIME types.
+This is essential because the SPA fallback otherwise answers a missing hashed
+module with `index.html`, which looks like a successful HTTP response but the
+browser rightly refuses to execute it.
+
+Only a candidate that passes this external check is promoted to 100% traffic.
+The helper retries a failed candidate once after a clean rebuild; if it still
+fails, it exits without changing live traffic. Do not replace this with a
+direct `wrangler deploy`, a percentage rollout, or a post-live smoke check.
+
 The session and `Set-Cookie` checks are covered by ordinary use of the test deployment; the
 rate-limit partitioning check is still open in [`KNOWN-GAPS.md`](../../KNOWN-GAPS.md). The reasoning
 behind all three is in
