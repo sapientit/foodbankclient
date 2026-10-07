@@ -14,6 +14,7 @@ import process from 'node:process';
 import { URL } from 'node:url';
 
 const usage = `usage: node scripts/verify-client-release.mjs --url URL --expected-version VERSION [--dist DIRECTORY]`;
+const requestTimeoutMs = 10_000;
 
 function readOption(name, required = true) {
   const index = process.argv.indexOf(name);
@@ -62,6 +63,7 @@ function requestUrl(origin, assetPath) {
 async function get(origin, assetPath) {
   const response = await globalThis.fetch(requestUrl(origin, assetPath), {
     headers: { 'cache-control': 'no-cache' },
+    signal: globalThis.AbortSignal.timeout(requestTimeoutMs),
   });
   return response;
 }
