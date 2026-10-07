@@ -38,6 +38,14 @@ form instead of creating anything.
 settles that `formId` never becomes required on a public referral submission — a missing value always
 means the currently active release, permanently, not just for a bounded compatibility window.
 
+## Release pipeline
+
+[`release-pipeline.md`](./release-pipeline.md) is the agreed design for how a developer using AI and
+a deployer not using it share the work: Pete's machine as the normal place to develop and release, a
+charity-owned laptop as the emergency secondary, one command that tests and pushes both repos
+together, and a release command that releases only what is on GitHub. Not yet built; the remaining
+items are a set-up checklist.
+
 ## Potential matches attendance confirmation
 
 ![Potential matches attendance confirmation mock-up](potential-matches-attendance-confirmation-mockup.png)

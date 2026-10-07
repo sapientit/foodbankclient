@@ -54,7 +54,7 @@ and read its listener sheet — indefinitely, or only for some period after the 
 is a limit, does it apply to the whole session or only to the reasons for referral?
 
 **A:**
-
+The team leader will have had access in the past, so there is no real justification for locking this down. Leave it as is.
 ---
 
 ## Q40 — The accepted category hues cannot carry text; darker shades are standing in

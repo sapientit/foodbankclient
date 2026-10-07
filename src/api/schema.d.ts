@@ -161,6 +161,7 @@ export interface paths {
                     };
                     content?: never;
                 };
+                429: components["responses"]["RateLimited"];
             };
         };
         delete?: never;
@@ -239,6 +240,7 @@ export interface paths {
                     };
                     content?: never;
                 };
+                429: components["responses"]["RateLimited"];
             };
         };
         delete?: never;
@@ -297,6 +299,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Too many sign-in, refresh and logout requests from this address — the four share one allowance of 60 a minute. The sign-in is not ended: wait and refresh again rather than sending the user to the sign-in screen. */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -334,6 +345,7 @@ export interface paths {
                     };
                     content?: never;
                 };
+                429: components["responses"]["RateLimited"];
             };
         };
         delete?: never;
@@ -3700,6 +3712,13 @@ export interface paths {
                             ok: true;
                         };
                     };
+                };
+                /** @description Not a recognisable message — no sender or text, or a field longer than any real text message could be */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
                 /** @description Missing or wrong credentials */
                 401: {

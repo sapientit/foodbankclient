@@ -170,14 +170,17 @@
   color: #c62828;
 }
 .todayList {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, max-content));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.95rem;
+  inline-size: fit-content;
+  max-inline-size: 100%;
   padding: 0;
   list-style: none;
 }
 
 .todayList li {
+  flex: 0 1 auto;
   min-inline-size: 0;
 }
 
