@@ -1,5 +1,7 @@
 # Food Bank Client
 
+**If `secondary.local` exists in this repository's root, this is the charity's secondary machine: read [`docs/operations/secondary-machine.md`](./docs/operations/secondary-machine.md) before anything else and follow it.**
+
 The React frontend for the food bank system: a public referral form, an admin back office, and the
 screens a team lead uses to run a session — pick lists, printing, attendance.
 

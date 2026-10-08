@@ -164,8 +164,8 @@ server's `wrangler dev` through wrangler's dev registry. So `http://localhost:51
 served by the local API, through the same code path as production: one origin, no CORS, the `/api/v1`
 prefix intact and `Set-Cookie` passed straight back.
 
-The registry matches on the deployed script name, so `wrangler.jsonc` binds to `api-test` at top
-level (the server's local name) and `api` under `env.production`. If the binding stops resolving,
+The registry matches on the deployed script name, so `wrangler.jsonc` binds to `foodbank-server` at
+top level (the server's local name), `api-test` under `env.uat` and `api` under `env.production`. If the binding stops resolving,
 the usual cause is a wrangler version mismatch between the two repos — check `npx wrangler
 --version` in both before anything else.
 

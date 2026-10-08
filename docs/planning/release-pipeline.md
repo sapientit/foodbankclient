@@ -2,9 +2,10 @@
 
 **Status: agreed design, not yet built.** Pete has settled how the commands work (see
 [Settled by Pete](#settled-by-pete)). What remains is arranged at set-up (see the
-[Set-up checklist](#set-up-checklist)), and in the [Open points](#open-points) the overnight release
-raised on 2026-10-08. The server repository has been asked the same question, and the commands
-themselves will live there, so its plan has to agree with this one.
+[Set-up checklist](#set-up-checklist)), and in the open points of the deploy specification,
+`deploy-spec.md` in the project repository. The server repository has been asked the same question, and the commands
+themselves will live in a third repository that holds both (see
+[The project directory](#the-project-directory)), so all three have to agree.
 
 ## What we want
 
@@ -13,8 +14,9 @@ themselves will live there, so its plan has to agree with this one.
   use it to change the code with AI, test it and push it. A deployer can use it to release to
   **UAT** or **production** without AI, by following a short documented series of commands.
 
-The commands for both are kept in the server repository (see [Settled by Pete](#settled-by-pete)),
-so either machine does the same thing in the same way. Nothing depends on personal scripts kept
+The commands for both are kept in a small project repository that holds the client and server (see
+[The project directory](#the-project-directory)), so either machine does the same thing in the same
+way. Nothing depends on personal scripts kept
 outside the repositories.
 
 The existing personal **test** environment (Pete's own Cloudflare account) is out of scope. It will
@@ -38,6 +40,32 @@ probably be dropped once the system is stable.
 2. **A release is exactly what is on GitHub.** The release command refuses to run if either local
    repository has uncommitted changes, commits that have not been pushed, or is behind GitHub. What
    is released is never something that exists only on one machine.
+
+The same applies to the project repository that holds the commands: a release refuses to run if it has
+uncommitted changes, unpushed commits or is behind GitHub, so a command edited on one machine never
+runs a release nobody else has seen.
+
+### The project directory
+
+A third, small GitHub repository holds the push, release and bootstrap commands and a README. Nothing
+else. The client and server stay separate repositories, cloned inside it:
+
+```
+foodbank/                  the project repository: commands, bootstrap, README
+├── foodbankclient/        this repository, cloned here and ignored by the project repository
+└── foodbankserver/        the server repository, cloned here and ignored by the project repository
+```
+
+- **Setting up a machine is two steps:** clone the project repository, then run its bootstrap
+  command, which clones the client and server inside it and checks the tools they need.
+- **The folders keep their names**, `foodbankclient` and `foodbankserver`. The client reaches the
+  server as `../foodbankserver` (`npm run api:types`, `scripts/check-api-types.mjs`, and its docs), so
+  with the same names nothing in either existing repository changes.
+- **Plain clones, not git submodules.** Submodules are easy to get into a confusing state, and the
+  deployer has no AI to untangle one. The tested pair stays a local record, as settled below.
+- **AI sessions start inside `foodbankclient` or `foodbankserver`, never in the project directory.**
+  Each repository's rules let it see the other only through its documentation; a session started in
+  the parent would see both. The README says so.
 
 ### Pushing
 
@@ -69,95 +97,23 @@ command has been run on that pair.
 
 ### Releasing
 
-One command, naming the environment (UAT or production), kept in the repository and documented in
-plain steps. **A release has two parts, on the same machine:** an evening part with someone online,
-which checks everything and ends in an approval, and an overnight part that deploys unattended.
+**The deploy is now specified in `deploy-spec.md` in the project repository
+(`https://github.com/sapientit/foodbank`), which is the source of truth for it** — the steps, the
+overnight default, the emergency "deploy now", failure after migrating and what it never does. This
+document keeps only the reasoning; where they disagree, the spec wins.
 
-**The deploy runs overnight, after the server's 02:17 nightly job and before 07:00.** About 0.3% of referrals are still made
-between 23:00 and midnight; after midnight there are virtually none until 07:00. Nothing can tell
-whether a referral is in flight — a referrer part-way through the form, or a volunteer mid-task — so
-the only protection is deploying when nobody is using the system. That window also keeps a database
-restore (below) from losing real work.
-
-**Failure overnight has to be rare enough to leave until 07:00.** Everything that can be checked is
-checked in the evening, while someone is there to fix it. The overnight part does not try to repair a
-failure: it emails the result, and a person deals with it at 07:00.
-
-#### In the evening, with someone online
-
-1. **Fetches from GitHub and confirms both repositories match it exactly**: no local changes, nothing
-   unpushed, nothing newer on GitHub that has not been pulled. Otherwise it stops and says why.
-2. **Confirms the pair matches this machine's record.** The commits on GitHub must be the ones the
-   push command last tested on this machine. A half-finished push, a plain `git push`, or someone
-   else's push that this machine has not tested is refused, with a message saying to run the push
-   command first. The release command does not run the tests again itself.
-3. **Shows what it is about to release** — the environment, both commits, the changes since the last
-   release and **any pending migrations, by name**. For production it also says whether this exact
-   pair has already been released to UAT.
-4. **Builds both repositories**, with that environment's build settings (the bot-check key, the
-   sign-in mode, the Google sign-in client) written in the command rather than remembered, and keeps
-   the built files for the night. The overnight part deploys exactly these files and builds nothing.
-5. **Checks what the overnight part will need**, so it cannot fail for a reason that was knowable in
-   the evening: the charity's Cloudflare token works against the right account, the database's Time
-   Travel bookmark can be read, and a test email reaches the people who will be told the result.
-6. **Asks for approval.** Approving schedules the overnight part for that night. Nothing on the live
-   system has changed yet. Without approval, nothing is scheduled.
-
-#### Overnight, unattended
-
-The machine that ran the evening part is left running — on, awake and online — until the deploy has
-finished.
-
-7. **Confirms GitHub still holds exactly the approved pair.** If either repository has changed since
-   approval, it releases nothing and emails why.
-8. **If there are migrations to apply, records a restore point first.** It takes the database's
-   current Time Travel bookmark (`wrangler d1 time-travel info <database> --env <tier> --json`) and
-   saves it with the release record. D1 cannot create a restore point — Time Travel is always on, and
-   any minute in the retention period (7 days on the free plan, 30 on paid) can be restored — so the
-   bookmark is what gives the person at 07:00 one exact point to go back to rather than a time to
-   work out under pressure. **If the bookmark cannot be taken, the release stops before migrating.**
-   With no migrations pending, this step is skipped.
-9. **Applies the server's database migrations**, deploys the server, then deploys the client, from
-   the files built in the evening.
-10. **Verifies the result**: the deployed commits are the ones checked, the server reports healthy,
-    the client loads, and a public API request works through the client. Each check retries for
-    about a minute before failing, because straight after a deploy the old version can still be
-    served for a few seconds. A single attempt reports a good release as failed.
-11. **Records the release** by pushing a tag naming the environment and date to both repositories.
-    That tag is the record of which client and server versions went out together, and it lets a
-    production release confirm that its pair passed UAT first.
-12. **Emails the result.** Success names the environment and both commits. Failure names the step
-    that failed, what is now live, and — if it had migrated — the bookmark and the steps to go back.
-    The email holds no personal data.
-
-### If a release fails after migrating
-
-The migration runs before the server is deployed, so for a short time the old server runs against the
-new schema. If the migration fails part-way, or succeeds but the server deploy then fails, the
-database and the code no longer match, and putting the Worker back alone does not fix it.
-
-The release command then stops, and the failure email gives the exact steps to go back, using the
-bookmark from step 8. They are for the person at 07:00, not something the command does itself:
-
-1. Take a fresh bookmark, so the restore itself can be undone.
-2. Put the server Worker back to the version that was live before the release.
-3. Restore the database: `wrangler d1 time-travel restore <database> --env <tier> --bookmark=<id>`.
-4. Check that `referrals`, `stock_ledger` and `users` exist and the server reports healthy.
-
-**A restore replaces the whole database**, so anything written after the bookmark is lost. Restored
-at 07:00, that should be nothing, because the system was broken overnight and next to nobody uses
-it then. A problem found later in the day is different: restoring would
-lose that day's referrals, and fixing forward is likely the better choice — a judgement for a person,
-not the command.
-
-**None of this has been tried.** A Time Travel restore must be rehearsed on UAT before the command
-relies on it.
+In outline: a person prepares a deploy in the evening (every check, the build, an approval), and by
+default the same machine deploys it unattended after the server's 02:17 job and before 07:00,
+emailing the result through Resend; a failure waits for a person at 07:00. In an emergency, the
+person can choose to deploy now instead. A deploy with migrations records a D1 Time Travel bookmark
+first. Overnight was chosen because about 0.3% of referrals arrive between 23:00 and midnight and
+virtually none until 07:00, and nothing can detect a referral in flight.
 
 ### The emergency laptop
 
-- **Both repositories are cloned side by side** (`foodbankclient` and `foodbankserver`), with the
-  versions of Node and the other tools the repositories require. Setting it up is documented in the
-  repository, so it can be rebuilt if it is lost.
+- **It is set up from the project repository** — clone it, run its bootstrap command — with the
+  versions of Node and the other tools the repositories require. Setting it up is documented there,
+  so it can be rebuilt if it is lost.
 - **A marker identifies it as the secondary machine.** This is a small file outside both
   repositories, written once at set-up. On this machine, work starts by pulling both repositories,
   because Pete's machine will normally have moved on since it was last used. The marker is a guard
@@ -176,8 +132,8 @@ relies on it.
   The guarantee is only as strong as the control over those machines and accounts.
 - **Database migrations cannot be rolled back.** Reverting a Worker to an earlier version is quick.
   Reversing a migration that has already run against the database is not: the only way back is a
-  whole-database Time Travel restore to the bookmark (see
-  [If a release fails after migrating](#if-a-release-fails-after-migrating)).
+  whole-database Time Travel restore to the bookmark (see "When a deploy fails after migrating" in
+  `deploy-spec.md`).
 - **The server and client are deployed one after the other.** For a short time the old client runs
   against the new server. Pete has accepted that this can briefly break things for anyone using the
   system during a release, which is one reason releases run overnight. Anyone affected reloads the
@@ -197,15 +153,21 @@ None of these block the design. They are arranged with the charity when the lapt
 3. **The Claude account** — a charity account for AI on the laptop. AI is never pointed at UAT or
    production data; development uses local, made-up data only.
 4. **Who may release** — to UAT and to production when Pete is unavailable.
-5. **GitHub access** — the laptop's own access to push to both repositories, not dependent on
-   reaching Pete.
+5. **GitHub access** — the laptop's own access to push to all three repositories, not dependent on
+   reaching Pete, and which GitHub account owns the new project repository.
 6. **The external sign-ups** — an owner at the charity for the production Turnstile widget and the
    Google sign-in client.
+7. **The Resend account** — a food bank account with 2-Step Verification, the DNS records that
+   verify `guildfordfoodbank.org` for sending (added by whoever controls that domain), a sending-only
+   API key in the keychain of each machine that releases, the list of who receives the result, and
+   the charity's sign-off for a new third party.
 
 ## Settled by Pete
 
-- **The commands live in the server repository.** The release starts with the server's migrations and
-  deploy, and the server owns the shared domain. This repository's documentation points to them.
+- **The commands live in a project repository that holds the client and server** (2026-10-08,
+  replacing the earlier decision to keep them in the server repository). It is cloned as the parent
+  directory, with the two existing repositories cloned inside it under their current names. This
+  repository's documentation points to it.
 - **The tested pair is a gitignored local record**, written by the push command, including when there
   is nothing to push. The release command refuses a pair that does not match it.
 - **The release command does not re-run the tests.** It trusts this machine's record.
@@ -227,19 +189,18 @@ None of these block the design. They are arranged with the charity when the lapt
   materialisation or the purges.
 - **The evening part builds both repositories** (2026-10-08), and the overnight part deploys those
   files without building.
+- **Result emails are sent through Resend** (2026-10-08), from an address on the food bank's own
+  domain, by a single HTTPS request with an API key kept in the keychain. Its free plan (3,000 a month,
+  100 a day) is far beyond what releases need, and it pauses rather than bills when exceeded. Chosen
+  over Gmail because a Resend key can only send: it opens no mailbox, needs no sign-in page and does
+  not depend on anyone's personal Google account. The emails carry no personal data.
 - **The first production migration is run by hand and watched** (2026-10-08), outside the automated
   release, as the server's `production.md` requires. The automated release takes over after it.
 
 ## Open points
 
-Raised by the overnight release on 2026-10-08. Only Pete closes these.
-
-1. **How the emails are sent, and to whom.** The machine needs a way to send mail and a list of who
-   receives the result. The email carries no personal data, but it still goes through a mail service
-   with its own credential, which is a set-up decision.
-2. **A release that never runs sends no email.** If the machine sleeps, loses power or loses its
-   connection, the overnight part does nothing and tells nobody. Should the absence of a result email
-   by 07:00 be treated as a failure, and who checks for it?
+The deploy's open points now live in `deploy-spec.md` in the project repository, with the spec they
+belong to.
 
 ## Needed in this repository whatever the charity decides
 
@@ -256,9 +217,8 @@ has been done.
   sign-in mode, Google client id). Run as they are, they ship a build with no bot check and the wrong
   sign-in screen. The release command replaces them, and they should then be removed so there is one
   way to release.
-- **There is no `.env.example`** for setting up the laptop. The README's note on the local service
-  binding names `api-test`, but `wrangler.jsonc` binds `foodbank-server`, which will send someone the
-  wrong way.
+- **There is no `.env.example`** for setting up the laptop. (The README's wrong service-binding name,
+  listed here before, was fixed on 2026-10-08.)
 - **Loose working files are committed at the root:** `For Jessica.rtf`, `referral details.txt`,
   `Referral questions.csv` and `outputs/`. They are internal notes and correspondence, and they
   belong in the charity's shared storage, not the repository.
