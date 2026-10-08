@@ -10,9 +10,10 @@ interface DeployedVersion {
 }
 
 /**
- * On sign-in only, move a page that has been left open across a deployment on
- * to the current client. Reloading in the middle of referral or stock work
- * would discard unsaved edits, so callers must never use this after sign-in.
+ * At safe workflow boundaries, move a page that has been left open across a
+ * deployment on to the current client. Reloading in the middle of referral or
+ * established stock work would discard unsaved edits, so callers must only use
+ * this before sign-in completes or before a volunteer code begins a count.
  */
 export async function reloadForNewerClient(
   nextPath: string,

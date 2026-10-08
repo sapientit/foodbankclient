@@ -8,6 +8,7 @@ import {
   setVolunteerCode,
   subscribeToVolunteerCode,
 } from '../../../api/volunteer-code-store';
+import { reloadForNewerClient } from '../../../lib/client-version';
 import { stockKeys } from '../keys';
 import { StockTakeScreen } from './stock-take-screen';
 import styles from './volunteer-count-screen.module.css';
@@ -134,6 +135,7 @@ function CodeEntry({
   const hintId = useId();
   const errorId = useId();
   const [error, setError] = useState<string | null>(null);
+  const [checkingVersion, setCheckingVersion] = useState(false);
   const alertRef = useRef<HTMLParagraphElement>(null);
 
   // A code that lapsed mid-count drops the volunteer back here. Land them on the
@@ -142,13 +144,19 @@ function CodeEntry({
     if (expired) alertRef.current?.focus();
   }, [expired]);
 
-  const startCounting = () => {
+  const startCounting = async () => {
     const entered = normaliseVolunteerCode(value);
     if (entered === '') {
       setError('Enter the code your team leader gave you.');
       return;
     }
+    if (checkingVersion) return;
     setError(null);
+    setCheckingVersion(true);
+    // Like sign-in, a code begins a new protected workflow. Checking here is
+    // safe: no count has been typed and the code has not entered memory yet.
+    if (await reloadForNewerClient('/count')) return;
+    setCheckingVersion(false);
     onSubmit(entered);
   };
 
@@ -176,7 +184,7 @@ function CodeEntry({
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
-          startCounting();
+          void startCounting();
         }}
       >
         <div className={styles.field}>
@@ -192,6 +200,7 @@ function CodeEntry({
             autoComplete="off"
             autoCorrect="off"
             className={styles.input}
+            disabled={checkingVersion}
             id={codeId}
             inputMode="text"
             onChange={(event) => {
@@ -207,8 +216,8 @@ function CodeEntry({
           )}
         </div>
 
-        <button className={styles.submit} type="submit">
-          Start counting
+        <button className={styles.submit} disabled={checkingVersion} type="submit">
+          {checkingVersion ? 'Checking for updates…' : 'Start counting'}
         </button>
       </form>
     </main>

@@ -147,21 +147,24 @@ export function PublicReferralScreen() {
   // Filled in once the release has been fetched, the same "adjust state during
   // render when a dependency changes" idiom `filledFrom` below uses — there is
   // no default answer map to build until the questions themselves have
-  // arrived. Compared by reference: `definition` only changes identity on a
-  // genuine refetch that returns different content, thanks to Query's
-  // structural sharing, so this does not wipe an in-progress answer the
-  // moment it is typed.
-  const [answersInitialisedFor, setAnswersInitialisedFor] = useState<ReferralFormDefinition | null>(
-    null,
-  );
-  if (definition !== undefined && definition !== answersInitialisedFor) {
-    setAnswersInitialisedFor(definition);
+  // arrived. A release id, rather than the parsed object's identity, is the
+  // stable boundary: explicitly refetching the same immutable release parses
+  // a fresh object and must not wipe a form someone is already completing.
+  const [answersInitialisedFor, setAnswersInitialisedFor] = useState<string | null>(null);
+  if (definition !== undefined && formId !== undefined && formId !== answersInitialisedFor) {
+    setAnswersInitialisedFor(formId);
     setAnswers(defaultAnswers(definition));
   }
 
   const [pageIndex, setPageIndex] = useState(0);
   const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
   const [receipt, setReceipt] = useState<ReferralReceipt | null>(null);
+  // The confirmation is evidence of a completed referral. Keep the exact
+  // definition that produced it even if asking for a newer release fails.
+  const [confirmationDefinition, setConfirmationDefinition] =
+    useState<ReferralFormDefinition | null>(null);
+  const [startingAnother, setStartingAnother] = useState(false);
+  const [startAnotherError, setStartAnotherError] = useState<string | null>(null);
   const [newReferralFocusRequest, setNewReferralFocusRequest] = useState(0);
   const [misconfigured, setMisconfigured] = useState<readonly string[]>([]);
   // Whether the referrer has finished with the address. See `referrerVerdict`:
@@ -336,19 +339,30 @@ export function PublicReferralScreen() {
     }
   }
 
-  const startAnotherReferral = () => {
-    // Unreachable in practice: this button only renders on the confirmation
-    // screen, which only exists once a referral has been sent, which needs
-    // this same `definition` to have been loaded already.
-    if (definition === undefined) return;
+  const startAnotherReferral = async () => {
+    if (startingAnother) return;
+    setStartingAnother(true);
+    setStartAnotherError(null);
+    const latest = await form.refetch();
+    if (latest === null) {
+      // The confirmation is a completed referral's durable evidence. A failed
+      // refresh must leave it untouched rather than losing it to a blank form.
+      setStartingAnother(false);
+      setStartAnotherError('We could not load the latest referral form. Please try again.');
+      return;
+    }
+
+    const latestKeys = deriveFormKeys(latest.definition);
     setAnswers((current) => {
-      const next = defaultAnswers(definition);
-      for (const key of referrerDetailKeys) {
-        const value = current[key];
+      const next = defaultAnswers(latest.definition);
+      for (const key of latestKeys.referrerDetailKeys) {
+        const value = referrerDetailKeys.includes(key) ? current[key] : undefined;
         if (typeof value === 'string') next[key] = value;
       }
       return next;
     });
+    setAnswersInitialisedFor(latest.formId);
+    setConfirmationDefinition(null);
     setReceipt(null);
     setPageIndex(0);
     setErrors({});
@@ -358,19 +372,22 @@ export function PublicReferralScreen() {
     setTurnstileToken(null);
     submit.reset();
     sending.current = false;
+    setStartingAnother(false);
     setNewReferralFocusRequest((request) => request + 1);
   };
 
   if (receipt !== null) {
-    // Reaching here needs a completed `send()`, which needs `definition` —
-    // the guard is for the type checker, not a state that occurs.
-    if (definition === undefined) return null;
+    if (confirmationDefinition === null) return null;
     return (
       <Confirmation
         answers={answers}
-        definition={definition}
+        definition={confirmationDefinition}
         lookups={lookups}
-        onStartAnotherReferral={startAnotherReferral}
+        onStartAnotherReferral={() => {
+          void startAnotherReferral();
+        }}
+        startAnotherError={startAnotherError}
+        startingAnother={startingAnother}
         receipt={receipt}
       />
     );
@@ -596,6 +613,7 @@ export function PublicReferralScreen() {
 
     try {
       const result = await submit.mutateAsync({ body: built.body, turnstileToken });
+      setConfirmationDefinition(definition);
       setReceipt(result);
     } catch (error) {
       // Rendered by the dedicated failure notice below. Never retried
@@ -825,12 +843,16 @@ function Confirmation({
   lookups,
   onStartAnotherReferral,
   receipt,
+  startAnotherError,
+  startingAnother,
 }: {
   answers: FormAnswers;
   definition: ReferralFormDefinition;
   lookups: ReferralLookups;
   onStartAnotherReferral: () => void;
   receipt: ReferralReceipt;
+  startAnotherError: string | null;
+  startingAnother: boolean;
 }) {
   const lines = describeSubmission(definition, answers, lookups);
   const pending = receipt.status === 'pending_review';
@@ -891,9 +913,15 @@ function Confirmation({
       </dl>
 
       <div className={styles.actions}>
-        <button className="button-secondary" onClick={onStartAnotherReferral} type="button">
-          Refer someone else
+        <button
+          className="button-secondary"
+          disabled={startingAnother}
+          onClick={onStartAnotherReferral}
+          type="button"
+        >
+          {startingAnother ? 'Loading the latest form…' : 'Refer someone else'}
         </button>
+        {startAnotherError !== null && <p role="alert">{startAnotherError}</p>}
       </div>
     </main>
   );

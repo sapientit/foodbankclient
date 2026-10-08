@@ -42,6 +42,7 @@ const QUESTIONNAIRE = '/api/v1/public/questionnaire';
  * from has changed.
  */
 const ACTIVE_FORM_ID = 'form-1';
+const LATEST_FORM_ID = 'form-2';
 
 const TUESDAY: PublicSession = {
   id: 's-tue',
@@ -1004,7 +1005,24 @@ describe('submitting', () => {
   });
 
   it('starts another referral with only the referrer details retained', async () => {
-    server.use(http.post(SUBMIT, () => HttpResponse.json(receipt('active'), { status: 201 })));
+    let questionnaireRequests = 0;
+    const latestQuestionnaire = {
+      ...rawFormConfig,
+      pages: rawFormConfig.pages.map((page, index) =>
+        index === 0 ? { ...page, pageTitle: 'Latest referrer and client details' } : page,
+      ),
+    };
+    server.use(
+      http.post(SUBMIT, () => HttpResponse.json(receipt('active'), { status: 201 })),
+      http.get(QUESTIONNAIRE, () => {
+        questionnaireRequests += 1;
+        return HttpResponse.json(
+          questionnaireRequests === 1
+            ? { formId: ACTIVE_FORM_ID, questionnaire: JSON.stringify(rawFormConfig) }
+            : { formId: LATEST_FORM_ID, questionnaire: JSON.stringify(latestQuestionnaire) },
+        );
+      }),
+    );
     renderRefer();
     const user = userEvent.setup();
 
@@ -1014,6 +1032,10 @@ describe('submitting', () => {
     await user.click(screen.getByRole('button', { name: 'Refer someone else' }));
 
     expect(await screen.findByText('Page 1 of 7')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Latest referrer and client details' }),
+    ).toBeInTheDocument();
+    expect(questionnaireRequests).toBe(2);
     expect(screen.getByLabelText(/Referrer's name/)).toHaveValue('Sam Referrer');
     expect(screen.getByLabelText(/Referrer's email address/)).toHaveValue('sam@riverside.org');
     expect(screen.getByRole('combobox', { name: /Referrer's organisation/ })).toHaveValue(
@@ -1038,6 +1060,37 @@ describe('submitting', () => {
     await user.click(next());
     expect(await screen.findByText(/Client's first name is required/)).toBeInTheDocument();
     expect(screen.queryByText(/Referrer's name is required/)).toBeNull();
+  });
+
+  it('keeps the completed referral visible when the latest form cannot be loaded', async () => {
+    let questionnaireRequests = 0;
+    server.use(
+      http.post(SUBMIT, () => HttpResponse.json(receipt('active'), { status: 201 })),
+      http.get(QUESTIONNAIRE, () => {
+        questionnaireRequests += 1;
+        if (questionnaireRequests === 1)
+          return HttpResponse.json({
+            formId: ACTIVE_FORM_ID,
+            questionnaire: JSON.stringify(rawFormConfig),
+          });
+        return HttpResponse.json(
+          { error: { code: 'UNAVAILABLE', message: 'Try later', requestId: 'r1' } },
+          { status: 503 },
+        );
+      }),
+    );
+    renderRefer();
+    const user = userEvent.setup();
+
+    await submitTheForm(user);
+    await screen.findByRole('heading', { name: 'Referral sent' });
+    await user.click(screen.getByRole('button', { name: 'Refer someone else' }));
+
+    expect(
+      await screen.findByText('We could not load the latest referral form. Please try again.'),
+    ).toHaveAttribute('role', 'alert');
+    expect(screen.getByRole('heading', { name: 'Referral sent' })).toBeInTheDocument();
+    expect(screen.getByText('Rowe')).toBeInTheDocument();
   });
 
   /**

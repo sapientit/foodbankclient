@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { api, publicApi } from '../../api/client';
 import type { components, paths } from '../../api/schema';
 import { unwrap } from '../../api/unwrap';
@@ -9,6 +9,7 @@ import { sessionKeys } from '../sessions/keys';
 import {
   useConfigurationReleasesBulk,
   usePublicQuestionnaire,
+  type PublicQuestionnaire,
 } from '../configuration-releases/queries';
 import { publicReferralKeys, referralKeys, type ReferralListFilters } from './keys';
 import { looksLikeEmail, sortByStart } from './public-referral.logic';
@@ -184,21 +185,21 @@ type PublicReferralFormResult =
       readonly isError: false;
       readonly error: null;
       readonly data: undefined;
-      readonly refetch: () => Promise<unknown>;
+      readonly refetch: () => Promise<PublicReferralForm | null>;
     }
   | {
       readonly isPending: false;
       readonly isError: true;
       readonly error: unknown;
       readonly data: undefined;
-      readonly refetch: () => Promise<unknown>;
+      readonly refetch: () => Promise<PublicReferralForm | null>;
     }
   | {
       readonly isPending: false;
       readonly isError: false;
       readonly error: null;
       readonly data: PublicReferralForm;
-      readonly refetch: () => Promise<unknown>;
+      readonly refetch: () => Promise<PublicReferralForm | null>;
     };
 
 /**
@@ -216,6 +217,19 @@ type PublicReferralFormResult =
  */
 export function usePublicReferralFormDefinition(): PublicReferralFormResult {
   const questionnaire = usePublicQuestionnaire();
+  const refetchQuestionnaire = questionnaire.refetch;
+  const refetch = useCallback(async (): Promise<PublicReferralForm | null> => {
+    try {
+      const refreshed = await refetchQuestionnaire();
+      // TanStack Query retains the last successful data after a failed refetch.
+      // Starting another referral must not mistake that old release for the
+      // latest one.
+      if (refreshed.isError || refreshed.data === undefined) return null;
+      return parsePublicReferralForm(refreshed.data);
+    } catch {
+      return null;
+    }
+  }, [refetchQuestionnaire]);
 
   return useMemo<PublicReferralFormResult>(() => {
     if (questionnaire.isPending) {
@@ -224,7 +238,7 @@ export function usePublicReferralFormDefinition(): PublicReferralFormResult {
         isError: false,
         error: null,
         data: undefined,
-        refetch: questionnaire.refetch,
+        refetch,
       };
     }
     if (questionnaire.isError) {
@@ -233,19 +247,17 @@ export function usePublicReferralFormDefinition(): PublicReferralFormResult {
         isError: true,
         error: questionnaire.error,
         data: undefined,
-        refetch: questionnaire.refetch,
+        refetch,
       };
     }
     try {
-      const definition = parseReferralFormConfig(
-        JSON.parse(questionnaire.data.questionnaire) as unknown,
-      );
+      const { definition, formId } = parsePublicReferralForm(questionnaire.data);
       return {
         isPending: false,
         isError: false,
         error: null,
-        data: { formId: questionnaire.data.formId, definition },
-        refetch: questionnaire.refetch,
+        data: { formId, definition },
+        refetch,
       };
     } catch (error) {
       return {
@@ -253,7 +265,7 @@ export function usePublicReferralFormDefinition(): PublicReferralFormResult {
         isError: true,
         error,
         data: undefined,
-        refetch: questionnaire.refetch,
+        refetch,
       };
     }
   }, [
@@ -261,8 +273,15 @@ export function usePublicReferralFormDefinition(): PublicReferralFormResult {
     questionnaire.isError,
     questionnaire.error,
     questionnaire.data,
-    questionnaire.refetch,
+    refetch,
   ]);
+}
+
+function parsePublicReferralForm(questionnaire: PublicQuestionnaire): PublicReferralForm {
+  return {
+    formId: questionnaire.formId,
+    definition: parseReferralFormConfig(JSON.parse(questionnaire.questionnaire) as unknown),
+  };
 }
 
 export type ReferralSubmission = components['schemas']['ReferralSubmission'];

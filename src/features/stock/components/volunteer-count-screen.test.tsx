@@ -1,11 +1,16 @@
 import { QueryClient } from '@tanstack/react-query';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../../test/msw/server';
 import { renderApp } from '../../../../test/render-app';
 import { getVolunteerCode, setVolunteerCode } from '../../../api/volunteer-code-store';
+import { reloadForNewerClient } from '../../../lib/client-version';
+
+vi.mock('../../../lib/client-version', () => ({
+  reloadForNewerClient: vi.fn().mockResolvedValue(false),
+}));
 
 /**
  * The stock take on a device that never signs in. `/count` is a plain sibling of
@@ -29,6 +34,8 @@ beforeEach(() => {
 
 afterEach(() => {
   setVolunteerCode(null);
+  vi.mocked(reloadForNewerClient).mockReset();
+  vi.mocked(reloadForNewerClient).mockResolvedValue(false);
 });
 
 describe('the volunteer count screen', () => {
@@ -87,6 +94,28 @@ describe('the volunteer count screen', () => {
     // address, which would reach history and logs.
     expect(router.state.location.pathname).toBe('/count');
     expect(router.state.location.search).toBe('');
+  });
+
+  it('reloads the current client before a counting code opens a stock take', async () => {
+    vi.mocked(reloadForNewerClient).mockResolvedValue(true);
+    const levels = vi.fn();
+    server.use(
+      http.get(LEVELS, () => {
+        levels();
+        return HttpResponse.json({ items: [] });
+      }),
+    );
+    renderApp('/count');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText('Counting code'), TYPED_CODE);
+    await user.click(screen.getByRole('button', { name: 'Start counting' }));
+
+    await waitFor(() => {
+      expect(reloadForNewerClient).toHaveBeenCalledWith('/count');
+    });
+    expect(getVolunteerCode()).toBeNull();
+    expect(levels).not.toHaveBeenCalled();
   });
 
   it('refuses an empty code and does not open the stock take', async () => {
