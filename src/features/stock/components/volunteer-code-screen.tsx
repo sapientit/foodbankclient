@@ -74,7 +74,7 @@ export function VolunteerCodeScreen() {
         <PageHeader
           description={
             <p>
-              Generate a code for whoever is counting the shelves this morning. They enter it on the
+              Generate a code for the volunteers who will do the stock take. They enter it on the
               stock-take sign-in — no account needed — and it lets them onto the stock take and
               nothing else. The expiry date and time come from the code you generate.
             </p>
