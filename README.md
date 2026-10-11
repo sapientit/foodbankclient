@@ -56,9 +56,12 @@ npm run dev               # http://localhost:5173
 | `npm run api:types:check` | Fail if that file is stale; skips when the API repo is absent   |
 | `npm run cf-typegen`      | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc`    |
 | `npm run dry-run`         | Build and validate the production deploy without uploading      |
-| `npm run deploy`          | Build and deploy the `production` environment                   |
-| `npm run deploy:uat`      | Build and deploy the `uat` environment (charity account)        |
+| `npm run deploy`          | Build and deploy the `production` environment ¹                 |
+| `npm run deploy:uat`      | Build and deploy the `uat` environment (charity account) ¹      |
 | `npm run check`           | Everything above that can fail — run before considering it done |
+
+¹ Both refuse unless the checkout is committed, pushed to GitHub and not behind it
+(`scripts/require-pushed.mjs`): a deploy has to be a commit everyone can find.
 
 `check` needs no Cloudflare credentials: `wrangler types` reads `wrangler.jsonc` locally and
 `--dry-run` never calls the API. Keep it that way.
@@ -85,9 +88,8 @@ deploy-foodbank-client --tests-only   # or --deploy-only / --verify-only
 ```
 
 `--deploy-only` deliberately skips checks and verification; use it only after
-the checks have passed, normally through `deploy_foodbank`. The client command
-never selects production, and the combined command intentionally has no
-production mode.
+the checks have passed, normally through `deploy_foodbank`. The combined
+command intentionally has no production mode.
 
 The client helper never publishes a freshly uploaded asset set immediately. It
 uploads an isolated Worker Version, fetches that Version URL, and requires its
@@ -110,6 +112,16 @@ UAT instead: the charity's own Cloudflare account, `referrals-test` /
 authenticates to the charity account the same way `foodbank-deploy-server
 --uat` does — a Keychain-held API token plus a pinned account id, both scoped
 to the deploy subprocess only, never the ambient `wrangler login` session.
+
+`deploy-foodbank-client --production` targets production the same way: the
+charity account, `referrals` → `api`, the `referrals` Turnstile widget
+(`referrals.guildfordfoodbank.workers.dev`) and real Google sign-in. Like
+`foodbank-deploy-server --production`, it will not build or deploy until
+"production" is typed at a terminal. Its first run creates the `referrals`
+Worker with a plain `wrangler deploy`, because there is no existing Worker to
+stage a Version against; every later run is staged and validated like UAT.
+Do not use `npm run deploy` for production: it passes no sitekey or sign-in
+mode, so it builds the dummy sign-in screen with Turnstile off.
 
 `preview` serves whatever is already in `dist/`, and `check` leaves a **production** build there —
 one whose `API` binding points at `api` (the server's production name) and will not resolve locally.

@@ -16,7 +16,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run && node --test scripts/index-html.test.mjs scripts/check-api-types.test.mjs scripts/verify-client-release.test.mjs tools/preference-rules-sheet/questionnaire.test.mjs tools/preference-rules-sheet/configuration-release.test.mjs",
+    "test": "vitest run && node --test scripts/index-html.test.mjs scripts/check-api-types.test.mjs scripts/verify-client-release.test.mjs scripts/require-pushed.test.mjs tools/preference-rules-sheet/questionnaire.test.mjs tools/preference-rules-sheet/configuration-release.test.mjs",
     "verify:release": "node scripts/verify-client-release.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -26,8 +26,8 @@
     "form:freeze:check": "node scripts/freeze-referral-keys.mjs --check",
     "cf-typegen": "wrangler types --strict-vars",
     "dry-run": "CLOUDFLARE_ENV=production npm run build && wrangler deploy --dry-run --outdir .wrangler/dry-run",
-    "deploy": "CLOUDFLARE_ENV=production npm run build && wrangler deploy",
-    "deploy:uat": "CLOUDFLARE_ENV=uat npm run build && wrangler deploy",
+    "deploy": "node scripts/require-pushed.mjs && CLOUDFLARE_ENV=production npm run build && wrangler deploy",
+    "deploy:uat": "node scripts/require-pushed.mjs && CLOUDFLARE_ENV=uat npm run build && wrangler deploy",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run api:types:check && npm run cf-typegen && npm run dry-run && npm test"
   },
   "//overrides": [

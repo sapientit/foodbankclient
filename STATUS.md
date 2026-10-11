@@ -108,13 +108,14 @@ client. See [`.claude/rules/printing.md`](./.claude/rules/printing.md).
 
 Tracked so it is not mistaken for finished work.
 
-- **A production Turnstile widget, and its secret.** The client half is built:
+- **Turnstile on production's friendly address.** The client half is built:
   `src/features/referrals/turnstile.ts` and `TurnstileCheck` put the check on the last page of
   `/refer` and send `cf-turnstile-response`, and both halves are inert where no sitekey is
-  configured, which is local development. What is not done is deployment configuration — a widget
-  for **production** (the test one, `foodbank-referral-test`, covers
-  `foodbank-client.losttemple.workers.dev` and `localhost` only) and `TURNSTILE_SECRET_KEY` on each
-  deployed server. The charity has accepted Cloudflare Turnstile running inside the referral form;
+  configured, which is local development. Production has its own widget, `referrals` (created
+  2026-10-11 by the server repository), and `deploy-foodbank-client --production` builds with its
+  sitekey; it covers `referrals.guildfordfoodbank.workers.dev` only. The friendly
+  `guildfordfoodbank.org` name has not been chosen; when it is, the server adds it to the widget and
+  to `TURNSTILE_HOSTNAMES`, and until then a token solved there is refused. The charity has accepted Cloudflare Turnstile running inside the referral form;
   that acceptance is recorded in `docs/engineering/personal-data.md`.
 - **Google sign-in.** `dev-login` is the only path. The rejection path for an unknown email is
   already built, so the switch does not change the response shape.

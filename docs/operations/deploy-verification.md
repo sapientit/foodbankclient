@@ -71,10 +71,10 @@ Beyond this repo, and owned by the server:
   on the last page of `/refer` — and it is **inert wherever no sitekey is configured**, so a
   half-configured deployment is the dangerous one: a server with a secret and a client without a
   sitekey refuses every referral, and a client with a sitekey against a server without a secret
-  accepts them unchecked. The account's workers.dev subdomain is `losttemple`; the test widget
-  `foodbank-referral-test` covers `foodbank-client.losttemple.workers.dev` and `localhost` only, so
-  **production needs its own widget** — a token minted against test must not verify against
-  production, for the same reason the test deployment has its own database. See
+  accepts them unchecked. **Production has its own widget**, `referrals`, covering
+  `referrals.guildfordfoodbank.workers.dev` — a token minted against test or UAT must not verify
+  against production, for the same reason each deployment has its own database. Its friendly
+  `guildfordfoodbank.org` name must be added to that widget before referrals are taken there. See
   [`STATUS.md`](../../STATUS.md).
 - **`PII_RETENTION_DAYS` is unset**, so the purge job runs nightly and purges nothing. That is
   `OPEN-QUESTIONS.md` Q2 and it **blocks going live with real data**. Only Pete closes it.
