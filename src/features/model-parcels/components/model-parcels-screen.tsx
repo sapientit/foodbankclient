@@ -74,7 +74,10 @@ export function ModelParcelsScreen() {
             <Link className="button-link" ref={addLinkRef} to="/model-parcels/new">
               Add a model parcel
             </Link>
-            <Link className={styles.gridLink} to="/model-parcels/grid">
+            <Link
+              className={`button-link button-secondary ${styles.gridLink ?? ''}`}
+              to="/model-parcels/grid"
+            >
               Edit the household grid
             </Link>
           </>

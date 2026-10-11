@@ -120,6 +120,16 @@ describe('the model parcels list', () => {
     expect(screen.getByRole('rowheader', { name: 'Family parcel' })).toBeInTheDocument();
   });
 
+  it('draws the grid link as a control beside Add, not as a bare word', async () => {
+    server.use(http.get(MODEL_PARCELS, () => HttpResponse.json({ modelParcels: [FAMILY] })));
+    renderApp('/model-parcels');
+
+    expect(await screen.findByRole('link', { name: 'Edit the household grid' })).toHaveClass(
+      'button-link',
+      'button-secondary',
+    );
+  });
+
   it('gives compact parcel actions their parcel-specific names', async () => {
     server.use(http.get(MODEL_PARCELS, () => HttpResponse.json({ modelParcels: [FAMILY] })));
     renderApp('/model-parcels');
