@@ -1581,7 +1581,7 @@ describe('a team lead running a session', () => {
       'Flour',
       'Jam',
     ]);
-    expect(firstColumnItems).toHaveLength(14);
+    expect(firstColumnItems).toHaveLength(13);
     expect(screen.getByText('Printed page 1 of 2')).toBeInTheDocument();
     expect(screen.getByText('Printed page 2 of 2')).toBeInTheDocument();
     expect(
