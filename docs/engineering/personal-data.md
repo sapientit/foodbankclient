@@ -67,17 +67,11 @@ lookup at all, rather than fetching it and hiding the result.
 
 ## The retention purge
 
-After a retention purge, `answers` comes back **empty** along with the identifying fields — the
-server cannot tell which answers were personal, so it drops all of them. `piiPurgedAt` is how a
-purged referral is told apart from one that genuinely answered nothing, and a screen must render that
-state as _purged_ rather than as an empty section a volunteer would read as a bug.
-
-The purge job exists and is scheduled server-side, but **purges nothing until a retention period is
-configured**. The period itself is settled — twelve months — so what remains is a deployment step:
-`PII_RETENTION_DAYS=365` on the server. Q12 is still open (may any answers survive a purge), as is
-Q27 (when a referral is forgotten, is it anonymised or deleted) and Q32 (does forgetting also clear
-its parcel's pick-list information). This client's purged-referral rendering is written to be correct
-whichever way each falls.
+The server deletes a referral once it passes the configured retention period; it does not anonymise a
+record and return it with blank fields. Its parcel, parcel lines, texts and audit events are deleted
+with it, while the session, pick list and stock ledger remain. A client that asks for a deleted
+referral receives the ordinary absent-record response, and has no retained anonymous referral state
+to display.
 
 ## Printing
 

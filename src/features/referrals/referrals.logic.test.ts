@@ -11,7 +11,6 @@ import {
   describeSettledReferral,
   displayedOutcome,
   hasAdminFields,
-  isPurged,
   isReferralStatus,
   moveCapacityWarning,
   needsReferrerApproval,
@@ -44,7 +43,6 @@ function referral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral
     refereePostcode: 'AB1 2CD',
     refereePhone: null,
     answers: {},
-    piiPurgedAt: null,
     formId: null,
     ...overrides,
   };
@@ -101,13 +99,6 @@ describe('hasAdminFields', () => {
     const row = referral({ id: 'r1' });
     expect(hasAdminFields(row)).toBe(false);
     expect('reasonId' in row).toBe(false);
-  });
-});
-
-describe('isPurged', () => {
-  it('is true only once piiPurgedAt is set', () => {
-    expect(isPurged(referral({ id: 'r1' }))).toBe(false);
-    expect(isPurged(referral({ id: 'r1', piiPurgedAt: '2026-08-01T00:00:00.000Z' }))).toBe(true);
   });
 });
 
@@ -193,10 +184,10 @@ describe('refereeName / refereeNameForList', () => {
     expect(refereeNameForList(referral({ id: 'r1' }))).toBe('Rowe, Jamie');
   });
 
-  it('is null for a purged referral rather than a stray space or the word null', () => {
-    const purged = referral({ id: 'r1', refereeFirstName: null, refereeSurname: null });
-    expect(refereeName(purged)).toBeNull();
-    expect(refereeNameForList(purged)).toBeNull();
+  it('is null when both name parts are absent rather than showing a stray space or the word null', () => {
+    const unnamed = referral({ id: 'r1', refereeFirstName: null, refereeSurname: null });
+    expect(refereeName(unnamed)).toBeNull();
+    expect(refereeNameForList(unnamed)).toBeNull();
   });
 
   it('copes with only one half present', () => {

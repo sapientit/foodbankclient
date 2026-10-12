@@ -1451,7 +1451,7 @@ export interface paths {
          * The listener sheet for a session
          * @description **One sheet for the whole session**, not one per household — a listener
          *     is handed a single sheet and scans it for whoever is in front of them.
-         *     Ordered by surname for that reason; a purged household sorts last.
+         *     Ordered by surname for that reason.
          *
          *     Open to a team leader, and **the only place a team leader is given the
          *     reason for referral**. That is a deliberate exception: a listener is
@@ -1587,9 +1587,7 @@ export interface paths {
          *     that conversation; this is the list you ring people from, and a delivery
          *     household is one the team most needs to be able to reach.
          *
-         *     Ordered by surname then first name. A purged household sorts last and
-         *     comes back with nulls — the referral is still on the session, but there
-         *     is nothing left to contact them with.
+         *     Ordered by surname then first name.
          */
         get: {
             parameters: {
@@ -2199,10 +2197,10 @@ export interface paths {
          *     another chance after a no-show is copied onto a later session with
          *     `POST /referrals/{id}/copy`, not moved.
          *
-         *     **A referral whose details have been forgotten cannot be amended or
-         *     moved either**, and is a `409`. Fifteen months on there is no name and no
-         *     answers left, so there is nothing to correct — and writing a name back
-         *     onto one would put back exactly what the charity promised to forget.
+         *     A referral past the fifteen-month retention period has been deleted
+         *     outright, so amending or moving it is a `404` like any other unknown
+         *     id — not a `409`, and not distinguishable from an id that was never
+         *     valid.
          */
         patch: {
             parameters: {
@@ -2233,7 +2231,8 @@ export interface paths {
                         "application/json": components["schemas"]["Referral"];
                     };
                 };
-                /** @description Target session is full and not acknowledged, the referral is cancelled or rejected, its details have been forgotten, its current session has been confirmed, or one of its parcels already has an attendance outcome so it can no longer be moved */
+                404: components["responses"]["NotFound"];
+                /** @description Target session is full and not acknowledged, the referral is cancelled or rejected, its current session has been confirmed, or one of its parcels already has an attendance outcome so it can no longer be moved */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2302,9 +2301,9 @@ export interface paths {
          *     charity was explicit about this.
          *
          *     The lookback is fifteen months, counted from when each referral was
-         *     made — the same clock the retention purge runs on, so a household whose
-         *     details have been forgotten cannot be found. That is accepted, not a
-         *     gap: there is nothing left on the row to match on.
+         *     made — the same clock the retention purge runs on, so a referral past
+         *     that period has already been deleted and cannot be matched. That is
+         *     accepted, not a gap: there is no row left to match on.
          *
          *     Ordered by session date, **most recent first**. `matches` is empty when
          *     the household has not been here before, or when this referral has
@@ -2424,9 +2423,9 @@ export interface paths {
          *     **This reaches every referral the food bank still holds details for,
          *     cancelled and rejected included** — "we turned that one away in March"
          *     is exactly what the caller is ringing about — and there is no
-         *     fifteen-month window here, unlike the duplicate count. It cannot reach a
-         *     referral whose details have been forgotten: the purge nulls the very
-         *     columns this searches on, so there is nothing left to match.
+         *     fifteen-month window here, unlike the duplicate count. It cannot reach
+         *     a referral past that period: the purge deletes it outright, so there
+         *     is nothing left to match.
          *
          *     **What comes back is the administrator's working list:** session date,
          *     referral status, first name, surname, postcode, phone number, the main
@@ -2535,7 +2534,7 @@ export interface paths {
                     };
                 };
                 404: components["responses"]["NotFound"];
-                /** @description That referral is not awaiting review, its details have been forgotten so there is nothing left to decide on, or `authoriseReferrer` was sent for an address already on the authorised list — in which case the referral has **not** been accepted either. */
+                /** @description That referral is not awaiting review, or `authoriseReferrer` was sent for an address already on the authorised list — in which case the referral has **not** been accepted either. */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2597,7 +2596,7 @@ export interface paths {
                     };
                 };
                 404: components["responses"]["NotFound"];
-                /** @description That referral is not awaiting review, or its details have been forgotten so there is nothing left to decide on */
+                /** @description That referral is not awaiting review */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2629,7 +2628,7 @@ export interface paths {
          *     **Every referral is meant to be read**, not only the ones held up by an unrecognised address, and this is what makes "which has nobody looked at yet?" answerable — list `status=active` for the pile still to do.
          *     Being reviewed changes nothing else: the household holds its place, it is picked, and it appears on the listener sheet exactly as before. The only thing it says is that somebody has read it.
          *     No body. There is no comment here — `reviewComment` belongs to the accept/reject decision, and no separate review timestamp is kept.
-         *     A referral still `pending_review` is a `409`: decide it first. So is one already reviewed, rejected or cancelled, and so is one whose details have been forgotten — fifteen months on there is nothing left to read.
+         *     A referral still `pending_review` is a `409`: decide it first. So is one already reviewed, rejected or cancelled.
          */
         post: {
             parameters: {
@@ -2652,7 +2651,7 @@ export interface paths {
                     };
                 };
                 404: components["responses"]["NotFound"];
-                /** @description That referral is not waiting to be read, or its details have been forgotten */
+                /** @description That referral is not waiting to be read */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2682,7 +2681,7 @@ export interface paths {
          * Save the first-time review screen's decision
          * @description Admin only. `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. Moves `firstTimeReview.status` from `unreviewed` to `no_previous_referral` or `previous_session`, and never back.
          *     Exactly one of `noPreviousReferral` or `previousSessionDate` must be sent. **The candidate previous-session dates come from the unchanged `GET /referrals/{id}/repeat-referrals`** — this route does not build or validate a candidate list of its own; which of the returned matches are selectable (a No Show or Not In stays visible but is not offered) is yours to decide.
-         *     Refused only when this referral's details have been forgotten. **Not conditional on this referral's own `status` or its session's** — a rejected or cancelled referral, or one on a confirmed session, can still have its value set. Settled by Pete on 2026-09-03 (closed Q49): this will not come up in practice, since the screen is not offered against a referral in that state, so the route does not need to guard for it.
+         *     **Not conditional on this referral's own `status` or its session's** — a rejected or cancelled referral, or one on a confirmed session, can still have its value set. Settled by Pete on 2026-09-03 (closed Q49): this will not come up in practice, since the screen is not offered against a referral in that state, so the route does not need to guard for it.
          */
         post: {
             parameters: {
@@ -2727,13 +2726,6 @@ export interface paths {
                     content?: never;
                 };
                 404: components["responses"]["NotFound"];
-                /** @description That referral's details have been forgotten */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
             };
         };
         delete?: never;
@@ -2760,7 +2752,6 @@ export interface paths {
          *     A referral on a **confirmed** session is also a `409`: the session is closed to every kind of change, cancellation included.
          *     **A referral whose parcel already has an outcome cannot be cancelled** and is a `409` — the same stopping point as a move, settled by the charity on 2026-08-15. Once a household has collected, been delivered to, or been marked as not having turned up, what happened on the day is the record: the food has come off the shelves and cannot be un-given, and cancelling afterwards would leave the parcel's account of the morning contradicting the referral's. The confirmed-session rule does not cover this, because a session stays open until *every* household has an outcome.
          *     Two things an operator might have meant instead, and neither is this button: if the **outcome** was recorded by mistake, take the outcome back through `POST /parcels/{id}/attendance`, which undoes the stock with it; if a household who did not turn up is to be given **another chance**, copy the referral onto a later session with `POST /referrals/{id}/copy` and leave the no-show where it happened.
-         *     **A referral whose details have been forgotten is a `409` too.** Fifteen months on there is nothing left to cancel.
          *     **If a pick list has already been generated, this marks that household's parcel `attendance: "cancelled"` in the same write.** The parcel is not deleted and its lines, notes and `pickNumber` are untouched — it stays the record of what was picked. What changes is that it stops reading as a household still to come: it no longer needs reviewing, no longer needs an attendance outcome, is left out of `GET /pick-lists/{id}/print`, and `POST /parcels/{id}/attendance` on it is a `409`. It is still returned by `GET /sessions/{sessionId}/pick-list`, so a session screen can show why that pick number is not coming.
          */
         post: {
@@ -2789,7 +2780,8 @@ export interface paths {
                         "application/json": components["schemas"]["Referral"];
                     };
                 };
-                /** @description That referral was rejected, its session has been confirmed, one of its parcels already has an attendance outcome, or its details have been forgotten */
+                404: components["responses"]["NotFound"];
+                /** @description That referral was rejected, its session has been confirmed, or one of its parcels already has an attendance outcome */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2839,8 +2831,8 @@ export interface paths {
          *     decided needs feeding again, made the quick way rather than through the
          *     whole form.
          *
-         *     **A referral whose details have been forgotten is a `409`.** There is
-         *     nothing left to copy.
+         *     A referral past the fifteen-month retention period has been deleted
+         *     outright, so copying it is a `404` like any other unknown id.
          *
          *     **What the copy carries**: the referee's name, date of birth, address,
          *     postcode and phone; `adults`, `children`, `householdSize`,
@@ -2947,7 +2939,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description The referral can still be completed so it should be moved rather than copied, the referral's details have been forgotten, it was made under a release of the form that is no longer in use (review it through `re-refer` instead), or the target session is cancelled, confirmed, or full and not acknowledged */
+                /** @description The referral can still be completed so it should be moved rather than copied, it was made under a release of the form that is no longer in use (review it through `re-refer` instead), or the target session is cancelled, confirmed, or full and not acknowledged */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2982,10 +2974,9 @@ export interface paths {
          *
          *     `{id}` is the referral being copied **from**. It decides eligibility —
          *     exactly `copy`'s: its `status` is `cancelled` or `rejected`, or its
-         *     `outcome` is `no_show` or `attended`, and its details have not been
-         *     forgotten; anything else is a `409` — and it supplies the referrer's
-         *     name, organisation, email and phone, carried forward unchanged. The
-         *     body is the rest of the completed form.
+         *     `outcome` is `no_show` or `attended`; anything else is a `409` — and
+         *     it supplies the referrer's name, organisation, email and phone,
+         *     carried forward unchanged. The body is the rest of the completed form.
          *
          *     Allowed whether or not the original's release is still the one in use.
          *
@@ -3065,7 +3056,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description The original can still be completed, its details have been forgotten, or the target session is cancelled, confirmed, or full and not acknowledged */
+                /** @description The original can still be completed, or the target session is cancelled, confirmed, or full and not acknowledged */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -6822,8 +6813,9 @@ export interface paths {
         /**
          * Run the scheduled jobs now
          * @description Admin only. Calls exactly what the nightly cron calls: generates six
-         *     weeks of sessions from the weekly templates, clears expired referral
-         *     edit keys, and purges old personal data if a retention period is set.
+         *     weeks of sessions from the weekly templates, deletes text messages
+         *     older than thirty days, and deletes referrals older than the retention
+         *     period if one is set (`referralsPurged` counts them).
          *
          *     Six weeks is how far ahead sessions are *materialised*, and it is not
          *     the same thing as how far ahead anyone is shown them — see
@@ -6860,6 +6852,8 @@ export interface paths {
                              * @description The UTC day of Cloudflare usage collected by this run, or null if the platform-usage settings are not all configured yet. See `GET /platform-stats/usage`.
                              */
                             platformUsageDate?: string | null;
+                            /** @description The R2 key tonight's database export was written to (`exports/YYYY-MM-DD.sql`, London date), or null where the export is not configured (everywhere but production) or failed. A failure never fails the run; it is recorded against its own job. */
+                            databaseExport?: string | null;
                         };
                     };
                 };
@@ -6881,9 +6875,16 @@ export interface paths {
         /**
          * Cloudflare usage against the free-plan caps, for a date range
          * @description Admin only. For each day in `[from, to]` that the nightly job has
-         *     captured, this deployment's own Cloudflare Worker and D1 usage
+         *     captured, this deployment's own Cloudflare Worker, D1 and R2 usage
          *     alongside Cloudflare's published free-plan caps, so an administrator
          *     can see at a glance whether anything is running close to one.
+         *
+         *     R2's two operation measures (`r2ClassAOperations`, `r2ClassBOperations`)
+         *     are month-to-date, not that day alone — R2's free allowance is
+         *     monthly and account-wide, not per-day — and are computed from every
+         *     row captured so far in that day's UTC calendar month, including days
+         *     outside `[from, to]` when the range starts mid-month. R2 storage
+         *     (`r2StorageBytes`) is a snapshot, compared directly to the cap.
          *
          *     A date with no row — the job has not run yet, or has not been
          *     configured, or a run was missed — is simply absent from `days` rather
@@ -7744,17 +7745,10 @@ export interface components {
              * @description The release of the referral form these answers were given to. Render `answers` with **that** release's questionnaire (and, when picking, its rules) from `GET /configuration-releases/bulk` — never with whichever release is in use now. Null never in practice: migration `0040` recorded every earlier referral under the baseline release. The column is nullable, so the type says so.
              */
             formId: string | null;
-            /** @description Exactly what was submitted. Empty once `piiPurgedAt` is set — see below. */
+            /** @description Exactly what was submitted. */
             answers: {
                 [key: string]: unknown;
             };
-            /**
-             * Format: date-time
-             * @description When set, the **referee's** fields above are null by design, `answers` is empty and `adminInfo` is null.
-             *     The referrer's own details are **not** purged — `referrerName`, `referrerEmail`, `referrerPhone` and `reviewComment` all survive. The retention period exists to forget the household that needed feeding, not the professional who referred them. `adminInfo` is the one administrator-written field that goes: it describes the household rather than a decision about the referral.
-             *     This describes the anonymising purge as it runs today. The charity has since settled (Q27, Q12) that a forgotten referral should be deleted outright rather than reduced to this shape — see `INITIAL_SPEC1.txt`, `#Forgetting a referral`, and the "Agreed but not yet built" table in `STATUS.md`. Nothing here changes until that is built.
-             */
-            piiPurgedAt: string | null;
             /**
              * @description **What became of the household**, as against `status` above, which is what became of the referral. The two answer different questions and must never be read as one.
              *     `attended` — they collected their parcel, or it was delivered. `no_show` — they were marked as not having turned up. `booked` — still to come: the parcel is picked and waiting to be marked, or no pick list has been made for their session yet, or the referral was **cancelled** before the day came. Both of the first two mean the same thing to a screen, and so does the third: nothing happened on the day.
@@ -7780,7 +7774,7 @@ export interface components {
              * @description **Admin only, and — with one settled exception — only on a response carrying one referral** — `GET /referrals/{id}`, `PATCH /referrals/{id}`, and the accept, reject, review and cancel routes. **Absent from the `GET /referrals` list rows**, and absent from every printed, exported or messaged payload: the listener sheet, the referral-details list, the repeat-referral list, the pick list, the fuel help list, SMS and the spreadsheet extract.
              *     **The exception is `ReferralSearchResult`**, where the note is on every row — the only response carrying more than one referral that has it, settled by the charity on 2026-08-15 because that screen is an administrator on the phone to a household. See that schema for why it is required-and-nullable there rather than optional as it is here. It is not a licence to expect the note on any other list.
              *     The administrators' own free-text note about the household — what the office learned from ringing them. It is **not** one of `answers`: the answers are the referrer's and you replace them wholesale from the form you own, and a note the office wrote must not be lost because a form page was saved without it. Amend it through `ReferralAmend.adminInfo`.
-             *     Null when there is no note. Cleared by the fifteen-month purge along with the household's own fields and `answers` — unlike `reviewComment`, which survives it.
+             *     Null when there is no note.
              */
             adminInfo?: string | null;
             /**
@@ -7814,7 +7808,7 @@ export interface components {
             category: string;
             /**
              * @description What the item is, in the charity's words. Printed on the pick list under the item name. `null` where the name says everything.
-             * @example Half a kilo counts as one unit when rice is also given
+             * @example 500g counts as one unit if rice is also given
              */
             description: string | null;
             /** @description The shelf label as typed. Ordering the stock take and the printed pick sheet is a plain string sort of this value — no cleverness about numbers inside it, so `A10` sorts before `A2`. A client building a combined stock-take screen interleaves crates among items by comparing this against `Crate.shelfKey` as plain strings. */
@@ -7909,7 +7903,7 @@ export interface components {
             pickNumber: number;
             refereeFirstName: string | null;
             refereeSurname: string | null;
-            /** @description The reason's **label**, not its id. It **survives a purge** — the reason is outside the PII block so reporting still works once nobody is identifiable. A reason the charity has since retired still appears, because the referral was made under it. */
+            /** @description The reason's **label**, not its id. A reason the charity has since retired still appears, because the referral was made under it. */
             reason: string | null;
             needsFuelHelp: boolean;
             /**
@@ -7917,7 +7911,7 @@ export interface components {
              * @description The release of the referral form these answers were given to. Render `answers` with **that** release's questionnaire (and, when picking, its rules) from `GET /configuration-releases/bulk` — never with whichever release is in use now. Null never in practice: migration `0040` recorded every earlier referral under the baseline release. The column is nullable, so the type says so.
              */
             formId: string | null;
-            /** @description The dynamic answers, whole. Take whichever of them the client's referral form marks for this sheet; the server does not know which keys those are. `{}` once purged. */
+            /** @description The dynamic answers, whole. Take whichever of them the client's referral form marks for this sheet; the server does not know which keys those are. */
             answers: {
                 [key: string]: unknown;
             };
@@ -7945,7 +7939,7 @@ export interface components {
             location: string;
             referrals: components["schemas"]["ReferralDetailsHousehold"][];
         };
-        /** @description One household's contact details for the session being run. Every field below except `referrerOrganisation` and `pickNumber` is nullable because the referee columns are nulled by the retention purge — a purged household is still on the session and still has to appear, with nothing left to reach it by. `pickNumber` is nullable for a different reason — see its own description. */
+        /** @description One household's contact details for the session being run. `referrerOrganisation` and `pickNumber` aside, every field is typed nullable to match `Referral`'s own referee and referrer columns — in practice none of them is null for a referral the food bank still holds. `pickNumber` is nullable for a different reason — see its own description. */
         ReferralDetailsHousehold: {
             /** Format: uuid */
             referralId: string;
@@ -7953,11 +7947,11 @@ export interface components {
             refereeSurname: string | null;
             refereeAddress: string | null;
             refereePostcode: string | null;
-            /** @description Null when the household has no number as well as when it has been purged. A household nobody can ring is one somebody may need to call at, which is why the address is here too. */
+            /** @description Null when the household has no number on file. A household nobody can ring is one somebody may need to call at, which is why the address is here too. */
             refereePhone: string | null;
-            /** @description The professional who sent them. **Survives a purge** — the point of forgetting is to stop holding details of the household, not of the referrer. */
+            /** @description The professional who sent them. */
             referrerName: string | null;
-            /** @description Where the referrer works — what the referrer said it was, so expect three spellings of the same council. **Never null**, here or after a purge: it is the one non-nullable field on this object. */
+            /** @description Where the referrer works — what the referrer said it was, so expect three spellings of the same council. **Never null** — it is the one non-nullable field on this object. */
             referrerOrganisation: string;
             referrerPhone: string | null;
             /** @description The number on the household's parcel — the same `pickNumber` as on the picking sheets, short enough to read out over the phone. Null when the household has no parcel yet: no pick list has been generated for the session, or it was referred after one was. Unlike the listener sheet, this list is never refused over a missing pick number — it is open before picking happens at all. */
@@ -8002,11 +7996,11 @@ export interface components {
             status: "pending_review" | "active" | "reviewed" | "rejected" | "cancelled";
             /**
              * Format: uuid
-             * @description The main cause of crisis, and a fixed column rather than an answer. Resolve it through the admin referral-reasons lookup, including retired reasons. Never null — it is `NOT NULL` on the table and survives the purge.
+             * @description The main cause of crisis, and a fixed column rather than an answer. Resolve it through the admin referral-reasons lookup, including retired reasons. Never null — it is `NOT NULL` on the table.
              */
             reasonId: string;
             referrerName: string | null;
-            /** @description Where the referral came from — what the referrer typed on the form, so expect three spellings of the same council. **Never null**: it is `NOT NULL` on the table and outside the PII block, so a purged referral still reports it. `referrerName` is unchanged and still returned. */
+            /** @description Where the referral came from — what the referrer typed on the form, so expect three spellings of the same council. **Never null**: it is `NOT NULL` on the table. */
             referrerOrganisation: string;
             /**
              * Format: uuid
@@ -8019,7 +8013,7 @@ export interface components {
             };
             /**
              * @description The administrators' own note about the household — free text written by the office, not by the referrer. The same column and the same 2,000-character limit as `Referral.adminInfo`. **This is the only response carrying more than one referral that has it**, and the exception is deliberate: an administrator on the phone to a household wants what the office learned last time it rang them at the same moment it wants the causes. Everything else still withholds it — see `API.md`, "Field-level visibility".
-             *     **Required and nullable here, not optional as on `Referral`.** This endpoint is admin-only outright — a team lead gets a `403`, not a thinner row — so no recipient gets the row without the field, and `null` means there is no note rather than "you may not see it". A referral whose details have been purged has no note either, but you will not meet one here: the purge nulls the columns this searches on, so it cannot be found at all.
+             *     **Required and nullable here, not optional as on `Referral`.** This endpoint is admin-only outright — a team lead gets a `403`, not a thinner row — so no recipient gets the row without the field, and `null` means there is no note rather than "you may not see it". A referral past the fifteen-month retention period has been deleted outright, so you will not meet one here: there is nothing left to find.
              */
             adminInfo: string | null;
         };
@@ -8044,7 +8038,7 @@ export interface components {
             refereePostcode: string | null;
             /** @description Here because the follow-up is a phone call. Free text as the referrer typed it — it is **not** normalised on the way in, so format it for display rather than assuming a shape. Null when the referral gave no number. */
             refereePhone: string | null;
-            /** @description Always `true` on this list — the repository filters on it — but a real column read off the referral rather than an implied constant, because the client form shows this question as a fixed field everywhere else it appears. Survives the PII purge, unlike the other fields on this row. */
+            /** @description Always `true` on this list — the repository filters on it — but a real column read off the referral rather than an implied constant, because the client form shows this question as a fixed field everywhere else it appears. */
             needsFuelHelp: boolean;
             /**
              * Format: uuid
@@ -8196,7 +8190,7 @@ export interface components {
              * @description The pick-list information as it should read on the sheet, composed by you from the answers your form marks as belonging there — labels and all. The server never reads the form's releases, never inspects an answer and never understands a question key; it stores exactly what you send.
              *     Trimmed before it is measured, and it must not be empty once trimmed. To clear a note, use `PATCH /parcels/{id}` with `null` rather than sending an empty one here.
              *     **Written only onto a parcel this call creates.** Sending the same entry on a later reconciliation never overwrites what is already on a parcel — by then the note belongs to the team leader, who may have corrected it.
-             *     **Deleted along with the referral at the fifteen-month purge**, on the same run as the referral's own answers — see `INITIAL_SPEC1.txt`, `#Forgetting a referral`. The purge job itself has not been rebuilt to do this yet (`STATUS.md`, "Agreed but not yet built"); today's job still anonymises the referral in place and leaves the parcel untouched.
+             *     **Deleted along with the referral at the fifteen-month purge**, on the same run as the referral's own answers — see `INITIAL_SPEC1.txt`, `#Forgetting a referral`.
              */
             notes: string;
         };
@@ -8253,7 +8247,7 @@ export interface components {
             attendance: "pending" | "attended" | "no_show" | "cancelled";
             /**
              * @description The parcel's pick-list information: snapshotted from your `pickListInformation` when the parcel was created, and the team leader's to edit through `PATCH /parcels/{id}` from then on. Show this rather than recomposing it from `answers`, which would hide any correction made to it.
-             *     Deleted along with the rest of the parcel at the fifteen-month purge, in the same run as `answers` — see `x-assumed` on `PickListInformationEntry.notes` for the current gap between that and what the purge job actually does today.
+             *     Deleted along with the rest of the parcel at the fifteen-month purge, in the same run as `answers`.
              */
             notes: string | null;
             /**
@@ -8264,7 +8258,7 @@ export interface components {
             /**
              * @description The referral's answers, **whole and unfiltered**, for the preferences half of the pick-list maintenance screen.
              *     Which of them are preferences is yours to know: you own the form definition and the `preference` flag on each question, so filter this map yourself. The server holds no definition and will not guess — the four hard-coded dietary keys this replaced were exactly that guess, and none of them is a key in the real form.
-             *     Empty once the referral's personal data has been purged.
+             *     Deleted along with the rest of the parcel at the fifteen-month purge, in the same run as `notes`.
              */
             answers: {
                 [key: string]: unknown;
@@ -8385,6 +8379,9 @@ export interface components {
             d1RowsRead: components["schemas"]["CappedMeasure"];
             d1RowsWritten: components["schemas"]["CappedMeasure"];
             d1StorageBytes: components["schemas"]["CappedMeasure"] & unknown;
+            r2StorageBytes: components["schemas"]["CappedMeasure"] & unknown;
+            r2ClassAOperations: components["schemas"]["CappedMeasure"] & unknown;
+            r2ClassBOperations: components["schemas"]["CappedMeasure"] & unknown;
         };
     };
     responses: {

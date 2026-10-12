@@ -81,7 +81,6 @@ function referral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral
     refereePostcode: 'AB1 2CD',
     refereePhone: null,
     answers: {},
-    piiPurgedAt: null,
     formId: FORM_ID,
     reasonId: 'q1',
     referrerEmail: 'referrer@riverside.org',
@@ -988,41 +987,6 @@ describe('the admin referral detail screen', () => {
     expect(dialog.queryByRole('option', { name: /5 of 20 booked/ })).toBeNull();
     expect(dialog.queryByRole('option', { name: /6 of 25 booked/ })).toBeNull();
     expect(dialog.queryByRole('option', { name: /7 of 30 booked/ })).toBeNull();
-  });
-
-  it('renders a purged referral as purged, with no amend form and no crash', async () => {
-    server.use(
-      http.get(REFERRAL, () =>
-        HttpResponse.json(
-          referral({
-            id: 'r1',
-            refereeFirstName: null,
-            refereeSurname: null,
-            refereeAddress: null,
-            refereePostcode: null,
-            refereePhone: null,
-            answers: {},
-            piiPurgedAt: '2026-08-01T12:00:00.000Z',
-          }),
-        ),
-      ),
-    );
-
-    renderApp('/referrals/r1');
-
-    // Deliberately not `findByRole('heading', { name: 'Referral' })` first —
-    // the loading state's own `PageHeader` uses that exact literal title too,
-    // so it would resolve on the very first render rather than proving the
-    // referral actually loaded. Wait on content that only exists once it has.
-    expect(await screen.findByText(/nothing here to amend/)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Referral' })).toBeInTheDocument();
-    expect(screen.getByText('These were removed by the retention process.')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Name')).toBeNull();
-    expect(screen.queryByText('undefined')).toBeNull();
-    // Cancel and move travel together now, so neither is offered once the
-    // details are gone — the guess recorded as Q35 in `OPEN-QUESTIONS.md`.
-    expect(screen.queryByRole('button', { name: 'Move to another session' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Cancel this referral' })).toBeNull();
   });
 
   it('shows the previous-referral summary without requesting household details', async () => {

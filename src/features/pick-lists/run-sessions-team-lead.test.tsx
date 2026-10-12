@@ -1527,6 +1527,13 @@ describe('a team lead running a session', () => {
                   shelfNumber: 'C2',
                   quantity: 7,
                 },
+                ...Array.from({ length: 100 }, (_, index) => ({
+                  stockItemId: `extra-${String(index + 8)}`,
+                  name: `Extra item ${String(index + 8)}`,
+                  description: null,
+                  shelfNumber: `Z${String(index + 8)}`,
+                  quantity: 1,
+                })),
               ],
             },
           ],
@@ -1560,25 +1567,36 @@ describe('a team lead running a session', () => {
     expect(screen.getByRole('region', { name: 'Information for pickers' })).toHaveTextContent(
       'Allergies: Gluten-free food for one person',
     );
+    const firstColumnItems = within(
+      screen.getByRole('table', { name: 'Picking items, page 1, column 1' }),
+    )
+      .getAllByRole('rowheader')
+      .map((cell) => cell.textContent);
+    expect(firstColumnItems.slice(0, 7)).toEqual([
+      'Apples',
+      'Baked beansIn tomato sauce',
+      'Cereal',
+      'Dried pasta',
+      'Eggs',
+      'Flour',
+      'Jam',
+    ]);
+    expect(firstColumnItems).toHaveLength(22);
+    expect(screen.getByText('Printed page 1 of 2')).toBeInTheDocument();
+    expect(screen.getByText('Printed page 2 of 2')).toBeInTheDocument();
     expect(
-      within(screen.getByRole('table', { name: 'Picking items, column 1' }))
-        .getAllByRole('rowheader')
-        .map((cell) => cell.textContent),
-    ).toEqual(['Apples', 'Baked beansIn tomato sauce', 'Cereal']);
+      within(screen.getByRole('table', { name: 'Picking items, page 2, column 1' })).getByRole(
+        'rowheader',
+        { name: 'Extra item 69' },
+      ),
+    ).toBeInTheDocument();
     expect(
-      within(screen.getByRole('table', { name: 'Picking items, column 2' }))
-        .getAllByRole('rowheader')
-        .map((cell) => cell.textContent),
-    ).toEqual(['Dried pasta', 'Eggs', 'Flour']);
-    expect(
-      within(screen.getByRole('table', { name: 'Picking items, column 3' }))
-        .getAllByRole('rowheader')
-        .map((cell) => cell.textContent),
-    ).toEqual(['Jam']);
-    expect(
-      within(screen.getByRole('table', { name: 'Picking items, column 1' })).getByRole('cell', {
-        name: '2',
-      }),
+      within(screen.getByRole('table', { name: 'Picking items, page 1, column 1' })).getByRole(
+        'cell',
+        {
+          name: '2',
+        },
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Allergies' })).toBeNull();
     expect(screen.queryByText('Never print this')).toBeNull();

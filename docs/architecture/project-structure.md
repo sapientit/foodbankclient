@@ -38,9 +38,9 @@ Feature folders match the server's modules — `sessions`, `referrals`, `stock`,
   it. The referral-specific `CHECK_DEBOUNCE_MS` deliberately stayed behind, because what that
   constant defends is one endpoint's rate limit — not a general preference about typing.
 - **A `*.logic.ts` may not import `src/api/schema`**, so it takes a structural parameter type
-  instead. `describeAnswers` accepts `{ answers, piiPurgedAt }` rather than the generated `Referral`.
-  The lint rule forces it; the payoff is a pure function that can be tested without a fixture and
-  cannot be quietly coupled to a response shape.
+  instead. `describeAnswers` accepts `{ answers }` rather than the generated `Referral`. The lint
+  rule forces it; the payoff is a pure function that can be tested without a fixture and cannot be
+  quietly coupled to a response shape.
 
 ## Routing
 

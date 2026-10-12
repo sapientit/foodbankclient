@@ -71,20 +71,11 @@ const definition: ReferralFormDefinition = {
 };
 
 function referral(overrides: Partial<ReferralAnswersSource>): ReferralAnswersSource {
-  return { answers: {}, piiPurgedAt: null, ...overrides };
+  return { answers: {}, ...overrides };
 }
 
 describe('describeAnswers', () => {
-  it('reads a purged referral as purged, not as an empty screen', () => {
-    const result = describeAnswers(
-      definition,
-      referral({ piiPurgedAt: '2026-08-01T00:00:00.000Z' }),
-      {},
-    );
-    expect(result).toEqual({ kind: 'purged' });
-  });
-
-  it('reports no answers at all when the bag is genuinely empty and nothing was purged', () => {
+  it('reports no answers at all when the bag is empty', () => {
     expect(describeAnswers(definition, referral({ answers: {} }), {})).toEqual({
       kind: 'no-answers',
     });

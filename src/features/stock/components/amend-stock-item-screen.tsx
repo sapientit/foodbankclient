@@ -22,9 +22,9 @@ import styles from './stock-item-form.module.css';
 
 const stockItemSchema = z
   .object({
-    name: z.string().trim().min(1, 'Enter an item name.').max(120, 'Use 120 characters or fewer.'),
+    name: z.string().trim().min(1, 'Enter an item name.').max(40, 'Use 40 characters or fewer.'),
     category: z.string().trim().min(1, 'Enter a category.').max(40, 'Use 40 characters or fewer.'),
-    description: z.string().trim().max(200, 'Use 200 characters or fewer.'),
+    description: z.string().trim().max(50, 'Use 50 characters or fewer.'),
     shelfNumber: z
       .string()
       .trim()

@@ -101,13 +101,12 @@ export function cameFromCopy(state: unknown): boolean {
 }
 
 /**
- * The referee's name for a heading or a table cell. Both halves are nullable —
- * a purged referral has neither — so this returns `null` rather than letting
+ * The referee's name for a heading or a table cell. Both halves are nullable, so this returns `null` rather than letting
  * the string `null` or a stray space reach a screen, and a caller decides what
  * to show instead.
  *
  * Kept as one function rather than joined at each call site because there are
- * four of them and a purged referral is exactly the case each would forget.
+ * four of them and the null case is exactly the one each would forget.
  */
 export function refereeName(
   referral: Pick<Referral, 'refereeFirstName' | 'refereeSurname'>,
@@ -185,10 +184,6 @@ export function hasRepeatReferralSummary(
   return Object.hasOwn(referral, 'repeatReferrals');
 }
 
-export function isPurged(referral: Pick<Referral, 'piiPurgedAt'>): boolean {
-  return referral.piiPurgedAt !== null;
-}
-
 export type ReferralOutcome = NonNullable<Referral['outcome']>;
 
 /**
@@ -247,9 +242,6 @@ export function displayedOutcome(
  * referral. Copying a household who already collected is the quick way to make
  * the deliberate second referral the charity has decided they need.
  *
- * A purged referral has nothing left to copy and is a `409`; that is the caller's
- * own guard, since every other action on this screen is hidden for the same
- * reason and the whole panel goes with it.
  */
 export function canCopyReferral(referral: Pick<Referral, 'status' | 'outcome'>): boolean {
   if (referral.status === 'cancelled' || referral.status === 'rejected') return true;

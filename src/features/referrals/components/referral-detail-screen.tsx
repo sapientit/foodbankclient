@@ -76,7 +76,6 @@ import {
   displayedOutcome,
   hasAdminFields,
   hasRepeatReferralSummary,
-  isPurged,
   moveCapacityWarning,
   needsReferrerApproval,
   refereeName,
@@ -137,7 +136,6 @@ export function ReferralDetailScreen() {
 function ReferralDetail({ referral }: { referral: Referral }) {
   const isAdminView = hasAdminFields(referral);
   const navigate = useNavigate();
-  const purged = isPurged(referral);
   const outcome = displayedOutcome(referral);
   const locked = describeLockedReferral(referral);
   const lockedId = useId();
@@ -150,14 +148,8 @@ function ReferralDetail({ referral }: { referral: Referral }) {
   // Never fetched for a team lead — see the module comment and
   // `useReferralReasons`'s own comment on why `enabled` exists at all.
   const reasons = useReferralReasons(isAdminView);
-  /*
-   * The release this referral actually recorded, never whichever is active
-   * now — `schema.d.ts`'s note on `Referral.formId` is explicit about that.
-   * Skipped for a purged referral: `answers` is empty and `describeAnswers`
-   * returns `{ kind: 'purged' }` regardless of the definition, so there is
-   * nothing here that needs the structure to render.
-   */
-  const form = useReferralFormDefinitionFor(purged ? null : referral.formId);
+  // The release this referral actually recorded, never whichever is active now.
+  const form = useReferralFormDefinitionFor(referral.formId);
   const definition = form.kind === 'ready' ? form.definition : EMPTY_REFERRAL_FORM_DEFINITION;
   /*
    * Reading the answers back needs the same lookup the form chose from, because
@@ -165,7 +157,7 @@ function ReferralDetail({ referral }: { referral: Referral }) {
    * has the admin list above, which names retired reasons too; a team lead is
    * refused that endpoint and reads the public list instead.
    */
-  const answerLookupNeeded = needsOptionSources(allQuestions(definition)) && !purged;
+  const answerLookupNeeded = needsOptionSources(allQuestions(definition));
   const publicReasons = useReferralOptionSources(answerLookupNeeded && !isAdminView);
   const answerSources = isAdminView
     ? reasonOptionSources(reasons.data ?? [])
@@ -313,20 +305,12 @@ function ReferralDetail({ referral }: { referral: Referral }) {
       )}
 
       <div className={styles.stack}>
-        {isAdminView && !purged && (
-          <AdminInfoPanel locked={locked} lockedId={lockedId} referral={referral} />
-        )}
+        {isAdminView && <AdminInfoPanel locked={locked} lockedId={lockedId} referral={referral} />}
 
         {/* Referral summary and Referral actions sit side by side — the record
             of the referral beside the decision to take about it. Mark
             reviewed, cancel and move now sit together, so all three follow
-            cancel's rule and none is offered on a purged referral — where
-            moving and marking reviewed once were, having sections of their
-            own. Booking a household whose details are gone into a future
-            session would put a nameless parcel on a pick list, and there is
-            nothing left to read through; but nobody has actually decided
-            either, so both are recorded as guesses in
-            `../foodbankserver/OPEN-QUESTIONS.md` Q35. */}
+            cancel's rule. */}
         <div className={styles.pairGrid}>
           <section aria-labelledby="referral-summary-heading" className={styles.section}>
             <h2 id="referral-summary-heading">Referral summary</h2>
@@ -400,31 +384,21 @@ function ReferralDetail({ referral }: { referral: Referral }) {
             </dl>
           </section>
 
-          {!purged && (
-            <section className={styles.section}>
-              <h2>Referral actions</h2>
-              {isAdminView && needsReferrerApproval(referral) && (
-                <ReviewPanel onDecided={setDecidedNotice} referral={referral} />
-              )}
-              <ReferralActionsPanel
-                canCopy={isAdminView && canCopyReferral(referral)}
-                canMarkReviewed={isAdminView && referral.status === 'active'}
-                locked={locked}
-                lockedId={lockedId}
-                referral={referral}
-                sessions={sessions.data ?? []}
-              />
-            </section>
-          )}
+          <section className={styles.section}>
+            <h2>Referral actions</h2>
+            {isAdminView && needsReferrerApproval(referral) && (
+              <ReviewPanel onDecided={setDecidedNotice} referral={referral} />
+            )}
+            <ReferralActionsPanel
+              canCopy={isAdminView && canCopyReferral(referral)}
+              canMarkReviewed={isAdminView && referral.status === 'active'}
+              locked={locked}
+              lockedId={lockedId}
+              referral={referral}
+              sessions={sessions.data ?? []}
+            />
+          </section>
         </div>
-
-        {purged && (
-          <p className={styles.purgedNotice}>
-            This household&rsquo;s personal details were removed by the retention process
-            {referral.piiPurgedAt !== null && ` on ${formatLondonDateTime(referral.piiPurgedAt)}`}.
-            There is nothing here to amend.
-          </p>
-        )}
 
         {locked !== null && (
           <p className={styles.refusal} id={lockedId}>
@@ -441,28 +415,27 @@ function ReferralDetail({ referral }: { referral: Referral }) {
             same household, read two ways. `DetailsForm` renders either both
             cards or, while editing, the one editor card in their place; the
             grid's `auto-fit` tracks make either shape fill the row. */}
-        {!purged &&
-          (isAdminView && reasons.isPending ? (
-            <Spinner label="Loading reasons for referral…" />
-          ) : isAdminView && reasons.isError ? (
-            <ErrorNotice
-              error={reasons.error}
-              onRetry={() => {
-                void reasons.refetch();
-              }}
+        {isAdminView && reasons.isPending ? (
+          <Spinner label="Loading reasons for referral…" />
+        ) : isAdminView && reasons.isError ? (
+          <ErrorNotice
+            error={reasons.error}
+            onRetry={() => {
+              void reasons.refetch();
+            }}
+          />
+        ) : (
+          <div className={styles.pairGrid}>
+            <DetailsForm
+              definition={definition}
+              isAdminView={isAdminView}
+              locked={locked}
+              lockedId={lockedId}
+              reasons={isAdminView ? (reasons.data ?? []) : []}
+              referral={referral}
             />
-          ) : (
-            <div className={styles.pairGrid}>
-              <DetailsForm
-                definition={definition}
-                isAdminView={isAdminView}
-                locked={locked}
-                lockedId={lockedId}
-                reasons={isAdminView ? (reasons.data ?? []) : []}
-                referral={referral}
-              />
-            </div>
-          ))}
+          </div>
+        )}
 
         {/* Every answer, not only the preferences — this is the referral, and an
             administrator taking a correction by phone needs all of it. The
@@ -470,8 +443,7 @@ function ReferralDetail({ referral }: { referral: Referral }) {
         <section className={styles.section}>
           <h2>Answers from the referral form</h2>
           {/* Held until the lookup lands: an answer chosen from it is an id until
-              then, and an id is not something anybody may be shown. Only where
-              there are answers to resolve — a purged referral says so at once. */}
+              then, and an id is not something anybody may be shown. */}
           {answers.kind !== 'answers' ? (
             <AnswersList display={answers} />
           ) : answerLookupPending ? (
@@ -932,8 +904,6 @@ function ReviewPanel({
 
 function AnswersList({ display }: { display: AnswersDisplay }) {
   switch (display.kind) {
-    case 'purged':
-      return <p className={styles.answersNote}>These were removed by the retention process.</p>;
     case 'no-answers':
       return <p className={styles.answersNote}>No preference answers were given.</p>;
     case 'answers':

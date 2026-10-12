@@ -95,7 +95,6 @@ function referral(overrides: Partial<Referral> & Pick<Referral, 'id' | 'formId'>
     refereePostcode: 'AB1 2CD',
     refereePhone: null,
     answers: {},
-    piiPurgedAt: null,
     reasonId: 'q1',
     referrerEmail: 'referrer@riverside.org',
     referrerPhone: null,

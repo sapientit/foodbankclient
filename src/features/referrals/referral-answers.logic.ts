@@ -25,9 +25,6 @@ import {
  *   question — still renders, under its raw key, because
  *   `CLAUDE.md`/`API.md` are explicit that "unknown keys are stored, not
  *   dropped" and this is the one place that promise gets kept or broken.
- * - A purged referral (`piiPurgedAt` set) has no answers to render at all,
- *   and says so rather than showing an empty section a volunteer would read
- *   as a bug in the screen.
  *
  * No React, no fetching, tested directly.
  */
@@ -47,7 +44,6 @@ export interface AnswerLine {
 }
 
 export type AnswersDisplay =
-  | { readonly kind: 'purged' }
   | { readonly kind: 'no-answers' }
   | { readonly kind: 'answers'; readonly lines: readonly AnswerLine[] };
 
@@ -59,7 +55,6 @@ export type AnswersDisplay =
  */
 export interface ReferralAnswersSource {
   readonly answers: Readonly<Record<string, unknown>>;
-  readonly piiPurgedAt: string | null;
 }
 
 /**
@@ -74,8 +69,6 @@ export function describeAnswers(
   referral: ReferralAnswersSource,
   sources: OptionSources,
 ): AnswersDisplay {
-  if (referral.piiPurgedAt !== null) return { kind: 'purged' };
-
   const entries = Object.entries(referral.answers);
   if (entries.length === 0) return { kind: 'no-answers' };
 

@@ -81,7 +81,6 @@ function teamLeadReferral(overrides: Partial<Referral> & Pick<Referral, 'id'>): 
     refereePostcode: 'AB1 2CD',
     refereePhone: null,
     answers: {},
-    piiPurgedAt: null,
     formId: FORM_ID,
     // Deliberately no reasonId, referrerEmail or referrerPhone key at all —
     // that is the shape a team lead actually receives, not `null`.

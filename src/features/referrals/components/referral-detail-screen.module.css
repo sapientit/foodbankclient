@@ -28,9 +28,8 @@
 }
 
 /* A pair of cards that sit side by side where the page is wide enough, and
-   stack where it is not. `auto-fit` means a pair with only one card present
-   (an amend-locked or purged referral, say) still fills the row rather than
-   leaving half of it empty. */
+   stack where it is not. `auto-fit` means a single card fills the row rather
+   than leaving half of it empty. */
 .pairGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
@@ -107,14 +106,6 @@
 .copiedNotice:focus-visible {
   outline: 3px solid #14532d;
   outline-offset: 2px;
-}
-
-.purgedNotice {
-  margin: 0 0 1.5rem;
-  padding: 0.75rem 1rem;
-  max-inline-size: 60ch;
-  border: 1px solid #595959;
-  border-radius: 0.25rem;
 }
 
 .refusal {

@@ -32,7 +32,6 @@ function referral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral
     refereePostcode: 'AB1 2CD',
     refereePhone: null,
     answers: {},
-    piiPurgedAt: null,
     formId: null,
     ...overrides,
   };
@@ -179,32 +178,6 @@ describe('the referrals list', () => {
 
     const view = await screen.findByRole('link', { name: 'View Rowe, Jamie' });
     expect(view).toHaveAttribute('href', '/referrals/r1');
-  });
-
-  it('shows a purged referral as removed, never as a blank or "undefined"', async () => {
-    server.use(
-      http.get(REFERRALS, () =>
-        HttpResponse.json({
-          referrals: [
-            referral({
-              id: 'r1',
-              refereeFirstName: null,
-              refereeSurname: null,
-              refereeAddress: null,
-              refereePostcode: null,
-              refereePhone: null,
-              piiPurgedAt: '2026-08-01T00:00:00.000Z',
-            }),
-          ],
-        }),
-      ),
-    );
-
-    renderApp('/referrals');
-
-    expect(await screen.findByRole('rowheader', { name: 'Details removed' })).toBeInTheDocument();
-    expect(screen.queryByText('undefined')).toBeNull();
-    expect(screen.queryByText('null')).toBeNull();
   });
 
   it('marks pending-review referrals as needing attention', async () => {

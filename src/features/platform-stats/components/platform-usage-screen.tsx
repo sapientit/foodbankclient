@@ -56,6 +56,17 @@ const MEASURES: readonly DisplayMeasure[] = [
   { key: 'd1RowsRead', name: 'D1 rows read', format: (value) => number.format(value) },
   { key: 'd1RowsWritten', name: 'D1 rows written', format: (value) => number.format(value) },
   { key: 'd1StorageBytes', name: 'D1 storage (bytes)', format: (value) => number.format(value) },
+  { key: 'r2StorageBytes', name: 'R2 storage (bytes)', format: (value) => number.format(value) },
+  {
+    key: 'r2ClassAOperations',
+    name: 'R2 Class A operations',
+    format: (value) => number.format(value),
+  },
+  {
+    key: 'r2ClassBOperations',
+    name: 'R2 Class B operations',
+    format: (value) => number.format(value),
+  },
 ];
 
 function utcToday(): string {
@@ -80,7 +91,7 @@ export function PlatformUsageScreen() {
       <main>
         <div className={styles.headerCard}>
           <PageHeader
-            description="Daily Worker and D1 usage against the current Cloudflare thresholds."
+            description="Daily Worker, D1 and R2 usage against the current Cloudflare thresholds."
             icon={<CloudIcon />}
             title="Cloudflare statistics"
           />

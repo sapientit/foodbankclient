@@ -21,6 +21,9 @@ function usageDay(overrides: Partial<PlatformStatsDay> = {}): PlatformStatsDay {
     d1RowsRead: { value: 100, cap: 5_000_000, threshold: 4_000_000, exceeded: false },
     d1RowsWritten: { value: 10, cap: 100_000, threshold: 80_000, exceeded: false },
     d1StorageBytes: { value: 1000, cap: 5_000_000_000, threshold: 4_000_000_000, exceeded: false },
+    r2StorageBytes: { value: 1000, cap: 10_000_000_000, threshold: 8_000_000_000, exceeded: false },
+    r2ClassAOperations: { value: 10, cap: 1_000_000, threshold: 800_000, exceeded: false },
+    r2ClassBOperations: { value: 100, cap: 10_000_000, threshold: 8_000_000, exceeded: false },
     ...overrides,
   };
 }
@@ -104,6 +107,12 @@ describe('the Cloudflare statistics screen', () => {
                 exceeded: true,
               },
               workerErrorsThisApp: { value: 1, threshold: 0, exceeded: true },
+              r2ClassBOperations: {
+                value: 8_000_000,
+                cap: 10_000_000,
+                threshold: 8_000_000,
+                exceeded: true,
+              },
             }),
           ],
         }),
@@ -129,6 +138,11 @@ describe('the Cloudflare statistics screen', () => {
     expect(within(flagged).getAllByText('4,000,000')).toHaveLength(2);
     expect(
       within(table).getByRole('row', { name: /Worker errors \(this app\).*1.*Exceeded/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByRole('row', {
+        name: /R2 Class B operations.*10,000,000.*8,000,000.*Exceeded/,
+      }),
     ).toBeInTheDocument();
     const informational = within(table).getByRole('row', {
       name: /Worker requests \(this app\).*Informational/,

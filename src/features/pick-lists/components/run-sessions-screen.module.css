@@ -125,8 +125,22 @@
 .printLineColumns {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  align-items: start;
   gap: 1rem;
   margin-block-start: 1rem;
+}
+
+/* The preview uses the same already-packed page groups as paper. This makes a
+   second sheet visible before the browser print dialog opens. */
+.printLinePage + .printLinePage {
+  margin-block-start: 2rem;
+  padding-block-start: 1rem;
+  border-block-start: 3px dashed #555555;
+}
+
+.printPageLabel {
+  margin: 0;
+  font-weight: 700;
 }
 
 .printLines {
@@ -520,6 +534,31 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.5rem;
     margin-block-start: 0.5rem;
+  }
+
+  /* The server's 40/50-character stock limits are chosen to fit these one-line
+     fields. Keeping them on one line is what makes the 3/5-unit page packing
+     a real paper constraint rather than an estimate. */
+  .printLines th {
+    white-space: nowrap;
+  }
+
+  /* A page group is assembled in the markup so page two begins only after all
+     three shelf columns on page one. The shorter final table must not stretch
+     its rows to match a neighbouring column with descriptions. */
+  .printLinePage {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    break-after: page;
+  }
+
+  .printLinePage:last-child {
+    break-after: auto;
+  }
+
+  .printLinePageAfterInformation {
+    break-before: page;
   }
 
   /* `break-inside: avoid` on the whole table stranded the header alone on a

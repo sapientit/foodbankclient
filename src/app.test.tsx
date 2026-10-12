@@ -77,7 +77,6 @@ const JAMIE: Referral = {
   refereePostcode: 'AB1 2CD',
   refereePhone: null,
   answers: {},
-  piiPurgedAt: null,
   formId: null,
 };
 

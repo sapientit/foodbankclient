@@ -40,8 +40,8 @@ That moves a set of constraints from the server to the client authoring/validati
   approaches it.
 - **Unknown keys are stored, not dropped.** The server has no list to compare them against, so a
   renderer must show a key it does not recognise rather than hiding it.
-- **After a retention purge, `answers` comes back empty.** The server cannot tell which answers were
-  personal, so it drops all of them.
+- **After the retention period, the referral is deleted.** It is not returned with blanked personal
+  fields, so client screens never need to interpret a retained anonymous referral.
 
 **The reason dropdown is the exception and stays server-side** (`GET /public/referral-reasons`). It is
 a maintained lookup, admin-editable, and the referral points at one by `reasonId`.
@@ -134,17 +134,15 @@ values and then extract the key fields at update time".
 
 ## Why the answers renderer takes a structural type
 
-`describeAnswers` in `referral-answers.logic.ts` accepts `{ answers, piiPurgedAt }` rather than
-importing the generated `Referral`. This is a `.logic.ts`, and the import-boundary lint rule does not
-allow it to reach `src/api/schema`.
+`describeAnswers` in `referral-answers.logic.ts` accepts `{ answers }` rather than importing the
+generated `Referral`. This is a `.logic.ts`, and the import-boundary lint rule does not allow it to
+reach `src/api/schema`.
 
-It renders three cases **without ever dropping data**:
+It renders two cases **without ever dropping data**:
 
 - a key the **current** definition knows → under its label, showing an option's `label` rather than
   its stored `value`;
-- a key it does not know — an older or retired question → still rendered, under its raw key;
-- a purged referral (`piiPurgedAt` set) → `{ kind: 'purged' }`, not an empty-looking answers section
-  a volunteer would read as a bug in the screen.
+- a key it does not know — an older or retired question → still rendered, under its raw key.
 
 A stored value that no longer matches its question's shape — a stale dropdown option, a number
 question somehow holding a string — still renders as _something_ rather than throwing. The server

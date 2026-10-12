@@ -190,6 +190,33 @@ describe('stock-item maintenance', () => {
     expect(await screen.findByRole('heading', { name: 'Stock items' })).toBeInTheDocument();
   });
 
+  it('limits new stock names to 40 characters and descriptions to 50', async () => {
+    let posted = false;
+    server.use(
+      http.post(ITEMS, () => {
+        posted = true;
+        return HttpResponse.json({ ...BEANS, id: 's3' }, { status: 201 });
+      }),
+    );
+    renderApp('/stock/items/new');
+    const user = userEvent.setup();
+
+    const name = await screen.findByLabelText('Name');
+    await user.type(name, 'n'.repeat(41));
+    await user.type(screen.getByLabelText('Category'), 'Staples');
+    await user.type(screen.getByLabelText('Shelf'), 'B1');
+    await user.click(screen.getByRole('button', { name: 'Add item' }));
+    expect(await screen.findByText('Use 40 characters or fewer.')).toBeVisible();
+    expect(posted).toBe(false);
+
+    await user.clear(name);
+    await user.type(name, 'n'.repeat(40));
+    await user.type(screen.getByLabelText('Description (optional)'), 'd'.repeat(51));
+    await user.click(screen.getByRole('button', { name: 'Add item' }));
+    expect(await screen.findByText('Use 50 characters or fewer.')).toBeVisible();
+    expect(posted).toBe(false);
+  });
+
   it('amends an item with its category and optional description', async () => {
     let patched: unknown = null;
     server.use(
@@ -231,6 +258,34 @@ describe('stock-item maintenance', () => {
       unitsPerPack: null,
       packUnitLabel: null,
     });
+  });
+
+  it('applies the same print-safe name and description limits when amending', async () => {
+    let patched = false;
+    server.use(
+      http.patch(`${ITEMS}/:id`, () => {
+        patched = true;
+        return HttpResponse.json(BEANS);
+      }),
+    );
+    renderApp(`/stock/items/${BEANS.id}`);
+    const user = userEvent.setup();
+
+    const name = await screen.findByLabelText('Name');
+    await user.clear(name);
+    await user.type(name, 'n'.repeat(41));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText('Use 40 characters or fewer.')).toBeVisible();
+    expect(patched).toBe(false);
+
+    await user.clear(name);
+    await user.type(name, 'n'.repeat(40));
+    const description = screen.getByLabelText('Description (optional)');
+    await user.clear(description);
+    await user.type(description, 'd'.repeat(51));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText('Use 50 characters or fewer.')).toBeVisible();
+    expect(patched).toBe(false);
   });
 
   it('sends a threshold on create and clears it on amendment when blank', async () => {

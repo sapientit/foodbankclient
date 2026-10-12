@@ -176,7 +176,6 @@ function referral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral
     refereePostcode: 'GU23 4XX',
     refereePhone: null,
     answers: {},
-    piiPurgedAt: null,
     formId: 'form-old',
     reasonId: 'q1',
     reviewComment: null,

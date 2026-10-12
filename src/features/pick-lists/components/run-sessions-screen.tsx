@@ -70,7 +70,11 @@ import {
   parseReleases,
   resolvePickListBody,
 } from '../release-pick-list.logic';
-import { splitPrintLines } from '../pick-list-print.logic';
+import {
+  countPickListInformationLines,
+  firstPrintPageHasStockCapacity,
+  splitPrintLines,
+} from '../pick-list-print.logic';
 
 /**
  * The operational view: no session or referral maintenance controls live here.
@@ -430,6 +434,12 @@ export function PickListPrintScreen() {
               (candidate) => candidate.pickNumber === parcel.pickNumber,
             );
             const householdComposition = sessionParcel?.answers[HOUSEHOLD_COMPONENTS_KEY];
+            const informationLines = countPickListInformationLines(parcel.notes);
+            const firstPageHasStockCapacity = firstPrintPageHasStockCapacity(
+              informationLines,
+              parcel.lines[0],
+            );
+            const printPages = splitPrintLines(parcel.lines, informationLines);
             return (
               <section className={styles.printSheet} key={parcel.pickNumber}>
                 <header className={styles.printHeader}>
@@ -466,35 +476,52 @@ export function PickListPrintScreen() {
                     <p>{parcel.notes}</p>
                   </section>
                 )}
-                <div className={styles.printLineColumns}>
-                  {splitPrintLines(parcel.lines).map((column, index) => (
-                    <table
-                      aria-label={`Picking items, column ${String(index + 1)}`}
-                      className={styles.printLines}
-                      key={index}
+                <div className={styles.printLinePages}>
+                  {printPages.map((page, pageIndex) => (
+                    <div
+                      className={classNames(
+                        styles.printLinePage,
+                        pageIndex === 0 && !firstPageHasStockCapacity
+                          ? styles.printLinePageAfterInformation
+                          : undefined,
+                      )}
+                      key={pageIndex}
                     >
-                      <thead className={styles.visuallyHidden}>
-                        <tr>
-                          <th scope="col">Item</th>
-                          <th scope="col">Quantity</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {column.map((line) => (
-                          <tr key={line.stockItemId}>
-                            <th scope="row">
-                              {line.name}
-                              {line.description !== null && (
-                                <span className={styles.printLineDescription}>
-                                  {line.description}
-                                </span>
-                              )}
-                            </th>
-                            <td>{line.quantity}</td>
-                          </tr>
+                      <p className={classNames(styles.printPageLabel, styles.screenOnly)}>
+                        Printed page {pageIndex + 1} of {printPages.length}
+                      </p>
+                      <div className={styles.printLineColumns}>
+                        {page.map((column, columnIndex) => (
+                          <table
+                            aria-label={`Picking items, page ${String(pageIndex + 1)}, column ${String(columnIndex + 1)}`}
+                            className={styles.printLines}
+                            key={columnIndex}
+                          >
+                            <thead className={styles.visuallyHidden}>
+                              <tr>
+                                <th scope="col">Item</th>
+                                <th scope="col">Quantity</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {column.map((line) => (
+                                <tr key={line.stockItemId}>
+                                  <th scope="row">
+                                    {line.name}
+                                    {line.description !== null && (
+                                      <span className={styles.printLineDescription}>
+                                        {line.description}
+                                      </span>
+                                    )}
+                                  </th>
+                                  <td>{line.quantity}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         ))}
-                      </tbody>
-                    </table>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </section>
@@ -1260,11 +1287,7 @@ function ParcelPanel({
   // corrected. Only closing the containing session locks both.
   const parcelLinesLocked = parcel.attendance !== 'pending' || readOnly;
   const notesLocked = readOnly;
-  const answers = describeAnswers(
-    definition,
-    { answers: parcel.answers, piiPurgedAt: null },
-    reasons.sources,
-  );
+  const answers = describeAnswers(definition, { answers: parcel.answers }, reasons.sources);
   const preferences =
     answers.kind === 'answers' ? answers.lines.filter((line) => line.isPreference) : [];
   const changedLines = changedDraftLines(savedLines, draftLines);

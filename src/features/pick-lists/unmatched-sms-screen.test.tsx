@@ -196,7 +196,6 @@ function referralRow(overrides: Partial<Referral> & Pick<Referral, 'id'>): Refer
     refereePostcode: 'AB1 2CD',
     refereePhone: null,
     answers: {},
-    piiPurgedAt: null,
     formId: null,
     reasonId: 'q1',
     referrerEmail: 'referrer@riverside.org',

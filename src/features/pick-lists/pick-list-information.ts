@@ -60,11 +60,7 @@ export function buildPickListInformation(
   const configured = pickListInformationQuestions(definition).map((question) => question.key);
 
   return referrals.flatMap((referral) => {
-    const rendered = describeAnswers(
-      definition,
-      { answers: referral.answers, piiPurgedAt: null },
-      sources,
-    );
+    const rendered = describeAnswers(definition, { answers: referral.answers }, sources);
     const configuredNotes =
       rendered.kind !== 'answers'
         ? []

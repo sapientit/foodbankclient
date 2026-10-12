@@ -14,7 +14,6 @@ import {
   REFERRAL_STATUS_OPTIONS,
   describeHousehold,
   isReferralStatus,
-  isPurged,
   refereeNameForList,
   sortForReview,
 } from '../referrals.logic';
@@ -224,8 +223,7 @@ function ReferralRow({
   returnedReferralRef: RefObject<HTMLAnchorElement | null>;
 }) {
   const session = sessions.find((candidate) => candidate.id === referral.sessionId);
-  const purged = isPurged(referral);
-  const displayName = purged ? 'Details removed' : (refereeNameForList(referral) ?? '—');
+  const displayName = refereeNameForList(referral) ?? '—';
 
   return (
     <tr
