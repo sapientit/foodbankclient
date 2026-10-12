@@ -143,6 +143,12 @@
   font-weight: 700;
 }
 
+.printContinuationHeader {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
 .printLines {
   inline-size: 100%;
   border-collapse: collapse;
@@ -534,6 +540,12 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.5rem;
     margin-block-start: 0.5rem;
+  }
+
+  .printContinuationHeader {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    white-space: nowrap;
   }
 
   /* The server's 40/50-character stock limits are chosen to fit these one-line

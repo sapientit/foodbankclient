@@ -490,6 +490,12 @@ export function PickListPrintScreen() {
                       <p className={classNames(styles.printPageLabel, styles.screenOnly)}>
                         Printed page {pageIndex + 1} of {printPages.length}
                       </p>
+                      {pageIndex > 0 && (
+                        <p className={styles.printContinuationHeader}>
+                          Pick #{parcel.pickNumber} — {parcel.refereeFirstName ?? 'Unknown'}{' '}
+                          {parcel.refereeSurname ?? ''}
+                        </p>
+                      )}
                       <div className={styles.printLineColumns}>
                         {page.map((column, columnIndex) => (
                           <table

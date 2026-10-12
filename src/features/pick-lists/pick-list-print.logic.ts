@@ -18,7 +18,8 @@ const PRINT_COLUMNS = 3;
    more vertical space than the nominal line unit. Leave one described item of
    slack in every column rather than trusting an exactly full page. */
 const FIRST_PAGE_COLUMN_UNITS = 49;
-const FOLLOWING_PAGE_COLUMN_UNITS = 92;
+/* Continuation sheets repeat the compact pick identity before their columns. */
+const FOLLOWING_PAGE_COLUMN_UNITS = 90;
 const INFORMATION_HEADING_UNITS = 2;
 const INFORMATION_LINE_UNITS = 2;
 const STOCK_WITHOUT_DESCRIPTION_UNITS = 3;
