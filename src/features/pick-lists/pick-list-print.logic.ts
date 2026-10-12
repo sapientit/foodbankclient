@@ -2,7 +2,7 @@
 const PRINT_COLUMNS = 3;
 
 /*
- * A first-page column has 76 print units after its compact heading. A stock
+ * A first-page column has 52 print units after its compact heading. A stock
  * line with its separator consumes three units; its optional description
  * makes the item a five-unit block. Information for pickers uses two units
  * for each printed line, including lines formed by wrapping long text.
@@ -10,13 +10,14 @@ const PRINT_COLUMNS = 3;
  * These are deliberately units rather than pixels: the print CSS gives every
  * name, description and separator one predictable line.  The server caps the
  * name at 40 characters and the description at 50 so neither can wrap. The
- * values are calibrated in the standalone A4 tuner. The three-unit margin is
- * included before any item is put into a column.
+ * values are calibrated against the UAT A4 print snapshot and can be explored
+ * in the standalone tuner. The three-unit margin is included before any item
+ * is put into a column.
  */
 /* Printers, paper scaling and a near-limit English word can each use a little
    more vertical space than the nominal line unit. Leave one described item of
    slack in every column rather than trusting an exactly full page. */
-const FIRST_PAGE_COLUMN_UNITS = 76;
+const FIRST_PAGE_COLUMN_UNITS = 52;
 const FOLLOWING_PAGE_COLUMN_UNITS = 92;
 const INFORMATION_HEADING_UNITS = 2;
 const INFORMATION_LINE_UNITS = 2;

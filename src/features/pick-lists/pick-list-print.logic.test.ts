@@ -23,17 +23,16 @@ describe('splitPrintLines', () => {
       splitPrintLines(lines, 0).map((page) => page.map((column) => column.map((line) => line.id))),
     ).toEqual([
       [
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
-        [
-          25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
-          47, 48,
-        ],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+        [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32],
+        [33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48],
+      ],
+      [
         [
           49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
-          71, 72,
+          71, 72, 73, 74, 75,
         ],
       ],
-      [[73, 74, 75]],
     ]);
   });
 
@@ -47,8 +46,61 @@ describe('splitPrintLines', () => {
       splitPrintLines(lines, 2).map((page) => page.map((column) => column.map((line) => line.id))),
     ).toEqual([
       [
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
-        [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
+        [26, 27, 28, 29, 30, 31, 32, 33, 34],
+      ],
+    ]);
+  });
+
+  it('keeps the UAT snapshot on one physical first sheet instead of letting its columns fragment', () => {
+    const lines = [
+      null,
+      null,
+      null,
+      null,
+      '0.5Kg = 1 unit',
+      '0.5Kg = 1 unit',
+      null,
+      null,
+      null,
+      null,
+      null,
+      'Small tin = 1 unit Large tin = 2 units',
+      null,
+      'If multi-pack give intact',
+      null,
+      null,
+      '500g = 1 unit',
+      null,
+      null,
+      null,
+      'Sponge pudding/jelly/desserts',
+      null,
+      null,
+      null,
+      null,
+      null,
+      'If pouches double quant',
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ].map((description, index) => ({ id: index + 1, description }));
+
+    expect(
+      splitPrintLines(lines, 2).map((page) => page.map((column) => column.map((line) => line.id))),
+    ).toEqual([
+      [
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
+        [25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37],
       ],
     ]);
   });
@@ -63,9 +115,11 @@ describe('splitPrintLines', () => {
       splitPrintLines(lines, 5).map((page) => page.map((column) => column.map((line) => line.id))),
     ).toEqual([
       [
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
-        [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
+        [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33],
       ],
+      [[34]],
     ]);
   });
 
@@ -74,7 +128,7 @@ describe('splitPrintLines', () => {
     const plain = { id: 2, description: null };
 
     expect(firstPrintPageHasStockCapacity(34, described)).toBe(false);
-    expect(firstPrintPageHasStockCapacity(34, plain)).toBe(true);
+    expect(firstPrintPageHasStockCapacity(34, plain)).toBe(false);
     expect(splitPrintLines([described], 34)).toEqual([[[described]]]);
   });
 });

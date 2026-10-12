@@ -1581,13 +1581,13 @@ describe('a team lead running a session', () => {
       'Flour',
       'Jam',
     ]);
-    expect(firstColumnItems).toHaveLength(22);
+    expect(firstColumnItems).toHaveLength(14);
     expect(screen.getByText('Printed page 1 of 2')).toBeInTheDocument();
     expect(screen.getByText('Printed page 2 of 2')).toBeInTheDocument();
     expect(
       within(screen.getByRole('table', { name: 'Picking items, page 2, column 1' })).getByRole(
         'rowheader',
-        { name: 'Extra item 69' },
+        { name: 'Extra item 45' },
       ),
     ).toBeInTheDocument();
     expect(
