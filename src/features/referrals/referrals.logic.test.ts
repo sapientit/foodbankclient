@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Referral } from './queries';
 import {
+  cancelAdminInfo,
   REFERRAL_STATUS_LABELS,
   cameFromCopy,
   cameFromSearch,
@@ -384,5 +385,21 @@ describe('copyCapacityWarning', () => {
     const warning = copyCapacityWarning({ booked: 25, capacity: 25 });
     expect(warning).toContain('25');
     expect(warning).toContain('places booked');
+  });
+});
+
+describe('cancelAdminInfo', () => {
+  it('omits the notes when they are unchanged, whitespace aside', () => {
+    expect(cancelAdminInfo('Ring after 2pm', ' Ring after 2pm ')).toBeUndefined();
+    expect(cancelAdminInfo(null, '  ')).toBeUndefined();
+    expect(cancelAdminInfo(undefined, '')).toBeUndefined();
+  });
+
+  it('sends null when existing notes are cleared', () => {
+    expect(cancelAdminInfo('Ring after 2pm', '   ')).toBeNull();
+  });
+
+  it('sends the trimmed text when it changed', () => {
+    expect(cancelAdminInfo(null, ' Cancelled: ill ')).toBe('Cancelled: ill');
   });
 });

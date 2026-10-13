@@ -417,7 +417,7 @@ describe('the administrator dashboard', () => {
     ).toHaveLength(0);
   });
 
-  it('takes an upcoming session date to Run a session while keeping the run and amend controls', async () => {
+  it('takes an upcoming session date to Session Run Sheet while keeping the run and amend controls', async () => {
     server.use(
       http.get('/api/v1/sessions', () =>
         HttpResponse.json({ sessions: [session({ id: 's1', startTime: '09:00' })] }),

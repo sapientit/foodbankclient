@@ -225,7 +225,8 @@ export function resolvePreferenceLines(
  * `docs/planning/versioned-configuration-releases.md`, "Historic unavailable
  * stock". Every referral is returned, even one that resolves no lines at all,
  * because `unavailableStock` — read by `buildPickListInformation` to note
- * `No longer stocked: …` on the new parcel — can be non-empty either way.
+ * `No longer stocked: …` on the new parcel, the one stored part of its Information for pickers — can
+ * be non-empty either way.
  */
 export function resolveHistoricPreferenceLines(
   referrals: readonly Pick<Referral, 'id' | 'adults' | 'children' | 'answers'>[],

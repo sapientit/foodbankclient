@@ -88,7 +88,7 @@ describe('AppShell', () => {
 
     const tabs = within(screen.getByRole('navigation', { name: 'Main navigation' }));
     const links = navLabels();
-    expect(tabs.getByRole('link', { name: 'Run a session' })).toBeInTheDocument();
+    expect(tabs.getByRole('link', { name: 'Session Run Sheet' })).toBeInTheDocument();
     expect(links).toContain('Stock');
     expect(tabs.queryByRole('link', { name: 'Sessions' })).toBeNull();
     expect(screen.getByRole('navigation', { name: 'Section navigation' })).toHaveTextContent(

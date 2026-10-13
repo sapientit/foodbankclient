@@ -51,6 +51,21 @@ export function missedLabel(parcel: Parcel): string {
 }
 
 /**
+ * The referral form's `Other` question — "Any additional information?" — which
+ * the Session Run Sheet client list shows in its own column. Its key is frozen
+ * (`referral-answer-keys.frozen.ts`), so it reads the same under every release.
+ */
+export const OTHER_ANSWER_KEY = 'Other';
+
+/** What the referrer added in their own words, or `null` where nothing was. */
+export function otherAnswer(parcel: Pick<Parcel, 'answers'>): string | null {
+  const value = parcel.answers[OTHER_ANSWER_KEY];
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
+}
+
+/**
  * How far along a client is, as the word the client list shows and a state the
  * badge is drawn from.
  *
@@ -107,3 +122,29 @@ export const STOCK_CHECK_UNAVAILABLE_REASON =
   'Check every pick list before the stock check — until then the quantities are still moving.';
 export const COMPLETE_SESSION_UNAVAILABLE_REASON =
   'Record an outcome for every client before completing session.';
+
+const NAME_ORDER = new Intl.Collator('en-GB', { sensitivity: 'base' });
+
+/**
+ * The referral-details list in pick-number order, so it reads in the same
+ * order as the picking sheets. A household with no pick number yet comes after
+ * every one with a number, by surname then first name: the contract promises
+ * no order of its own. `screenDetails.md`, "#Session processing".
+ */
+export function byPickNumber<
+  T extends {
+    readonly pickNumber: number | null;
+    readonly refereeFirstName: string | null;
+    readonly refereeSurname: string | null;
+  },
+>(referrals: readonly T[]): T[] {
+  return [...referrals].sort((a, b) => {
+    if (a.pickNumber !== null && b.pickNumber !== null) return a.pickNumber - b.pickNumber;
+    if (a.pickNumber !== null) return -1;
+    if (b.pickNumber !== null) return 1;
+    return (
+      NAME_ORDER.compare(a.refereeSurname ?? '', b.refereeSurname ?? '') ||
+      NAME_ORDER.compare(a.refereeFirstName ?? '', b.refereeFirstName ?? '')
+    );
+  });
+}

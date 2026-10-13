@@ -32,7 +32,9 @@ not whichever rules happen to be current later.
   when the client loads it. The server stores that prepared payload verbatim;
   it does not parse, validate or execute the questionnaire or rules.
 - Existing parcels and their notes remain snapshots. Reconciliation must never
-  alter them.
+  alter them. (Since 2026-10-13 a parcel's `notes` hold only the `No longer
+stocked: …` line; the rest of the Information for pickers is composed on
+  display — `session-run-sheet-server-handoff.md`.)
 - There is no separate warning record or warning UI for a discontinued
   historic stock item. The only operational record is an initial entry in the
   parcel's **Information for pickers**.

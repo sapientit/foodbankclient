@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
 import type { ConfigurationRelease } from '../configuration-releases/queries';
@@ -90,6 +90,7 @@ const PARCEL: Parcel = {
   reviewedAt: null,
   attendance: 'pending',
   notes: null,
+  picklistAdmin: null,
   firstTimeMarker: null,
   voucherInstruction: null,
   formId: FORM_ID,
@@ -353,15 +354,15 @@ describe('a team lead running a session', () => {
     expect(screen.queryByRole('button', { name: 'Send SMS reminders' })).toBeNull();
   });
 
-  it('is offered Run a session and not the administrator maintenance links', async () => {
+  it('is offered Session Run Sheet and not the administrator maintenance links', async () => {
     server.use(http.get('/api/v1/sessions', () => HttpResponse.json({ sessions: [SESSION] })));
 
     renderApp('/run-sessions');
 
-    expect(await screen.findByRole('heading', { name: 'Run a session' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Session Run Sheet' })).toBeInTheDocument();
     expect(
       within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', {
-        name: 'Run a session',
+        name: 'Session Run Sheet',
       }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sessions' })).toBeNull();
@@ -375,7 +376,7 @@ describe('a team lead running a session', () => {
   /**
    * The screen used to hide anything dated before today, which is exactly the
    * session with work left on it: outcomes and details are routinely completed
-   * after the event. `screenDetails.md`, "#Run a session".
+   * after the event. `screenDetails.md`, "#Session processing".
    */
   it('lists an open session in the past, and leaves out the completed and cancelled', async () => {
     // These used to be told apart by their locations. The list no longer names
@@ -507,7 +508,6 @@ describe('a team lead running a session', () => {
   it('reconciles the selected session and opens the client pick-list workflow', async () => {
     let reconciled = false;
     let savedLines = 0;
-    let savedNotes: string | null = null;
     let generationBody: unknown;
     let markedReviewed = false;
     server.use(
@@ -538,7 +538,16 @@ describe('a team lead running a session', () => {
       }),
       http.get('/api/v1/sessions/:sessionId/pick-list', ({ params }) => {
         expect(params.sessionId).toBe(SESSION.id);
-        return HttpResponse.json({ pickList: PICK_LIST, parcels: [PARCEL] });
+        return HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [
+            {
+              ...PARCEL,
+              picklistAdmin: 'Ring the bell twice',
+              notes: 'No longer stocked: Marmite.',
+            },
+          ],
+        });
       }),
       http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
         HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
@@ -567,12 +576,6 @@ describe('a team lead running a session', () => {
         savedLines += 1;
         return new HttpResponse(null, { status: 204 });
       }),
-      http.patch('/api/v1/parcels/:id', async ({ request, params }) => {
-        expect(params.id).toBe(PARCEL.id);
-        expect(await request.json()).toEqual({ notes: 'Allergies: no dairy' });
-        savedNotes = 'Allergies: no dairy';
-        return HttpResponse.json({ id: PARCEL.id, isActive: true });
-      }),
       http.post('/api/v1/parcels/:id/review', ({ params }) => {
         expect(params.id).toBe(PARCEL.id);
         expect(savedLines).toBe(1);
@@ -593,15 +596,9 @@ describe('a team lead running a session', () => {
     await waitFor(() => {
       expect(reconciled).toBe(true);
     });
-    expect(generationBody).toEqual({
-      preferenceLines: [],
-      pickListInformation: [
-        {
-          referralId: PARCEL.referralId,
-          notes: 'Allergies: Gluten-free food for one person\nPulses: Kidney beans please',
-        },
-      ],
-    });
+    // The marked answers are no longer sent: they are composed on every
+    // showing. Only a No longer stocked note would be, and there is none here.
+    expect(generationBody).toEqual({ preferenceLines: [] });
     /*
      * `aria-disabled`, and still in the tab order. A `disabled` button cannot be
      * focused, so the reason next to it never reaches anybody using a keyboard
@@ -634,6 +631,17 @@ describe('a team lead running a session', () => {
     expect(screen.getByText('Baked beans')).toBeInTheDocument();
     expect(screen.getByText('Vegetarian')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mark as checked' })).toBeEnabled();
+    // Composed afresh, read-only: the admin line, the marked answers in form
+    // order, then the stored note. Nothing a team lead can type into.
+    expect(
+      within(screen.getByRole('region', { name: 'Information for pickers' })).getByText(
+        (_, element) =>
+          element?.tagName === 'P' &&
+          element.textContent ===
+            'Ring the bell twice\nAllergies: Gluten-free food for one person\nPulses: Vegetarian\nNo longer stocked: Marmite.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Information for pickers' })).toBeNull();
     // Attendance and completion belong to the client list, and printing is a
     // whole-session action — none of the three may reach this screen. Matched
     // loosely on purpose: each attendance button is named for its household as
@@ -648,14 +656,9 @@ describe('a team lead running a session', () => {
     const quantity = screen.getByRole('spinbutton', { name: /Baked beans/ });
     await user.click(quantity);
     await user.keyboard('{Control>}a{/Control}3');
-    await user.type(
-      screen.getByRole('textbox', { name: 'Information for pickers' }),
-      'Allergies: no dairy',
-    );
     await user.click(screen.getByRole('button', { name: 'Mark as checked' }));
     await waitFor(() => {
       expect(savedLines).toBe(1);
-      expect(savedNotes).toBe('Allergies: no dairy');
       expect(markedReviewed).toBe(true);
     });
   });
@@ -778,65 +781,42 @@ describe('a team lead running a session', () => {
     expect(quantities[1]).toHaveValue(1);
   });
 
-  it('keeps pick-list information editable after attendance until the session is confirmed', async () => {
-    const attendedParcel: Parcel = {
-      ...PARCEL,
-      attendance: 'attended',
-      notes: 'Allergies: no dairy',
-    };
-    let cleared = false;
+  it('shows the Information for pickers with no way to edit it, even while the session is open', async () => {
     server.use(
-      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
-      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
-        HttpResponse.json({ pickList: PICK_LIST, parcels: [attendedParcel] }),
-      ),
-      http.patch('/api/v1/parcels/:id', async ({ request }) => {
-        expect(await request.json()).toEqual({ notes: null });
-        cleared = true;
-        return HttpResponse.json({ id: PARCEL.id, isActive: true });
-      }),
-    );
-
-    renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
-    const user = userEvent.setup();
-    const information = await screen.findByRole('textbox', { name: 'Information for pickers' });
-
-    expect(information).toHaveValue('Allergies: no dairy');
-    expect(information).toBeEnabled();
-    await user.clear(information);
-    await user.click(screen.getByRole('button', { name: 'Save pick list' }));
-
-    await waitFor(() => {
-      expect(cleared).toBe(true);
-    });
-  });
-
-  it('locks pick-list information once the session is confirmed', async () => {
-    const confirmedSession: Session = { ...SESSION, status: 'confirmed' };
-    const parcelWithInformation: Parcel = { ...PARCEL, notes: 'Allergies: no dairy' };
-    let noteRequests = 0;
-    server.use(
-      http.get('/api/v1/sessions/:id', () => HttpResponse.json(confirmedSession)),
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json({
-          pickList: { ...PICK_LIST, status: 'printed' },
-          parcels: [parcelWithInformation],
+          pickList: PICK_LIST,
+          parcels: [{ ...PARCEL, picklistAdmin: 'Ring the bell twice' }],
         }),
       ),
-      http.patch('/api/v1/parcels/:id', () => {
-        noteRequests += 1;
-        return HttpResponse.json({ id: PARCEL.id, notes: null });
-      }),
     );
 
     renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
 
-    expect(await screen.findByRole('textbox', { name: 'Information for pickers' })).toBeDisabled();
-    // Absent rather than disabled: nothing on a locked panel can become dirty,
-    // so a greyed-out Save would only ever say that something is wrong.
-    expect(screen.queryByRole('button', { name: 'Save pick list' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Mark as checked' })).toBeNull();
-    expect(noteRequests).toBe(0);
+    const information = await screen.findByRole('region', { name: 'Information for pickers' });
+    expect(information).toHaveTextContent('Ring the bell twice');
+    expect(information).toHaveTextContent('Allergies: Gluten-free food for one person');
+    expect(screen.queryByRole('textbox', { name: 'Information for pickers' })).toBeNull();
+    // The answer that is not marked for pickers stays in the preferences panel only.
+    expect(information).not.toHaveTextContent('Household Components');
+  });
+
+  it('leaves the Information for pickers out when there is nothing to tell the picker', async () => {
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [{ ...PARCEL, answers: {}, picklistAdmin: null, notes: null }],
+        }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Pick #1: Sam Taylor' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Information for pickers' })).toBeNull();
   });
 
   it('filters unselected stock items locally without hiding selected or retired parcel lines', async () => {
@@ -1361,6 +1341,97 @@ describe('a team lead running a session', () => {
     ).toHaveAttribute('href', `/run-sessions/${SESSION.id}/clients/${PARCEL.id}`);
   });
 
+  /**
+   * `screenDetails.md`, "#Session processing": the referrer's own words, in a
+   * narrow column squeezed in immediately before the status.
+   */
+  it('shows the Other answer in its own column immediately before the status', async () => {
+    server.use(
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [
+            { ...PARCEL, answers: { ...PARCEL.answers, Other: 'Two cats and a dog' } },
+            { ...PARCEL, id: 'parcel-2', referralId: 'referral-2', pickNumber: 2 },
+          ],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    const table = await screen.findByRole('table', { name: 'Clients on this session' });
+    const headings = within(table)
+      .getAllByRole('columnheader')
+      .map((cell) => cell.textContent);
+    expect(headings.indexOf('Other')).toBe(headings.indexOf('Status') - 1);
+    expect(within(table).getByRole('cell', { name: 'Two cats and a dog' })).toBeInTheDocument();
+  });
+
+  it('adds no tab stop for an Other answer that fits its three lines', async () => {
+    // jsdom lays nothing out, so stand in for an answer that exactly fits.
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(60);
+    const clientHeight = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(60);
+    onTestFinished(() => {
+      scrollHeight.mockRestore();
+      clientHeight.mockRestore();
+    });
+    server.use(
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [{ ...PARCEL, answers: { ...PARCEL.answers, Other: 'A short answer' } }],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    const answer = await screen.findByText('A short answer');
+    expect(answer).not.toHaveAttribute('tabindex');
+    expect(screen.queryByRole('group', { name: /^Other answer/ })).toBeNull();
+  });
+
+  it('lets the keyboard reach an Other answer too long for its three lines', async () => {
+    // jsdom lays nothing out, so stand in for an answer that overflows its cell.
+    const scrollHeight = vi
+      .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+      .mockReturnValue(120);
+    const clientHeight = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(60);
+    onTestFinished(() => {
+      scrollHeight.mockRestore();
+      clientHeight.mockRestore();
+    });
+    server.use(
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [{ ...PARCEL, answers: { ...PARCEL.answers, Other: 'A long answer' } }],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    const answer = await screen.findByRole('group', {
+      name: 'Other answer for pick #1, Sam Taylor, scrolls',
+    });
+    expect(answer).toHaveTextContent('A long answer');
+    expect(answer).toHaveAttribute('tabindex', '0');
+  });
+
   it('does not show a Voucher column outside the active voucher date range', async () => {
     server.use(
       http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
@@ -1449,6 +1520,163 @@ describe('a team lead running a session', () => {
     ).toBeNull();
   });
 
+  it('prints the Information for pickers composed from the session parcel: admin line, marked answers, stored note', async () => {
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    onTestFinished(() => {
+      printSpy.mockRestore();
+    });
+    const reviewedParcel: Parcel = {
+      ...PARCEL,
+      reviewedAt: '2026-08-05T10:00:00.000Z',
+      picklistAdmin: 'Ring the bell twice',
+      notes: 'No longer stocked: Marmite.',
+    };
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [reviewedParcel] }),
+      ),
+      http.get('/api/v1/pick-lists/:id/print', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [
+            {
+              pickNumber: 1,
+              refereeFirstName: 'Sam',
+              refereeSurname: 'Taylor',
+              isDelivery: false,
+              deliveryAddress: null,
+              deliveryPostcode: null,
+              deliveryPhone: null,
+              notes: 'No longer stocked: Marmite.',
+              lines: [],
+            },
+          ],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.post('/api/v1/pick-lists/:id/print', () => HttpResponse.json(PICK_LIST)),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/print`);
+
+    const information = await screen.findByRole('region', { name: 'Information for pickers' });
+    expect(
+      within(information).getByText(
+        (_, element) =>
+          element?.tagName === 'P' &&
+          element.textContent ===
+            'Ring the bell twice\nAllergies: Gluten-free food for one person\nPulses: Vegetarian\nNo longer stocked: Marmite.',
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(printSpy).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('reprints with pick list admin notes changed since the sheets were first printed', async () => {
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    onTestFinished(() => {
+      printSpy.mockRestore();
+    });
+    let picklistAdmin = 'Ring the bell twice';
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [{ ...PARCEL, reviewedAt: '2026-08-05T10:00:00.000Z', picklistAdmin }],
+        }),
+      ),
+      http.get('/api/v1/pick-lists/:id/print', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [
+            {
+              pickNumber: 1,
+              refereeFirstName: 'Sam',
+              refereeSurname: 'Taylor',
+              isDelivery: false,
+              deliveryAddress: null,
+              deliveryPostcode: null,
+              deliveryPhone: null,
+              notes: null,
+              lines: [],
+            },
+          ],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.post('/api/v1/pick-lists/:id/print', () => HttpResponse.json(PICK_LIST)),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/print`);
+    await waitFor(() => {
+      expect(printSpy).toHaveBeenCalledOnce();
+    });
+    expect(screen.getByRole('region', { name: 'Information for pickers' })).toHaveTextContent(
+      'Ring the bell twice',
+    );
+
+    // An administrator changes the line from another device.
+    picklistAdmin = 'Leave at the side door';
+    let textAtSecondPrint = '';
+    printSpy.mockImplementation(() => {
+      textAtSecondPrint = screen.getByRole('region', {
+        name: 'Information for pickers',
+      }).textContent;
+    });
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Open print dialog' }));
+    await waitFor(() => {
+      expect(printSpy).toHaveBeenCalledTimes(2);
+    });
+    expect(textAtSecondPrint).toContain('Leave at the side door');
+  });
+
+  it('holds the sheets back when a household’s referral form cannot be loaded', async () => {
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    onTestFinished(() => {
+      printSpy.mockRestore();
+    });
+    server.use(
+      http.get(RELEASES_BULK, () => HttpResponse.json({ releases: [] })),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [{ ...PARCEL, reviewedAt: '2026-08-05T10:00:00.000Z' }],
+        }),
+      ),
+      http.get('/api/v1/pick-lists/:id/print', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [
+            {
+              pickNumber: 1,
+              refereeFirstName: 'Sam',
+              refereeSurname: 'Taylor',
+              isDelivery: false,
+              deliveryAddress: null,
+              deliveryPostcode: null,
+              deliveryPhone: null,
+              notes: null,
+              lines: [],
+            },
+          ],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/print`);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/sheets are held back/);
+    expect(printSpy).not.toHaveBeenCalled();
+  });
+
   it('prints only after every parcel has been reviewed', async () => {
     let markedPrinted = false;
     let printReads = 0;
@@ -1456,7 +1684,13 @@ describe('a team lead running a session', () => {
     const reviewedParcel: Parcel = {
       ...PARCEL,
       reviewedAt: '2026-08-05T10:00:00.000Z',
-      answers: { ...PARCEL.answers, 'Reason for referral': 'Never print this either' },
+      // One line of Information for pickers, which the page calibration below
+      // depends on: Pulses is left out so only Allergies is composed.
+      answers: {
+        Allergies: PARCEL.answers.Allergies,
+        'Household Components': PARCEL.answers['Household Components'],
+        'Reason for referral': 'Never print this either',
+      },
     };
     server.use(
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
@@ -1475,7 +1709,8 @@ describe('a team lead running a session', () => {
               deliveryAddress: null,
               deliveryPostcode: null,
               deliveryPhone: null,
-              notes: 'Allergies: Gluten-free food for one person',
+              // Composed from the session parcel, never read from here.
+              notes: 'Stale printed text that must not appear',
               reason: 'Never print this',
               lines: [
                 {
@@ -1602,6 +1837,7 @@ describe('a team lead running a session', () => {
     expect(screen.queryByRole('region', { name: 'Allergies' })).toBeNull();
     expect(screen.queryByText('Never print this')).toBeNull();
     expect(screen.queryByText('Never print this either')).toBeNull();
+    expect(screen.queryByText(/Stale printed text/)).toBeNull();
     printSpy.mockRestore();
   });
 });

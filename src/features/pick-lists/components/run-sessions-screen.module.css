@@ -192,19 +192,6 @@
   margin-block: 0.75rem;
 }
 
-.pickListInformationEditor {
-  display: grid;
-  gap: 0.35rem;
-  margin-block: 0.75rem;
-}
-
-.pickListInformationEditor textarea {
-  box-sizing: border-box;
-  inline-size: 100%;
-  resize: vertical;
-  font: inherit;
-}
-
 .editorColumns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -383,6 +370,35 @@
   white-space: nowrap;
 }
 
+/* The referrer's own words, squeezed in before the status: it wraps within a
+   narrow column and stops at three lines, scrolling within the cell beyond
+   that, so a long answer cannot stretch every row of the list. */
+.otherColumn {
+  min-inline-size: 8rem;
+  max-inline-size: 16rem;
+}
+
+.otherAnswer {
+  /* Three lines at the body's 1.5 line-height, for a browser without `lh`. */
+  max-block-size: 4.5em;
+  max-block-size: 3lh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+/* A touch screen hides its scrollbar at rest, so a cut-off answer would read as
+   a complete one without a mark that there is more below. */
+.otherAnswer[data-scrolls='true'] {
+  border-block-end: 2px dashed currentcolor;
+}
+
+/* Inside the cell, so the scrolling box cannot clip its own focus ring. */
+.otherAnswer:focus-visible {
+  outline-offset: -2px;
+}
+
 .pickCell {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -490,6 +506,16 @@
 
   .screenOnly {
     display: none;
+  }
+
+  /* Paper cannot scroll: print the whole answer rather than its first three lines. */
+  .otherAnswer {
+    max-block-size: none;
+    overflow: visible;
+  }
+
+  .otherAnswer[data-scrolls='true'] {
+    border-block-end: none;
   }
 
   .printSheet {

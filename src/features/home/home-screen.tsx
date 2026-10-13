@@ -70,7 +70,7 @@ export function HomeScreen() {
   const sessions = useSessions({ from: range.from, to: range.to });
   /*
    * The lookback bound here is the same open guess `DAYS_BACK` already is on
-   * the Manage Sessions / Run a session lists — see `OPEN-QUESTIONS.md`, Q38.
+   * the Manage Sessions / Session Run Sheet lists — see `OPEN-QUESTIONS.md`, Q38.
    * This is a second call site for that same unanswered horizon, not a new
    * question of its own.
    */

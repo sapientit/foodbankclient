@@ -67,8 +67,10 @@ into.
 - **Nothing else about them, unless `isDelivery` is true.** Then the sheet says `DELIVERY` and
   carries the address, postcode and phone, where that is the entire point. **Never on a collection
   sheet.**
-- Show the parcel's `notes` — the pick-list information — prominently: the picker is the only person
-  in a position to act on it, and the alternative is a parcel the household cannot eat. It is a
-  snapshot this client composed when the pick list was created, not the referral's live answers, so
-  it is also the only place a marked answer is allowed onto paper. There is no `dietaryNotes`; see
+- Show the Information for pickers prominently: the picker is the only person in a position to act
+  on it, and the alternative is a parcel the household cannot eat. It is composed on display from the
+  pick list admin notes, the answers the form marks `pickListInformation` and the stored "No longer
+  stocked" note — the only place a marked answer is allowed onto paper, and never an unmarked one.
+  **`picklistAdmin` is administrator free text that is printed**: nothing but the hint where it is
+  typed stops the reason for referral reaching a sheet through it, so keep that hint. There is no `dietaryNotes`; see
   [`.claude/rules/printing.md`](./printing.md).

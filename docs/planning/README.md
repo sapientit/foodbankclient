@@ -53,3 +53,10 @@ items are a set-up checklist.
 This approved planning mock-up records the intended direction for the existing potential-matches step: show the incoming referral's date of birth, phone number, postcode and address; show the same details, address, last-attended date and `Matched on` criteria for each prior referral; support surname-prefix search and excluding postcode-only matches; and have the administrator select the applicable prior referral or `Never attended`.
 
 It is a planning reference only, not an implemented screen specification or product asset.
+
+## Session Run Sheet changes
+
+[`session-run-sheet-server-handoff.md`](./session-run-sheet-server-handoff.md) is the server work
+for the changes Pete settled on 2026-10-13: the referral's pick list admin notes, cancelling a
+referral by editing the administrator notes, and pick-list information composed on display rather
+than stored. The client screens are specified in `screenDetails.md`.

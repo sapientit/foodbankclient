@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { describeReadOnlySession, isSessionReadOnly, parcelStatus } from './run-session.logic';
+import {
+  byPickNumber,
+  describeReadOnlySession,
+  isSessionReadOnly,
+  otherAnswer,
+  parcelStatus,
+} from './run-session.logic';
 import type { Parcel } from './queries';
 
 const BASE_PARCEL: Parcel = {
@@ -15,6 +21,7 @@ const BASE_PARCEL: Parcel = {
   reviewedAt: null,
   attendance: 'pending',
   notes: null,
+  picklistAdmin: null,
   firstTimeMarker: null,
   voucherInstruction: null,
   formId: null,
@@ -85,5 +92,71 @@ describe('parcelStatus', () => {
     };
 
     expect(parcelStatus(parcel)).toEqual({ state: 'reviewed', label: 'Checked' });
+  });
+});
+
+describe('otherAnswer', () => {
+  it('is the answer to the referral form question keyed Other, trimmed', () => {
+    expect(otherAnswer({ answers: { Other: '  Two cats \n' } })).toBe('Two cats');
+  });
+
+  it('is null where nothing was added', () => {
+    expect(otherAnswer({ answers: {} })).toBeNull();
+    expect(otherAnswer({ answers: { Other: '   ' } })).toBeNull();
+  });
+
+  it('never reads a value that is not text as an answer', () => {
+    expect(otherAnswer({ answers: { Other: 3 } })).toBeNull();
+    expect(otherAnswer({ answers: { Other: ['a'] } })).toBeNull();
+  });
+
+  it('does not confuse another question with the Other question', () => {
+    expect(otherAnswer({ answers: { other: 'lower case', Pets: 'Other' } })).toBeNull();
+  });
+});
+
+describe('byPickNumber', () => {
+  const household = (
+    pickNumber: number | null,
+    refereeSurname: string,
+    refereeFirstName = 'A',
+  ) => ({
+    pickNumber,
+    refereeFirstName,
+    refereeSurname,
+  });
+
+  it('orders households by pick number rather than by name', () => {
+    const sorted = byPickNumber([
+      household(3, 'Adams'),
+      household(1, 'Young'),
+      household(2, 'Mills'),
+    ]);
+    expect(sorted.map((row) => row.pickNumber)).toEqual([1, 2, 3]);
+  });
+
+  it('puts households without a pick number last, by surname then first name', () => {
+    const sorted = byPickNumber([
+      household(null, 'Young'),
+      household(2, 'Zane'),
+      household(null, 'adams', 'Ruth'),
+      household(null, 'Adams', 'Paul'),
+      household(1, 'Bell'),
+    ]);
+    expect(sorted.map((row) => [row.pickNumber, row.refereeSurname, row.refereeFirstName])).toEqual(
+      [
+        [1, 'Bell', 'A'],
+        [2, 'Zane', 'A'],
+        [null, 'Adams', 'Paul'],
+        [null, 'adams', 'Ruth'],
+        [null, 'Young', 'A'],
+      ],
+    );
+  });
+
+  it('does not reorder the list it was given', () => {
+    const rows = [household(2, 'B'), household(1, 'A')];
+    byPickNumber(rows);
+    expect(rows.map((row) => row.pickNumber)).toEqual([2, 1]);
   });
 });

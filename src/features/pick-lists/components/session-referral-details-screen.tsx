@@ -4,6 +4,7 @@ import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatSessionDate } from '../../../lib/london-time';
 import { useSessionReferralDetails } from '../queries';
+import { byPickNumber } from '../run-session.logic';
 import styles from './session-referral-details-screen.module.css';
 
 export function SessionReferralDetailsScreen() {
@@ -88,7 +89,7 @@ export function SessionReferralDetailsScreen() {
               </tr>
             </thead>
             <tbody>
-              {data.referrals.map((referral) => (
+              {byPickNumber(data.referrals).map((referral) => (
                 <tr key={referral.referralId}>
                   <td>
                     {referral.pickNumber === null ? (

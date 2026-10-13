@@ -63,11 +63,13 @@ import {
   useReferralOptionSources,
 } from '../queries';
 import {
-  MAX_CANCEL_REASON_LENGTH,
+  MAX_ADMIN_INFO_LENGTH,
+  MAX_PICKLIST_ADMIN_LENGTH,
   MAX_REVIEW_COMMENT_LENGTH,
   REFERRAL_OUTCOME_LABELS,
   REFERRAL_STATUS_LABELS,
   cameFromCopy,
+  cancelAdminInfo,
   cameFromSearch,
   canCopyReferral,
   copyCapacityWarning,
@@ -306,6 +308,11 @@ function ReferralDetail({ referral }: { referral: Referral }) {
 
       <div className={styles.stack}>
         {isAdminView && <AdminInfoPanel locked={locked} lockedId={lockedId} referral={referral} />}
+        {/* Gated on the field being present, never on the role: a team leader's
+            referral does not carry it at all. */}
+        {isAdminView && Object.hasOwn(referral, 'picklistAdmin') && (
+          <PicklistAdminPanel locked={locked} lockedId={lockedId} referral={referral} />
+        )}
 
         {/* Referral summary and Referral actions sit side by side — the record
             of the referral beside the decision to take about it. Mark
@@ -535,6 +542,106 @@ function AdminInfoPanel({
             value={value}
           />
           <p className={styles.hint}>Leave blank to remove these notes.</p>
+        </ConfirmDialog>
+      )}
+    </section>
+  );
+}
+
+/**
+ * The one line that heads the Information for pickers. It is printed on the
+ * household's picking sheet, so it must never hold the reason for referral —
+ * the server cannot check that, so the hint below is the only guard.
+ */
+function PicklistAdminPanel({
+  referral,
+  locked,
+  lockedId,
+}: {
+  referral: Referral;
+  locked: string | null;
+  lockedId: string;
+}) {
+  const amend = useAmendReferral();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const inputId = useId();
+  const hintId = useId();
+
+  const open = () => {
+    // A failed save from last time must not greet the next edit.
+    amend.reset();
+    setValue(referral.picklistAdmin ?? '');
+    setEditing(true);
+  };
+
+  const save = async () => {
+    if (locked !== null) return;
+    try {
+      await amend.mutateAsync({
+        id: referral.id,
+        patch: { picklistAdmin: value.trim() === '' ? null : value.trim() },
+      });
+      setEditing(false);
+    } catch {
+      // The error remains in the dialog, where the administrator can act on it.
+    }
+  };
+
+  return (
+    <section className={styles.adminInfo}>
+      <h2>Pick list admin notes</h2>
+      <p>{referral.picklistAdmin ?? 'No pick list admin notes.'}</p>
+      <button
+        aria-describedby={locked === null ? undefined : lockedId}
+        aria-disabled={locked !== null}
+        className={styles.editButton}
+        onClick={() => {
+          if (locked === null) open();
+        }}
+        type="button"
+      >
+        Edit pick list admin notes
+      </button>
+      {editing && (
+        <ConfirmDialog
+          busy={amend.isPending}
+          confirmLabel="Save pick list admin notes"
+          onCancel={() => {
+            setEditing(false);
+          }}
+          onConfirm={() => void save()}
+          title="Edit pick list admin notes"
+        >
+          {amend.error !== null && <ErrorNotice error={amend.error} />}
+          {/* The warning comes before the box, not after it: it is the only
+              thing standing between the reason for referral and a picking sheet,
+              and an administrator on the phone types without reading down. */}
+          <p className={styles.hint} id={hintId}>
+            This is printed on the household&rsquo;s picking sheet. Never write the reason for
+            referral here. One line of at most {MAX_PICKLIST_ADMIN_LENGTH} characters; leave blank
+            to remove it.
+          </p>
+          <label htmlFor={inputId}>Pick list admin notes</label>
+          <input
+            aria-describedby={hintId}
+            autoComplete="off"
+            className={styles.input}
+            id={inputId}
+            maxLength={MAX_PICKLIST_ADMIN_LENGTH}
+            onChange={(event) => {
+              setValue(event.target.value);
+            }}
+            // One line, so Enter (or a phone's Go key) saves, as it would in a form.
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !amend.isPending) {
+                event.preventDefault();
+                void save();
+              }
+            }}
+            type="text"
+            value={value}
+          />
         </ConfirmDialog>
       )}
     </section>
@@ -1386,7 +1493,7 @@ function ReferralActionsPanel({
   const activeForm = usePublicReferralFormDefinition();
   const formChanged = activeForm.data !== undefined && referral.formId !== activeForm.data.formId;
   const [dialog, setDialog] = useState<'cancel' | 'move' | 'copy' | null>(null);
-  const [reason, setReason] = useState('');
+  const [notes, setNotes] = useState('');
   const [targetSessionId, setTargetSessionId] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [copyUncertain, setCopyUncertain] = useState(false);
@@ -1413,7 +1520,8 @@ function ReferralActionsPanel({
    */
   const copying = useRef(false);
 
-  const reasonFieldId = useId();
+  const notesFieldId = useId();
+  const notesHintId = useId();
   const selectId = useId();
   const copySelectId = useId();
   const formErrorId = useId();
@@ -1442,12 +1550,13 @@ function ReferralActionsPanel({
   const open = (which: 'cancel' | 'move') => {
     if (blocked !== null) return;
     setFormError(null);
+    if (which === 'cancel') setNotes(referral.adminInfo ?? '');
     setDialog(which);
   };
 
   const confirmCancel = () => {
     cancel.mutate(
-      { id: referral.id, reason },
+      { id: referral.id, adminInfo: cancelAdminInfo(referral.adminInfo, notes) },
       {
         onSuccess: () => {
           setDialog(null);
@@ -1667,17 +1776,22 @@ function ReferralActionsPanel({
           {cancel.error !== null && <ErrorNotice error={cancel.error} />}
           <p>This frees its place in the session. It cannot be undone from here.</p>
           <div className={styles.reasonField}>
-            <label htmlFor={reasonFieldId}>Reason (optional)</label>
-            <input
-              className={styles.input}
-              id={reasonFieldId}
-              maxLength={MAX_CANCEL_REASON_LENGTH}
+            <label htmlFor={notesFieldId}>Administrator notes</label>
+            <textarea
+              aria-describedby={notesHintId}
+              className={styles.textarea}
+              id={notesFieldId}
+              maxLength={MAX_ADMIN_INFO_LENGTH}
               onChange={(event) => {
-                setReason(event.target.value);
+                setNotes(event.target.value);
               }}
-              type="text"
-              value={reason}
+              rows={5}
+              value={notes}
             />
+            <p className={styles.hint} id={notesHintId}>
+              Add the reason for cancelling to these notes (optional). They are saved with the
+              cancellation, for administrators only, and never printed.
+            </p>
           </div>
         </ConfirmDialog>
       )}

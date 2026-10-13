@@ -165,6 +165,8 @@ describe('a team lead’s referral detail view', () => {
     // Never a literal "undefined" or "null" leaking onto the screen for a
     // field this client knows is absent rather than empty.
     expect(screen.queryByText('undefined')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Pick list admin notes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit pick list admin notes' })).toBeNull();
     // `reviewComment` rides the same role check as the other three: it can name
     // a referrer or record a suspicion, which is not a team lead's business.
     expect(screen.queryByText('Review comment')).toBeNull();

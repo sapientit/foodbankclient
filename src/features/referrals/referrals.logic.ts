@@ -387,8 +387,26 @@ export const REFEREE_POSTCODE_BOUNDS = { minLength: 2, maxLength: 12 };
 /** `ReferralSubmission.referrerPhone` / `refereePhone`: `minLength: 5, maxLength: 30`, shared by both phone fields. */
 export const PHONE_BOUNDS = { minLength: 5, maxLength: 30 };
 
-/** A cancellation `reason`: `maxLength: 500`, the same bound as a session's. */
-export const MAX_CANCEL_REASON_LENGTH = 500;
+/** `ReferralAmend.adminInfo` and the cancel body's `adminInfo`: `maxLength: 2000`. */
+export const MAX_ADMIN_INFO_LENGTH = 2000;
+
+/** `ReferralAmend.picklistAdmin`: one line, `maxLength: 80`. */
+export const MAX_PICKLIST_ADMIN_LENGTH = 80;
+
+/**
+ * What to send as `adminInfo` when cancelling. The notes are prefilled with the
+ * current ones, so an untouched field must omit the key (`undefined`) and leave
+ * the server's copy alone; a cleared field sends `null`, because the server
+ * refuses a blank string with a 400; anything else is sent trimmed.
+ */
+export function cancelAdminInfo(
+  original: string | null | undefined,
+  entered: string,
+): string | null | undefined {
+  const trimmed = entered.trim();
+  if (trimmed === (original ?? '').trim()) return undefined;
+  return trimmed === '' ? null : trimmed;
+}
 
 /**
  * Turns a blank phone field into `null` rather than an empty string the

@@ -84,6 +84,46 @@ describe('team-lead session referral details', () => {
     expect(print).toHaveBeenCalledOnce();
   });
 
+  it('lists households in pick-number order, with any not yet picked after them', async () => {
+    const household = (referralId: string, surname: string, pickNumber: number | null) => ({
+      referralId,
+      refereeFirstName: 'Pat',
+      refereeSurname: surname,
+      refereeAddress: '1 Elm Street',
+      refereePostcode: 'GU23 4XX',
+      refereePhone: '01483 123456',
+      referrerName: 'Sam Referrer',
+      referrerPhone: '01483 999999',
+      pickNumber,
+    });
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/referral-details', () =>
+        HttpResponse.json({
+          sessionId: SESSION_ID,
+          sessionDate: '2026-08-15',
+          startTime: '10:00',
+          location: 'St Mary’s Hall',
+          // In name order, as the server sends them.
+          referrals: [
+            household('r1', 'Adams', 3),
+            household('r2', 'Baker', null),
+            household('r3', 'Clark', 1),
+            household('r4', 'Davies', 2),
+          ],
+        }),
+      ),
+    );
+    renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
+    await screen.findByRole('row', { name: /Pat Adams/ });
+    const body = screen.getAllByRole('rowgroup')[1];
+    if (body === undefined) throw new Error('The table has no body');
+    expect(
+      within(body)
+        .getAllByRole('rowheader')
+        .map((cell) => cell.textContent),
+    ).toEqual(['Pat Clark', 'Pat Davies', 'Pat Adams', 'Pat Baker']);
+  });
+
   /**
    * The one failure this screen has that nothing else would catch: a table left
    * to size itself widens to fit its longest address and carries the referrer's

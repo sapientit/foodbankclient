@@ -21,7 +21,7 @@ import styles from './session-table.module.css';
  * the actual delivery count and capacity; the full or over-capacity state is
  * stated in words as well as shown by the capacity bar.
  *
- * **One table for both lists.** `Run a session` and `Manage Sessions` show the
+ * **One table for both lists.** `Session Run Sheet` and `Manage Sessions` show the
  * same five facts about the same rows and differ only in what a row links to
  * and what sits above it, so a volunteer covering both reads one layout rather
  * than two. It is a real `<table>` rather than the CSS grid this replaced

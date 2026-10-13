@@ -54,6 +54,7 @@ const PARCEL: Parcel = {
   reviewedAt: null,
   attendance: 'pending',
   notes: null,
+  picklistAdmin: null,
   firstTimeMarker: null,
   voucherInstruction: null,
   formId: null,
@@ -229,6 +230,63 @@ describe('cancelling a referral and the sessions cache', () => {
     // heading above is what proves the list is really there to be looked at.
     expect(screen.queryByRole('cell', { name: 'Jamie Rowe' })).toBeNull();
     expect(screen.queryByText(/Jamie Rowe/)).toBeNull();
+  });
+
+  /**
+   * The pick list admin notes head a parcel's Information for pickers, which a
+   * team lead reads from the session's cached pick list — so amending them on
+   * the referral must refresh that list, not leave yesterday's line on screen.
+   */
+  it('refreshes a cached client workspace after the pick list admin notes are amended', async () => {
+    const client = cachingClient();
+    let picklistAdmin = 'Ring the bell twice';
+
+    server.use(
+      http.get(REFERRAL, () => HttpResponse.json(referralRow({ id: 'r1', picklistAdmin }))),
+      http.patch(REFERRAL, async ({ request }) => {
+        const body = (await request.json()) as { picklistAdmin?: string | null };
+        picklistAdmin = body.picklistAdmin ?? '';
+        return HttpResponse.json(referralRow({ id: 'r1', picklistAdmin }));
+      }),
+      http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
+      http.get('/api/v1/stock/items', () => HttpResponse.json({ items: [] })),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [{ ...PARCEL, picklistAdmin }] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/s1/clients/${PARCEL.id}`, client);
+    expect(
+      await screen.findByRole('region', { name: 'Information for pickers' }),
+    ).toHaveTextContent('Ring the bell twice');
+    cleanup();
+
+    renderApp('/referrals/r1', client);
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Edit pick list admin notes' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Edit pick list admin notes' }));
+    const input = dialog.getByLabelText('Pick list admin notes');
+    await user.clear(input);
+    await user.type(input, 'Leave at the side door');
+    await user.click(dialog.getByRole('button', { name: 'Save pick list admin notes' }));
+    await waitFor(() => {
+      expect(picklistAdmin).toBe('Leave at the side door');
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    cleanup();
+
+    renderApp(`/run-sessions/s1/clients/${PARCEL.id}`, client);
+    // Within the caching client's 60s staleTime, only the invalidation can
+    // bring the new line back.
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'Information for pickers' })).toHaveTextContent(
+        'Leave at the side door',
+      );
+    });
   });
 });
 

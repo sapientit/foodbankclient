@@ -1,7 +1,7 @@
 import type { ConfigurationRelease } from '../configuration-releases/queries';
 import type { Referral } from '../referrals/queries';
 import { parseReferralFormConfig } from '../referrals/referral-form-config';
-import type { OptionSources, ReferralFormDefinition } from '../referrals/referral-form-definition';
+import type { ReferralFormDefinition } from '../referrals/referral-form-definition';
 import type { StockItem } from '../stock/queries';
 import {
   buildPickListInformation,
@@ -88,6 +88,9 @@ export interface ResolvedPickListBody {
  * resolved leniently: an item it names that is no longer active is dropped
  * and noted rather than treated as a fault, per "Historic unavailable stock".
  *
+ * The pick-list information sent is only the `No longer stocked: …` note:
+ * everything else in the Information for pickers is composed on display.
+ *
  * A referral whose `formId` is `null`, or names a release the bulk read did
  * not return, resolves to no preference lines and no picker note — there is
  * no known structure to evaluate a rule against, the same "genuinely unknown
@@ -97,7 +100,6 @@ export function resolvePickListBody(
   referrals: readonly Referral[],
   stockItems: readonly StockItem[],
   releases: readonly ParsedRelease[],
-  sources: OptionSources,
 ): ResolvedPickListBody {
   const byFormId = new Map(releases.map((release) => [release.formId, release] as const));
 
@@ -119,7 +121,6 @@ export function resolvePickListBody(
   }
 
   const preferenceLines: ResolvedPickListBody['preferenceLines'][number][] = [];
-  const pickListInformation: PickListInformation[] = [];
   const unavailableStockByReferralId = new Map<string, readonly string[]>();
 
   for (const [formId, group] of byRelease) {
@@ -141,11 +142,10 @@ export function resolvePickListBody(
         }
       }
     }
-
-    pickListInformation.push(
-      ...buildPickListInformation(group, sources, release.definition, unavailableStockByReferralId),
-    );
   }
 
-  return { preferenceLines, pickListInformation };
+  return {
+    preferenceLines,
+    pickListInformation: buildPickListInformation(unavailableStockByReferralId),
+  };
 }

@@ -61,7 +61,8 @@ const PARCEL: Parcel = {
   householdSize: 2,
   reviewedAt: '2026-08-01T09:15:00.000Z',
   attendance: 'attended',
-  notes: 'Allergies: no dairy',
+  notes: 'No longer stocked: Marmite.',
+  picklistAdmin: null,
   firstTimeMarker: null,
   voucherInstruction: null,
   formId: null,
@@ -273,7 +274,11 @@ describe('a completed session', () => {
     const quantity = await screen.findByRole('spinbutton', { name: /Baked beans/ });
     expect(quantity).toHaveValue(2);
     expect(quantity).toBeDisabled();
-    expect(screen.getByRole('textbox', { name: 'Information for pickers' })).toBeDisabled();
+    // Still read, as it was printed; never a box to type into.
+    expect(screen.getByRole('region', { name: 'Information for pickers' })).toHaveTextContent(
+      'No longer stocked: Marmite.',
+    );
+    expect(screen.queryByRole('textbox', { name: 'Information for pickers' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save pick list' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Mark as checked' })).toBeNull();
     expect(writes.lines).toBe(0);
@@ -297,7 +302,7 @@ describe('a completed session', () => {
               deliveryPostcode: null,
               deliveryPhone: null,
               voucherInstruction: null,
-              notes: 'Allergies: no dairy',
+              notes: 'No longer stocked: Marmite.',
               reason: 'Never print this',
               lines: [],
             },

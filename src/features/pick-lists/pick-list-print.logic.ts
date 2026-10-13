@@ -39,10 +39,10 @@ export interface PrintableLine {
  * stock columns, so an information-heavy first sheet gets fewer whole items
  * instead of allowing a column to run onto the next page.
  */
-export function countPickListInformationLines(notes: string | null): number {
-  if (notes === null || notes.trim() === '') return 0;
+export function countPickListInformationLines(information: string | null): number {
+  if (information === null || information.trim() === '') return 0;
 
-  return notes
+  return information
     .split(/\r?\n/u)
     .reduce(
       (total, line) =>

@@ -138,7 +138,7 @@ interface BaseDynamicQuestion extends BaseQuestion {
    * maintenance screen. Only preferences should be shown."
    */
   readonly preference: boolean;
-  /** Whether this answer is copied into the initial parcel-note snapshot. */
+  /** Whether this answer is shown in the Information for pickers, composed on display. */
   readonly pickListInformation?: boolean;
 }
 

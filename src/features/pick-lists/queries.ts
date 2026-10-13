@@ -1,19 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, publicApi } from '../../api/client';
+import { api } from '../../api/client';
 import type { components, paths } from '../../api/schema';
 import { unwrap, unwrapVoid } from '../../api/unwrap';
 import { fetchConfigurationReleasesBulk } from '../configuration-releases/queries';
 import type { Referral } from '../referrals/queries';
-import { reasonOptionSources } from '../referrals/referral-lookups';
 import { sessionKeys } from '../sessions/keys';
 import { pickListKeys } from './keys';
 import { validatePreferenceRules } from './preference-rules';
-import {
-  anyReleaseNeedsOptionSources,
-  distinctFormIds,
-  parseReleases,
-  resolvePickListBody,
-} from './release-pick-list.logic';
+import { distinctFormIds, parseReleases, resolvePickListBody } from './release-pick-list.logic';
 
 export type PickList = components['schemas']['PickList'];
 export type Parcel = components['schemas']['Parcel'];
@@ -192,19 +186,12 @@ export function usePreparePickLists() {
       const formIds = distinctFormIds([...referralsBySession.values()].flat());
       const releases =
         formIds.length === 0 ? [] : parseReleases(await fetchConfigurationReleasesBulk(formIds));
-      const sources = anyReleaseNeedsOptionSources(releases)
-        ? reasonOptionSources(
-            (await unwrap(publicApi.GET('/api/v1/public/referral-reasons'))).referralReasons,
-          )
-        : reasonOptionSources([]);
-
       for (const session of openSessions) {
         const referrals = referralsBySession.get(session.id) ?? [];
         const { preferenceLines, pickListInformation } = resolvePickListBody(
           referrals,
           stockItems,
           releases,
-          sources,
         );
         await unwrap(
           api.POST('/api/v1/sessions/{sessionId}/pick-list', {
@@ -509,14 +496,12 @@ export function useSetParcelLines() {
     mutationFn: async ({
       parcelId,
       lines,
-      notes,
     }: {
       parcelId: string;
       lines: readonly { stockItemId: string; quantity: number }[];
-      notes?: string | null;
     }) => {
-      await Promise.all([
-        ...lines.map((line) =>
+      await Promise.all(
+        lines.map((line) =>
           unwrapVoid(
             api.PUT('/api/v1/parcels/{id}/lines', {
               params: { path: { id: parcelId } },
@@ -524,17 +509,7 @@ export function useSetParcelLines() {
             }),
           ),
         ),
-        ...(notes === undefined
-          ? []
-          : [
-              unwrap(
-                api.PATCH('/api/v1/parcels/{id}', {
-                  params: { path: { id: parcelId } },
-                  body: { notes },
-                }),
-              ),
-            ]),
-      ]);
+      );
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: pickListKeys.all });

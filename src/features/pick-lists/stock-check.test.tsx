@@ -14,7 +14,7 @@ import type { Parcel, PickList, StockRequirement } from './queries';
 vi.mock('./preference-rules.config.json', () => ({ default: { rules: [] } }));
 
 /**
- * Can the warehouse cover this session? `screenDetails.md`, "#Run a session".
+ * Can the warehouse cover this session? `screenDetails.md`, "#Session processing".
  *
  * The comparison is the session's reviewed pick lists added up against what is
  * on the shelves, and a team lead acts on it by walking to a shelf — so what is
@@ -64,6 +64,7 @@ const PARCEL: Parcel = {
   reviewedAt: '2099-08-05T10:00:00.000Z',
   attendance: 'pending',
   notes: null,
+  picklistAdmin: null,
   firstTimeMarker: null,
   voucherInstruction: null,
   formId: null,

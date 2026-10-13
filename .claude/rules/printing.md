@@ -44,11 +44,14 @@ for changing it, not a plan for writing it.
 - **Show the pick number large.** It is how a sheet gets matched to a bag in a hall. It is also the
   only identifier on the sheet: `PrintParcel` carries no referral id, deliberately, and a sheet is
   traced back through the session's pick list rather than by printing one.
-- **Show the parcel's `notes` prominently** — the pick-list information, which the picker is the only
-  person in a position to act on. It is composed by this client when the pick list is created, from
-  the questions the form marks `pickListInformation`, and saved on the parcel; the sheet prints what
-  was saved, never the referral's answers as they read today. `buildPickListInformation` is where it
-  is assembled. **There is no `dietaryNotes`** — it was removed from the contract because it scanned
+- **Show the Information for pickers prominently** — the picker is the only person in a position to
+  act on it. **It is composed on every showing, never stored**: the referral's `picklistAdmin`, then
+  a `key: value` line for each answer the parcel's own release marks `pickListInformation`, then the
+  parcel's `notes`, which now hold only the `No longer stocked: …` line written at generation. The
+  sheet reads `picklistAdmin` and `answers` from the session's `Parcel`, joined by `pickNumber` —
+  `PrintParcel` carries neither — and waits for the releases (and any lookup) before the print dialog
+  opens. `composeInformationForPickers` is where it is assembled, for the client workspace and the
+  sheet alike; nobody edits it. Settled by Pete on 2026-10-13. **There is no `dietaryNotes`** — it was removed from the contract because it scanned
   four guessed key names, none of which the real form uses, so it would have been `null` from the day
   the questions shipped.
 - `@media print` drops navigation, buttons and colour. Test at A4. Keep the print layout in its own

@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useAuth } from '../../../auth/auth-context';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
@@ -58,6 +67,7 @@ import {
   isCurrentParcel,
   isSessionReadOnly,
   missedLabel,
+  otherAnswer,
   parcelStatus,
 } from '../run-session.logic';
 import { SmsRemindersAction } from './sms-panel';
@@ -75,6 +85,7 @@ import {
   firstPrintPageHasStockCapacity,
   splitPrintLines,
 } from '../pick-list-print.logic';
+import { composeInformationForPickers } from '../pick-list-information';
 
 /**
  * The operational view: no session or referral maintenance controls live here.
@@ -101,7 +112,7 @@ export function RunSessionsScreen() {
   return (
     <div className={styles.page}>
       <div className={styles.headerCard}>
-        <PageHeader icon={<CalendarIcon />} title="Run a session" />
+        <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
       </div>
       <p className={styles.listIntro}>
         Select the session you are running. Pick lists are prepared when you open it. A completed
@@ -338,6 +349,69 @@ export function PickListPrintScreen() {
   const manualPrintSequence = useRef(0);
   const handledManualPrintSequence = useRef<number | null>(null);
   const readOnly = session.data === undefined ? null : isSessionReadOnly(session.data.status);
+  /*
+   * Each sheet's Information for pickers is composed from its parcel's own
+   * form release, so the sheets wait for every release in play — and for the
+   * reason lookup, if a question marked for pickers chooses from it — rather
+   * than print without them, or with an id where a word should be. The print
+   * dialog opening is what waits, not just the render: an automatic print is
+   * the whole point of this screen.
+   */
+  // Keyed on the ids themselves, so a refetched list naming the same releases
+  // is not a new set to wait for.
+  const formIdKey = distinctFormIds((list.data?.parcels ?? []).filter(isCurrentParcel)).join(',');
+  const formIds = useMemo(() => (formIdKey === '' ? [] : formIdKey.split(',')), [formIdKey]);
+  const releases = useConfigurationReleasesBulk(formIds);
+  const parsedReleases = useMemo(() => {
+    if (formIds.length === 0) return [];
+    return releases.data === undefined ? undefined : parseReleases(releases.data);
+  }, [formIds, releases.data]);
+  const reasons = useReferralOptionSources(
+    parsedReleases !== undefined && anyReleaseNeedsOptionSources(parsedReleases),
+  );
+  /*
+   * A household whose release did not come back would print without its
+   * marked answers — an allergy line missing from a sheet that reads as
+   * complete. So the sheets are held back instead.
+   */
+  const missingRelease =
+    parsedReleases !== undefined &&
+    formIds.some((formId) => !parsedReleases.some((release) => release.formId === formId));
+  // A sheet with no session parcel to join to would lose its whole block.
+  const unjoinedSheet =
+    print.data?.parcels.some(
+      (sheet) =>
+        currentParcels.some((current) => current.pickNumber === sheet.pickNumber) &&
+        !(list.data?.parcels ?? []).some((parcel) => parcel.pickNumber === sheet.pickNumber),
+    ) ?? false;
+  /*
+   * The pick list admin notes are read from the session's parcels, not the
+   * print payload, and an administrator may have changed them from another
+   * device since this tab cached the list. So the list is fetched afresh when
+   * the screen opens, and the print dialog waits for that, as it does for the
+   * releases.
+   */
+  const [listFresh, setListFresh] = useState(false);
+  const refetchList = list.refetch;
+  useEffect(() => {
+    if (sessionId === '') return;
+    let current = true;
+    void refetchList().then(() => {
+      if (current) setListFresh(true);
+    });
+    return () => {
+      current = false;
+    };
+  }, [refetchList, sessionId]);
+  const informationReady =
+    listFresh &&
+    parsedReleases !== undefined &&
+    !missingRelease &&
+    !unjoinedSheet &&
+    !reasons.isPending &&
+    !reasons.isError;
+  const definitionFor = (formId: string | null) =>
+    parsedReleases?.find((release) => release.formId === formId)?.definition ?? null;
   const openPrintDialog = useCallback(
     (pickListId: string) => {
       /*
@@ -356,16 +430,18 @@ export function PickListPrintScreen() {
   useEffect(() => {
     if (
       readOnly !== null &&
+      informationReady &&
       print.data !== undefined &&
       printed.current !== print.data.pickList.id
     ) {
       printed.current = print.data.pickList.id;
       openPrintDialog(print.data.pickList.id);
     }
-  }, [openPrintDialog, print.data, readOnly]);
+  }, [informationReady, openPrintDialog, print.data, readOnly]);
 
   const requestCurrentPrint = useCallback(() => {
-    void print.refetch().then((result) => {
+    // Both halves of the sheet, so a reprint carries today's admin notes too.
+    void Promise.all([print.refetch(), refetchList()]).then(([result]) => {
       if (result.data !== undefined) {
         manualPrintSequence.current += 1;
         setManualPrintRequest({
@@ -374,18 +450,19 @@ export function PickListPrintScreen() {
         });
       }
     });
-  }, [print]);
+  }, [print, refetchList]);
 
   useEffect(() => {
     if (
       manualPrintRequest === null ||
+      !informationReady ||
       print.data?.pickList.id !== manualPrintRequest.id ||
       handledManualPrintSequence.current === manualPrintRequest.sequence
     )
       return;
     handledManualPrintSequence.current = manualPrintRequest.sequence;
     openPrintDialog(manualPrintRequest.id);
-  }, [manualPrintRequest, openPrintDialog, print.data]);
+  }, [informationReady, manualPrintRequest, openPrintDialog, print.data]);
 
   if (session.isPending || list.isPending || (readyToPrint && print.isPending))
     return <Spinner label="Preparing print sheets…" />;
@@ -405,7 +482,20 @@ export function PickListPrintScreen() {
     );
   if (print.isError)
     return <ErrorNotice error={print.error} onRetry={() => void print.refetch()} />;
-  if (print.data === undefined) return <Spinner label="Preparing print sheets…" />;
+  if (releases.isError && releases.data === undefined)
+    return <ErrorNotice error={releases.error} onRetry={() => void releases.refetch()} />;
+  if (missingRelease || (listFresh && unjoinedSheet))
+    return (
+      <p role="alert">
+        The details behind one of these households&rsquo; information for pickers could not be
+        loaded, so the sheets are held back rather than printed without it. Reload the page to try
+        again.
+      </p>
+    );
+  if (reasons.isError)
+    return <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />;
+  if (print.data === undefined || !informationReady)
+    return <Spinner label="Preparing print sheets…" />;
   return (
     <div className={styles.tabPage}>
       <div className={classNames(styles.headerCard, styles.screenOnly)}>
@@ -434,7 +524,15 @@ export function PickListPrintScreen() {
               (candidate) => candidate.pickNumber === parcel.pickNumber,
             );
             const householdComposition = sessionParcel?.answers[HOUSEHOLD_COMPONENTS_KEY];
-            const informationLines = countPickListInformationLines(parcel.notes);
+            const information =
+              sessionParcel === undefined
+                ? null
+                : composeInformationForPickers(
+                    sessionParcel,
+                    definitionFor(sessionParcel.formId),
+                    reasons.sources,
+                  );
+            const informationLines = countPickListInformationLines(information);
             const firstPageHasStockCapacity = firstPrintPageHasStockCapacity(
               informationLines,
               parcel.lines[0],
@@ -464,16 +562,17 @@ export function PickListPrintScreen() {
                     <HouseholdCompositionGrid composition={householdComposition} />
                   )}
                 </header>
-                {parcel.notes !== null && parcel.notes.trim() !== '' && (
-                  /* The same words the team lead typed it under, because the
-                     picker holding this sheet is the "picker" that label
-                     names. */
+                {information !== null && (
+                  /* Composed exactly as the client workspace shows it, so the
+                     team lead has seen what the picker will read. Headed for
+                     the picker holding this sheet, who is the "picker" that
+                     label names. */
                   <section
                     aria-label="Information for pickers"
                     className={styles.pickListInformation}
                   >
                     <h2>Information for pickers</h2>
-                    <p>{parcel.notes}</p>
+                    <p>{information}</p>
                   </section>
                 )}
                 <div className={styles.printLinePages}>
@@ -591,22 +690,6 @@ export function RunSessionDetailScreen() {
     [parsedReleases],
   );
   /*
-   * The reason lookup, needed only while a release in play marks a pick-list
-   * question that chooses from it. The notes are composed here once and
-   * **saved on the parcel**, so composing them without the list would print
-   * an id on a picking sheet and leave it there — worth waiting for the
-   * list, and worth not fetching at all the rest of the time, because this
-   * is the request standing between a team lead and their pick lists.
-   *
-   * A finished session composes nothing, so it does not ask for the lookup at
-   * all.
-   */
-  const reasons = useReferralOptionSources(
-    parsedReleases !== undefined &&
-      anyReleaseNeedsOptionSources(parsedReleases) &&
-      readOnly === false,
-  );
-  /*
    * The shipped local configuration's own health, unrelated to any particular
    * referral's release — a smoke test on the fixture this client still ships
    * (the migration baseline, local dev, and every other test's default), kept
@@ -673,8 +756,6 @@ export function RunSessionDetailScreen() {
       stockItems.data !== undefined &&
       parsedReleases !== undefined &&
       !releases.isError &&
-      !reasons.isPending &&
-      !reasons.isError &&
       preferenceRuleErrors.length === 0
     ) {
       requested.current = sessionId;
@@ -683,7 +764,6 @@ export function RunSessionDetailScreen() {
         referrals.data,
         stockItems.data,
         parsedReleases,
-        reasons.sources,
       );
       reconcile.mutate({
         sessionId,
@@ -695,9 +775,6 @@ export function RunSessionDetailScreen() {
     parsedReleases,
     preferenceRuleErrors,
     readOnly,
-    reasons.isError,
-    reasons.isPending,
-    reasons.sources,
     reconcile,
     referrals.data,
     referrals.isFetching,
@@ -716,11 +793,7 @@ export function RunSessionDetailScreen() {
 
   if (
     session.isPending ||
-    (preparing &&
-      (referrals.isPending ||
-        stockItems.isPending ||
-        parsedReleases === undefined ||
-        reasons.isPending)) ||
+    (preparing && (referrals.isPending || stockItems.isPending || parsedReleases === undefined)) ||
     (preparing && reconcile.isPending && pickList.data === undefined) ||
     (preparing && reconcile.isSuccess && pickList.isPending) ||
     (readOnly === true && pickList.isPending)
@@ -728,7 +801,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
         </div>
         <Spinner label={readOnly === true ? 'Loading the session…' : 'Preparing pick lists…'} />
       </div>
@@ -738,7 +811,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
         </div>
         <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />
       </div>
@@ -747,7 +820,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
         </div>
         <ErrorNotice error={referrals.error} onRetry={() => void referrals.refetch()} />
       </div>
@@ -756,29 +829,16 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
         </div>
         <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
-      </div>
-    );
-  /* Only reachable while a pick-list question chooses from the reason lookup,
-     and then the pick lists must wait: their notes are saved on the parcel, so
-     composing them without the list would write an identifier onto a picking
-     sheet for good. */
-  if (preparing && reasons.isError)
-    return (
-      <div className={styles.tabPage}>
-        <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Run a session" />
-        </div>
-        <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />
       </div>
     );
   if (preparing && releases.isError)
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
         </div>
         <ErrorNotice error={releases.error} onRetry={() => void releases.refetch()} />
       </div>
@@ -787,7 +847,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
         </div>
         <div role="alert">
           <h2>Pick-list rules need attention</h2>
@@ -804,7 +864,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
         </div>
         <ErrorNotice error={reconcile.error} />
       </div>
@@ -820,7 +880,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Run a session" />
+          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
         </div>
         {/* Why the session cannot be changed is said once, on the tab strip's
             shared chrome (`RunSessionLayout`) — not repeated here. */}
@@ -862,7 +922,7 @@ export function RunSessionDetailScreen() {
   return (
     <div className={styles.tabPage}>
       <div className={styles.headerCard}>
-        <PageHeader icon={<CalendarIcon />} title="Run a session" />
+        <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
       </div>
       {readOnly === false && (
         <section aria-label="Session actions" className={styles.card}>
@@ -930,6 +990,9 @@ export function RunSessionDetailScreen() {
                       Voucher
                     </th>
                   )}
+                  <th className={styles.otherColumn} scope="col">
+                    Other
+                  </th>
                   <th scope="col">Status</th>
                   <th scope="col">Action</th>
                 </tr>
@@ -1036,6 +1099,7 @@ function ClientRow({
   const attendance = useRecordAttendance();
   const status = parcelStatus(parcel);
   const reviewed = parcel.reviewedAt !== null;
+  const other = otherAnswer(parcel);
   return (
     <tr>
       {/* The pick number heads the row: it is what matches a sheet in a hall to
@@ -1072,6 +1136,11 @@ function ClientRow({
           )}
         </td>
       )}
+      <td className={styles.otherColumn}>
+        {other !== null && (
+          <OtherAnswer label={`Other answer for ${describeParcel(parcel)}, scrolls`} text={other} />
+        )}
+      </td>
       <td>
         <span className={styles.status} data-status={status.state}>
           {status.label}
@@ -1157,6 +1226,56 @@ function ClientRow({
   );
 }
 
+/**
+ * The household's `Other` answer, wrapped and held to three lines so that one
+ * long answer cannot stretch every row; anything longer scrolls within the
+ * cell. `screenDetails.md`, "#Session processing".
+ *
+ * **Focusable only while it actually scrolls.** A scrolling box the keyboard
+ * cannot reach hides the rest of the answer from anyone not using a pointer,
+ * but a tab stop on every short answer would add one to every row of a list a
+ * team lead tabs through all session. So it measures, and becomes a named,
+ * focusable group only when there is something to scroll to — and then marks
+ * its lower edge, because a phone's hidden scrollbar gives no other sign that a
+ * fourth line is there.
+ */
+function OtherAnswer({ text, label }: { text: string; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scrolls, setScrolls] = useState(false);
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (element === null) return;
+    const measure = () => {
+      // A pixel's tolerance: rounding can leave exactly three lines a fraction over.
+      setScrolls(element.scrollHeight - element.clientHeight > 1);
+    };
+    measure();
+    // A narrower window wraps the same answer onto more lines.
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, [text]);
+
+  return (
+    <div
+      aria-label={scrolls ? label : undefined}
+      className={styles.otherAnswer}
+      data-scrolls={scrolls}
+      ref={ref}
+      // A group rather than a region: a landmark per household would fill a
+      // screen reader's landmark list with names.
+      role={scrolls ? 'group' : undefined}
+      tabIndex={scrolls ? 0 : undefined}
+    >
+      {text}
+    </div>
+  );
+}
+
 /** The focused workspace for one household; the client list deliberately stays on its own page. */
 export function RunSessionClientScreen() {
   const { sessionId = '', parcelId = '' } = useParams();
@@ -1236,7 +1355,7 @@ export function RunSessionClientScreen() {
         </Link>
       </p>
       {/* Keyed on the parcel, and that is load-bearing rather than tidy. The
-          panel seeds its draft quantities and notes from `parcel` once, when it
+          panel seeds its draft quantities from `parcel` once, when it
           mounts. Without the key, moving between two households on this route
           reuses the instance, so the second household is shown — and saved —
           holding the first one's pick list. */}
@@ -1277,28 +1396,35 @@ function ParcelPanel({
    */
   const form = useReferralFormDefinitionFor(parcel.formId);
   const definition = form.kind === 'ready' ? form.definition : EMPTY_REFERRAL_FORM_DEFINITION;
-  // Only the preferences are shown here, so the lookup is fetched only if one
-  // of *them* chooses from it — which none do today. It is what keeps an id off
-  // the screen if the charity ever marks one that does, and every card shares
-  // the one cached query rather than making a request each.
+  // Only the preferences and the questions marked for pickers are shown here,
+  // so the lookup is fetched only if one of *them* chooses from it — which none
+  // do today. It is what keeps an id off the screen if the charity ever marks
+  // one that does, and every card shares the one cached query rather than
+  // making a request each.
   const reasons = useReferralOptionSources(
-    needsOptionSources(dynamicQuestions(definition).filter((question) => question.preference)),
+    needsOptionSources(
+      dynamicQuestions(definition).filter(
+        (question) => question.preference || question.pickListInformation === true,
+      ),
+    ),
   );
   const [savedLines, setSavedLines] = useState(() => toDraftLines(parcel.lines));
   const [draftLines, setDraftLines] = useState(() => toDraftLines(parcel.lines));
-  const [savedNotes, setSavedNotes] = useState(parcel.notes ?? '');
-  const [draftNotes, setDraftNotes] = useState(parcel.notes ?? '');
   const [showUnselectedStockItems, setShowUnselectedStockItems] = useState(false);
   // A recorded outcome stops the parcel changing, but does not stop it being
   // corrected. Only closing the containing session locks both.
   const parcelLinesLocked = parcel.attendance !== 'pending' || readOnly;
-  const notesLocked = readOnly;
   const answers = describeAnswers(definition, { answers: parcel.answers }, reasons.sources);
   const preferences =
     answers.kind === 'answers' ? answers.lines.filter((line) => line.isPreference) : [];
   const changedLines = changedDraftLines(savedLines, draftLines);
-  const notesChanged = savedNotes !== draftNotes;
-  const isDirty = changedLines.length > 0 || notesChanged;
+  const isDirty = changedLines.length > 0;
+  const informationHeadingId = useId();
+  const information = composeInformationForPickers(
+    parcel,
+    form.kind === 'ready' ? form.definition : null,
+    reasons.sources,
+  );
 
   useEffect(() => {
     onDirtyChange(isDirty);
@@ -1330,7 +1456,6 @@ function ParcelPanel({
   /** Puts the draft back to what was last saved, so leaving without saving really does. */
   const discardDraft = () => {
     setDraftLines(savedLines);
-    setDraftNotes(savedNotes);
   };
 
   const save = (afterSave?: () => void) => {
@@ -1342,12 +1467,10 @@ function ParcelPanel({
       {
         parcelId: parcel.id,
         lines: changedLines,
-        ...(notesChanged ? { notes: draftNotes.trim() === '' ? null : draftNotes } : {}),
       },
       {
         onSuccess: () => {
           setSavedLines(draftLines);
-          setSavedNotes(draftNotes);
           afterSave?.();
         },
       },
@@ -1369,8 +1492,7 @@ function ParcelPanel({
       )}
       {/* Above the pickers' information rather than below it: `screenDetails.md`
           asks for the review button "at the top", and a team lead working down a
-          hall reaches for Save and Mark reviewed far more often than they retype
-          the note. */}
+          hall reaches for Save and Mark as checked on every household. */}
       {/* Both controls are absent on a finished session rather than disabled.
           Nothing here can become dirty once the inputs are locked, so a Save
           button would sit permanently greyed out saying only that something is
@@ -1408,19 +1530,33 @@ function ParcelPanel({
           )}
         </div>
       )}
-      <div className={styles.pickListInformationEditor}>
-        <label htmlFor={`pick-list-information-${parcel.id}`}>Information for pickers</label>
-        <textarea
-          disabled={notesLocked}
-          id={`pick-list-information-${parcel.id}`}
-          maxLength={1200}
-          onChange={(event) => {
-            setDraftNotes(event.target.value);
-          }}
-          rows={4}
-          value={draftNotes}
-        />
-      </div>
+      {/* Read-only, and composed afresh rather than stored: the pick list admin
+          notes, the answers the form marks for pickers, and any No longer
+          stocked note — `composeInformationForPickers`. The same block the
+          printed sheet carries, so the team lead sees what the picker will. */}
+      {/* A failed lookup is said, never composed around: an answer missing
+          from this block would read as a complete one, and the printed sheet
+          refuses to print in the same state. */}
+      {reasons.isPending ? (
+        <Spinner label="Loading the information for pickers…" />
+      ) : reasons.isError ? (
+        <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />
+      ) : form.kind === 'unknown' && parcel.formId !== null ? (
+        /* Never in practice — the contract says so — but if it happens the
+           marked answers cannot be found, and a block missing an allergy
+           must not read as a complete one. */
+        <p role="alert">
+          The referral form this household answered could not be found, so the information for
+          pickers is incomplete. Check the referral before this parcel is picked.
+        </p>
+      ) : (
+        information !== null && (
+          <section aria-labelledby={informationHeadingId} className={styles.pickListInformation}>
+            <h2 id={informationHeadingId}>Information for pickers</h2>
+            <p>{information}</p>
+          </section>
+        )
+      )}
       <div className={styles.editorColumns}>
         <section className={styles.editorPane}>
           <h2 className={styles.visuallyHidden}>Pick list</h2>

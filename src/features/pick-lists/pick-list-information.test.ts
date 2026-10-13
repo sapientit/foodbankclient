@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseReferralFormConfig } from '../referrals/referral-form-config';
-import { buildPickListInformation } from './pick-list-information';
+import { buildPickListInformation, composeInformationForPickers } from './pick-list-information';
 
 const definition = parseReferralFormConfig({
   version: 1,
@@ -41,64 +41,77 @@ const definition = parseReferralFormConfig({
 });
 
 describe('buildPickListInformation', () => {
-  it('creates a compact annotation from marked answers in form order', () => {
+  it('writes only the No longer stocked note, deduplicated and in order', () => {
     expect(
       buildPickListInformation(
-        [
-          {
-            id: 'referral-1',
-            answers: {
-              Allergies: '  2 people who are vegan.  ',
-              Pulses: 'Kidney beans please.',
-              Dietary: 'Vegetarian',
-            },
-          },
-        ],
-        {},
-        definition,
+        new Map([
+          ['referral-1', ['Marmite', 'Custard', 'Marmite']],
+          ['referral-2', []],
+        ]),
       ),
-    ).toEqual([
-      {
-        referralId: 'referral-1',
-        notes: 'Allergies: 2 people who are vegan.\nPulses: Kidney beans please.',
-      },
-    ]);
+    ).toEqual([{ referralId: 'referral-1', notes: 'No longer stocked: Custard, Marmite.' }]);
   });
 
-  it('omits blank and unmarked answers instead of creating an empty note', () => {
-    expect(
-      buildPickListInformation(
-        [{ id: 'referral-1', answers: { Allergies: '  ', Dietary: 'Vegetarian' } }],
-        {},
-        definition,
-      ),
-    ).toEqual([]);
+  it('sends nothing where no stock was dropped', () => {
+    expect(buildPickListInformation(new Map())).toEqual([]);
+  });
+});
+
+describe('composeInformationForPickers', () => {
+  const parcel = {
+    picklistAdmin: 'Ring the bell twice',
+    answers: {
+      Allergies: '  2 people who are vegan.  ',
+      Pulses: 'Kidney beans please.',
+      Dietary: 'Vegetarian',
+    },
+    notes: 'No longer stocked: Marmite.',
+  };
+
+  it('puts the admin notes first, then the marked answers in form order, then the stored note', () => {
+    expect(composeInformationForPickers(parcel, definition, {})).toBe(
+      [
+        'Ring the bell twice',
+        'Allergies: 2 people who are vegan.',
+        'Pulses: Kidney beans please.',
+        'No longer stocked: Marmite.',
+      ].join('\n'),
+    );
   });
 
-  it('appends a deterministic, deduplicated note for stock a historic release resolved to nothing', () => {
+  it('leaves out each empty part rather than a blank line', () => {
     expect(
-      buildPickListInformation(
-        [{ id: 'referral-1', answers: { Allergies: 'Nut allergy' } }],
-        {},
+      composeInformationForPickers(
+        { picklistAdmin: '   ', answers: { Allergies: '', Pulses: 'Lentils' }, notes: null },
         definition,
-        new Map([['referral-1', ['Marmite', 'Beans', 'Marmite']]]),
+        {},
       ),
-    ).toEqual([
-      {
-        referralId: 'referral-1',
-        notes: 'Allergies: Nut allergy\nNo longer stocked: Beans, Marmite.',
-      },
-    ]);
+    ).toBe('Pulses: Lentils');
   });
 
-  it('adds the note even when there is no marked-question information at all', () => {
+  it('is null when there is nothing to tell the picker', () => {
     expect(
-      buildPickListInformation(
-        [{ id: 'referral-1', answers: {} }],
-        {},
+      composeInformationForPickers(
+        { picklistAdmin: null, answers: { Dietary: 'Vegetarian' }, notes: null },
         definition,
-        new Map([['referral-1', ['Marmite']]]),
+        {},
       ),
-    ).toEqual([{ referralId: 'referral-1', notes: 'No longer stocked: Marmite.' }]);
+    ).toBeNull();
+  });
+
+  it('never carries an answer the form does not mark, such as the reason for referral', () => {
+    const composed = composeInformationForPickers(
+      { ...parcel, answers: { ...parcel.answers, 'Reason for referral': 'Never print this' } },
+      definition,
+      {},
+    );
+    expect(composed).not.toContain('Vegetarian');
+    expect(composed).not.toContain('Never print this');
+  });
+
+  it('still shows the admin notes and stored note when the parcel’s release is unknown', () => {
+    expect(composeInformationForPickers(parcel, null, {})).toBe(
+      'Ring the bell twice\nNo longer stocked: Marmite.',
+    );
   });
 });

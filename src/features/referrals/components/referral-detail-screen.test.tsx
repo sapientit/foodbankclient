@@ -86,6 +86,7 @@ function referral(overrides: Partial<Referral> & Pick<Referral, 'id'>): Referral
     referrerEmail: 'referrer@riverside.org',
     referrerPhone: null,
     reviewComment: null,
+    picklistAdmin: null,
     repeatReferrals: { count: 0, mostRecentSessionDate: null },
     ...overrides,
   };
@@ -855,11 +856,104 @@ describe('the admin referral detail screen', () => {
     expect(amendments).toBe(0);
   });
 
-  it('cancels the referral through the confirm dialog', async () => {
+  it('cancels the referral through the confirm dialog, leaving untouched notes out of the request', async () => {
+    let receivedBody: unknown = null;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', adminInfo: 'Ring after 2pm' })),
+      ),
+      http.post(REFERRAL_CANCEL, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', status: 'cancelled' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Cancel this referral' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Cancel this referral?' }));
+    expect(dialog.getByLabelText('Administrator notes')).toHaveValue('Ring after 2pm');
+    expect(dialog.queryByLabelText('Reason (optional)')).toBeNull();
+    await user.click(dialog.getByRole('button', { name: 'Cancel the referral' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Cancelled').length).toBeGreaterThan(0);
+    });
+    expect(receivedBody).toEqual({});
+  });
+
+  it('sends edited notes as adminInfo when cancelling, never a reason', async () => {
+    let receivedBody: unknown = null;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', adminInfo: 'Ring after 2pm' })),
+      ),
+      http.post(REFERRAL_CANCEL, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', status: 'cancelled' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Cancel this referral' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Cancel this referral?' }));
+    const notes = dialog.getByLabelText('Administrator notes');
+    expect(notes).toHaveAccessibleDescription(
+      /^Add the reason for cancelling to these notes \(optional\)\. .*never printed\.$/,
+    );
+    await user.type(notes, '  Cancelled: ill  ');
+    await user.click(dialog.getByRole('button', { name: 'Cancel the referral' }));
+
+    await waitFor(() => {
+      expect(receivedBody).toEqual({ adminInfo: 'Ring after 2pm  Cancelled: ill' });
+    });
+  });
+
+  it('sends null when the notes are cleared while cancelling', async () => {
+    let receivedBody: unknown = null;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', adminInfo: 'Ring after 2pm' })),
+      ),
+      http.post(REFERRAL_CANCEL, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', status: 'cancelled' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    await user.click(screen.getByRole('button', { name: 'Cancel this referral' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Cancel this referral?' }));
+    await user.clear(dialog.getByLabelText('Administrator notes'));
+    await user.click(dialog.getByRole('button', { name: 'Cancel the referral' }));
+
+    await waitFor(() => {
+      expect(receivedBody).toEqual({ adminInfo: null });
+    });
+  });
+
+  it('shows the server’s message and keeps the cancel dialog open on a 409', async () => {
     server.use(
       http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1' }))),
       http.post(REFERRAL_CANCEL, () =>
-        HttpResponse.json(referral({ id: 'r1', status: 'cancelled' })),
+        HttpResponse.json(
+          {
+            error: {
+              code: 'CONFLICT',
+              message: 'This referral has already been collected.',
+              requestId: 'req-1',
+            },
+          },
+          { status: 409 },
+        ),
       ),
     );
 
@@ -871,9 +965,77 @@ describe('the admin referral detail screen', () => {
     const dialog = within(screen.getByRole('dialog', { name: 'Cancel this referral?' }));
     await user.click(dialog.getByRole('button', { name: 'Cancel the referral' }));
 
+    expect(
+      await dialog.findByText('This referral has already been collected.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Cancel this referral?' })).toBeInTheDocument();
+  });
+
+  it('edits the pick list admin notes, trimming them and warning they are printed', async () => {
+    let receivedBody: unknown = null;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', picklistAdmin: 'Allergic to nuts' })),
+      ),
+      http.patch(REFERRAL, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', picklistAdmin: 'No tins' }));
+      }),
+    );
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Pick list admin notes' });
+    expect(screen.getByText('Allergic to nuts')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Edit pick list admin notes' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Edit pick list admin notes' }));
+    const input = dialog.getByLabelText('Pick list admin notes');
+    expect(input).toHaveValue('Allergic to nuts');
+    expect(input).toHaveAttribute('maxlength', '80');
+    expect(input.tagName).toBe('INPUT');
+    // The server cannot check this, so the hint is the only guard.
+    expect(input).toHaveAccessibleDescription(/printed on the household’s picking sheet/);
+    expect(input).toHaveAccessibleDescription(/Never write the reason for referral here/);
+    await user.clear(input);
+    await user.type(input, '  No tins  ');
+    await user.click(dialog.getByRole('button', { name: 'Save pick list admin notes' }));
     await waitFor(() => {
-      expect(screen.getAllByText('Cancelled').length).toBeGreaterThan(0);
+      expect(receivedBody).toEqual({ picklistAdmin: 'No tins' });
     });
+  });
+
+  it('sends null when the pick list admin notes are blanked', async () => {
+    let receivedBody: unknown = null;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', picklistAdmin: 'Allergic to nuts' })),
+      ),
+      http.patch(REFERRAL, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', picklistAdmin: null }));
+      }),
+    );
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Edit pick list admin notes' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Edit pick list admin notes' }));
+    const input = dialog.getByLabelText('Pick list admin notes');
+    await user.clear(input);
+    await user.type(input, '   ');
+    await user.click(dialog.getByRole('button', { name: 'Save pick list admin notes' }));
+    await waitFor(() => {
+      expect(receivedBody).toEqual({ picklistAdmin: null });
+    });
+    expect(await screen.findByText('No pick list admin notes.')).toBeInTheDocument();
+  });
+
+  it('renders no pick list admin notes panel when the field is absent, and no "undefined"', async () => {
+    const { picklistAdmin: _omitted, ...withoutField } = referral({ id: 'r1' });
+    server.use(http.get(REFERRAL, () => HttpResponse.json(withoutField)));
+    renderApp('/referrals/r1');
+    await screen.findByRole('heading', { name: 'Jamie Rowe' });
+    expect(screen.queryByRole('heading', { name: 'Pick list admin notes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit pick list admin notes' })).toBeNull();
+    expect(screen.queryByText('undefined')).toBeNull();
   });
 
   it('warns when moving into a full session, and still allows the move', async () => {

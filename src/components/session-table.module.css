@@ -92,7 +92,7 @@
   color: #595959;
 }
 
-/* Manage Sessions and Run a session use the sessions category's green working
+/* Manage Sessions and Session Run Sheet use the sessions category's green working
    surface. The status pills stay white, so their words do not disappear into
    a table row of the same green. */
 .tableWrap[data-tone='session'] .table,

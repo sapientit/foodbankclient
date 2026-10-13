@@ -662,6 +662,8 @@ export function useAmendReferral() {
       void queryClient.invalidateQueries({ queryKey: referralKeys.searches() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(updated.sessionId) });
+      // `picklistAdmin` heads the Information for pickers on every pick list.
+      void queryClient.invalidateQueries({ queryKey: pickListKeys.all });
       if (
         variables.previousSessionId !== undefined &&
         variables.previousSessionId !== updated.sessionId
@@ -960,15 +962,21 @@ export function useCancelReferral() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }): Promise<Referral> =>
+    // `adminInfo` replaces the administrator notes in the same write as the
+    // cancel (nothing is written if the cancel is refused). Omitted leaves the
+    // notes alone; `null` clears them. See `cancelAdminInfo` for how the
+    // dialog's text becomes one of those three.
+    mutationFn: ({
+      id,
+      adminInfo,
+    }: {
+      id: string;
+      adminInfo?: string | null | undefined;
+    }): Promise<Referral> =>
       unwrap(
         api.POST('/api/v1/referrals/{id}/cancel', {
           params: { path: { id } },
-          // An empty reason is dropped rather than sent as `''` — the same
-          // choice `useCancelSession` makes, and for the same reason: an
-          // admin who left it blank should not have a blank sentence saved
-          // onto the referral's record for ever.
-          body: reason === '' ? {} : { reason },
+          body: adminInfo === undefined ? {} : { adminInfo },
         }),
       ),
     onSuccess: (updated) => {

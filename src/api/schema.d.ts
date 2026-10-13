@@ -1465,7 +1465,7 @@ export interface paths {
          *
          *     The only thing beyond "what went wrong" is `firstTimeMarker` and
          *     `voucherInstruction` — the **same two derived enums** `Parcel`
-         *     carries for the Run a session screen, with the same values. The
+         *     carries for the Session Run Sheet screen, with the same values. The
          *     listener is the one talking to the household, so they see whether it
          *     is new and what to do about a Christmas voucher. Both carry no
          *     historic session date and nothing else about the referral.
@@ -1559,7 +1559,7 @@ export interface paths {
         };
         /**
          * Contact details for every household on a session
-         * @description For the **Run a session** screen, open to a team leader as well as an
+         * @description For the **Session Run Sheet** screen, open to a team leader as well as an
          *     administrator. The client owns the print view; this is the data behind
          *     it.
          *
@@ -2753,6 +2753,9 @@ export interface paths {
          *     **A referral whose parcel already has an outcome cannot be cancelled** and is a `409` — the same stopping point as a move, settled by the charity on 2026-08-15. Once a household has collected, been delivered to, or been marked as not having turned up, what happened on the day is the record: the food has come off the shelves and cannot be un-given, and cancelling afterwards would leave the parcel's account of the morning contradicting the referral's. The confirmed-session rule does not cover this, because a session stays open until *every* household has an outcome.
          *     Two things an operator might have meant instead, and neither is this button: if the **outcome** was recorded by mistake, take the outcome back through `POST /parcels/{id}/attendance`, which undoes the stock with it; if a household who did not turn up is to be given **another chance**, copy the referral onto a later session with `POST /referrals/{id}/copy` and leave the no-show where it happened.
          *     **If a pick list has already been generated, this marks that household's parcel `attendance: "cancelled"` in the same write.** The parcel is not deleted and its lines, notes and `pickNumber` are untouched — it stays the record of what was picked. What changes is that it stops reading as a household still to come: it no longer needs reviewing, no longer needs an attendance outcome, is left out of `GET /pick-lists/{id}/print`, and `POST /parcels/{id}/attendance` on it is a `409`. It is still returned by `GET /sessions/{sessionId}/pick-list`, so a session screen can show why that pick number is not coming.
+         *     **There is no cancellation reason.** Why the household was cancelled goes into the administrators' note: send `adminInfo` and it replaces the referral's note **in the same write as the cancellation**. When the cancel is refused (`404`, `409`, or a `400` for the body) nothing is written, so a note saying why a household was cancelled is never left on one that was not. Omit it and the note is untouched; `null` clears it.
+         *     **A repeat cancel of an already-cancelled referral ignores `adminInfo`** and returns the referral as it stands: a cancelled referral is closed to amendment, and pressing cancel again is not a way round that.
+         *     A `reason` key is no longer read. It is tolerated and discarded rather than refused, so a client built before this change can still cancel.
          */
         post: {
             parameters: {
@@ -2766,7 +2769,8 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        reason?: string;
+                        /** @description The referral's new administrators' note, under exactly the rules of `ReferralAmend.adminInfo` — an empty or whitespace-only string is a `400`, not a clearance. */
+                        adminInfo?: string | null;
                     };
                 };
             };
@@ -2780,8 +2784,15 @@ export interface paths {
                         "application/json": components["schemas"]["Referral"];
                     };
                 };
+                /** @description `adminInfo` was empty or too long; nothing was written */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
                 404: components["responses"]["NotFound"];
-                /** @description That referral was rejected, its session has been confirmed, or one of its parcels already has an attendance outcome */
+                /** @description That referral was rejected, its session has been confirmed, or one of its parcels already has an attendance outcome; nothing was written, the note included */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -2837,8 +2848,8 @@ export interface paths {
          *     **What the copy carries**: the referee's name, date of birth, address,
          *     postcode and phone; `adults`, `children`, `householdSize`,
          *     `collectionMethod` (and the `isDelivery` it derives), `needsFuelHelp`;
-         *     `reasonId`; `answers` whole; and the referrer's name, organisation,
-         *     email and phone.
+         *     `reasonId`; `answers` whole; `picklistAdmin`; and the referrer's name,
+         *     organisation, email and phone.
          *
          *     **What it does not**: `status`, `sessionId`, `reviewComment`,
          *     `adminInfo`, and any parcel.
@@ -2989,7 +3000,8 @@ export interface paths {
          *
          *     Stamped exactly as a copy is: `status: "reviewed"`, `reviewComment:
          *     null`, `referredAt` now, `adminInfo` set to `Copied from referral dated
-         *     YYYY-MM-DD` (the **original's** submission date, `Europe/London`).
+         *     YYYY-MM-DD` (the **original's** submission date, `Europe/London`), and
+         *     the original's `picklistAdmin` carried across.
          *     Capacity is warned about, never refused: send `acknowledgeOverCapacity:
          *     true`. No Turnstile. **Not idempotent** — guard the submit button
          *     against a double press, as for Copy.
@@ -6211,73 +6223,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/parcels/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Set the pick-list information on a parcel
-         * @description Replaces the parcel's note outright; `null` clears it. Editable while
-         *     the pick list is draft or printed, on the same terms as its lines, and
-         *     refused with `409` once the session is confirmed.
-         *
-         *     The note is the team leader's from the moment the parcel exists.
-         *     Whatever was written here survives every later reconciliation of the
-         *     session's pick list, and it is what the printed sheet carries.
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description The same limit generation writes under, so a note created there can always be edited and put back. Trimmed before it is measured. */
-                        notes: string | null;
-                    };
-                };
-            };
-            responses: {
-                /** @description Updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** Format: uuid */
-                            id: string;
-                            notes: string | null;
-                        };
-                    };
-                };
-                /** @description The session has been confirmed */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        trace?: never;
-    };
     "/api/v1/parcels/{id}/lines": {
         parameters: {
             query?: never;
@@ -7365,6 +7310,11 @@ export interface components {
              *     It is **not** part of `answers` and is not replaced when they are: saving a form page must send the complete answers map, and if the note is being changed at the same time it travels as this separate field.
              */
             adminInfo?: string | null;
+            /**
+             * @description The administrators' one line for the picker. Exactly the rules of `adminInfo`: a string sets it, explicit `null` clears it, omitting the key leaves it alone; **an empty or whitespace-only string is a `400`, not a clearance**, and so is one over 80 characters. Refused with a `409` on the same terms as the rest of an amendment — a cancelled or rejected referral, or one on a confirmed session — so a completed session's sheets cannot change after they were printed.
+             *     **It is printed on the picking sheet**, which must never carry the reason for referral. Say so where it is typed.
+             */
+            picklistAdmin?: string | null;
         };
         /** @description The administrator's note on why a referral was let through or turned away. One short line; it replaces any earlier note, and there is no decision history and no decision timestamp. `Referral.referredAt` is the timestamp the charity asked for — when the referrer submitted. */
         ReferralReview: {
@@ -7778,6 +7728,12 @@ export interface components {
              */
             adminInfo?: string | null;
             /**
+             * @description **Admin only, on exactly the responses `adminInfo` is on** — one referral at a time — and absent everywhere `adminInfo` is absent, `ReferralSearchResult` included. Absent rather than null for a team lead.
+             *     The administrators' one line for whoever packs the bag: what the office needs the picker to know that the form does not ask. A team lead receives it on `Parcel.picklistAdmin`, which is where the picker needs it, and nowhere else. Not on the listener sheet, the referral-details list, the fuel help list, SMS or the spreadsheet extract. Amend it through `ReferralAmend.picklistAdmin`.
+             *     Null when there is none.
+             */
+            picklistAdmin?: string | null;
+            /**
              * @description **Admin only, and on `GET /referrals/{id}` only** — it is not on the list, where it would cost a query per row.
              *     Present for an administrator fetching one referral, absent for a team lead, whose read costs nothing extra. `GET /referrals/{id}/repeat-referrals` is the button behind it; **do not call that route just to render this count.** It returns other households' names, addresses, phone numbers and dates of birth, and those should not cross the wire until an administrator asks for them.
              */
@@ -8176,7 +8132,7 @@ export interface components {
         GeneratePickListRequest: {
             /** @description One entry per household, each naming a referral and the stock items your rules resolved for it. A referral must not appear twice. */
             preferenceLines?: components["schemas"]["PreferenceLineEntry"][];
-            /** @description One entry per household, each naming a referral and the finished text to write onto the parcel this call creates for it. A referral must not appear twice. Optional, and independent of `preferenceLines` — send either, both, or no body at all. */
+            /** @description One entry per household **that needs a parcel note**, each naming a referral and the note to write onto the parcel this call creates for it. The note is now only the `No longer stocked: …` line, for a household whose release names stock that no longer resolves; the rest of the pick-list information is composed by you on every showing (see `Parcel.notes`) and is not sent. A referral must not appear twice. Optional, and independent of `preferenceLines` — send either, both, or no body at all. */
             pickListInformation?: components["schemas"]["PickListInformationEntry"][];
         };
         PickListInformationEntry: {
@@ -8187,9 +8143,9 @@ export interface components {
              */
             referralId: string;
             /**
-             * @description The pick-list information as it should read on the sheet, composed by you from the answers your form marks as belonging there — labels and all. The server never reads the form's releases, never inspects an answer and never understands a question key; it stores exactly what you send.
-             *     Trimmed before it is measured, and it must not be empty once trimmed. To clear a note, use `PATCH /parcels/{id}` with `null` rather than sending an empty one here.
-             *     **Written only onto a parcel this call creates.** Sending the same entry on a later reconciliation never overwrites what is already on a parcel — by then the note belongs to the team leader, who may have corrected it.
+             * @description The `No longer stocked: …` line for this household, as it should read. The server never reads the form's releases and stores exactly what you send.
+             *     Trimmed before it is measured, and it must not be empty once trimmed — leave the household out instead.
+             *     **Written only onto a parcel this call creates**, and never changed afterwards: nothing edits a parcel's note, and sending the same entry on a later reconciliation does not overwrite it.
              *     **Deleted along with the referral at the fifteen-month purge**, on the same run as the referral's own answers — see `INITIAL_SPEC1.txt`, `#Forgetting a referral`.
              */
             notes: string;
@@ -8246,17 +8202,24 @@ export interface components {
              */
             attendance: "pending" | "attended" | "no_show" | "cancelled";
             /**
-             * @description The parcel's pick-list information: snapshotted from your `pickListInformation` when the parcel was created, and the team leader's to edit through `PATCH /parcels/{id}` from then on. Show this rather than recomposing it from `answers`, which would hide any correction made to it.
+             * @description **Only the `No longer stocked: …` line** you wrote at generation through `pickListInformation`, or `null`. It is no longer the pick-list information and nobody edits it — there is no `PATCH /parcels/{id}`. Every parcel generated before this change was reset to `null`.
+             *     The Information for pickers is composed by you on every showing, on screen and on the printed sheet, from three parts in this order, each on its own line and each left out when empty: `picklistAdmin`; a `key: value` line for each of `answers` that the release named by `formId` marks for pick-list information; and this `notes`. Recompose it rather than storing it. A completed session's sheets still read as they were printed because all three are locked once the session is confirmed.
              *     Deleted along with the rest of the parcel at the fifteen-month purge, in the same run as `answers`.
              */
             notes: string | null;
+            /**
+             * @description The referral's `picklistAdmin` — the administrators' one line for the picker — **as it reads now**, not as it read when the parcel was generated. Null when there is none.
+             *     **Given to a team lead as well as an administrator**, unlike `Referral.picklistAdmin`, because it heads the Information for pickers on the Session Run Sheet and on the printed sheet. It is printed, so it must never carry the reason for referral; the server cannot tell, and the only guard is the administrator typing it — say so where it is typed.
+             *     Not on `PrintParcel`: join each sheet to its session parcel by `pickNumber`, as you already do for `answers`.
+             */
+            picklistAdmin: string | null;
             /**
              * Format: uuid
              * @description The release of the referral form these answers were given to. Render `answers` with **that** release's questionnaire (and, when picking, its rules) from `GET /configuration-releases/bulk` — never with whichever release is in use now. Null never in practice: migration `0040` recorded every earlier referral under the baseline release. The column is nullable, so the type says so.
              */
             formId: string | null;
             /**
-             * @description The referral's answers, **whole and unfiltered**, for the preferences half of the pick-list maintenance screen.
+             * @description The referral's answers, **whole and unfiltered**, for the preferences half of the pick-list maintenance screen and for composing the Information for pickers (see `notes`).
              *     Which of them are preferences is yours to know: you own the form definition and the `preference` flag on each question, so filter this map yourself. The server holds no definition and will not guess — the four hard-coded dietary keys this replaced were exactly that guess, and none of them is a key in the real form.
              *     Deleted along with the rest of the parcel at the fifteen-month purge, in the same run as `notes`.
              */
@@ -8264,12 +8227,12 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
-             * @description What the Run a session screen shows for whether this household is new — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. `first_time` when the referral's first-time review recorded no previous referral, `admin` while that review is still `unreviewed`, and no marker at all (`null`) once a previous-session date has been recorded. **Never the date itself or anything else about the referral** — this is safe for a team lead precisely because it stops there.
+             * @description What the Session Run Sheet screen shows for whether this household is new — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. `first_time` when the referral's first-time review recorded no previous referral, `admin` while that review is still `unreviewed`, and no marker at all (`null`) once a previous-session date has been recorded. **Never the date itself or anything else about the referral** — this is safe for a team lead precisely because it stops there.
              * @enum {string|null}
              */
             firstTimeMarker: "first_time" | "admin" | null;
             /**
-             * @description The one Christmas-voucher instruction for this household, shown to the team leader on the Run a session screen — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. **Calculated fresh on every read, never stored on the parcel or generated with the pick list** — an administrator may make the first-time-review decision after this pick list already exists, so the screen must always reflect the current one.
+             * @description The one Christmas-voucher instruction for this household, shown to the team leader on the Session Run Sheet screen — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. **Calculated fresh on every read, never stored on the parcel or generated with the pick list** — an administrator may make the first-time-review decision after this pick list already exists, so the screen must always reflect the current one.
              *     `null` — no instruction at all. Either the session's date is outside the configured voucher range, or no range has been configured.
              *     `refer_to_admin` — the session is in range and this household's first-time review is still `unreviewed`.
              *     `provide_voucher` — the session is in range and either there is no previous referral, or a previous-session date is recorded but it falls outside the range.
@@ -8281,7 +8244,7 @@ export interface components {
             lines: components["schemas"]["ParcelLine"][];
         };
         /**
-         * @description Deliberately narrow. **No reason for referral, ever**, and no answers — by print time the decision they informed is in `lines`.
+         * @description Deliberately narrow. **No reason for referral, ever**, and no answers or `picklistAdmin` — compose the Information for pickers from the session's `Parcel`, joined by `pickNumber` (see `Parcel.notes`).
          *     The pick number and the household's name are on every sheet: the person carrying the bag has to hand it to somebody. The address, postcode and phone number appear **only** for a delivery.
          */
         PrintParcel: {
@@ -8298,7 +8261,7 @@ export interface components {
             deliveryPostcode: string | null;
             /** @description For the driver who cannot find the door. Null for a collection. */
             deliveryPhone: string | null;
-            /** @description The pick-list information as saved on the parcel — what the team leader meant the sheet to say, not the answers as they read today. */
+            /** @description The same as `Parcel.notes`: only the `No longer stocked: …` line, or `null`. It is the last part of the Information for pickers, not the whole of it. */
             notes: string | null;
             lines: components["schemas"]["ParcelLine"][];
         };

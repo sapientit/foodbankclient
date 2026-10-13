@@ -130,7 +130,7 @@ describe('resolvePickListBody', () => {
       referral({ id: 'r-old', formId: 'form-old', answers: { Toiletries: ['Soap'] } }),
     ];
 
-    const result = resolvePickListBody(referrals, [SOAP], parseReleases([CURRENT, HISTORIC]), {});
+    const result = resolvePickListBody(referrals, [SOAP], parseReleases([CURRENT, HISTORIC]));
 
     expect(result.preferenceLines).toEqual(
       expect.arrayContaining([
@@ -145,7 +145,7 @@ describe('resolvePickListBody', () => {
       referral({ id: 'r-old', formId: 'form-old', answers: { Toiletries: ['Marmite'] } }),
     ];
 
-    const result = resolvePickListBody(referrals, [SOAP], parseReleases([HISTORIC]), {});
+    const result = resolvePickListBody(referrals, [SOAP], parseReleases([HISTORIC]));
 
     expect(result.preferenceLines).toEqual([]);
     expect(result.pickListInformation).toEqual([
@@ -158,7 +158,7 @@ describe('resolvePickListBody', () => {
       referral({ id: 'r-current', formId: 'form-current', answers: { Toiletries: ['Soap'] } }),
     ];
 
-    expect(() => resolvePickListBody(referrals, [], parseReleases([CURRENT]), {})).toThrow(
+    expect(() => resolvePickListBody(referrals, [], parseReleases([CURRENT]))).toThrow(
       'Preference rule configuration is invalid',
     );
   });
@@ -172,7 +172,7 @@ describe('resolvePickListBody', () => {
       referral({ id: 'r-old', formId: 'form-old', answers: { Toiletries: ['Marmite'] } }),
     ];
 
-    const result = resolvePickListBody(referrals, [SOAP], parseReleases([CURRENT, HISTORIC]), {});
+    const result = resolvePickListBody(referrals, [SOAP], parseReleases([CURRENT, HISTORIC]));
 
     expect(result.preferenceLines).toEqual([
       { referralId: 'r-current', lines: [{ stockItemId: 'soap', quantity: 1 }] },
@@ -182,7 +182,7 @@ describe('resolvePickListBody', () => {
   it('resolves nothing for a referral with no known release, and never throws over it', () => {
     const referrals = [referral({ id: 'r-unknown', formId: null })];
 
-    const result = resolvePickListBody(referrals, [SOAP], parseReleases([CURRENT]), {});
+    const result = resolvePickListBody(referrals, [SOAP], parseReleases([CURRENT]));
 
     expect(result.preferenceLines).toEqual([]);
     expect(result.pickListInformation).toEqual([]);
