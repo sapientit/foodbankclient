@@ -13,9 +13,8 @@ import styles from './run-session-tabs.module.css';
  * The five destinations a team lead has for one session, as navigation
  * rather than as a row of buttons. Settled by Pete on 2026-08-30 —
  * `screenDetails.md`, "Session processing": these are places to look, not
- * actions taken on the session, and Print/Listener sheet/Referral
- * details/Text messages were already separate routes wearing button
- * costumes.
+ * actions taken on the session, and Print/Listener sheet/Run sheet/Text
+ * messages were already separate routes wearing button costumes.
  *
  * Modelled on `app-shell.tsx`'s `subtabsFor` — a `<nav>` of real `NavLink`s
  * with `aria-current="page"`, not the `role="tablist"` swap-in-place pattern
@@ -59,7 +58,7 @@ export function RunSessionTabs({ readOnly, sessionId }: { readOnly: boolean; ses
           </li>
           <li>
             <NavLink end to={`/run-sessions/${sessionId}/referral-details`}>
-              Referral details
+              Run sheet
             </NavLink>
           </li>
           <li>

@@ -64,8 +64,8 @@ on 2026-09-14 this is fine. The run-session stock-check panel is a separate,
 always-fresh endpoint.
 
 **Amending a referral's address or phone does not invalidate the session's
-referral-details sheet.** `useAmendReferral` invalidates `referralKeys` and
-`sessionKeys` but not `pickListKeys`, so an open referral-details screen can carry
+Run sheet.** `useAmendReferral` invalidates `referralKeys` and
+`sessionKeys` but not `pickListKeys`, so an open Run sheet can carry
 the old detail for up to a minute. Pete decided on 2026-09-14 this is an acceptable
 risk.
 

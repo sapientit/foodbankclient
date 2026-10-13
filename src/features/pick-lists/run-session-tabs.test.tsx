@@ -116,7 +116,7 @@ describe('the run-session tab strip', () => {
       'href',
       `/run-sessions/${SESSION_ID}/listener`,
     );
-    expect(within(nav).getByRole('link', { name: 'Referral details' })).toHaveAttribute(
+    expect(within(nav).getByRole('link', { name: 'Run sheet' })).toHaveAttribute(
       'href',
       `/run-sessions/${SESSION_ID}/referral-details`,
     );

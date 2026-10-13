@@ -110,3 +110,22 @@ specific grey or charcoal, drawn from the same darker-shade convention as the ot
 **A:**
 
 ---
+
+## Q54 — Should the Run sheet print the referrer comments?
+
+`Status: open` · `Raised by: client` · `Blocks: nothing — the column prints meanwhile`
+
+Pete settled on 2026-10-13 that the Run sheet (formerly Referral details) carries a `Referrer
+comments` column: the referral form's `Other` answer, "Any additional information?", the same text
+the Client List shows. The Run sheet is a printed sheet, and that answer is the referrer's own free
+text. Nothing stops a referrer writing the reason for referral there, which must never reach paper,
+and unlike `picklistAdmin` there is no hint where it is typed — it is typed on the public referral
+form.
+
+**Question for Pete:** should `Referrer comments` print on the Run sheet, or show on screen only? If
+it prints, should the referral form's `Other` question warn the referrer that what they write may be
+printed?
+
+**A:**
+
+---

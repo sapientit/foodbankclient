@@ -1465,7 +1465,7 @@ export interface paths {
          *
          *     The only thing beyond "what went wrong" is `firstTimeMarker` and
          *     `voucherInstruction` — the **same two derived enums** `Parcel`
-         *     carries for the Session Run Sheet screen, with the same values. The
+         *     carries for the Client List screen, with the same values. The
          *     listener is the one talking to the household, so they see whether it
          *     is new and what to do about a Christmas voucher. Both carry no
          *     historic session date and nothing else about the referral.
@@ -1559,9 +1559,9 @@ export interface paths {
         };
         /**
          * Contact details for every household on a session
-         * @description For the **Session Run Sheet** screen, open to a team leader as well as an
-         *     administrator. The client owns the print view; this is the data behind
-         *     it.
+         * @description For the **Run Sheet** screen — the printable contact list for a
+         *     session — open to a team leader as well as an administrator. The client
+         *     owns the print view; this is the data behind it.
          *
          *     **This is a contact list, not a listener sheet.** It carries the
          *     household's address, postcode and phone number, and the referrer's name,
@@ -1571,9 +1571,16 @@ export interface paths {
          *     one place a team leader is given a household's phone number outside the
          *     picking sheet for a delivery.
          *
+         *     **It also carries what the Run Sheet shows beside each household** —
+         *     the form `answers` whole (the screen's "Referrer comments" is the
+         *     "other information" answer, and which key that is belongs to the
+         *     form), `firstTimeMarker` and `voucherInstruction`. These come with the
+         *     referral, not the parcel, so a household not yet picked for carries
+         *     them too; you do not need the pick list to show them.
+         *
          *     **What it deliberately leaves out:** date of birth, the reason for
-         *     referral, the form answers, the administrator's review comment, the
-         *     parcel contents, and the referrer's email address. The reason in
+         *     referral, the administrator's review comment, the administrators'
+         *     note, the parcel contents, and the referrer's email address. The reason in
          *     particular stays where it was — a team leader gets it on the listener
          *     sheet and nowhere else.
          *
@@ -7895,7 +7902,7 @@ export interface components {
             location: string;
             referrals: components["schemas"]["ReferralDetailsHousehold"][];
         };
-        /** @description One household's contact details for the session being run. `referrerOrganisation` and `pickNumber` aside, every field is typed nullable to match `Referral`'s own referee and referrer columns — in practice none of them is null for a referral the food bank still holds. `pickNumber` is nullable for a different reason — see its own description. */
+        /** @description One household on the Run Sheet: contact details for the session being run, plus the answers and the two derived first-time and voucher values. `referrerOrganisation` and `pickNumber` aside, every field is typed nullable to match `Referral`'s own referee and referrer columns — in practice none of them is null for a referral the food bank still holds. `pickNumber` is nullable for a different reason — see its own description. */
         ReferralDetailsHousehold: {
             /** Format: uuid */
             referralId: string;
@@ -7912,6 +7919,25 @@ export interface components {
             referrerPhone: string | null;
             /** @description The number on the household's parcel — the same `pickNumber` as on the picking sheets, short enough to read out over the phone. Null when the household has no parcel yet: no pick list has been generated for the session, or it was referred after one was. Unlike the listener sheet, this list is never refused over a missing pick number — it is open before picking happens at all. */
             pickNumber: number | null;
+            /** @description The dynamic answers, whole, as on the listener sheet. Take the "other information" one for the Run Sheet's "Referrer comments"; the server does not know which key that is. Render with the release named by `formId`. */
+            answers: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: uuid
+             * @description The release of the referral form these answers were given to — see `ListenerSheetHousehold.formId`. Null never in practice.
+             */
+            formId: string | null;
+            /**
+             * @description Whether this household is new — **identical to `Parcel.firstTimeMarker`**, same rule, same values, present whether or not the household has a parcel yet. Never the date or the raw review status.
+             * @enum {string|null}
+             */
+            firstTimeMarker: "first_time" | "admin" | null;
+            /**
+             * @description The one Christmas-voucher instruction for this household — **identical to `Parcel.voucherInstruction`**, derived fresh on every read and present whether or not the household has a parcel yet. `null` outside the configured voucher range.
+             * @enum {string|null}
+             */
+            voucherInstruction: "provide_voucher" | "already_received" | "refer_to_admin" | null;
         };
         /** @description At least one of the three is required; a body with none of them is a `400`. Send what the caller gave you and let the server settle it — do not normalise or pad a partial postcode yourself. */
         ReferralSearchRequest: {
@@ -8209,7 +8235,7 @@ export interface components {
             notes: string | null;
             /**
              * @description The referral's `picklistAdmin` — the administrators' one line for the picker — **as it reads now**, not as it read when the parcel was generated. Null when there is none.
-             *     **Given to a team lead as well as an administrator**, unlike `Referral.picklistAdmin`, because it heads the Information for pickers on the Session Run Sheet and on the printed sheet. It is printed, so it must never carry the reason for referral; the server cannot tell, and the only guard is the administrator typing it — say so where it is typed.
+             *     **Given to a team lead as well as an administrator**, unlike `Referral.picklistAdmin`, because it heads the Information for pickers on the Client List and on the printed sheet. It is printed, so it must never carry the reason for referral; the server cannot tell, and the only guard is the administrator typing it — say so where it is typed.
              *     Not on `PrintParcel`: join each sheet to its session parcel by `pickNumber`, as you already do for `answers`.
              */
             picklistAdmin: string | null;
@@ -8227,12 +8253,12 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
-             * @description What the Session Run Sheet screen shows for whether this household is new — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. `first_time` when the referral's first-time review recorded no previous referral, `admin` while that review is still `unreviewed`, and no marker at all (`null`) once a previous-session date has been recorded. **Never the date itself or anything else about the referral** — this is safe for a team lead precisely because it stops there.
+             * @description What the Client List screen shows for whether this household is new — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. `first_time` when the referral's first-time review recorded no previous referral, `admin` while that review is still `unreviewed`, and no marker at all (`null`) once a previous-session date has been recorded. **Never the date itself or anything else about the referral** — this is safe for a team lead precisely because it stops there.
              * @enum {string|null}
              */
             firstTimeMarker: "first_time" | "admin" | null;
             /**
-             * @description The one Christmas-voucher instruction for this household, shown to the team leader on the Session Run Sheet screen — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. **Calculated fresh on every read, never stored on the parcel or generated with the pick list** — an administrator may make the first-time-review decision after this pick list already exists, so the screen must always reflect the current one.
+             * @description The one Christmas-voucher instruction for this household, shown to the team leader on the Client List screen — `INITIAL_SPEC1.txt`, `#Christmas voucher and first-time selection`. **Calculated fresh on every read, never stored on the parcel or generated with the pick list** — an administrator may make the first-time-review decision after this pick list already exists, so the screen must always reflect the current one.
              *     `null` — no instruction at all. Either the session's date is outside the configured voucher range, or no range has been configured.
              *     `refer_to_admin` — the session is in range and this household's first-time review is still `unreviewed`.
              *     `provide_voucher` — the session is in range and either there is no previous referral, or a previous-session date is recorded but it falls outside the range.

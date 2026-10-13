@@ -19,7 +19,7 @@ import styles from './sessions-screen.module.css';
  * The session list, and **one route rendering two different screens** rather
  * than a screen per role. `API.md` §2 is explicit that an admin's planning view
  * and a team lead's shift view "are different screens" — what makes that true
- * here is not the rows, which are now the same table `Session Run Sheet` shows, but
+ * here is not the rows, which are now the same table `Client List` shows, but
  * what each role is offered around them: an admin gets "Add a session"; a
  * team lead gets neither, because creating and
  * amending sessions is not their job.

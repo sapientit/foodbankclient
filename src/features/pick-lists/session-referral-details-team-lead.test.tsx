@@ -4,8 +4,47 @@ import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../test/msw/server';
 import { renderApp } from '../../../test/render-app';
+import type { SessionReferralDetails } from './queries';
 
 const SESSION_ID = 'session-1';
+
+const household = (
+  referralId: string,
+  firstName: string,
+  surname: string,
+  pickNumber: number | null,
+  extra: Partial<SessionReferralDetails['referrals'][number]> = {},
+): SessionReferralDetails['referrals'][number] => ({
+  referralId,
+  refereeFirstName: firstName,
+  refereeSurname: surname,
+  refereeAddress: '1 Elm Street',
+  refereePostcode: 'GU23 4XX',
+  refereePhone: '01483 123456',
+  referrerName: 'Sam Referrer',
+  referrerOrganisation: 'Citizens Advice',
+  referrerPhone: '01483 999999',
+  pickNumber,
+  answers: {},
+  formId: 'form-1',
+  firstTimeMarker: null,
+  voucherInstruction: null,
+  ...extra,
+});
+
+function serveRunSheet(referrals: SessionReferralDetails['referrals']): void {
+  server.use(
+    http.get('/api/v1/sessions/:sessionId/referral-details', () =>
+      HttpResponse.json({
+        sessionId: SESSION_ID,
+        sessionDate: '2026-08-15',
+        startTime: '10:00',
+        location: 'St Mary’s Hall',
+        referrals,
+      } satisfies SessionReferralDetails),
+    ),
+  );
+}
 
 beforeEach(() => {
   server.use(
@@ -40,10 +79,27 @@ beforeEach(() => {
         occurrenceDate: null,
       }),
     ),
+    // The tab strip reads the pick list; the Run sheet itself does not need one.
+    http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+      HttpResponse.json(
+        {
+          error: {
+            code: 'NOT_FOUND',
+            message: 'No pick list for this session.',
+            details: null,
+            requestId: 'req-1',
+          },
+        },
+        { status: 404 },
+      ),
+    ),
+    http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+      HttpResponse.json({ sessionId: SESSION_ID, unreadTotal: 0, households: [] }),
+    ),
   );
 });
 
-describe('team-lead session referral details', () => {
+describe('team-lead run sheet', () => {
   it('shows and prints the server-provided contact details with their pick number', async () => {
     server.use(
       http.get('/api/v1/sessions/:sessionId/referral-details', ({ params }) => {
@@ -64,6 +120,10 @@ describe('team-lead session referral details', () => {
               referrerName: 'Sam Referrer',
               referrerPhone: '01483 999999',
               pickNumber: 1,
+              answers: {},
+              formId: 'form-1',
+              firstTimeMarker: null,
+              voucherInstruction: null,
             },
           ],
         });
@@ -72,15 +132,14 @@ describe('team-lead session referral details', () => {
     const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
     expect(await screen.findByRole('row', { name: /Jamie Rowe/ })).toBeInTheDocument();
-    const details = screen.getByRole('region', { name: 'Referral details' });
-    expect(
-      within(details).getByRole('button', { name: 'Print referral details' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Run sheet' })).toBeInTheDocument();
+    const details = screen.getByRole('region', { name: 'Run sheet' });
+    expect(within(details).getByRole('button', { name: 'Print run sheet' })).toBeInTheDocument();
     expect(screen.queryByText('St Mary’s Hall')).toBeNull();
     expect(screen.getByRole('row', { name: /Jamie Rowe/ })).toHaveTextContent('#1');
     expect(screen.getByText('Sam Referrer')).toBeInTheDocument();
     expect(screen.queryByText('Reason for referral')).toBeNull();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Print referral details' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Print run sheet' }));
     expect(print).toHaveBeenCalledOnce();
   });
 
@@ -95,6 +154,10 @@ describe('team-lead session referral details', () => {
       referrerName: 'Sam Referrer',
       referrerPhone: '01483 999999',
       pickNumber,
+      answers: {},
+      formId: 'form-1',
+      firstTimeMarker: null,
+      voucherInstruction: null,
     });
     server.use(
       http.get('/api/v1/sessions/:sessionId/referral-details', () =>
@@ -132,8 +195,9 @@ describe('team-lead session referral details', () => {
    *
    * The widths themselves are CSS and cannot be computed here, so this asserts
    * the machinery that carries them: a `<colgroup>` with exactly one `<col>`
-   * per column. A seventh column added without a seventh `<col>` silently loses
-   * its width and fails here instead.
+   * per column. A column added without its `<col>` silently loses its width and
+   * fails here instead — with and without the Voucher column, which comes and
+   * goes with the voucher scheme.
    */
   it('gives every column a fixed width so a long address cannot push one off the page', async () => {
     server.use(
@@ -154,6 +218,10 @@ describe('team-lead session referral details', () => {
               referrerName: 'Sam Referrer',
               referrerPhone: '01483 999999',
               pickNumber: null,
+              answers: {},
+              formId: 'form-1',
+              firstTimeMarker: null,
+              voucherInstruction: null,
             },
           ],
         }),
@@ -163,10 +231,10 @@ describe('team-lead session referral details', () => {
     renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
 
     const table = await screen.findByRole('table', {
-      name: 'Referral details for every household on this session',
+      name: 'Run sheet for every household on this session',
     });
     const headings = screen.getAllByRole('columnheader');
-    expect(headings).toHaveLength(7);
+    expect(headings).toHaveLength(9);
     expect(table.querySelectorAll('colgroup > col')).toHaveLength(headings.length);
     // The long values are on the page in full rather than truncated into it:
     // the columns wrap, they do not clip.
@@ -175,5 +243,92 @@ describe('team-lead session referral details', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('01483 999999')).toBeInTheDocument();
     expect(screen.getByLabelText('No pick number assigned')).toBeInTheDocument();
+  });
+
+  it('keeps a width for every column while the Voucher column is drawn', async () => {
+    serveRunSheet([household('r1', 'Jamie', 'Rowe', 1, { voucherInstruction: 'provide_voucher' })]);
+
+    renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
+
+    const table = await screen.findByRole('table', {
+      name: 'Run sheet for every household on this session',
+    });
+    const headings = within(table).getAllByRole('columnheader');
+    expect(headings).toHaveLength(10);
+    expect(table.querySelectorAll('colgroup > col')).toHaveLength(headings.length);
+  });
+
+  /**
+   * `screenDetails.md`, "#Session processing": the Run sheet carries the same
+   * first-time marker, voucher instruction and referrer comments as the Client
+   * List — from the referral, so a household with no pick number yet has them
+   * too.
+   */
+  it("shows each household's first-time marker, voucher instruction and referrer comments", async () => {
+    serveRunSheet([
+      household('r1', 'Jamie', 'Rowe', 1, {
+        firstTimeMarker: 'first_time',
+        voucherInstruction: 'provide_voucher',
+        answers: { Other: '  Two cats and a dog  ' },
+      }),
+      household('r2', 'Alex', 'Shaw', null, {
+        voucherInstruction: 'already_received',
+        answers: { Other: 'Works until 11' },
+      }),
+    ]);
+
+    renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
+
+    const table = await screen.findByRole('table', {
+      name: 'Run sheet for every household on this session',
+    });
+    const headings = within(table)
+      .getAllByRole('columnheader')
+      .map((cell) => cell.textContent);
+    expect(headings.slice(-3)).toEqual(['First?', 'Voucher', 'Referrer comments']);
+
+    const cellsOf = (name: RegExp) =>
+      within(screen.getByRole('row', { name }))
+        .getAllByRole('cell')
+        .slice(-3)
+        .map((cell) => cell.textContent);
+    expect(cellsOf(/Jamie Rowe/)).toEqual([
+      'First time',
+      'Provide voucher for this client',
+      'Two cats and a dog',
+    ]);
+    // Not yet picked for, and still shown. A recorded previous session leaves
+    // First? blank, as on the Client List.
+    expect(cellsOf(/Alex Shaw/)).toEqual([
+      '',
+      'Client has already received voucher',
+      'Works until 11',
+    ]);
+  });
+
+  it('leaves out the Voucher column when the voucher scheme does not apply', async () => {
+    serveRunSheet([household('r1', 'Jamie', 'Rowe', 1, { firstTimeMarker: 'admin' })]);
+
+    renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
+
+    const row = await screen.findByRole('row', { name: /Jamie Rowe/ });
+    expect(screen.queryByRole('columnheader', { name: 'Voucher' })).toBeNull();
+    expect(within(row).getByRole('cell', { name: 'Admin' })).toBeInTheDocument();
+  });
+
+  /** Only the `Other` answer reaches the sheet, whatever else the referral answered. */
+  it('shows no form answer but the referrer comments', async () => {
+    serveRunSheet([
+      household('r1', 'Jamie', 'Rowe', 1, {
+        answers: { Other: 'Two cats', Allergies: 'Peanuts', Pets: 'Dog' },
+      }),
+    ]);
+
+    renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
+
+    await screen.findByRole('row', { name: /Jamie Rowe/ });
+    expect(screen.getByText('Two cats')).toBeInTheDocument();
+    expect(screen.queryByText('Peanuts')).toBeNull();
+    expect(screen.queryByText('Dog')).toBeNull();
   });
 });

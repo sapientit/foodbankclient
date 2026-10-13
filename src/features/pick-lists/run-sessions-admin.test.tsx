@@ -99,12 +99,12 @@ describe('an administrator running a session', () => {
     expect(name).toHaveAttribute('href', `/referrals/${PARCEL.referralId}`);
   });
 
-  it('still offers the whole-session referral details sheet alongside it', async () => {
+  it('still offers the whole-session run sheet alongside it', async () => {
     renderApp(`/run-sessions/${SESSION.id}`);
 
     // The name link is per household; this is the one page that puts every
     // household's address and phone on paper. One does not replace the other.
-    expect(await screen.findByRole('link', { name: 'Referral details' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Run sheet' })).toHaveAttribute(
       'href',
       `/run-sessions/${SESSION.id}/referral-details`,
     );

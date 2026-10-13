@@ -65,7 +65,7 @@ describe('menuFor', () => {
   it('gives a team lead the operational session work, not maintenance referrals or sessions', () => {
     const teamLead = labels('team_lead');
 
-    expect(teamLead).toContain('Session Run Sheet');
+    expect(teamLead).toContain('Client List');
     expect(teamLead).not.toContain('Manage Sessions');
     expect(teamLead).not.toContain('Check referrals');
   });
@@ -93,7 +93,7 @@ describe('contextual navigation', () => {
   it('keeps Sessions out of team lead navigation while retaining their operational routes', () => {
     expect(topTabsFor('team_lead').map((item) => item.label)).toEqual([
       'Dashboard',
-      'Session Run Sheet',
+      'Client List',
       'Stock',
     ]);
     expect(subtabsFor('team_lead', '/stock/take').map((item) => item.label)).toEqual([

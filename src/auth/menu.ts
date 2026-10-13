@@ -43,7 +43,7 @@ export const MENU: readonly MenuItem[] = [
   // The operational view is separate from calendar and referral maintenance:
   // a team lead arrives to run today's session, not to plan one or browse
   // household records. Administrators keep both routes so they can cover.
-  { to: '/run-sessions', label: 'Session Run Sheet', roles: SESSION_STAFF },
+  { to: '/run-sessions', label: 'Client List', roles: SESSION_STAFF },
   { to: '/sessions', label: 'Manage Sessions', roles: ADMIN_ONLY },
   { to: '/referrals', label: 'Check referrals', roles: ADMIN_ONLY },
   { to: '/referrals/search', label: 'Search referrals', roles: ADMIN_ONLY },

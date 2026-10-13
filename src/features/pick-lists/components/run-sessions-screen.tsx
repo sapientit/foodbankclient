@@ -60,6 +60,7 @@ import {
 } from '../queries';
 import {
   COMPLETE_SESSION_UNAVAILABLE_REASON,
+  FIRST_TIME_MARKER,
   PRINT_UNAVAILABLE_REASON,
   STOCK_CHECK_UNAVAILABLE_REASON,
   allParcelsReviewed,
@@ -69,6 +70,7 @@ import {
   missedLabel,
   otherAnswer,
   parcelStatus,
+  voucherInstructionLabel,
 } from '../run-session.logic';
 import { SmsRemindersAction } from './sms-panel';
 import styles from './run-sessions-screen.module.css';
@@ -112,7 +114,7 @@ export function RunSessionsScreen() {
   return (
     <div className={styles.page}>
       <div className={styles.headerCard}>
-        <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
+        <PageHeader icon={<CalendarIcon />} title="Client List" />
       </div>
       <p className={styles.listIntro}>
         Select the session you are running. Pick lists are prepared when you open it. A completed
@@ -183,8 +185,8 @@ export function SessionLine({ session }: { session: Session }) {
 /**
  * The three things a team lead does to the session as a whole that still live
  * on the Clients tab: sending SMS reminders, the stock check, and the one tap
- * that closes the session. Print all pick lists, Listener sheet and Referral details moved
- * out to the tab strip on 2026-08-30 — `screenDetails.md`, "Session
+ * that closes the session. Print all pick lists, Listener sheet and the Run
+ * sheet (formerly Referral details) moved out to the tab strip on 2026-08-30 — `screenDetails.md`, "Session
  * processing" — because they are places to look, not actions taken on the
  * session; these two stay here because both depend on state this tab shows
  * (a pick list's review, a client's outcome) and mean nothing on another tab.
@@ -801,7 +803,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
+          <PageHeader icon={<CalendarIcon />} title="Client List" />
         </div>
         <Spinner label={readOnly === true ? 'Loading the session…' : 'Preparing pick lists…'} />
       </div>
@@ -811,7 +813,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
+          <PageHeader icon={<CalendarIcon />} title="Client List" />
         </div>
         <ErrorNotice error={session.error} onRetry={() => void session.refetch()} />
       </div>
@@ -820,7 +822,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
+          <PageHeader icon={<CalendarIcon />} title="Client List" />
         </div>
         <ErrorNotice error={referrals.error} onRetry={() => void referrals.refetch()} />
       </div>
@@ -829,7 +831,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
+          <PageHeader icon={<CalendarIcon />} title="Client List" />
         </div>
         <ErrorNotice error={stockItems.error} onRetry={() => void stockItems.refetch()} />
       </div>
@@ -838,7 +840,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
+          <PageHeader icon={<CalendarIcon />} title="Client List" />
         </div>
         <ErrorNotice error={releases.error} onRetry={() => void releases.refetch()} />
       </div>
@@ -847,7 +849,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
+          <PageHeader icon={<CalendarIcon />} title="Client List" />
         </div>
         <div role="alert">
           <h2>Pick-list rules need attention</h2>
@@ -864,7 +866,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
+          <PageHeader icon={<CalendarIcon />} title="Client List" />
         </div>
         <ErrorNotice error={reconcile.error} />
       </div>
@@ -880,7 +882,7 @@ export function RunSessionDetailScreen() {
     return (
       <div className={styles.tabPage}>
         <div className={styles.headerCard}>
-          <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
+          <PageHeader icon={<CalendarIcon />} title="Client List" />
         </div>
         {/* Why the session cannot be changed is said once, on the tab strip's
             shared chrome (`RunSessionLayout`) — not repeated here. */}
@@ -922,7 +924,7 @@ export function RunSessionDetailScreen() {
   return (
     <div className={styles.tabPage}>
       <div className={styles.headerCard}>
-        <PageHeader icon={<CalendarIcon />} title="Session Run Sheet" />
+        <PageHeader icon={<CalendarIcon />} title="Client List" />
       </div>
       {readOnly === false && (
         <section aria-label="Session actions" className={styles.card}>
@@ -991,7 +993,7 @@ export function RunSessionDetailScreen() {
                     </th>
                   )}
                   <th className={styles.otherColumn} scope="col">
-                    Other
+                    Referrer comments
                   </th>
                   <th scope="col">Status</th>
                   <th scope="col">Action</th>
@@ -1070,19 +1072,6 @@ function pickListLabel(parcel: Parcel): string {
   return parcel.attendance === 'pending' ? 'Amend Pick list' : 'View Pick list';
 }
 
-const FIRST_TIME_MARKER: Record<Exclude<Parcel['firstTimeMarker'], null>, string> = {
-  first_time: 'First time',
-  admin: 'Admin',
-};
-
-function voucherInstructionLabel(
-  instruction: 'provide_voucher' | 'already_received' | 'refer_to_admin',
-): string {
-  if (instruction === 'provide_voucher') return 'Provide voucher for this client';
-  if (instruction === 'already_received') return 'Client has already received voucher';
-  return 'Refer to administrators for voucher';
-}
-
 function ClientRow({
   canOpenReferral,
   parcel,
@@ -1138,7 +1127,10 @@ function ClientRow({
       )}
       <td className={styles.otherColumn}>
         {other !== null && (
-          <OtherAnswer label={`Other answer for ${describeParcel(parcel)}, scrolls`} text={other} />
+          <OtherAnswer
+            label={`Referrer comments for ${describeParcel(parcel)}, scrolls`}
+            text={other}
+          />
         )}
       </td>
       <td>
@@ -1227,9 +1219,9 @@ function ClientRow({
 }
 
 /**
- * The household's `Other` answer, wrapped and held to three lines so that one
- * long answer cannot stretch every row; anything longer scrolls within the
- * cell. `screenDetails.md`, "#Session processing".
+ * The household's `Other` answer, headed `Referrer comments`, wrapped and
+ * held to three lines so that one long answer cannot stretch every row;
+ * anything longer scrolls within the cell. `screenDetails.md`, "#Session processing".
  *
  * **Focusable only while it actually scrolls.** A scrolling box the keyboard
  * cannot reach hides the rest of the answer from anyone not using a pointer,

@@ -354,15 +354,15 @@ describe('a team lead running a session', () => {
     expect(screen.queryByRole('button', { name: 'Send SMS reminders' })).toBeNull();
   });
 
-  it('is offered Session Run Sheet and not the administrator maintenance links', async () => {
+  it('is offered Client List and not the administrator maintenance links', async () => {
     server.use(http.get('/api/v1/sessions', () => HttpResponse.json({ sessions: [SESSION] })));
 
     renderApp('/run-sessions');
 
-    expect(await screen.findByRole('heading', { name: 'Session Run Sheet' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Client List' })).toBeInTheDocument();
     expect(
       within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', {
-        name: 'Session Run Sheet',
+        name: 'Client List',
       }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sessions' })).toBeNull();
@@ -1345,7 +1345,7 @@ describe('a team lead running a session', () => {
    * `screenDetails.md`, "#Session processing": the referrer's own words, in a
    * narrow column squeezed in immediately before the status.
    */
-  it('shows the Other answer in its own column immediately before the status', async () => {
+  it('shows the referrer comments in their own column immediately before the status', async () => {
     server.use(
       http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
@@ -1368,11 +1368,11 @@ describe('a team lead running a session', () => {
     const headings = within(table)
       .getAllByRole('columnheader')
       .map((cell) => cell.textContent);
-    expect(headings.indexOf('Other')).toBe(headings.indexOf('Status') - 1);
+    expect(headings.indexOf('Referrer comments')).toBe(headings.indexOf('Status') - 1);
     expect(within(table).getByRole('cell', { name: 'Two cats and a dog' })).toBeInTheDocument();
   });
 
-  it('adds no tab stop for an Other answer that fits its three lines', async () => {
+  it('adds no tab stop for referrer comments that fit their three lines', async () => {
     // jsdom lays nothing out, so stand in for an answer that exactly fits.
     const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(60);
     const clientHeight = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(60);
@@ -1397,10 +1397,10 @@ describe('a team lead running a session', () => {
 
     const answer = await screen.findByText('A short answer');
     expect(answer).not.toHaveAttribute('tabindex');
-    expect(screen.queryByRole('group', { name: /^Other answer/ })).toBeNull();
+    expect(screen.queryByRole('group', { name: /^Referrer comments/ })).toBeNull();
   });
 
-  it('lets the keyboard reach an Other answer too long for its three lines', async () => {
+  it('lets the keyboard reach referrer comments too long for their three lines', async () => {
     // jsdom lays nothing out, so stand in for an answer that overflows its cell.
     const scrollHeight = vi
       .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
@@ -1426,7 +1426,7 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}`);
 
     const answer = await screen.findByRole('group', {
-      name: 'Other answer for pick #1, Sam Taylor, scrolls',
+      name: 'Referrer comments for pick #1, Sam Taylor, scrolls',
     });
     expect(answer).toHaveTextContent('A long answer');
     expect(answer).toHaveAttribute('tabindex', '0');

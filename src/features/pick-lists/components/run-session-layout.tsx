@@ -12,13 +12,13 @@ import styles from './run-session-layout.module.css';
  * it cannot be changed if it cannot, and the way to the other four tabs.
  *
  * **No page-level heading here.** Each tab keeps the `<h1>` it already had —
- * "Pick lists", "Listener sheet", "Referral details", "Text messages", "Run a
- * session" — so this stays the smallest change to the four screens that
+ * "Pick lists", "Listener sheet", "Run sheet", "Text messages", "Client
+ * List" — so this stays the smallest change to the four screens that
  * already worked, and a screen reader never meets two level-one headings on
  * one page.
  *
  * **Only `useSession`, not the pick list.** A team lead who lands directly on
- * Listener sheet or Referral details needs none of that, and every child
+ * Listener sheet or Run sheet needs none of that, and every child
  * route already fetches what it needs itself — `useSessionPickList` shares
  * one TanStack Query cache across this layout, the Clients tab and the tab
  * strip, so nothing here duplicates a request.

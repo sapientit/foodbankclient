@@ -4,9 +4,21 @@ import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatSessionDate } from '../../../lib/london-time';
 import { useSessionReferralDetails } from '../queries';
-import { byPickNumber } from '../run-session.logic';
+import {
+  FIRST_TIME_MARKER,
+  byPickNumber,
+  otherAnswer,
+  voucherInstructionLabel,
+} from '../run-session.logic';
 import styles from './session-referral-details-screen.module.css';
 
+/**
+ * The Run sheet: the session's contact list, plus the three things the Client
+ * List also shows about each household — whether they are new, the
+ * Christmas-voucher instruction and the referrer's comments. All three come
+ * with the referral, so a household nobody has picked for yet has them too.
+ * `screenDetails.md`, "#Session processing".
+ */
 export function SessionReferralDetailsScreen() {
   const { sessionId = '' } = useParams();
   const details = useSessionReferralDetails(sessionId);
@@ -14,16 +26,16 @@ export function SessionReferralDetailsScreen() {
     return (
       <div className={styles.page}>
         <div className={styles.headerCard}>
-          <PageHeader title="Referral details" />
+          <PageHeader title="Run sheet" />
         </div>
-        <Spinner label="Loading referral details…" />
+        <Spinner label="Loading the run sheet…" />
       </div>
     );
   if (details.isError)
     return (
       <div className={styles.page}>
         <div className={styles.headerCard}>
-          <PageHeader title="Referral details" />
+          <PageHeader title="Run sheet" />
         </div>
         <ErrorNotice
           error={details.error}
@@ -34,12 +46,17 @@ export function SessionReferralDetailsScreen() {
       </div>
     );
   const { data } = details;
+  // The same test the Client List uses: the server gives every household in an
+  // in-range session an instruction, without sending a team lead the dates.
+  const voucherSchemeApplies = data.referrals.some(
+    (referral) => referral.voucherInstruction !== null,
+  );
   return (
     <div className={styles.page}>
       <div className={styles.headerCard}>
-        <PageHeader title="Referral details" />
+        <PageHeader title="Run sheet" />
       </div>
-      <section aria-label="Referral details" className={styles.detailsCard}>
+      <section aria-label="Run sheet" className={styles.detailsCard}>
         <p>
           {formatSessionDate(data.sessionDate)}, {data.startTime}
         </p>
@@ -49,20 +66,20 @@ export function SessionReferralDetailsScreen() {
             window.print();
           }}
         >
-          Print referral details
+          Print run sheet
         </button>
         {/* Focusable, because a table that scrolls sideways on a phone is
             unreachable by keyboard otherwise — the same wrapper the session lists
             use. */}
         <div
-          aria-label="Referral details table"
+          aria-label="Run sheet table"
           role="region"
           className={styles.tableWrap}
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- The scrollable table needs a keyboard focus target.
           tabIndex={0}
         >
           <table className={styles.table}>
-            <caption>Referral details for every household on this session</caption>
+            <caption>Run sheet for every household on this session</caption>
             {/* The printed widths live on the columns rather than on the header
               cells, so a column keeps its share of the page whether or not its
               heading is the widest thing in it. See the stylesheet: without
@@ -76,6 +93,9 @@ export function SessionReferralDetailsScreen() {
               <col className={styles.phone} />
               <col className={styles.referrer} />
               <col className={styles.referrerPhone} />
+              <col className={styles.firstTime} />
+              {voucherSchemeApplies && <col className={styles.voucher} />}
+              <col className={styles.referrerComments} />
             </colgroup>
             <thead>
               <tr>
@@ -86,6 +106,9 @@ export function SessionReferralDetailsScreen() {
                 <th scope="col">Phone</th>
                 <th scope="col">Referrer</th>
                 <th scope="col">Referrer phone</th>
+                <th scope="col">First?</th>
+                {voucherSchemeApplies && <th scope="col">Voucher</th>}
+                <th scope="col">Referrer comments</th>
               </tr>
             </thead>
             <tbody>
@@ -108,6 +131,19 @@ export function SessionReferralDetailsScreen() {
                   <td>{referral.refereePhone ?? '—'}</td>
                   <td>{referral.referrerName ?? '—'}</td>
                   <td>{referral.referrerPhone ?? '—'}</td>
+                  <td>
+                    {referral.firstTimeMarker === null
+                      ? ''
+                      : FIRST_TIME_MARKER[referral.firstTimeMarker]}
+                  </td>
+                  {voucherSchemeApplies && (
+                    <td>
+                      {referral.voucherInstruction === null
+                        ? ''
+                        : voucherInstructionLabel(referral.voucherInstruction)}
+                    </td>
+                  )}
+                  <td>{otherAnswer(referral) ?? ''}</td>
                 </tr>
               ))}
             </tbody>

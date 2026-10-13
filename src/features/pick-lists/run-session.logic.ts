@@ -52,17 +52,34 @@ export function missedLabel(parcel: Parcel): string {
 
 /**
  * The referral form's `Other` question — "Any additional information?" — which
- * the Session Run Sheet client list shows in its own column. Its key is frozen
- * (`referral-answer-keys.frozen.ts`), so it reads the same under every release.
+ * the Client List and the Run sheet both show as `Referrer
+ * comments`. Its key is frozen (`referral-answer-keys.frozen.ts`), so it reads
+ * the same under every release.
  */
 export const OTHER_ANSWER_KEY = 'Other';
 
 /** What the referrer added in their own words, or `null` where nothing was. */
-export function otherAnswer(parcel: Pick<Parcel, 'answers'>): string | null {
-  const value = parcel.answers[OTHER_ANSWER_KEY];
+export function otherAnswer(holder: {
+  readonly answers: Readonly<Record<string, unknown>>;
+}): string | null {
+  const value = holder.answers[OTHER_ANSWER_KEY];
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed === '' ? null : trimmed;
+}
+
+/** The words the `First?` column shows — `screenDetails.md`, "#Christmas vouchers". */
+export const FIRST_TIME_MARKER: Record<Exclude<Parcel['firstTimeMarker'], null>, string> = {
+  first_time: 'First time',
+  admin: 'Admin',
+};
+
+export function voucherInstructionLabel(
+  instruction: Exclude<Parcel['voucherInstruction'], null>,
+): string {
+  if (instruction === 'provide_voucher') return 'Provide voucher for this client';
+  if (instruction === 'already_received') return 'Client has already received voucher';
+  return 'Refer to administrators for voucher';
 }
 
 /**
