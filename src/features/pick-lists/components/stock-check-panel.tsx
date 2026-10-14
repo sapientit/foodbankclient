@@ -19,7 +19,7 @@ import styles from './stock-check-panel.module.css';
  *
  * **The shelf number itself is not shown.** The order carries the walk, which
  * is the whole of what it is for here; printed against every row it is a column
- * of codes competing with the three figures this table exists to compare, on a
+ * of codes competing with the four figures this table exists to compare, on a
  * phone held in a hall. It stays in the response and out of the table.
  *
  * The section stays in the DOM while it is closed so the control that opens it
@@ -75,6 +75,9 @@ export function StockCheckPanel({
                       Needed
                     </th>
                     <th className={styles.numeric} scope="col">
+                      Earlier sessions
+                    </th>
+                    <th className={styles.numeric} scope="col">
                       In stock
                     </th>
                     <th className={styles.numeric} scope="col">
@@ -98,6 +101,11 @@ export function StockCheckPanel({
                           )}
                         </th>
                         <td className={styles.numeric}>{line.requiredQuantity}</td>
+                        {/* Shown because the shortfall counts it: without it a
+                            row reads short by more than needed minus in stock. */}
+                        <td className={styles.numeric}>
+                          {line.earlierSessionsQuantity > 0 ? line.earlierSessionsQuantity : '—'}
+                        </td>
                         {/* A level can be negative after a correction, and that
                             is a figure rather than a fault: shown as it comes. */}
                         <td className={styles.numeric}>{line.quantityOnHand}</td>

@@ -88,6 +88,7 @@ const REQUIREMENT: StockRequirement = {
       isActive: true,
       quantityOnHand: 40,
       requiredQuantity: 12,
+      earlierSessionsQuantity: 0,
       shortfall: 0,
     },
     {
@@ -103,6 +104,7 @@ const REQUIREMENT: StockRequirement = {
       isActive: true,
       quantityOnHand: -2,
       requiredQuantity: 9,
+      earlierSessionsQuantity: 0,
       shortfall: 11,
     },
   ],
@@ -166,6 +168,42 @@ describe('the session stock check', () => {
     expect(short).toHaveTextContent('11');
   });
 
+  it('shows what earlier sessions the same day take first, so a shortfall beyond needed minus in stock is explained', async () => {
+    serveSession([PARCEL]);
+    const [beans, rice] = REQUIREMENT.items;
+    if (beans === undefined || rice === undefined) throw new Error('fixture has two lines');
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/stock-requirement', () =>
+        HttpResponse.json({
+          ...REQUIREMENT,
+          items: [
+            // 12 needed + 33 taken first by an earlier session − 40 on the shelf.
+            { ...beans, earlierSessionsQuantity: 33, shortfall: 5 },
+            { ...rice, earlierSessionsQuantity: 0 },
+          ],
+        }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}`);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Stock check' }));
+    const table = await screen.findByRole('table', { name: /Stock this session needs/ });
+
+    const headings = within(table)
+      .getAllByRole('columnheader')
+      .map((heading) => heading.textContent);
+    expect(headings).toEqual(['Stock item', 'Needed', 'Earlier sessions', 'In stock', 'Short by']);
+
+    const cells = (name: RegExp) =>
+      within(within(table).getByRole('row', { name }))
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent);
+    expect(cells(/Baked beans/)).toEqual(['12', '33', '40', '5']);
+    // None taken first reads as a dash, the way nothing short already does.
+    expect(cells(/Long grain rice/)).toEqual(['9', '—', '-2', '11']);
+  });
+
   /**
    * **`aria-expanded` is how the control says the panel is already open**, to
    * anyone who is not looking at the screen. On screen the panel itself says
@@ -221,7 +259,7 @@ describe('the session stock check', () => {
     expect(rows[1]).toHaveTextContent('Long grain rice');
 
     // The order is what carries the walk; the shelf number itself is not on the
-    // screen. A column of codes beside the three figures this table exists to
+    // screen. A column of codes beside the four figures this table exists to
     // compare is what a volunteer reads past on a phone in a hall.
     expect(within(table).queryByRole('columnheader', { name: 'Shelf' })).toBeNull();
     expect(table).not.toHaveTextContent('A2');

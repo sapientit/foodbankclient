@@ -5,10 +5,11 @@ import type { StockRequirementLine } from './queries';
  * many of them the warehouse cannot cover.
  *
  * **The server's `shortfall` is the only authority on whether an item is
- * short.** It is `requiredQuantity - quantityOnHand` floored at zero, and this
- * client does not recompute it: `quantityOnHand` may be negative, and a
- * subtraction written a second time here is a second place for the sign to go
- * wrong. Anything above zero is the number that cannot be found.
+ * short.** It is `requiredQuantity + earlierSessionsQuantity - quantityOnHand`
+ * floored at zero, and this client does not recompute it: `quantityOnHand` may
+ * be negative, `earlierSessionsQuantity` is what earlier sessions the same day
+ * will take first, and a sum written a second time here is a second place for
+ * it to go wrong. Anything above zero is the number that cannot be found.
  */
 export interface StockCheckSummary {
   /** How many stock items the session's parcels call for. */

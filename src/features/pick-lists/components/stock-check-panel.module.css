@@ -19,8 +19,8 @@
 }
 
 /* Scrolls within its own frame on a narrow screen rather than pushing the page
-   sideways — the same treatment as the client list, and this table still has
-   four columns on a phone held in a hall. */
+   sideways — the same treatment as the client list, and this table has five
+   columns on a phone held in a hall. */
 .tableWrap {
   overflow-x: auto;
 }

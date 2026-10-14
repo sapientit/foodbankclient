@@ -16,6 +16,7 @@ function line(overrides: Partial<StockRequirementLine>): StockRequirementLine {
     isActive: true,
     quantityOnHand: 10,
     requiredQuantity: 4,
+    earlierSessionsQuantity: 0,
     shortfall: 0,
     ...overrides,
   };

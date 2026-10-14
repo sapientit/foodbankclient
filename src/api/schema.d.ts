@@ -5882,6 +5882,18 @@ export interface paths {
          *     — the figure is what the session as a whole asks for, not what is left
          *     to pick. Read it before the session starts and the two agree.
          *
+         *     **Earlier sessions the same day are counted separately**, for
+         *     back-to-back sessions: `earlierSessionsQuantity` is what any session
+         *     on the same date with a strictly earlier start time (and not
+         *     cancelled) is still going to take — only its parcels with no
+         *     attendance outcome yet, since an attended parcel's stock has already
+         *     left `quantityOnHand`. Those sessions are not gated on review, and a
+         *     `-1` line on them is simply left out, so this part is a prompt to go
+         *     and look at the shelf rather than an exact count. It only adds to
+         *     items this session needs; an item only an earlier session needs is
+         *     not listed. A session at the same start time, or on an earlier day,
+         *     is not counted.
+         *
          *     **Available once every parcel has been reviewed** — the same point
          *     `GET /pick-lists/{id}/print` waits for, and not a moment later.
          *
@@ -7851,7 +7863,9 @@ export interface components {
         StockRequirementLine: components["schemas"]["StockLevel"] & {
             /** @description How many of this item the session's parcels ask for in total, cancelled parcels excluded. Always positive — an item nothing needs has no line. */
             requiredQuantity: number;
-            /** @description `requiredQuantity - quantityOnHand`, floored at zero. Non-zero means the warehouse cannot cover the session as it stands. */
+            /** @description How many of this item earlier sessions the same day are still going to take first: sessions on the same date with a strictly earlier start time, not cancelled, counting only parcels with no attendance outcome yet and leaving out `-1` lines. `0` when there is no such session. Approximate by design — see the endpoint description. */
+            earlierSessionsQuantity: number;
+            /** @description `requiredQuantity + earlierSessionsQuantity - quantityOnHand`, floored at zero. Non-zero means the warehouse cannot cover the session as it stands. */
             shortfall: number;
         };
         StockRequirementSummaryLine: components["schemas"]["StockItem"] & {
