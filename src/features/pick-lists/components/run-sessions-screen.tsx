@@ -68,7 +68,6 @@ import {
   isCurrentParcel,
   isSessionReadOnly,
   missedLabel,
-  otherAnswer,
   parcelStatus,
   voucherInstructionLabel,
 } from '../run-session.logic';
@@ -993,7 +992,7 @@ export function RunSessionDetailScreen() {
                     </th>
                   )}
                   <th className={styles.otherColumn} scope="col">
-                    Referrer comments
+                    Pick list notes
                   </th>
                   <th scope="col">Status</th>
                   <th scope="col">Action</th>
@@ -1088,7 +1087,6 @@ function ClientRow({
   const attendance = useRecordAttendance();
   const status = parcelStatus(parcel);
   const reviewed = parcel.reviewedAt !== null;
-  const other = otherAnswer(parcel);
   return (
     <tr>
       {/* The pick number heads the row: it is what matches a sheet in a hall to
@@ -1126,10 +1124,10 @@ function ClientRow({
         </td>
       )}
       <td className={styles.otherColumn}>
-        {other !== null && (
+        {parcel.picklistAdmin !== null && (
           <OtherAnswer
-            label={`Referrer comments for ${describeParcel(parcel)}, scrolls`}
-            text={other}
+            label={`Pick list notes for ${describeParcel(parcel)}, scrolls`}
+            text={parcel.picklistAdmin}
           />
         )}
       </td>
@@ -1219,7 +1217,7 @@ function ClientRow({
 }
 
 /**
- * The household's `Other` answer, headed `Referrer comments`, wrapped and
+ * A compact operational note, wrapped and
  * held to three lines so that one long answer cannot stretch every row;
  * anything longer scrolls within the cell. `screenDetails.md`, "#Session processing".
  *

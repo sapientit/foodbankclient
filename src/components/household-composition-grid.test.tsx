@@ -10,11 +10,11 @@ import { HouseholdCompositionGrid } from './household-composition-grid';
  */
 describe('the household composition grid', () => {
   it('names every icon on hover as well as to a screen reader', () => {
-    render(<HouseholdCompositionGrid composition={{ '0-4': { male: 1 } }} />);
+    render(<HouseholdCompositionGrid composition={{ '0-2': { male: 1 } }} />);
 
     for (const label of [
-      '0–4',
-      '5–11',
+      '0–2',
+      '3–11',
       '12–17',
       '18 to State Pension age',
       'State Pension age or over',
@@ -27,17 +27,17 @@ describe('the household composition grid', () => {
   });
 
   it('reads a cell as its age band, gender and count, and shows only the number', () => {
-    render(<HouseholdCompositionGrid composition={{ '0-4': { male: 1 } }} />);
+    render(<HouseholdCompositionGrid composition={{ '0-2': { male: 1 } }} />);
 
-    expect(screen.getByText('0–4, Male: 1')).toBeInTheDocument();
+    expect(screen.getByText('0–2, Male: 1')).toBeInTheDocument();
     // Empty cells still read as zero rather than as nothing at all.
-    expect(screen.getByText('0–4, Female: 0')).toBeInTheDocument();
+    expect(screen.getByText('0–2, Female: 0')).toBeInTheDocument();
   });
 
   it('uses the same compact headers on every screen and printed sheet', () => {
-    render(<HouseholdCompositionGrid composition={{ '0-4': { male: 1 } }} />);
+    render(<HouseholdCompositionGrid composition={{ '0-2': { male: 1 } }} />);
 
-    expect(screen.getByRole('columnheader', { name: '0–4' })).toHaveAttribute('title', '0–4');
+    expect(screen.getByRole('columnheader', { name: '0–2' })).toHaveAttribute('title', '0–2');
     expect(screen.getByRole('rowheader', { name: 'Male' })).toHaveAttribute('title', 'Male');
   });
 });

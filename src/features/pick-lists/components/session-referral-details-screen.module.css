@@ -82,6 +82,15 @@
   border-block-end: 2px solid #1a1a1a;
 }
 
+/* A telephone number is read as one thing, not two short fragments. The
+   screen table can scroll horizontally, which is safer than breaking a number
+   mid-read; the print layout keeps its own measured column widths below. */
+.table td:nth-child(5),
+.table td:nth-child(7) {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
 @media print {
   .page {
     background: #ffffff;
@@ -127,7 +136,7 @@
    * The Voucher column is wide enough for `administrators` on one line.
    */
   .pickNumber {
-    inline-size: 5%;
+    inline-size: 3%;
   }
 
   .client {
@@ -139,16 +148,21 @@
   }
 
   .postcode {
-    inline-size: 9%;
+    inline-size: 7%;
   }
 
   .phone,
   .referrerPhone {
-    inline-size: 11%;
+    inline-size: 9%;
   }
 
   .referrer {
     inline-size: 10%;
+  }
+
+  .delivery {
+    inline-size: 4%;
+    text-align: center;
   }
 
   .firstTime {
@@ -159,8 +173,8 @@
     inline-size: 11%;
   }
 
-  .referrerComments {
-    inline-size: 13%;
+  .picklistAdmin {
+    inline-size: 17%;
   }
 
   .pickNumber,

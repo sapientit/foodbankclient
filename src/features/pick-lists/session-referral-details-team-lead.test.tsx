@@ -25,8 +25,8 @@ const household = (
   referrerOrganisation: 'Citizens Advice',
   referrerPhone: '01483 999999',
   pickNumber,
-  answers: {},
-  formId: 'form-1',
+  picklistAdmin: null,
+  isDelivery: false,
   firstTimeMarker: null,
   voucherInstruction: null,
   ...extra,
@@ -120,8 +120,8 @@ describe('team-lead run sheet', () => {
               referrerName: 'Sam Referrer',
               referrerPhone: '01483 999999',
               pickNumber: 1,
-              answers: {},
-              formId: 'form-1',
+              picklistAdmin: null,
+              isDelivery: false,
               firstTimeMarker: null,
               voucherInstruction: null,
             },
@@ -154,8 +154,8 @@ describe('team-lead run sheet', () => {
       referrerName: 'Sam Referrer',
       referrerPhone: '01483 999999',
       pickNumber,
-      answers: {},
-      formId: 'form-1',
+      picklistAdmin: null,
+      isDelivery: false,
       firstTimeMarker: null,
       voucherInstruction: null,
     });
@@ -234,7 +234,7 @@ describe('team-lead run sheet', () => {
       name: 'Run sheet for every household on this session',
     });
     const headings = screen.getAllByRole('columnheader');
-    expect(headings).toHaveLength(9);
+    expect(headings).toHaveLength(10);
     expect(table.querySelectorAll('colgroup > col')).toHaveLength(headings.length);
     // The long values are on the page in full rather than truncated into it:
     // the columns wrap, they do not clip.
@@ -254,7 +254,7 @@ describe('team-lead run sheet', () => {
       name: 'Run sheet for every household on this session',
     });
     const headings = within(table).getAllByRole('columnheader');
-    expect(headings).toHaveLength(10);
+    expect(headings).toHaveLength(11);
     expect(table.querySelectorAll('colgroup > col')).toHaveLength(headings.length);
   });
 
@@ -269,11 +269,11 @@ describe('team-lead run sheet', () => {
       household('r1', 'Jamie', 'Rowe', 1, {
         firstTimeMarker: 'first_time',
         voucherInstruction: 'provide_voucher',
-        answers: { Other: '  Two cats and a dog  ' },
+        picklistAdmin: 'Ring the bell twice',
       }),
       household('r2', 'Alex', 'Shaw', null, {
         voucherInstruction: 'already_received',
-        answers: { Other: 'Works until 11' },
+        picklistAdmin: 'No tins',
       }),
     ]);
 
@@ -285,24 +285,26 @@ describe('team-lead run sheet', () => {
     const headings = within(table)
       .getAllByRole('columnheader')
       .map((cell) => cell.textContent);
-    expect(headings.slice(-3)).toEqual(['First?', 'Voucher', 'Referrer comments']);
+    expect(headings.slice(-4)).toEqual(['Del?', 'First?', 'Voucher', 'Pick list notes']);
 
     const cellsOf = (name: RegExp) =>
       within(screen.getByRole('row', { name }))
         .getAllByRole('cell')
-        .slice(-3)
+        .slice(-4)
         .map((cell) => cell.textContent);
     expect(cellsOf(/Jamie Rowe/)).toEqual([
+      '',
       'First time',
       'Provide voucher for this client',
-      'Two cats and a dog',
+      'Ring the bell twice',
     ]);
     // Not yet picked for, and still shown. A recorded previous session leaves
     // First? blank, as on the Client List.
     expect(cellsOf(/Alex Shaw/)).toEqual([
       '',
+      '',
       'Client has already received voucher',
-      'Works until 11',
+      'No tins',
     ]);
   });
 
@@ -316,18 +318,17 @@ describe('team-lead run sheet', () => {
     expect(within(row).getByRole('cell', { name: 'Admin' })).toBeInTheDocument();
   });
 
-  /** Only the `Other` answer reaches the sheet, whatever else the referral answered. */
-  it('shows no form answer but the referrer comments', async () => {
+  it('shows the pick-list note and no arbitrary referral answer', async () => {
     serveRunSheet([
       household('r1', 'Jamie', 'Rowe', 1, {
-        answers: { Other: 'Two cats', Allergies: 'Peanuts', Pets: 'Dog' },
+        picklistAdmin: 'Ring the bell twice',
       }),
     ]);
 
     renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
 
     await screen.findByRole('row', { name: /Jamie Rowe/ });
-    expect(screen.getByText('Two cats')).toBeInTheDocument();
+    expect(screen.getByText('Ring the bell twice')).toBeInTheDocument();
     expect(screen.queryByText('Peanuts')).toBeNull();
     expect(screen.queryByText('Dog')).toBeNull();
   });

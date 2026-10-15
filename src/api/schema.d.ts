@@ -1572,15 +1572,20 @@ export interface paths {
          *     picking sheet for a delivery.
          *
          *     **It also carries what the Run Sheet shows beside each household** —
-         *     the form `answers` whole (the screen's "Referrer comments" is the
-         *     "other information" answer, and which key that is belongs to the
-         *     form), `firstTimeMarker` and `voucherInstruction`. These come with the
-         *     referral, not the parcel, so a household not yet picked for carries
-         *     them too; you do not need the pick list to show them.
+         *     `picklistAdmin` (the administrators' line for the picker, read live),
+         *     `isDelivery`, `firstTimeMarker` and `voucherInstruction`. These come
+         *     with the referral, not the parcel, so a household not yet picked for
+         *     carries them too; you do not need the pick list to show them.
+         *
+         *     **No `answers` and no `formId`.** The Run Sheet no longer shows the
+         *     "other information" answer — `picklistAdmin` has taken its place — and
+         *     the whole answer map was every dynamic answer the referrer gave, on a
+         *     team-lead payload, for the sake of one.
          *
          *     **What it deliberately leaves out:** date of birth, the reason for
          *     referral, the administrator's review comment, the administrators'
-         *     note, the parcel contents, and the referrer's email address. The reason in
+         *     note, the form's answers, the parcel contents, and the referrer's email
+         *     address. The reason in
          *     particular stays where it was — a team leader gets it on the listener
          *     sheet and nowhere else.
          *
@@ -1614,6 +1619,82 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["SessionReferralDetails"];
+                    };
+                };
+                /** @description No such session */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{sessionId}/model-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The model parcel the current grid gives each household on a session
+         * @description For the **model summary** screen within running a session — open to a
+         *     team leader as well as an administrator. The **one** place a team
+         *     leader is told anything the household grid says; the grid and the
+         *     model parcels themselves stay administrator-only.
+         *
+         *     **Looked up on every request from the grid as it stands.** Nothing is
+         *     stored on the referral or the parcel, so after an administrator edits
+         *     the grid the next read shows the new name — even for a household whose
+         *     parcel was generated under the old grid. That is what was asked for:
+         *     this shows what the grid says now, not what a parcel was copied from.
+         *
+         *     **A size the current grid has no entry for** gives that household
+         *     `modelParcelName: null` — never an older grid's answer or an invented
+         *     name. The rest of the list is still returned. This is deliberately
+         *     unlike `POST /sessions/{sessionId}/pick-list`, which refuses while the
+         *     grid is incomplete.
+         *
+         *     **What it leaves out:** the grid, any model parcel's contents, stock
+         *     lines, preferences, addresses, phone numbers, dates of birth, the
+         *     reason for referral and the answers.
+         *
+         *     **Who is on it:** the same households as
+         *     `GET /sessions/{sessionId}/referral-details` — every household holding
+         *     a place, deliveries included, cancelled and rejected left off.
+         *
+         *     **No order is promised.** Sort the households yourself; the order the
+         *     screen shows them in is the client's to choose.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sessionId: components["parameters"]["SessionId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The session's households and their current model parcel */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SessionModelSummary"];
                     };
                 };
                 /** @description No such session */
@@ -7748,7 +7829,7 @@ export interface components {
             adminInfo?: string | null;
             /**
              * @description **Admin only, on exactly the responses `adminInfo` is on** — one referral at a time — and absent everywhere `adminInfo` is absent, `ReferralSearchResult` included. Absent rather than null for a team lead.
-             *     The administrators' one line for whoever packs the bag: what the office needs the picker to know that the form does not ask. A team lead receives it on `Parcel.picklistAdmin`, which is where the picker needs it, and nowhere else. Not on the listener sheet, the referral-details list, the fuel help list, SMS or the spreadsheet extract. Amend it through `ReferralAmend.picklistAdmin`.
+             *     The administrators' one line for whoever packs the bag: what the office needs the picker to know that the form does not ask. A team lead receives it on `Parcel.picklistAdmin`, which is where the picker needs it, and on `ReferralDetailsHousehold.picklistAdmin` for the Run Sheet, and nowhere else. Not on the listener sheet, the fuel help list, SMS or the spreadsheet extract. Amend it through `ReferralAmend.picklistAdmin`.
              *     Null when there is none.
              */
             picklistAdmin?: string | null;
@@ -7916,7 +7997,25 @@ export interface components {
             location: string;
             referrals: components["schemas"]["ReferralDetailsHousehold"][];
         };
-        /** @description One household on the Run Sheet: contact details for the session being run, plus the answers and the two derived first-time and voucher values. `referrerOrganisation` and `pickNumber` aside, every field is typed nullable to match `Referral`'s own referee and referrer columns — in practice none of them is null for a referral the food bank still holds. `pickNumber` is nullable for a different reason — see its own description. */
+        SessionModelSummary: {
+            /** Format: uuid */
+            sessionId: string;
+            households: components["schemas"]["ModelSummaryHousehold"][];
+        };
+        /** @description One household and the model parcel the current household grid gives it. Nothing else about the referral, the grid or the model parcel. */
+        ModelSummaryHousehold: {
+            /** @description As `ReferralDetailsHousehold.pickNumber`: null until the household has a parcel. Show a blank, not a made-up number. */
+            pickNumber: number | null;
+            /** @description The name the **current** grid gives a household of this size, the counts clamped into the grid as pick-list generation does. Null when the current grid has no entry for it. */
+            modelParcelName: string | null;
+            refereeFirstName: string | null;
+            refereeSurname: string | null;
+            /** @description The count the client sent, as stored — not clamped to the grid. */
+            adults: number;
+            /** @description The count the client sent, as stored — not clamped to the grid. */
+            children: number;
+        };
+        /** @description One household on the Run Sheet: contact details for the session being run, plus the line for the picker, the delivery marker and the two derived first-time and voucher values. `referrerOrganisation` and `pickNumber` aside, every field is typed nullable to match `Referral`'s own referee and referrer columns — in practice none of them is null for a referral the food bank still holds. `pickNumber` is nullable for a different reason — see its own description. */
         ReferralDetailsHousehold: {
             /** Format: uuid */
             referralId: string;
@@ -7933,15 +8032,10 @@ export interface components {
             referrerPhone: string | null;
             /** @description The number on the household's parcel — the same `pickNumber` as on the picking sheets, short enough to read out over the phone. Null when the household has no parcel yet: no pick list has been generated for the session, or it was referred after one was. Unlike the listener sheet, this list is never refused over a missing pick number — it is open before picking happens at all. */
             pickNumber: number | null;
-            /** @description The dynamic answers, whole, as on the listener sheet. Take the "other information" one for the Run Sheet's "Referrer comments"; the server does not know which key that is. Render with the release named by `formId`. */
-            answers: {
-                [key: string]: unknown;
-            };
-            /**
-             * Format: uuid
-             * @description The release of the referral form these answers were given to — see `ListenerSheetHousehold.formId`. Null never in practice.
-             */
-            formId: string | null;
+            /** @description The referral's current administrators' line for the picker — the same value as `Parcel.picklistAdmin`, read on every request rather than copied, so an amendment shows on the next read without a pick list being generated again. Present whether or not the household has a parcel yet. It must never say why the household was referred; only the administrator typing it can ensure that. Null when there is none. */
+            picklistAdmin: string | null;
+            /** @description `true` only where the referral's `collectionMethod` is `delivery`; `false` for `collection` and `referrer_collect`. For the Run Sheet's compact delivery marker. */
+            isDelivery: boolean;
             /**
              * @description Whether this household is new — **identical to `Parcel.firstTimeMarker`**, same rule, same values, present whether or not the household has a parcel yet. Never the date or the raw review status.
              * @enum {string|null}

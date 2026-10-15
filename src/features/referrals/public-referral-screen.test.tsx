@@ -320,7 +320,7 @@ describe('the public referral form', () => {
     // reworded twice; the cell labels are built by the grid itself, so matching
     // on them is what stops a reworded question failing a test about adults.
     await user.clear(screen.getByLabelText('18 to State Pension age, Female'));
-    await user.type(screen.getByLabelText('0–4, Male'), '1');
+    await user.type(screen.getByLabelText('0–2, Male'), '1');
     await user.click(next());
 
     expect(

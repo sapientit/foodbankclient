@@ -250,8 +250,8 @@ describe('splitSubmission', () => {
  * would recognise as their household.
  */
 const TEN_PEOPLE = {
-  '0-4': { female: 1, male: 1 },
-  '5-11': { female: 1, male: 1 },
+  '0-2': { female: 1, male: 1 },
+  '3-11': { female: 1, male: 1 },
   '12-17': { female: 1, male: 1 },
   'working-age': { female: 1, male: 1 },
   'state-pension-age': { female: 1, male: 1 },

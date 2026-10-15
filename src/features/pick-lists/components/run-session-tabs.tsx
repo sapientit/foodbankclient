@@ -62,6 +62,11 @@ export function RunSessionTabs({ readOnly, sessionId }: { readOnly: boolean; ses
             </NavLink>
           </li>
           <li>
+            <NavLink end to={`/run-sessions/${sessionId}/model-summary`}>
+              Model summary
+            </NavLink>
+          </li>
+          <li>
             <NavLink
               aria-label={
                 unreadTotal > 0 ? `Text messages (${String(unreadTotal)} unread)` : undefined

@@ -93,14 +93,14 @@ function GenderIcon({ gender }: { readonly gender: (typeof HOUSEHOLD_GENDERS)[nu
 
 function AgeIcon({ ageBand }: { readonly ageBand: (typeof HOUSEHOLD_AGE_BANDS)[number]['key'] }) {
   switch (ageBand) {
-    case '0-4':
+    case '0-2':
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <circle cx="7" cy="8" r="2.5" />
           <path d="M9 11c4 0 6 2 7 5l2 3M9 12l-4 3-2 4m6-4 4 5" />
         </svg>
       );
-    case '5-11':
+    case '3-11':
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <circle cx="10" cy="5" r="2.5" />

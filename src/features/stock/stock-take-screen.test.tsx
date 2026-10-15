@@ -180,6 +180,7 @@ describe('saving a stock take page', () => {
 
     expect(await screen.findByText('One changed count saved.')).toBeInTheDocument();
     expect(bodies).toEqual([
+      { counts: [{ stockItemId: 'item-41', countedQuantity: 99 }], crateCounts: [] },
       { counts: [{ stockItemId: 'item-1', countedQuantity: 99 }], crateCounts: [] },
     ]);
   });
@@ -212,7 +213,7 @@ describe('saving a stock take page', () => {
     expect(screen.getByLabelText('Counted Item 1 individually')).toHaveValue('');
   });
 
-  it('saves one forty-row stock-take page without carrying an unsaved count to the next page', async () => {
+  it('automatically saves a changed page before moving to the next one', async () => {
     const levels = directLevels(41);
     const bodies: unknown[] = [];
     server.use(
@@ -243,6 +244,7 @@ describe('saving a stock take page', () => {
 
     expect(await screen.findByText('One changed count saved.')).toBeInTheDocument();
     expect(bodies).toEqual([
+      { counts: [{ stockItemId: 'item-1', countedQuantity: 99 }], crateCounts: [] },
       { counts: [{ stockItemId: 'item-41', countedQuantity: 99 }], crateCounts: [] },
     ]);
   });

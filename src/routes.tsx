@@ -16,6 +16,7 @@ import {
 import { RunSessionLayout } from './features/pick-lists/components/run-session-layout';
 import { ListenerSheetScreen } from './features/pick-lists/components/listener-sheet-screen';
 import { SessionReferralDetailsScreen } from './features/pick-lists/components/session-referral-details-screen';
+import { SessionModelSummaryScreen } from './features/pick-lists/components/session-model-summary-screen';
 import {
   RunSessionMessagesScreen,
   SmsInboxLayout,
@@ -175,6 +176,7 @@ export const routes: RouteObject[] = [
           { path: 'print', element: <PickListPrintScreen /> },
           { path: 'listener', element: <ListenerSheetScreen /> },
           { path: 'referral-details', element: <SessionReferralDetailsScreen /> },
+          { path: 'model-summary', element: <SessionModelSummaryScreen /> },
           { path: 'messages', element: <RunSessionMessagesScreen /> },
         ],
       },

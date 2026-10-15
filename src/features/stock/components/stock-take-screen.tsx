@@ -63,6 +63,17 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (Object.keys(typed).length === 0) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => {
+      window.removeEventListener('beforeunload', warn);
+    };
+  }, [typed]);
+
   const model = useMemo(() => {
     if (levels.data === undefined || crates.data === undefined || groupingId === '') return null;
     const crateMemberIds = new Set(
@@ -185,8 +196,8 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
     });
     setSavedMessage(null);
   };
-  const saveGrouping = async () => {
-    if (model === null) return;
+  const saveGrouping = async (): Promise<boolean> => {
+    if (model === null) return false;
     const errors: Record<string, string> = {};
     const counts: StockTakeCount[] = [];
     const crateCounts: StockTakeCrateCount[] = [];
@@ -237,16 +248,23 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
     }
     if (counts.length + crateCounts.length > 200) errors.page = COUNT_MESSAGES['too-many'];
     setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) return false;
     if (counts.length + crateCounts.length === 0) {
       setSavedMessage('Nothing changed in this grouping. Nothing was saved.');
-      return;
+      return true;
     }
     try {
       const result = await save.mutateAsync({ counts, crateCounts });
       setBaselines((current) => {
         const next: Record<string, number> = { ...current };
-        for (const level of result.levels) next[level.stockItemId] = level.quantityOnHand;
+        const savedItemIds = new Set([
+          ...counts.map((count) => count.stockItemId),
+          ...pageCrates
+            .filter((crate) => crateCounts.some((count) => count.crateId === crate.id))
+            .flatMap((crate) => crate.members.map((member) => member.stockItemId)),
+        ]);
+        for (const level of result.levels)
+          if (savedItemIds.has(level.stockItemId)) next[level.stockItemId] = level.quantityOnHand;
         return next;
       });
       const savedKeys = new Set([
@@ -262,8 +280,10 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
           ? 'One changed count saved.'
           : `${String(result.applied)} changed counts saved.`,
       );
+      return true;
     } catch {
       /* keep entered values so the server error can be read and corrected */
+      return false;
     }
   };
 
@@ -461,10 +481,13 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
                   className="button-secondary"
                   disabled={pageIndex === 0}
                   onClick={() => {
-                    setPage(pageIndex - 1);
-                    setTyped({});
-                    setFieldErrors({});
-                    setSavedMessage(null);
+                    void saveGrouping().then((saved) => {
+                      if (!saved) return;
+                      setPage(pageIndex - 1);
+                      setTyped({});
+                      setFieldErrors({});
+                      setSavedMessage(null);
+                    });
                   }}
                   type="button"
                 >
@@ -474,10 +497,13 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
                   className="button-secondary"
                   disabled={pageIndex === pageCount - 1}
                   onClick={() => {
-                    setPage(pageIndex + 1);
-                    setTyped({});
-                    setFieldErrors({});
-                    setSavedMessage(null);
+                    void saveGrouping().then((saved) => {
+                      if (!saved) return;
+                      setPage(pageIndex + 1);
+                      setTyped({});
+                      setFieldErrors({});
+                      setSavedMessage(null);
+                    });
                   }}
                   type="button"
                 >

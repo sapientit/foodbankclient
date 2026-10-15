@@ -4,18 +4,13 @@ import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatSessionDate } from '../../../lib/london-time';
 import { useSessionReferralDetails } from '../queries';
-import {
-  FIRST_TIME_MARKER,
-  byPickNumber,
-  otherAnswer,
-  voucherInstructionLabel,
-} from '../run-session.logic';
+import { FIRST_TIME_MARKER, byPickNumber, voucherInstructionLabel } from '../run-session.logic';
 import styles from './session-referral-details-screen.module.css';
 
 /**
  * The Run sheet: the session's contact list, plus the three things the Client
  * List also shows about each household — whether they are new, the
- * Christmas-voucher instruction and the referrer's comments. All three come
+ * Christmas-voucher instruction, the picker note and delivery marker. All come
  * with the referral, so a household nobody has picked for yet has them too.
  * `screenDetails.md`, "#Session processing".
  */
@@ -93,22 +88,24 @@ export function SessionReferralDetailsScreen() {
               <col className={styles.phone} />
               <col className={styles.referrer} />
               <col className={styles.referrerPhone} />
+              <col className={styles.delivery} />
               <col className={styles.firstTime} />
               {voucherSchemeApplies && <col className={styles.voucher} />}
-              <col className={styles.referrerComments} />
+              <col className={styles.picklistAdmin} />
             </colgroup>
             <thead>
               <tr>
-                <th scope="col">Pick #</th>
+                <th scope="col">#</th>
                 <th scope="col">Client</th>
                 <th scope="col">Address</th>
-                <th scope="col">Postcode</th>
+                <th scope="col">P-Code</th>
                 <th scope="col">Phone</th>
                 <th scope="col">Referrer</th>
-                <th scope="col">Referrer phone</th>
+                <th scope="col">Ref Phone</th>
+                <th scope="col">Del?</th>
                 <th scope="col">First?</th>
                 {voucherSchemeApplies && <th scope="col">Voucher</th>}
-                <th scope="col">Referrer comments</th>
+                <th scope="col">Pick list notes</th>
               </tr>
             </thead>
             <tbody>
@@ -131,6 +128,7 @@ export function SessionReferralDetailsScreen() {
                   <td>{referral.refereePhone ?? '—'}</td>
                   <td>{referral.referrerName ?? '—'}</td>
                   <td>{referral.referrerPhone ?? '—'}</td>
+                  <td>{referral.isDelivery ? <span aria-label="Delivery">✓</span> : ''}</td>
                   <td>
                     {referral.firstTimeMarker === null
                       ? ''
@@ -143,7 +141,7 @@ export function SessionReferralDetailsScreen() {
                         : voucherInstructionLabel(referral.voucherInstruction)}
                     </td>
                   )}
-                  <td>{otherAnswer(referral) ?? ''}</td>
+                  <td>{referral.picklistAdmin ?? ''}</td>
                 </tr>
               ))}
             </tbody>

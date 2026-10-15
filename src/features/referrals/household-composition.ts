@@ -6,8 +6,8 @@
 export const HOUSEHOLD_COMPONENTS_KEY = 'Household Components';
 
 export const HOUSEHOLD_AGE_BANDS = [
-  { key: '0-4', label: '0–4' },
-  { key: '5-11', label: '5–11' },
+  { key: '0-2', label: '0–2' },
+  { key: '3-11', label: '3–11' },
   { key: '12-17', label: '12–17' },
   { key: 'working-age', label: '18 to State Pension age' },
   { key: 'state-pension-age', label: 'State Pension age or over' },
@@ -64,8 +64,8 @@ function rowTotal(composition: HouseholdComposition, band: HouseholdAgeBand): nu
  * preference rules, and the pair sent to the server as `adults` and `children`.
  *
  * **They are not the everyday meanings of the two words and are not meant to
- * be.** An adult here is anyone aged 12 or over, a child is the 5-11 band
- * alone, and the 0-4 band counts towards neither — because these are the axes
+ * be.** An adult here is anyone aged 12 or over, a child is the 3-11 band
+ * alone, and the 0-2 band counts towards neither — because these are the axes
  * of the household grid, which is the charity's rule about how much food a
  * household needs rather than a description of who lives there. A teenager
  * eats an adult's share; an infant is fed from elsewhere.
@@ -84,7 +84,7 @@ export function operationalHouseholdCounts(composition: HouseholdComposition): {
       rowTotal(composition, '12-17') +
       rowTotal(composition, 'working-age') +
       rowTotal(composition, 'state-pension-age'),
-    children: rowTotal(composition, '5-11'),
+    children: rowTotal(composition, '3-11'),
   };
 }
 
@@ -104,6 +104,6 @@ export function commonUsageHouseholdCounts(composition: HouseholdComposition): {
   return {
     adults: rowTotal(composition, 'working-age') + rowTotal(composition, 'state-pension-age'),
     children:
-      rowTotal(composition, '0-4') + rowTotal(composition, '5-11') + rowTotal(composition, '12-17'),
+      rowTotal(composition, '0-2') + rowTotal(composition, '3-11') + rowTotal(composition, '12-17'),
   };
 }

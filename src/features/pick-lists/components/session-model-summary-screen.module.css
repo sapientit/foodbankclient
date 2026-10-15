@@ -1,0 +1,47 @@
+/* The model summary is one of the session sub-screens, so it uses the same
+   green header and working card as the Run sheet. */
+.page {
+  background: #ffffff;
+}
+
+.headerCard {
+  margin-block-end: 1.5rem;
+  padding: 1.5rem 1.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1faf5);
+}
+
+.detailsCard {
+  margin-block: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid #c7e2d2;
+  border-radius: 0.5rem;
+  background: var(--category-tint, #f1faf5);
+  box-shadow: 0 0.2rem 0.7rem rgb(15 122 68 / 7%);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.tableWrap:focus-visible {
+  outline: 3px solid #005a9c;
+  outline-offset: 2px;
+}
+
+.tableWrap table {
+  inline-size: 100%;
+  min-inline-size: 42rem;
+  border-collapse: collapse;
+}
+
+.tableWrap th,
+.tableWrap td {
+  padding: 0.5rem;
+  border: 1px solid #767676;
+  text-align: start;
+}
+
+.tableWrap thead th {
+  border-block-end: 2px solid #1a1a1a;
+}

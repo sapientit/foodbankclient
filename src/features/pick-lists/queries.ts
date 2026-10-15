@@ -36,6 +36,7 @@ export type StockRequirementSummary =
   paths['/api/v1/pick-lists/stock-requirement-summary']['get']['responses'][200]['content']['application/json'];
 export type StockRequirementSummaryLine = components['schemas']['StockRequirementSummaryLine'];
 export type SessionReferralDetails = components['schemas']['SessionReferralDetails'];
+export type SessionModelSummary = components['schemas']['SessionModelSummary'];
 
 export interface PreparePickListsInput {
   /** Inclusive session-date window, expressed as London calendar dates. */
@@ -55,6 +56,20 @@ export function useSessionReferralDetails(sessionId: string) {
     queryFn: (): Promise<SessionReferralDetails> =>
       unwrap(
         api.GET('/api/v1/sessions/{sessionId}/referral-details', {
+          params: { path: { sessionId } },
+        }),
+      ),
+  });
+}
+
+/** The narrow, current-grid answer used only by the team-lead model summary. */
+export function useSessionModelSummary(sessionId: string) {
+  return useQuery({
+    queryKey: pickListKeys.modelSummary(sessionId),
+    enabled: sessionId !== '',
+    queryFn: (): Promise<SessionModelSummary> =>
+      unwrap(
+        api.GET('/api/v1/sessions/{sessionId}/model-summary', {
           params: { path: { sessionId } },
         }),
       ),

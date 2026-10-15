@@ -9,8 +9,8 @@ import {
 /** One female and one male in all five age bands: ten people, counted two ways. */
 const oneOfEach = {
   ...emptyHouseholdComposition(),
-  '0-4': { female: 1, male: 1 },
-  '5-11': { female: 1, male: 1 },
+  '0-2': { female: 1, male: 1 },
+  '3-11': { female: 1, male: 1 },
   '12-17': { female: 1, male: 1 },
   'working-age': { female: 1, male: 1 },
   'state-pension-age': { female: 1, male: 1 },
@@ -18,12 +18,12 @@ const oneOfEach = {
 
 describe('isHouseholdComposition', () => {
   it('accepts only sparse positive cells in the declared age and gender grid', () => {
-    expect(isHouseholdComposition({ '0-4': { female: 1 } })).toBe(true);
-    expect(isHouseholdComposition({ '0-4': {} })).toBe(false);
-    expect(isHouseholdComposition({ '0-4': { female: 0 } })).toBe(false);
-    expect(isHouseholdComposition({ '0-4': { female: 31 } })).toBe(false);
+    expect(isHouseholdComposition({ '0-2': { female: 1 } })).toBe(true);
+    expect(isHouseholdComposition({ '0-2': {} })).toBe(false);
+    expect(isHouseholdComposition({ '0-2': { female: 0 } })).toBe(false);
+    expect(isHouseholdComposition({ '0-2': { female: 31 } })).toBe(false);
     expect(isHouseholdComposition({ '18-24': { female: 1 } })).toBe(false);
-    expect(isHouseholdComposition({ '0-4': { other: 1 } })).toBe(false);
+    expect(isHouseholdComposition({ '0-2': { other: 1 } })).toBe(false);
   });
 });
 
@@ -41,8 +41,8 @@ describe('operationalHouseholdCounts', () => {
   it('leaves the under-fives out of both counts', () => {
     const composition = {
       ...emptyHouseholdComposition(),
-      '0-4': { female: 2, male: 1 },
-      '5-11': { male: 1 },
+      '0-2': { female: 2, male: 1 },
+      '3-11': { male: 1 },
       'working-age': { female: 1 },
     };
 
@@ -56,7 +56,7 @@ describe('operationalHouseholdCounts', () => {
   it('sums every gender in a band, including non-binary and prefer not to say', () => {
     const composition = {
       ...emptyHouseholdComposition(),
-      '5-11': { female: 1, 'prefer-not-to-say': 2 },
+      '3-11': { female: 1, 'prefer-not-to-say': 2 },
       'working-age': { 'non-binary': 1, male: 1 },
     };
 
@@ -66,8 +66,8 @@ describe('operationalHouseholdCounts', () => {
   it('is zero adults for a household of nobody over eleven, which cannot be referred', () => {
     const composition = {
       ...emptyHouseholdComposition(),
-      '0-4': { female: 1 },
-      '5-11': { male: 2 },
+      '0-2': { female: 1 },
+      '3-11': { male: 2 },
     };
 
     expect(operationalHouseholdCounts(composition)).toEqual({ adults: 0, children: 2 });
@@ -82,7 +82,7 @@ describe('commonUsageHouseholdCounts', () => {
   it('counts a twelve to seventeen year old as a child and includes the under-fives', () => {
     const composition = {
       ...emptyHouseholdComposition(),
-      '0-4': { female: 1 },
+      '0-2': { female: 1 },
       '12-17': { male: 2 },
       'working-age': { female: 1, 'non-binary': 1 },
       'state-pension-age': { male: 1 },

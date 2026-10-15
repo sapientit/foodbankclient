@@ -623,10 +623,13 @@ function PicklistAdminPanel({
             to remove it.
           </p>
           <label htmlFor={inputId}>Pick list admin notes</label>
+          <p className={styles.referrerComments}>
+            Referrer comments: {referrerOther(referral.answers) ?? 'None provided.'}
+          </p>
           <input
             aria-describedby={hintId}
             autoComplete="off"
-            className={styles.input}
+            className={[styles.input, styles.picklistAdminInput].join(' ')}
             id={inputId}
             maxLength={MAX_PICKLIST_ADMIN_LENGTH}
             onChange={(event) => {
@@ -646,6 +649,11 @@ function PicklistAdminPanel({
       )}
     </section>
   );
+}
+
+function referrerOther(answers: Readonly<Record<string, unknown>>): string | null {
+  const value = answers.Other;
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
 
 const REPEAT_REFERRAL_OUTCOME_LABELS: Record<RepeatReferralMatch['outcome'], string> = {

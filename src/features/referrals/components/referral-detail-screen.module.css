@@ -230,6 +230,14 @@
   border-radius: 0.25rem;
 }
 
+.picklistAdminInput {
+  inline-size: min(80ch, 100%);
+}
+
+.referrerComments {
+  white-space: pre-wrap;
+}
+
 .select {
   min-block-size: 2.75rem;
   padding: 0.6rem 0.75rem;

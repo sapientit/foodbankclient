@@ -97,7 +97,7 @@ const PARCEL: Parcel = {
   answers: {
     Allergies: 'Gluten-free food for one person',
     Pulses: 'Vegetarian',
-    'Household Components': { '0-4': { male: 1 }, 'working-age': { 'non-binary': 1 } },
+    'Household Components': { '0-2': { male: 1 }, 'working-age': { 'non-binary': 1 } },
   },
   lines: [
     {
@@ -1345,14 +1345,14 @@ describe('a team lead running a session', () => {
    * `screenDetails.md`, "#Session processing": the referrer's own words, in a
    * narrow column squeezed in immediately before the status.
    */
-  it('shows the referrer comments in their own column immediately before the status', async () => {
+  it('shows pick-list notes in their own column immediately before the status', async () => {
     server.use(
       http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json({
           pickList: PICK_LIST,
           parcels: [
-            { ...PARCEL, answers: { ...PARCEL.answers, Other: 'Two cats and a dog' } },
+            { ...PARCEL, picklistAdmin: 'Bring to side door' },
             { ...PARCEL, id: 'parcel-2', referralId: 'referral-2', pickNumber: 2 },
           ],
         }),
@@ -1368,11 +1368,11 @@ describe('a team lead running a session', () => {
     const headings = within(table)
       .getAllByRole('columnheader')
       .map((cell) => cell.textContent);
-    expect(headings.indexOf('Referrer comments')).toBe(headings.indexOf('Status') - 1);
-    expect(within(table).getByRole('cell', { name: 'Two cats and a dog' })).toBeInTheDocument();
+    expect(headings.indexOf('Pick list notes')).toBe(headings.indexOf('Status') - 1);
+    expect(within(table).getByRole('cell', { name: 'Bring to side door' })).toBeInTheDocument();
   });
 
-  it('adds no tab stop for referrer comments that fit their three lines', async () => {
+  it('adds no tab stop for pick-list notes that fit their three lines', async () => {
     // jsdom lays nothing out, so stand in for an answer that exactly fits.
     const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(60);
     const clientHeight = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(60);
@@ -1385,7 +1385,7 @@ describe('a team lead running a session', () => {
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json({
           pickList: PICK_LIST,
-          parcels: [{ ...PARCEL, answers: { ...PARCEL.answers, Other: 'A short answer' } }],
+          parcels: [{ ...PARCEL, picklistAdmin: 'A short note' }],
         }),
       ),
       http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
@@ -1395,12 +1395,12 @@ describe('a team lead running a session', () => {
 
     renderApp(`/run-sessions/${SESSION.id}`);
 
-    const answer = await screen.findByText('A short answer');
+    const answer = await screen.findByText('A short note');
     expect(answer).not.toHaveAttribute('tabindex');
-    expect(screen.queryByRole('group', { name: /^Referrer comments/ })).toBeNull();
+    expect(screen.queryByRole('group', { name: /^Pick list notes/ })).toBeNull();
   });
 
-  it('lets the keyboard reach referrer comments too long for their three lines', async () => {
+  it('lets the keyboard reach pick-list notes too long for their three lines', async () => {
     // jsdom lays nothing out, so stand in for an answer that overflows its cell.
     const scrollHeight = vi
       .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
@@ -1415,7 +1415,7 @@ describe('a team lead running a session', () => {
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json({
           pickList: PICK_LIST,
-          parcels: [{ ...PARCEL, answers: { ...PARCEL.answers, Other: 'A long answer' } }],
+          parcels: [{ ...PARCEL, picklistAdmin: 'A long note' }],
         }),
       ),
       http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
@@ -1426,9 +1426,9 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}`);
 
     const answer = await screen.findByRole('group', {
-      name: 'Referrer comments for pick #1, Sam Taylor, scrolls',
+      name: 'Pick list notes for pick #1, Sam Taylor, scrolls',
     });
-    expect(answer).toHaveTextContent('A long answer');
+    expect(answer).toHaveTextContent('A long note');
     expect(answer).toHaveAttribute('tabindex', '0');
   });
 

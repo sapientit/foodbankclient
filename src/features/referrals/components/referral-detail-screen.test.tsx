@@ -473,7 +473,7 @@ describe('the admin referral detail screen', () => {
         HttpResponse.json(
           referral({
             id: 'r1',
-            answers: { 'Household Components': { '0-4': { male: 1 } } },
+            answers: { 'Household Components': { '0-2': { male: 1 } } },
           }),
         ),
       ),
@@ -483,7 +483,7 @@ describe('the admin referral detail screen', () => {
 
     const grid = await screen.findByRole('table', { name: 'Household composition' });
     expect(within(grid).getByText('1')).toBeInTheDocument();
-    expect(within(grid).getByText('0–4, Male:', { exact: false })).toBeInTheDocument();
+    expect(within(grid).getByText('0–2, Male:', { exact: false })).toBeInTheDocument();
     expect(screen.queryByText('Generated')).toBeNull();
   });
 
@@ -520,7 +520,7 @@ describe('the admin referral detail screen', () => {
               gender: 'Female',
               ethnicity: 'White -British',
               languages: 'English',
-              'Household Components': { '0-4': { male: 1 }, 'working-age': { female: 1 } },
+              'Household Components': { '0-2': { male: 1 }, 'working-age': { female: 1 } },
               'Collection method': 'On Foot',
             },
           }),
@@ -544,8 +544,8 @@ describe('the admin referral detail screen', () => {
     // control always opened on "-- choose --" regardless of what the
     // household had actually said.
     expect(screen.getByLabelText('How will the parcel be collected')).toHaveValue('On Foot');
-    await user.clear(screen.getByLabelText('0–4, Male'));
-    await user.type(screen.getByLabelText('0–4, Male'), '2');
+    await user.clear(screen.getByLabelText('0–2, Male'));
+    await user.type(screen.getByLabelText('0–2, Male'), '2');
     await user.selectOptions(
       screen.getByLabelText('How will the parcel be collected'),
       'Delivery Requested',
@@ -579,7 +579,7 @@ describe('the admin referral detail screen', () => {
           gender: 'Female',
           ethnicity: 'White -British',
           languages: 'English',
-          'Household Components': { '0-4': { male: 2 }, 'working-age': { female: 1 } },
+          'Household Components': { '0-2': { male: 2 }, 'working-age': { female: 1 } },
           // Regression: saving used to delete this key rather than update it,
           // because `splitSubmission` never put an answer here for the save
           // path to find.
