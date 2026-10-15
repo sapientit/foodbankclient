@@ -1666,9 +1666,13 @@ export interface paths {
          *     unlike `POST /sessions/{sessionId}/pick-list`, which refuses while the
          *     grid is incomplete.
          *
+         *     **It also carries** each household's `collectionMethod` and its
+         *     `answers` whole — the server never looks inside them; what the screen
+         *     shows from them is yours to decide.
+         *
          *     **What it leaves out:** the grid, any model parcel's contents, stock
-         *     lines, preferences, addresses, phone numbers, dates of birth, the
-         *     reason for referral and the answers.
+         *     lines, addresses, phone numbers, dates of birth and the reason for
+         *     referral.
          *
          *     **Who is on it:** the same households as
          *     `GET /sessions/{sessionId}/referral-details` — every household holding
@@ -8002,7 +8006,7 @@ export interface components {
             sessionId: string;
             households: components["schemas"]["ModelSummaryHousehold"][];
         };
-        /** @description One household and the model parcel the current household grid gives it. Nothing else about the referral, the grid or the model parcel. */
+        /** @description One household and the model parcel the current household grid gives it, with the household's collection method and answers. Nothing about the grid or the model parcel beyond the name. */
         ModelSummaryHousehold: {
             /** @description As `ReferralDetailsHousehold.pickNumber`: null until the household has a parcel. Show a blank, not a made-up number. */
             pickNumber: number | null;
@@ -8014,6 +8018,15 @@ export interface components {
             adults: number;
             /** @description The count the client sent, as stored — not clamped to the grid. */
             children: number;
+            /**
+             * @description As `Referral.collectionMethod`.
+             * @enum {string}
+             */
+            collectionMethod: "collection" | "delivery" | "referrer_collect";
+            /** @description The referral's dynamic answers, whole, exactly as stored. The server does not read or filter them. */
+            answers: {
+                [key: string]: unknown;
+            };
         };
         /** @description One household on the Run Sheet: contact details for the session being run, plus the line for the picker, the delivery marker and the two derived first-time and voucher values. `referrerOrganisation` and `pickNumber` aside, every field is typed nullable to match `Referral`'s own referee and referrer columns — in practice none of them is null for a referral the food bank still holds. `pickNumber` is nullable for a different reason — see its own description. */
         ReferralDetailsHousehold: {

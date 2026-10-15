@@ -262,7 +262,7 @@ The current household grid bands are `0–2`, `3–11`, `12–17`, 18 to State P
 
 During a stock take, moving between pages saves valid changed counts on the page first. Leaving or reloading with unsaved entries triggers the browser's standard unsaved-work warning.
 
-Running a session also has a `Model summary` screen for a team lead or administrator. It lists Pick #, the current grid's model name, client, children and adults; it totals adults and children. It defaults to model-name order, then Pick #, and may instead be ordered by Pick #. Only model-name order enables copying the first three columns. The model name is the current grid lookup, not a value saved with a referral or parcel.
+Running a session also has a `Model summary` screen for a team lead or administrator. It lists Pick #, the current grid's model name, client, collection method, Dietary Req, children and adults; it totals adults and children. Dietary Req is the referral answer stored under the legacy `Allergies` key and is blank where that answer was not supplied. It defaults to model-name order, then Pick #, and may instead be ordered by Pick #. Only model-name order enables copying all displayed operational columns other than the totals. The model name is the current grid lookup, not a value saved with a referral or parcel.
 
 A session cannot be closed while anybody on it is still unmarked. When the screen refuses to close a session it names the pick numbers still waiting, because what the team leader needs to know is who is missing.
 

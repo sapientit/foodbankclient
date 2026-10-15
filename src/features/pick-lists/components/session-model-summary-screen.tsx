@@ -9,6 +9,22 @@ import styles from './session-model-summary-screen.module.css';
 
 type Order = 'model' | 'pick-number';
 
+function collectionMethodLabel(method: 'collection' | 'delivery' | 'referrer_collect'): string {
+  switch (method) {
+    case 'collection':
+      return 'Collection';
+    case 'delivery':
+      return 'Delivery';
+    case 'referrer_collect':
+      return 'Referrer collection';
+  }
+}
+
+function dietaryRequirement(answers: Readonly<Record<string, unknown>>): string {
+  const value = answers.Allergies;
+  return typeof value === 'string' ? value : '';
+}
+
 /** Current-grid parcel names for the session, intentionally not a parcel history. */
 export function SessionModelSummaryScreen() {
   const { sessionId = '' } = useParams();
@@ -58,10 +74,14 @@ export function SessionModelSummaryScreen() {
             : `#${String(household.pickNumber)}`,
           household.modelParcelName ?? '',
           [household.refereeFirstName, household.refereeSurname].filter(Boolean).join(' '),
+          collectionMethodLabel(household.collectionMethod),
+          dietaryRequirement(household.answers),
         ].join('\t'),
       )
       .join('\n');
-    const header = ['Pick #', 'Model name', 'Client'].join('\t');
+    const header = ['Pick #', 'Model name', 'Client', 'Collection method', 'Dietary Req'].join(
+      '\t',
+    );
     setCopied(await copyToClipboard(`${header}\n${rows}`));
   };
 
@@ -86,7 +106,7 @@ export function SessionModelSummaryScreen() {
             </select>
           </label>{' '}
           <button disabled={order !== 'model'} onClick={() => void copy()} type="button">
-            {copied ? 'Copied' : 'Copy pick list, model and client'}
+            {copied ? 'Copied' : 'Copy model summary'}
           </button>
         </p>
         <p>
@@ -99,6 +119,8 @@ export function SessionModelSummaryScreen() {
                 <th scope="col">Pick #</th>
                 <th scope="col">Model name</th>
                 <th scope="col">Client</th>
+                <th scope="col">Collection method</th>
+                <th scope="col">Dietary Req</th>
                 <th scope="col">Children</th>
                 <th scope="col">Adults</th>
               </tr>
@@ -119,6 +141,8 @@ export function SessionModelSummaryScreen() {
                       .filter(Boolean)
                       .join(' ') || 'Unknown'}
                   </th>
+                  <td>{collectionMethodLabel(household.collectionMethod)}</td>
+                  <td>{dietaryRequirement(household.answers)}</td>
                   <td>{household.children}</td>
                   <td>{household.adults}</td>
                 </tr>
