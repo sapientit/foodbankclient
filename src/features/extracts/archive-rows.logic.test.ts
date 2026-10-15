@@ -81,7 +81,7 @@ describe('spreadsheet archive rows', () => {
   it('expands household composition into its reporting columns, never one JSON cell', () => {
     const composition = {
       ...emptyHouseholdComposition(),
-      '0-4': { female: 1 },
+      '0-2': { female: 1 },
       'state-pension-age': { male: 2, 'prefer-not-to-say': 1 },
     };
     const compositionRow = { ...row, answers: { [HOUSEHOLD_COMPONENTS_KEY]: composition } };
@@ -89,7 +89,7 @@ describe('spreadsheet archive rows', () => {
     const cells = archiveRows(session, [compositionRow], headers, {})[0] ?? [];
 
     expect(answerKeys([compositionRow])).toEqual(HOUSEHOLD_COMPOSITION_SHEET_COLUMNS);
-    expect(cells[headers.indexOf('householdComposition.0-4.female')]).toBe(1);
+    expect(cells[headers.indexOf('householdComposition.0-2.female')]).toBe(1);
     expect(cells[headers.indexOf('householdComposition.state-pension-age.male')]).toBe(2);
     expect(cells[headers.indexOf('householdComposition.state-pension-age.prefer-not-to-say')]).toBe(
       1,

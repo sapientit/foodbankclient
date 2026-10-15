@@ -274,7 +274,7 @@ describe('writing a claim to the spreadsheet', () => {
     const writes = stubSheets(FIXED_HEADERS, [['key', 'column']]);
     const composition = {
       ...emptyHouseholdComposition(),
-      '0-4': { female: 1 },
+      '0-2': { female: 1 },
       'state-pension-age': { male: 2 },
     };
 
