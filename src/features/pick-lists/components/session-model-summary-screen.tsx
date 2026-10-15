@@ -69,9 +69,7 @@ export function SessionModelSummaryScreen() {
     const rows = households
       .map((household) =>
         [
-          household.pickNumber === null || household.pickNumber === undefined
-            ? ''
-            : `#${String(household.pickNumber)}`,
+          household.pickNumber === null ? '' : `#${String(household.pickNumber)}`,
           household.modelParcelName ?? '',
           [household.refereeFirstName, household.refereeSurname].filter(Boolean).join(' '),
           collectionMethodLabel(household.collectionMethod),
@@ -131,9 +129,7 @@ export function SessionModelSummaryScreen() {
                   key={`${String(household.pickNumber ?? 'none')}-${household.refereeFirstName ?? ''}-${household.refereeSurname ?? ''}-${String(index)}`}
                 >
                   <td>
-                    {household.pickNumber === null || household.pickNumber === undefined
-                      ? '—'
-                      : `#${String(household.pickNumber)}`}
+                    {household.pickNumber === null ? '—' : `#${String(household.pickNumber)}`}
                   </td>
                   <td>{household.modelParcelName ?? 'Not configured'}</td>
                   <th scope="row">
