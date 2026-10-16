@@ -19,7 +19,10 @@ export function usePublicQuestionnaire() {
   return useQuery({
     queryKey: configurationReleaseKeys.publicQuestionnaire(),
     queryFn: (): Promise<PublicQuestionnaire> =>
-      unwrap(publicApi.GET('/api/v1/public/questionnaire')),
+      // A configuration release can change independently of the app bundle.
+      // Do not let an old browser or edge response survive a sign-in-triggered
+      // reload and show yesterday's form.
+      unwrap(publicApi.GET('/api/v1/public/questionnaire', { cache: 'no-store' })),
   });
 }
 

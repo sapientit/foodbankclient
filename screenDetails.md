@@ -307,6 +307,11 @@ uploaded or made live. Only a version that passes both the confirmation and the 
 made the active version in the one action; a mistake is corrected by fixing the workbook and pressing
 the button again, and there is no other route to changing which version is live.
 
+The public referral form always reads the active Questionnaire afresh. A referrer who signs in or
+opens a fresh form after publication therefore sees the newly published questions, independently of
+whether the application bundle itself has changed; a stored browser or edge response must not keep
+an earlier form alive.
+
 #SMS reminders and replies
 The Client List screen's Text messages tab lets a team leader or administrator send SMS reminders, and carries the total number of unread incoming messages as a badge on the tab itself rather than as a line of text on the page — a small filled circle holding the count, so an unread total is visible without opening the tab. Colour is never the only signal: the count is read in the tab's accessible name as well as shown in the circle, so it is not lost to anyone who cannot see colour. A reminder goes to every household holding a place, including one pending review, but never to a cancelled or rejected referral. The person running the session can press Send SMS reminders again: newly referred households and earlier failures are tried, while households already reminded are not texted twice. The result states how many were sent, how many of those were simulated, failed and already sent, with failures prominent. An individual staff reply states whether it was sent or simulated.
 

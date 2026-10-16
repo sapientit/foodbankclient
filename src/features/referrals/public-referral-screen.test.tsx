@@ -177,6 +177,24 @@ function renderRefer() {
   );
 }
 
+it('bypasses HTTP caches when it loads the published questionnaire', async () => {
+  let cacheMode: RequestCache | undefined;
+  server.use(
+    http.get(QUESTIONNAIRE, ({ request }) => {
+      cacheMode = request.cache;
+      return HttpResponse.json({
+        formId: ACTIVE_FORM_ID,
+        questionnaire: JSON.stringify(rawFormConfig),
+      });
+    }),
+  );
+
+  renderRefer();
+
+  await screen.findByLabelText(/Referrer's name/);
+  expect(cacheMode).toBe('no-store');
+});
+
 /** The debounce is real time, so typing has to be followed by a real wait. */
 async function typeAddress(value: string) {
   const user = userEvent.setup();
