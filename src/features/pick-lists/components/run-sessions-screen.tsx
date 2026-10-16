@@ -693,22 +693,11 @@ export function RunSessionDetailScreen() {
     () => parsedReleases?.find((release) => release.status === 'published'),
     [parsedReleases],
   );
-  /*
-   * The shipped local configuration's own health, unrelated to any particular
-   * referral's release — a smoke test on the fixture this client still ships
-   * (the migration baseline, local dev, and every other test's default), kept
-   * exactly as it was before any release was fetched from the server.
-   */
-  const preferenceRuleHealth = useMemo(
-    () => (stockItems.data === undefined ? null : validatePreferenceRules(stockItems.data)),
-    [stockItems.data],
-  );
   /**
-   * The currently published release's own health, where this session's
-   * referrals actually name one. `resolvePickListBody` runs the identical
-   * check again before generating and throws if it fails — this copy is what
-   * lets the effect below refuse to call it in the first place, rather than
-   * throwing synchronously outside the mutation that would otherwise catch it.
+   * Only the published release a referral in this session actually names can
+   * block preparation. The bundled JSON is a local authoring/test fixture;
+   * validating it here would make a published correction depend on a client
+   * deployment. `resolvePickListBody` repeats this check before generating.
    */
   const publishedReleaseHealth = useMemo(
     () =>
@@ -722,13 +711,8 @@ export function RunSessionDetailScreen() {
     [stockItems.data, publishedRelease],
   );
   const preferenceRuleErrors = useMemo(
-    () => [
-      ...new Set([
-        ...(preferenceRuleHealth?.errors ?? []),
-        ...(publishedReleaseHealth?.errors ?? []),
-      ]),
-    ],
-    [preferenceRuleHealth, publishedReleaseHealth],
+    () => publishedReleaseHealth?.errors ?? [],
+    [publishedReleaseHealth],
   );
 
   useEffect(() => {

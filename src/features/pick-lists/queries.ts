@@ -6,7 +6,6 @@ import { fetchConfigurationReleasesBulk } from '../configuration-releases/querie
 import type { Referral } from '../referrals/queries';
 import { sessionKeys } from '../sessions/keys';
 import { pickListKeys } from './keys';
-import { validatePreferenceRules } from './preference-rules';
 import { distinctFormIds, parseReleases, resolvePickListBody } from './release-pick-list.logic';
 
 export type PickList = components['schemas']['PickList'];
@@ -179,10 +178,6 @@ export function usePreparePickLists() {
           }),
         ),
       ]);
-      const ruleHealth = validatePreferenceRules(stockItems);
-      if (ruleHealth.errors.length > 0)
-        throw new Error(`Preference rule configuration is invalid: ${ruleHealth.errors.join(' ')}`);
-
       const openSessions = sessions.filter(
         (session) => session.status === 'planned' || session.status === 'in_progress',
       );

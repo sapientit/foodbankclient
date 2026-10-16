@@ -29,7 +29,9 @@ vi.mock('../pick-lists/preference-rules', async (importOriginal) => {
   return {
     ...actual,
     resolvePreferenceLines: () => [],
-    validatePreferenceRules: () => ({ errors: [] }),
+    // The bundled authoring fixture can be stale without affecting a live
+    // release. The preparation flow must not call this default validator.
+    validatePreferenceRules: () => ({ errors: ['stale bundled rule'] }),
   };
 });
 
