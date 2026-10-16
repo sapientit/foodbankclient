@@ -43,10 +43,7 @@ import {
   dynamicQuestions,
   needsOptionSources,
 } from '../../referrals/referral-form-definition';
-import {
-  HOUSEHOLD_COMPONENTS_KEY,
-  isHouseholdComposition,
-} from '../../referrals/household-composition';
+import { householdCompositionForDisplay } from '../../referrals/household-composition';
 import {
   useConfirmSession,
   useMarkPickListPrinted,
@@ -524,7 +521,10 @@ export function PickListPrintScreen() {
             const sessionParcel = list.data.parcels.find(
               (candidate) => candidate.pickNumber === parcel.pickNumber,
             );
-            const householdComposition = sessionParcel?.answers[HOUSEHOLD_COMPONENTS_KEY];
+            const householdComposition =
+              sessionParcel === undefined
+                ? null
+                : householdCompositionForDisplay(sessionParcel.answers);
             const information =
               sessionParcel === undefined
                 ? null
@@ -559,8 +559,11 @@ export function PickListPrintScreen() {
                       {parcel.deliveryPhone}
                     </p>
                   )}
-                  {isHouseholdComposition(householdComposition) && (
-                    <HouseholdCompositionGrid composition={householdComposition} />
+                  {householdComposition !== null && (
+                    <HouseholdCompositionGrid
+                      ageBands={householdComposition.ageBands}
+                      composition={householdComposition.composition}
+                    />
                   )}
                 </header>
                 {information !== null && (
@@ -1471,13 +1474,16 @@ function ParcelPanel({
     (item) => draftLineIds.has(item.id) || (item.isActive && showUnselectedStockItems),
   );
   const needsAttention = draftLines.some((line) => line.quantity === -1);
-  const householdComposition = parcel.answers[HOUSEHOLD_COMPONENTS_KEY];
+  const householdComposition = householdCompositionForDisplay(parcel.answers);
 
   return (
     <section className={styles.parcelPanel}>
-      {isHouseholdComposition(householdComposition) && (
+      {householdComposition !== null && (
         <div className={styles.householdComposition}>
-          <HouseholdCompositionGrid composition={householdComposition} />
+          <HouseholdCompositionGrid
+            ageBands={householdComposition.ageBands}
+            composition={householdComposition.composition}
+          />
         </div>
       )}
       {/* Above the pickers' information rather than below it: `screenDetails.md`

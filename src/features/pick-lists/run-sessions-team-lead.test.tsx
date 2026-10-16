@@ -1575,6 +1575,73 @@ describe('a team lead running a session', () => {
     });
   });
 
+  it.each([
+    {
+      description: 'the former 0-4 and 5-11 age bands',
+      answers: {
+        'Household Components': { '0-4': { female: 1 }, '5-11': { male: 2 } },
+      },
+    },
+    {
+      description: 'the former Household composition answer key',
+      answers: {
+        'Household composition': { '0-4': { female: 1 }, '5-11': { male: 2 } },
+      },
+    },
+    {
+      description: 'a former answer key containing only shared age bands',
+      answers: {
+        'Household composition': { '12-17': { female: 1 } },
+      },
+    },
+  ])('prints household composition from $description', async ({ answers }) => {
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    onTestFinished(() => {
+      printSpy.mockRestore();
+    });
+    const reviewedParcel: Parcel = {
+      ...PARCEL,
+      reviewedAt: '2026-10-16T13:30:00.000Z',
+      answers,
+    };
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [reviewedParcel] }),
+      ),
+      http.get('/api/v1/pick-lists/:id/print', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [
+            {
+              pickNumber: 1,
+              refereeFirstName: 'Sam',
+              refereeSurname: 'Taylor',
+              isDelivery: false,
+              deliveryAddress: null,
+              deliveryPostcode: null,
+              deliveryPhone: null,
+              notes: null,
+              lines: [],
+            },
+          ],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.post('/api/v1/pick-lists/:id/print', () => HttpResponse.json(PICK_LIST)),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/print`);
+
+    const composition = await screen.findByRole('table', { name: 'Household composition' });
+    expect(within(composition).getByRole('columnheader', { name: '0–4' })).toBeInTheDocument();
+    expect(within(composition).getByRole('columnheader', { name: '5–11' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(printSpy).toHaveBeenCalledOnce();
+    });
+  });
+
   it('reprints with pick list admin notes changed since the sheets were first printed', async () => {
     const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     onTestFinished(() => {

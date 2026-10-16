@@ -4,10 +4,25 @@
  * answer for reporting, rather than as a second set of totals to maintain.
  */
 export const HOUSEHOLD_COMPONENTS_KEY = 'Household Components';
+/** The frozen key used by the first version of the composition grid. */
+export const LEGACY_HOUSEHOLD_COMPONENTS_KEY = 'Household composition';
 
 export const HOUSEHOLD_AGE_BANDS = [
   { key: '0-2', label: '0–2' },
   { key: '3-11', label: '3–11' },
+  { key: '12-17', label: '12–17' },
+  { key: 'working-age', label: '18 to State Pension age' },
+  { key: 'state-pension-age', label: 'State Pension age or over' },
+] as const;
+
+/**
+ * The grid stored before the October 2026 age-band change. Referrals retain
+ * their submitted answers, so operational displays must be able to read this
+ * shape without relabelling it as the newer one.
+ */
+export const LEGACY_HOUSEHOLD_AGE_BANDS = [
+  { key: '0-4', label: '0–4' },
+  { key: '5-11', label: '5–11' },
   { key: '12-17', label: '12–17' },
   { key: 'working-age', label: '18 to State Pension age' },
   { key: 'state-pension-age', label: 'State Pension age or over' },
@@ -25,17 +40,80 @@ export type HouseholdGender = (typeof HOUSEHOLD_GENDERS)[number]['key'];
 export type HouseholdComposition = Readonly<
   Partial<Record<HouseholdAgeBand, Readonly<Partial<Record<HouseholdGender, number>>>>>
 >;
+type LegacyHouseholdAgeBand = (typeof LEGACY_HOUSEHOLD_AGE_BANDS)[number]['key'];
+export type LegacyHouseholdComposition = Readonly<
+  Partial<Record<LegacyHouseholdAgeBand, Readonly<Partial<Record<HouseholdGender, number>>>>>
+>;
+
+/** A stored composition may use either the current or the historic age bands. */
+export type DisplayHouseholdComposition = HouseholdComposition | LegacyHouseholdComposition;
+export type HouseholdCompositionAgeBands =
+  typeof HOUSEHOLD_AGE_BANDS | typeof LEGACY_HOUSEHOLD_AGE_BANDS;
+
+export interface HouseholdCompositionDisplay {
+  readonly composition: DisplayHouseholdComposition;
+  readonly ageBands: HouseholdCompositionAgeBands;
+}
 
 export function emptyHouseholdComposition(): HouseholdComposition {
   return {};
 }
 
 export function isHouseholdComposition(value: unknown): value is HouseholdComposition {
+  return isCompositionForAgeBands(value, HOUSEHOLD_AGE_BANDS);
+}
+
+export function isLegacyHouseholdComposition(value: unknown): value is LegacyHouseholdComposition {
+  return isCompositionForAgeBands(value, LEGACY_HOUSEHOLD_AGE_BANDS);
+}
+
+/**
+ * Returns a valid composition under either released key and with its original
+ * bands intact. The current key is preferred where both are present.
+ */
+export function householdCompositionForDisplay(
+  answers: Readonly<Record<string, unknown>>,
+): HouseholdCompositionDisplay | null {
+  // The earlier key is unambiguous provenance, even where its populated bands
+  // are shared by both versions of the grid.
+  const legacy = answers[LEGACY_HOUSEHOLD_COMPONENTS_KEY];
+  if (isLegacyHouseholdComposition(legacy))
+    return { composition: legacy, ageBands: LEGACY_HOUSEHOLD_AGE_BANDS };
+  if (isHouseholdComposition(legacy)) return { composition: legacy, ageBands: HOUSEHOLD_AGE_BANDS };
+
+  const current = answers[HOUSEHOLD_COMPONENTS_KEY];
+  if (isLegacyHouseholdComposition(current) && !isHouseholdComposition(current))
+    return { composition: current, ageBands: LEGACY_HOUSEHOLD_AGE_BANDS };
+  if (isHouseholdComposition(current))
+    return { composition: current, ageBands: HOUSEHOLD_AGE_BANDS };
+
+  return null;
+}
+
+export function householdCompositionAgeBands(
+  composition: DisplayHouseholdComposition,
+): HouseholdCompositionAgeBands {
+  return isHouseholdComposition(composition) ? HOUSEHOLD_AGE_BANDS : LEGACY_HOUSEHOLD_AGE_BANDS;
+}
+
+export function householdCompositionCount(
+  composition: DisplayHouseholdComposition,
+  ageBand: string,
+  gender: HouseholdGender,
+): number {
+  const row = Object.entries(composition).find(([key]) => key === ageBand)?.[1];
+  return row?.[gender] ?? 0;
+}
+
+function isCompositionForAgeBands(
+  value: unknown,
+  ageBands: readonly { readonly key: string }[],
+): boolean {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
 
   const record = value as Record<string, unknown>;
   return Object.entries(record).every(([ageBand, row]) => {
-    if (!HOUSEHOLD_AGE_BANDS.some((band) => band.key === ageBand)) return false;
+    if (!ageBands.some((band) => band.key === ageBand)) return false;
     if (typeof row !== 'object' || row === null || Array.isArray(row)) return false;
     const entries = Object.entries(row);
     return (

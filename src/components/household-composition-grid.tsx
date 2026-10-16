@@ -1,7 +1,9 @@
 import {
-  HOUSEHOLD_AGE_BANDS,
   HOUSEHOLD_GENDERS,
-  type HouseholdComposition,
+  householdCompositionAgeBands,
+  householdCompositionCount,
+  type HouseholdCompositionAgeBands,
+  type DisplayHouseholdComposition,
 } from '../features/referrals/household-composition';
 import styles from './household-composition-grid.module.css';
 
@@ -19,9 +21,12 @@ import styles from './household-composition-grid.module.css';
  */
 export function HouseholdCompositionGrid({
   composition,
+  ageBands,
 }: {
-  readonly composition: HouseholdComposition;
+  readonly composition: DisplayHouseholdComposition;
+  readonly ageBands?: HouseholdCompositionAgeBands;
 }) {
+  const displayedAgeBands = ageBands ?? householdCompositionAgeBands(composition);
   return (
     <table className={styles.grid}>
       <caption className={styles.visuallyHidden}>Household composition</caption>
@@ -30,7 +35,7 @@ export function HouseholdCompositionGrid({
           <th scope="col">
             <span className={styles.visuallyHidden}>Gender</span>
           </th>
-          {HOUSEHOLD_AGE_BANDS.map((band) => (
+          {displayedAgeBands.map((band) => (
             <th key={band.key} scope="col" title={band.label}>
               <AgeIcon ageBand={band.key} />
               <span className={styles.visuallyHidden}>{band.label}</span>
@@ -45,13 +50,14 @@ export function HouseholdCompositionGrid({
               <GenderIcon gender={gender.key} />
               <span className={styles.visuallyHidden}>{gender.label}</span>
             </th>
-            {HOUSEHOLD_AGE_BANDS.map((band) => (
+            {displayedAgeBands.map((band) => (
               <td key={band.key}>
                 <span className={styles.visuallyHidden}>
-                  {band.label}, {gender.label}: {composition[band.key]?.[gender.key] ?? 0}
+                  {band.label}, {gender.label}:{' '}
+                  {householdCompositionCount(composition, band.key, gender.key)}
                 </span>
                 <span aria-hidden="true" className={styles.count}>
-                  {composition[band.key]?.[gender.key] ?? ''}
+                  {householdCompositionCount(composition, band.key, gender.key) || ''}
                 </span>
               </td>
             ))}
@@ -91,9 +97,10 @@ function GenderIcon({ gender }: { readonly gender: (typeof HOUSEHOLD_GENDERS)[nu
   );
 }
 
-function AgeIcon({ ageBand }: { readonly ageBand: (typeof HOUSEHOLD_AGE_BANDS)[number]['key'] }) {
+function AgeIcon({ ageBand }: { readonly ageBand: string }) {
   switch (ageBand) {
     case '0-2':
+    case '0-4':
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <circle cx="7" cy="8" r="2.5" />
@@ -101,6 +108,7 @@ function AgeIcon({ ageBand }: { readonly ageBand: (typeof HOUSEHOLD_AGE_BANDS)[n
         </svg>
       );
     case '3-11':
+    case '5-11':
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <circle cx="10" cy="5" r="2.5" />
@@ -130,5 +138,7 @@ function AgeIcon({ ageBand }: { readonly ageBand: (typeof HOUSEHOLD_AGE_BANDS)[n
           <path d="M12 9v7m0-4-4 3m4-3 4 3m-4 2-3 4m3-4 3 4M18 12v9" />
         </svg>
       );
+    default:
+      return null;
   }
 }

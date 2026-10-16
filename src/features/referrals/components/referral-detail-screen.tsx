@@ -37,7 +37,11 @@ import {
 } from '../referral-form-definition';
 import { reasonOptionSources } from '../referral-lookups';
 import { buildPageSchema } from '../referral-form-schema';
-import { HOUSEHOLD_COMPONENTS_KEY, isHouseholdComposition } from '../household-composition';
+import {
+  HOUSEHOLD_COMPONENTS_KEY,
+  householdCompositionForDisplay,
+  isHouseholdComposition,
+} from '../household-composition';
 import {
   clearDisabledAnswers,
   isEnabled,
@@ -1358,7 +1362,7 @@ function DetailsForm({
   }
 
   const reason = reasons.find((candidate) => candidate.id === referral.reasonId);
-  const householdComposition = referral.answers[HOUSEHOLD_COMPONENTS_KEY];
+  const householdComposition = householdCompositionForDisplay(referral.answers);
   return (
     <>
       <section className={styles.section}>
@@ -1444,11 +1448,14 @@ function DetailsForm({
           the same household read two ways. There is no edit control of its
           own: the shared editor in the Referral details card beside it covers
           every page, composition included. */}
-      {isHouseholdComposition(householdComposition) && (
+      {householdComposition !== null && (
         <section className={styles.section}>
           <h2>Household composition</h2>
           <div className={styles.householdComposition}>
-            <HouseholdCompositionGrid composition={householdComposition} />
+            <HouseholdCompositionGrid
+              ageBands={householdComposition.ageBands}
+              composition={householdComposition.composition}
+            />
           </div>
         </section>
       )}
