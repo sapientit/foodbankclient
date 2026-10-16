@@ -66,9 +66,10 @@ export function buildPickListInformation(
 /**
  * A parcel's Information for pickers, composed afresh every time it is shown
  * or printed — `screenDetails.md`, "The printed picking sheet". Three parts,
- * each on its own line and each left out when empty: the referral's pick list
- * admin notes, a `key: value` line for each answer the parcel's **own** form
- * release marks for pick-list information, and the stored "No longer stocked"
+ * each on its own line and each left out when empty: a `key: value` line for
+ * each answer the parcel's **own** form release marks for pick-list
+ * information, the referral's pick list admin notes, and the stored "No
+ * longer stocked"
  * note. A completed session still reads as it was printed because the server
  * locks all three once the session is confirmed.
  *
@@ -86,7 +87,7 @@ export function composeInformationForPickers(
   const admin = parcel.picklistAdmin?.trim() ?? '';
   const marked = definition === null ? [] : markedAnswerLines(parcel, definition, sources);
   const stored = parcel.notes?.trim() ?? '';
-  const parts = [admin, ...marked, stored].filter((part) => part !== '');
+  const parts = [...marked, admin, stored].filter((part) => part !== '');
   return parts.length === 0 ? null : parts.join('\n');
 }
 

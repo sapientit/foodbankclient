@@ -68,12 +68,12 @@ describe('composeInformationForPickers', () => {
     notes: 'No longer stocked: Marmite.',
   };
 
-  it('puts the admin notes first, then the marked answers in form order, then the stored note', () => {
+  it('puts the marked answers in form order, then the admin notes and stored note', () => {
     expect(composeInformationForPickers(parcel, definition, {})).toBe(
       [
-        'Ring the bell twice',
         'Allergies: 2 people who are vegan.',
         'Pulses: Kidney beans please.',
+        'Ring the bell twice',
         'No longer stocked: Marmite.',
       ].join('\n'),
     );

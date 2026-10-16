@@ -631,14 +631,14 @@ describe('a team lead running a session', () => {
     expect(screen.getByText('Baked beans')).toBeInTheDocument();
     expect(screen.getByText('Vegetarian')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mark as checked' })).toBeEnabled();
-    // Composed afresh, read-only: the admin line, the marked answers in form
-    // order, then the stored note. Nothing a team lead can type into.
+    // Composed afresh, read-only: the marked answers in form order, the admin
+    // line, then the stored note. Nothing a team lead can type into.
     expect(
       within(screen.getByRole('region', { name: 'Information for pickers' })).getByText(
         (_, element) =>
           element?.tagName === 'P' &&
           element.textContent ===
-            'Ring the bell twice\nAllergies: Gluten-free food for one person\nPulses: Vegetarian\nNo longer stocked: Marmite.',
+            'Allergies: Gluten-free food for one person\nPulses: Vegetarian\nRing the bell twice\nNo longer stocked: Marmite.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Information for pickers' })).toBeNull();
@@ -1520,7 +1520,7 @@ describe('a team lead running a session', () => {
     ).toBeNull();
   });
 
-  it('prints the Information for pickers composed from the session parcel: admin line, marked answers, stored note', async () => {
+  it('prints the Information for pickers composed from the session parcel: marked answers, admin line, stored note', async () => {
     const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     onTestFinished(() => {
       printSpy.mockRestore();
@@ -1567,7 +1567,7 @@ describe('a team lead running a session', () => {
         (_, element) =>
           element?.tagName === 'P' &&
           element.textContent ===
-            'Ring the bell twice\nAllergies: Gluten-free food for one person\nPulses: Vegetarian\nNo longer stocked: Marmite.',
+            'Allergies: Gluten-free food for one person\nPulses: Vegetarian\nRing the bell twice\nNo longer stocked: Marmite.',
       ),
     ).toBeInTheDocument();
     await waitFor(() => {

@@ -45,8 +45,8 @@ for changing it, not a plan for writing it.
   only identifier on the sheet: `PrintParcel` carries no referral id, deliberately, and a sheet is
   traced back through the session's pick list rather than by printing one.
 - **Show the Information for pickers prominently** — the picker is the only person in a position to
-  act on it. **It is composed on every showing, never stored**: the referral's `picklistAdmin`, then
-  a `key: value` line for each answer the parcel's own release marks `pickListInformation`, then the
+  act on it. **It is composed on every showing, never stored**: a `key: value` line for each answer
+  the parcel's own release marks `pickListInformation`, then the referral's `picklistAdmin`, then the
   parcel's `notes`, which now hold only the `No longer stocked: …` line written at generation. The
   sheet reads `picklistAdmin` and `answers` from the session's `Parcel`, joined by `pickNumber` —
   `PrintParcel` carries neither — and waits for the releases (and any lookup) before the print dialog
