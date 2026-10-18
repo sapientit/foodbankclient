@@ -1220,10 +1220,11 @@ export interface paths {
          *     There is no override.
          *
          *     Confirming closes the session, so **from then on a team lead cannot
-         *     see it**. The confirming call itself returns `200`; a team lead's
-         *     repeat of it (a double tap, a retry) gets `404`. An admin's repeat is
-         *     still accepted and returns the session unchanged. A team lead also
-         *     gets `404` for a cancelled session.
+         *     see it** anywhere else. **Confirm itself is idempotent for every
+         *     role**: a repeat (a double tap, a retry) returns `200` with the session
+         *     unchanged, team lead included — the one route that answers a team
+         *     lead about a closed session, and it carries no household data. A team
+         *     lead gets `404` for a cancelled session.
          */
         post: {
             parameters: {
