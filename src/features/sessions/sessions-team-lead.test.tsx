@@ -114,4 +114,20 @@ describe('a team lead’s shift view', () => {
     await screen.findByRole('navigation', { name: 'Main navigation' });
     expect(screen.queryByRole('link', { name: 'Weekly sessions' })).toBeNull();
   });
+
+  it('does not offer completed sessions, even when a stale URL asks for them', async () => {
+    server.use(
+      http.get(SESSIONS, () =>
+        HttpResponse.json({ sessions: [session({ id: 's1', status: 'planned' })] }),
+      ),
+    );
+
+    renderApp('/sessions?completed=true');
+
+    expect(
+      await screen.findByRole('link', { name: 'Tue, 4 Aug 2026, 10:00–11:30' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Show completed')).toBeNull();
+    expect(screen.getByText('Open sessions in this date range')).toBeInTheDocument();
+  });
 });

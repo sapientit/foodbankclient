@@ -3,6 +3,7 @@ import {
   countPickListInformationLines,
   firstPrintPageHasStockCapacity,
   splitPrintLines,
+  splitPrintLinesIntoTwoPages,
 } from './pick-list-print.logic';
 
 describe('countPickListInformationLines', () => {
@@ -13,6 +14,48 @@ describe('countPickListInformationLines', () => {
 });
 
 describe('splitPrintLines', () => {
+  it('always supplies an identifying second side when the parcel fits on the front', () => {
+    const lines = [
+      { id: 1, description: null },
+      { id: 2, description: 'One described item block' },
+    ];
+
+    expect(splitPrintLinesIntoTwoPages(lines, 0)).toEqual({
+      pages: [[lines], []],
+      overflows: false,
+    });
+  });
+
+  it('keeps an information-filled front separate from stock on the back', () => {
+    const line = { id: 1, description: null };
+
+    expect(splitPrintLinesIntoTwoPages([line], 22)).toEqual({
+      pages: [[], [[line]]],
+      overflows: false,
+    });
+  });
+
+  it('holds a parcel back when Information for pickers cannot fit the front', () => {
+    expect(splitPrintLinesIntoTwoPages([], 23)).toEqual({
+      pages: [[], []],
+      overflows: true,
+    });
+  });
+
+  it('holds an oversized parcel back rather than dropping lines beyond its second side', () => {
+    const lines = Array.from({ length: 134 }, (_, index) => ({
+      id: index + 1,
+      description: null,
+    }));
+
+    const layout = splitPrintLinesIntoTwoPages(lines, 0);
+
+    expect(layout.overflows).toBe(true);
+    expect(layout.pages.flat(2).map((line) => line.id)).toEqual(
+      Array.from({ length: 132 }, (_, index) => index + 1),
+    );
+  });
+
   it('keeps shelf order down complete columns before starting the next page', () => {
     const lines = Array.from({ length: 75 }, (_, index) => ({
       id: index + 1,

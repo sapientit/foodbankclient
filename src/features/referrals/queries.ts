@@ -476,7 +476,7 @@ export function useReferrals(filters: ReferralListFilters = {}, enabled = true) 
   });
 }
 
-/** Not capped by role, and not a projection over the list — see the module comment. A stale or invented id is a plain `404`. */
+/** Not a projection over the list — see the module comment. A stale, invented, or closed-session referral id is a plain `404` for a team lead. */
 export function useReferral(id: string) {
   return useQuery({
     queryKey: referralKeys.detail(id),

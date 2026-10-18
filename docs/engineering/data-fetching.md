@@ -17,9 +17,10 @@ paper over it.
   items, model parcels and recurring sessions all work this way. `useUser(id)` is a projection of
   `useUsers()`, and a test asserts the amend screen issues exactly **one** `GET`.
 - **A real endpoint → a real fetch with its own cache entry**, kept current with `setQueryData`.
-  Sessions and referrals work this way, because `GET /sessions/{id}` and `GET /referrals/{id}` exist
-  and are **not capped by role** (`API.md` §2: "Not capped: `GET /sessions/{id}` and every pick-list
-  route"). There is no array to splice into.
+  Sessions and referrals work this way because `GET /sessions/{id}` and `GET /referrals/{id}` exist.
+  For a team lead, both return `404` for a referral on a confirmed or cancelled session, so that
+  closure is a server-enforced privacy boundary rather than a client-side filter. There is no array
+  to splice into.
 
 The users list is the worked example of why the projection is not just a shortcut: the list is fetched
 **always with `includeInactive=true`** and split active/retired client-side, because the amend screen

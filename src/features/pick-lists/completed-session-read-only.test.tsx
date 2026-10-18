@@ -8,8 +8,9 @@ import type { Session } from '../sessions/queries';
 import type { Parcel, PickList } from './queries';
 
 /**
- * A completed session is a record of what happened, and every screen behind it
- * must read without writing anything.
+ * An administrator's completed session is a record of what happened, and every
+ * screen behind it must read without writing anything. A team lead instead gets
+ * a 404; that privacy boundary is covered in `run-sessions-team-lead.test.tsx`.
  *
  * **The writes are what these tests are for, not the layout.** The server
  * refuses most of them with a `409`, but the two that matter here do not
@@ -113,7 +114,7 @@ beforeEach(() => {
       HttpResponse.json({
         accessToken: 'fresh-token',
         expiresAt: Math.floor(Date.now() / 1000) + 900,
-        user: { id: 'u3', email: 'lead@x.com', displayName: 'Ada Lead', role: 'team_lead' },
+        user: { id: 'u1', email: 'admin@x.com', displayName: 'Ada Admin', role: 'admin' },
       }),
     ),
     http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
@@ -216,7 +217,7 @@ beforeEach(() => {
   );
 });
 
-describe('a completed session', () => {
+describe('an administrator reading a completed session', () => {
   it('never reconciles its pick list, which the server would accept in silence', async () => {
     renderApp(`/run-sessions/${SESSION.id}`);
 

@@ -24,11 +24,10 @@ import styles from './sessions-screen.module.css';
  * team lead gets neither, because creating and
  * amending sessions is not their job.
  *
- * **The status dropdown is gone, replaced by `Show completed`.** Four statuses
- * offered one at a time could not express the one thing anybody wanted — the
- * sessions still open — and made the ordinary case a choice. Ticking the box
- * brings in confirmed and cancelled sessions together, which is now the only
- * route to a cancelled one and deliberately so.
+ * Administrators may include confirmed and cancelled sessions with `Show
+ * completed`. A team lead cannot see either closed state: the server omits it
+ * from lists and rejects a direct route, so this screen does not advertise an
+ * access path that cannot exist for that role.
  */
 export function SessionsScreen() {
   const { state } = useAuth();
@@ -49,7 +48,11 @@ export function SessionsScreen() {
   const isAdmin = role === 'admin';
 
   const title = isAdmin ? 'Sessions' : 'Your sessions';
-  const shown = filterSessionsByStatus(sessions.data ?? [], selection.showCompleted);
+  const canShowCompleted = isAdmin;
+  const shown = filterSessionsByStatus(
+    sessions.data ?? [],
+    canShowCompleted && selection.showCompleted,
+  );
 
   return (
     <div className={styles.page}>
@@ -75,7 +78,7 @@ export function SessionsScreen() {
       </div>
 
       <section aria-label="Session filters" className={styles.filtersCard}>
-        <SessionListFilters />
+        <SessionListFilters showCompletedControl={canShowCompleted} />
       </section>
 
       {sessions.isPending && <Spinner label="Loading sessions…" />}
@@ -94,9 +97,11 @@ export function SessionsScreen() {
           <EmptyState
             headline="No sessions to show"
             sentence={
-              selection.showCompleted
+              canShowCompleted && selection.showCompleted
                 ? 'Nothing falls between these dates. Try widening them.'
-                : 'Nothing open falls between these dates. Try widening them, or tick Show completed.'
+                : canShowCompleted
+                  ? 'Nothing open falls between these dates. Try widening them, or tick Show completed.'
+                  : 'Nothing open falls between these dates. Try widening them.'
             }
           />
         ) : (
@@ -136,7 +141,7 @@ export function SessionsScreen() {
                 );
               }}
               caption={
-                selection.showCompleted
+                canShowCompleted && selection.showCompleted
                   ? 'Sessions in this date range, completed ones included'
                   : 'Open sessions in this date range'
               }
