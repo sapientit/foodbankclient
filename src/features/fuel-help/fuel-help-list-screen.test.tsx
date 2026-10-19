@@ -25,7 +25,13 @@ const LIST: FuelHelpList = {
       formId: null,
       answers: {
         refereeEmail: 'jamie@example.org',
-        FuelPension: 'Yes',
+        'Household Components': {
+          '0-2': { female: 1 },
+          '3-11': { male: 1 },
+          '12-17': { 'non-binary': 1 },
+          'working-age': { female: 1 },
+          'state-pension-age': { male: 1 },
+        },
         'Electricity crisis': 'Example Energy',
         'Electricity Smart': 'Yes',
         'Gas crisis': 'Example Gas',
@@ -75,12 +81,25 @@ describe('fuel help list', () => {
     expect(row).toHaveTextContent('jamie@example.org');
     expect(row).toHaveTextContent('Example Energy');
     expect(row).toHaveTextContent('Example Gas');
+    expect(row).toHaveTextContent('3');
+    expect(row).toHaveTextContent('2');
+    expect(row).toHaveTextContent('1');
     // A date, not the stored string and not an age: the fuel team uses it to
     // tell two households of the same name apart.
     expect(row).toHaveTextContent('4 Aug 1975');
     expect(
       screen.getByRole('columnheader', { name: "Client's date of birth" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '<18' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '18+' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'State Pension age+' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Female' })).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Male' })).toBeNull();
+    expect(
+      screen.queryByRole('columnheader', {
+        name: 'Are there people in the household over state pension age',
+      }),
+    ).toBeNull();
     expect(
       screen.getByRole('columnheader', {
         name: 'Do you give permission to share details with "Energy Manage" and/or "The Fuel Bank Foundation" who work in partnership with the foodbank to support our clients?',

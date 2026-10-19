@@ -162,6 +162,7 @@
           "questionKey": "Household Components",
           "questionTitle": "Household Composition\nPlease type relevant number in household for each gender and related age group",
           "required": true,
+          "forFuelTeam": true,
           "preference": false,
           "validation": {
             "type": "HouseholdComposition"
@@ -776,7 +777,6 @@
             "questionKey": "needsFuelHelp",
             "hasAnswer": "Yes"
           },
-          "forFuelTeam": true,
           "preference": false,
           "validation": {
             "type": "CheckBox",

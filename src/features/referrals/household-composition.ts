@@ -55,6 +55,12 @@ export interface HouseholdCompositionDisplay {
   readonly ageBands: HouseholdCompositionAgeBands;
 }
 
+export interface HouseholdCompositionTotals {
+  readonly under18: number;
+  readonly over18: number;
+  readonly statePensionAge: number;
+}
+
 export function emptyHouseholdComposition(): HouseholdComposition {
   return {};
 }
@@ -88,6 +94,36 @@ export function householdCompositionForDisplay(
     return { composition: current, ageBands: HOUSEHOLD_AGE_BANDS };
 
   return null;
+}
+
+/**
+ * The Fuel list needs three age totals, rather than the reporting grid's
+ * gender detail. It works from the released answer's own age bands so
+ * retained referrals using the former 0-4 and 5-11 bands remain accurate.
+ */
+export function householdCompositionTotals(
+  answers: Readonly<Record<string, unknown>>,
+): HouseholdCompositionTotals | null {
+  const displayed = householdCompositionForDisplay(answers);
+  if (displayed === null) return null;
+
+  const totalFor = (ageBands: readonly string[]) =>
+    ageBands.reduce((total, ageBand) => total + displayRowTotal(displayed.composition, ageBand), 0);
+
+  return {
+    under18: totalFor(
+      displayed.ageBands
+        .filter((ageBand) => ageBand.key !== 'working-age' && ageBand.key !== 'state-pension-age')
+        .map((ageBand) => ageBand.key),
+    ),
+    over18: totalFor(['working-age', 'state-pension-age']),
+    statePensionAge: totalFor(['state-pension-age']),
+  };
+}
+
+function displayRowTotal(composition: DisplayHouseholdComposition, ageBand: string): number {
+  const row = Object.entries(composition).find(([key]) => key === ageBand)?.[1];
+  return row === undefined ? 0 : Object.values(row).reduce((total, count) => total + count, 0);
 }
 
 export function householdCompositionAgeBands(
