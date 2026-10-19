@@ -7438,7 +7438,7 @@ export interface components {
              */
             adminInfo?: string | null;
             /**
-             * @description The administrators' one line for the picker. Exactly the rules of `adminInfo`: a string sets it, explicit `null` clears it, omitting the key leaves it alone; **an empty or whitespace-only string is a `400`, not a clearance**, and so is one over 80 characters. Refused with a `409` on the same terms as the rest of an amendment — a cancelled or rejected referral, or one on a confirmed session — so a completed session's sheets cannot change after they were printed.
+             * @description The administrators' one line for the picker. Exactly the rules of `adminInfo`: a string sets it, explicit `null` clears it, omitting the key leaves it alone; **an empty or whitespace-only string is a `400`, not a clearance**, and so is one over 400 characters. Refused with a `409` on the same terms as the rest of an amendment — a cancelled or rejected referral, or one on a confirmed session — so a completed session's sheets cannot change after they were printed.
              *     **It is printed on the picking sheet**, which must never carry the reason for referral. Say so where it is typed.
              */
             picklistAdmin?: string | null;

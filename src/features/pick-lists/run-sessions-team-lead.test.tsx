@@ -1358,11 +1358,15 @@ describe('a team lead running a session', () => {
     const headings = within(table)
       .getAllByRole('columnheader')
       .map((cell) => cell.textContent);
-    expect(headings.indexOf('Pick list notes')).toBe(headings.indexOf('Status') - 1);
-    expect(within(table).getByRole('cell', { name: 'Bring to side door' })).toBeInTheDocument();
+    expect(headings).not.toContain('Pick list notes');
+    expect(
+      within(table).getByRole('cell', {
+        name: 'Pick list notes for pick #1, Sam Taylor: Bring to side door',
+      }),
+    ).toBeInTheDocument();
   });
 
-  it('adds no tab stop for pick-list notes that fit their three lines', async () => {
+  it('adds no tab stop for pick-list notes that fit their two lines', async () => {
     // jsdom lays nothing out, so stand in for an answer that exactly fits.
     const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(60);
     const clientHeight = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(60);
@@ -1390,7 +1394,7 @@ describe('a team lead running a session', () => {
     expect(screen.queryByRole('group', { name: /^Pick list notes/ })).toBeNull();
   });
 
-  it('lets the keyboard reach pick-list notes too long for their three lines', async () => {
+  it('lets the keyboard reach pick-list notes too long for their two lines', async () => {
     // jsdom lays nothing out, so stand in for an answer that overflows its cell.
     const scrollHeight = vi
       .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')

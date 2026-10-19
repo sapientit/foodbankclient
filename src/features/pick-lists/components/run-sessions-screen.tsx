@@ -1054,9 +1054,6 @@ export function RunSessionDetailScreen() {
                       Voucher
                     </th>
                   )}
-                  <th className={styles.otherColumn} scope="col">
-                    Pick list notes
-                  </th>
                   <th scope="col">Status</th>
                   <th scope="col">Action</th>
                 </tr>
@@ -1151,137 +1148,144 @@ function ClientRow({
   const status = parcelStatus(parcel);
   const reviewed = parcel.reviewedAt !== null;
   return (
-    <tr>
-      {/* The pick number heads the row: it is what matches a sheet in a hall to
+    <>
+      <tr>
+        {/* The pick number heads the row: it is what matches a sheet in a hall to
           a line on this screen, and it is what the refusal to close the session
           names. Its own column so the numbers align down one edge rather than
           moving with the length of the name before them. */}
-      <th className={styles.pickCell} scope="row">
-        #{parcel.pickNumber}
-      </th>
-      {/* The household's referral, opened by their name — the same screen the
+        <th className={styles.pickCell} scope="row">
+          #{parcel.pickNumber}
+        </th>
+        {/* The household's referral, opened by their name — the same screen the
           referral list and the search reach. An id in the path and never a
           name: see `.claude/rules/pii-security.md`. Plain text for a team lead,
           for whom that screen is not a task. */}
-      <td>
-        {canOpenReferral ? (
-          <Link to={`/referrals/${parcel.referralId}`}>{parcelName(parcel)}</Link>
-        ) : (
-          parcelName(parcel)
-        )}
-      </td>
-      <td className={styles.compactColumn}>
-        {parcel.firstTimeMarker !== null && (
-          <span className={styles.status} data-status={parcel.firstTimeMarker}>
-            {FIRST_TIME_MARKER[parcel.firstTimeMarker]}
-          </span>
-        )}
-      </td>
-      {voucherSchemeApplies && (
+        <td>
+          {canOpenReferral ? (
+            <Link to={`/referrals/${parcel.referralId}`}>{parcelName(parcel)}</Link>
+          ) : (
+            parcelName(parcel)
+          )}
+        </td>
         <td className={styles.compactColumn}>
-          {parcel.voucherInstruction !== null && (
-            <span className={styles.status}>
-              {voucherInstructionLabel(parcel.voucherInstruction)}
+          {parcel.firstTimeMarker !== null && (
+            <span className={styles.status} data-status={parcel.firstTimeMarker}>
+              {FIRST_TIME_MARKER[parcel.firstTimeMarker]}
             </span>
           )}
         </td>
-      )}
-      <td className={styles.otherColumn}>
-        {parcel.picklistAdmin !== null && (
-          <OtherAnswer
-            label={`Pick list notes for ${describeParcel(parcel)}, scrolls`}
-            text={parcel.picklistAdmin}
-          />
+        {voucherSchemeApplies && (
+          <td className={styles.compactColumn}>
+            {parcel.voucherInstruction !== null && (
+              <span className={styles.status}>
+                {voucherInstructionLabel(parcel.voucherInstruction)}
+              </span>
+            )}
+          </td>
         )}
-      </td>
-      <td>
-        <span className={styles.status} data-status={status.state}>
-          {status.label}
-        </span>
-      </td>
-      <td>
-        {/* On a finished session the workspace is still worth opening — it is
+        <td>
+          <span className={styles.status} data-status={status.state}>
+            {status.label}
+          </span>
+        </td>
+        <td>
+          {/* On a finished session the workspace is still worth opening — it is
             where the parcel's contents are — but there is nothing left to
             review, so the link says what it now does. */}
-        {readOnly ? (
-          <Link
-            className={classNames(styles.pickListLink, 'button-link')}
-            to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
-          >
-            View Pick list
-          </Link>
-        ) : !reviewed && parcel.attendance === 'pending' ? (
-          <Link
-            className={classNames(styles.pickListLink, 'button-link')}
-            to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
-          >
-            Check pick list
-          </Link>
-        ) : (
-          /*
-           * Named for the household, not just the outcome. Every row renders the
-           * same two words, so a screen reader's list of buttons on a session of
-           * twenty is twenty identical pairs — and the pick number and name that
-           * tell them apart are in neighbouring cells, which do not reach the
-           * accessible name. These are the buttons that decide whether a
-           * household is recorded as fed, so the wrong one is not a cosmetic
-           * mistake.
-           *
-           * The visible words come first, because that is what somebody using
-           * voice control says.
-           */
-          <div className={styles.rowActions}>
-            <button
-              aria-label={`${attendedLabel(parcel)} — ${describeParcel(parcel)}`}
-              disabled={attendance.isPending}
-              onClick={() => {
-                attendance.mutate({ id: parcel.id, attendance: 'attended' });
-              }}
-              type="button"
-            >
-              {attendedLabel(parcel)}
-            </button>
-            <button
-              aria-label={`${missedLabel(parcel)} — ${describeParcel(parcel)}`}
-              disabled={attendance.isPending}
-              onClick={() => {
-                attendance.mutate({ id: parcel.id, attendance: 'no_show' });
-              }}
-              type="button"
-            >
-              {missedLabel(parcel)}
-            </button>
-            {/*
-             * The way back into the household's pick list, which reviewing used
-             * to take away. Reviewing settles the quantities; it does not close
-             * the list — the server keeps the lines editable right up to the
-             * session being confirmed, and a stock check answering that an item
-             * is short is exactly the moment a team lead needs to go back in and
-             * take it out of a bag. Recording an outcome is the step that stops
-             * the parcel changing, because by then its stock has moved, so from
-             * there the same link only reads.
-             *
-             * Named for the household like the buttons beside it: three controls
-             * a row, twenty rows, and the pick number and name that tell them
-             * apart sit in neighbouring cells that no accessible name reaches.
-             */}
+          {readOnly ? (
             <Link
-              aria-label={`${pickListLabel(parcel)} — ${describeParcel(parcel)}`}
               className={classNames(styles.pickListLink, 'button-link')}
               to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
             >
-              {pickListLabel(parcel)}
+              View Pick list
             </Link>
-          </div>
-        )}
-      </td>
-    </tr>
+          ) : !reviewed && parcel.attendance === 'pending' ? (
+            <Link
+              className={classNames(styles.pickListLink, 'button-link')}
+              to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
+            >
+              Check pick list
+            </Link>
+          ) : (
+            /*
+             * Named for the household, not just the outcome. Every row renders the
+             * same two words, so a screen reader's list of buttons on a session of
+             * twenty is twenty identical pairs — and the pick number and name that
+             * tell them apart are in neighbouring cells, which do not reach the
+             * accessible name. These are the buttons that decide whether a
+             * household is recorded as fed, so the wrong one is not a cosmetic
+             * mistake.
+             *
+             * The visible words come first, because that is what somebody using
+             * voice control says.
+             */
+            <div className={styles.rowActions}>
+              <button
+                aria-label={`${attendedLabel(parcel)} — ${describeParcel(parcel)}`}
+                disabled={attendance.isPending}
+                onClick={() => {
+                  attendance.mutate({ id: parcel.id, attendance: 'attended' });
+                }}
+                type="button"
+              >
+                {attendedLabel(parcel)}
+              </button>
+              <button
+                aria-label={`${missedLabel(parcel)} — ${describeParcel(parcel)}`}
+                disabled={attendance.isPending}
+                onClick={() => {
+                  attendance.mutate({ id: parcel.id, attendance: 'no_show' });
+                }}
+                type="button"
+              >
+                {missedLabel(parcel)}
+              </button>
+              {/*
+               * The way back into the household's pick list, which reviewing used
+               * to take away. Reviewing settles the quantities; it does not close
+               * the list — the server keeps the lines editable right up to the
+               * session being confirmed, and a stock check answering that an item
+               * is short is exactly the moment a team lead needs to go back in and
+               * take it out of a bag. Recording an outcome is the step that stops
+               * the parcel changing, because by then its stock has moved, so from
+               * there the same link only reads.
+               *
+               * Named for the household like the buttons beside it: three controls
+               * a row, twenty rows, and the pick number and name that tell them
+               * apart sit in neighbouring cells that no accessible name reaches.
+               */}
+              <Link
+                aria-label={`${pickListLabel(parcel)} — ${describeParcel(parcel)}`}
+                className={classNames(styles.pickListLink, 'button-link')}
+                to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
+              >
+                {pickListLabel(parcel)}
+              </Link>
+            </div>
+          )}
+        </td>
+      </tr>
+      {Boolean(parcel.picklistAdmin?.trim()) && (
+        <tr className={styles.picklistAdminRow}>
+          <td
+            aria-label={`Pick list notes for ${describeParcel(parcel)}: ${parcel.picklistAdmin ?? ''}`}
+            colSpan={voucherSchemeApplies ? 6 : 5}
+          >
+            <OtherAnswer
+              label={`Pick list notes for ${describeParcel(parcel)}, scrolls`}
+              text={parcel.picklistAdmin ?? ''}
+            />
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
 /**
  * A compact operational note, wrapped and
- * held to three lines so that one long answer cannot stretch every row;
+ * held to two lines so that one long answer cannot stretch every row;
  * anything longer scrolls within the cell. `screenDetails.md`, "#Session processing".
  *
  * **Focusable only while it actually scrolls.** A scrolling box the keyboard
@@ -1290,7 +1294,7 @@ function ClientRow({
  * team lead tabs through all session. So it measures, and becomes a named,
  * focusable group only when there is something to scroll to — and then marks
  * its lower edge, because a phone's hidden scrollbar gives no other sign that a
- * fourth line is there.
+ * third line is there.
  */
 function OtherAnswer({ text, label }: { text: string; label: string }) {
   const ref = useRef<HTMLDivElement>(null);

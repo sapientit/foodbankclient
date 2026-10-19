@@ -390,8 +390,8 @@ export const PHONE_BOUNDS = { minLength: 5, maxLength: 30 };
 /** `ReferralAmend.adminInfo` and the cancel body's `adminInfo`: `maxLength: 2000`. */
 export const MAX_ADMIN_INFO_LENGTH = 2000;
 
-/** `ReferralAmend.picklistAdmin`: one line, `maxLength: 80`. */
-export const MAX_PICKLIST_ADMIN_LENGTH = 80;
+/** `ReferralAmend.picklistAdmin`: multi-line, `maxLength: 400`. */
+export const MAX_PICKLIST_ADMIN_LENGTH = 400;
 
 /**
  * What to send as `adminInfo` when cancelling. The notes are prefilled with the

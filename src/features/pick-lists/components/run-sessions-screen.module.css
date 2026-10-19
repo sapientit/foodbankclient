@@ -370,18 +370,12 @@
   white-space: nowrap;
 }
 
-/* The referrer's own words, squeezed in before the status: it wraps within a
-   narrow column and stops at three lines, scrolling within the cell beyond
-   that, so a long answer cannot stretch every row of the list. */
-.otherColumn {
-  min-inline-size: 8rem;
-  max-inline-size: 16rem;
-}
-
 .otherAnswer {
-  /* Three lines at the body's 1.5 line-height, for a browser without `lh`. */
-  max-block-size: 4.5em;
-  max-block-size: 3lh;
+  /* Two lines at the body's 1.5 line-height, for a browser without `lh`.
+     Notes can now be 400 characters, so the full-width row keeps the list
+     scannable while this accessible scroll box keeps every character available. */
+  max-block-size: 3em;
+  max-block-size: 2lh;
   overflow-y: auto;
   overscroll-behavior: contain;
   overflow-wrap: anywhere;
@@ -516,6 +510,10 @@
 
   .otherAnswer[data-scrolls='true'] {
     border-block-end: none;
+  }
+
+  .picklistAdminRow {
+    break-inside: auto;
   }
 
   .printSheet {

@@ -21,7 +21,7 @@ function collectionMethodLabel(method: 'collection' | 'delivery' | 'referrer_col
 }
 
 function dietaryRequirement(answers: Readonly<Record<string, unknown>>): string {
-  const value = answers.Allergies;
+  const value = answers['Dietary Req'];
   return typeof value === 'string' ? value : '';
 }
 

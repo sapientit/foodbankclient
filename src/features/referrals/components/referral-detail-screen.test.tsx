@@ -990,8 +990,8 @@ describe('the admin referral detail screen', () => {
     const dialog = within(screen.getByRole('dialog', { name: 'Edit pick list admin notes' }));
     const input = dialog.getByLabelText('Pick list admin notes');
     expect(input).toHaveValue('Allergic to nuts');
-    expect(input).toHaveAttribute('maxlength', '80');
-    expect(input.tagName).toBe('INPUT');
+    expect(input).toHaveAttribute('maxlength', '400');
+    expect(input.tagName).toBe('TEXTAREA');
     // The server cannot check this, so the hint is the only guard.
     expect(input).toHaveAccessibleDescription(/printed on the household’s picking sheet/);
     expect(input).toHaveAccessibleDescription(/Never write the reason for referral here/);

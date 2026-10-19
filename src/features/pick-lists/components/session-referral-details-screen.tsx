@@ -7,6 +7,10 @@ import { useSessionReferralDetails } from '../queries';
 import { FIRST_TIME_MARKER, byPickNumber, voucherInstructionLabel } from '../run-session.logic';
 import styles from './session-referral-details-screen.module.css';
 
+function householdName(firstName: string | null, surname: string | null): string {
+  return [firstName, surname].filter(Boolean).join(' ') || 'Unknown';
+}
+
 /**
  * The Run sheet: the session's contact list, plus the three things the Client
  * List also shows about each household — whether they are new, the
@@ -91,7 +95,6 @@ export function SessionReferralDetailsScreen() {
               <col className={styles.delivery} />
               <col className={styles.firstTime} />
               {voucherSchemeApplies && <col className={styles.voucher} />}
-              <col className={styles.picklistAdmin} />
             </colgroup>
             <thead>
               <tr>
@@ -105,12 +108,11 @@ export function SessionReferralDetailsScreen() {
                 <th scope="col">Del?</th>
                 <th scope="col">First?</th>
                 {voucherSchemeApplies && <th scope="col">Voucher</th>}
-                <th scope="col">Pick list notes</th>
               </tr>
             </thead>
-            <tbody>
-              {byPickNumber(data.referrals).map((referral) => (
-                <tr key={referral.referralId}>
+            {byPickNumber(data.referrals).map((referral) => (
+              <tbody className={styles.household} key={referral.referralId}>
+                <tr>
                   <td>
                     {referral.pickNumber === null ? (
                       <span aria-label="No pick number assigned">—</span>
@@ -119,9 +121,7 @@ export function SessionReferralDetailsScreen() {
                     )}
                   </td>
                   <th scope="row">
-                    {[referral.refereeFirstName, referral.refereeSurname]
-                      .filter(Boolean)
-                      .join(' ') || 'Unknown'}
+                    {householdName(referral.refereeFirstName, referral.refereeSurname)}
                   </th>
                   <td>{referral.refereeAddress ?? '—'}</td>
                   <td>{referral.refereePostcode ?? '—'}</td>
@@ -141,10 +141,23 @@ export function SessionReferralDetailsScreen() {
                         : voucherInstructionLabel(referral.voucherInstruction)}
                     </td>
                   )}
-                  <td>{referral.picklistAdmin ?? ''}</td>
                 </tr>
-              ))}
-            </tbody>
+                {Boolean(referral.picklistAdmin?.trim()) && (
+                  <tr className={styles.picklistAdminRow}>
+                    <td
+                      aria-label={`Pick list notes for ${
+                        referral.pickNumber === null
+                          ? 'no pick number'
+                          : `pick #${String(referral.pickNumber)}`
+                      }, ${householdName(referral.refereeFirstName, referral.refereeSurname)}: ${referral.picklistAdmin ?? ''}`}
+                      colSpan={voucherSchemeApplies ? 10 : 9}
+                    >
+                      {referral.picklistAdmin}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            ))}
           </table>
         </div>
       </section>
