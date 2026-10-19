@@ -21,6 +21,11 @@ export interface FuelColumn {
   >;
 }
 
+// This old generated household-composition flag can be present in a historic
+// release, but the Fuel list now receives the three totals directly from the
+// composition instead. It must never become a duplicate Fuel column again.
+const LEGACY_FUEL_PENSION_KEY = 'FuelPension';
+
 const HOUSEHOLD_COMPOSITION_TOTAL_COLUMNS = [
   { key: 'under18', label: '<18' },
   { key: 'over18', label: '18+' },
@@ -71,9 +76,10 @@ export function fuelColumns(
 ): FuelColumn[] {
   return definition.pages.flatMap((page) =>
     page.questions.flatMap<FuelColumn>((question): FuelColumn[] => {
-      if (question.type === 'information' || question.forFuelTeam !== true) return [];
-      if (question.type === 'keyField' && KEY_FIELD_READERS[question.field] === undefined)
-        return [];
+      if (question.type === 'information') return [];
+      // Household composition is a fixed generated answer rather than a
+      // questionnaire-selected Fuel detail, so it is always represented by
+      // its three Fuel totals.
       if (question.type === 'householdComposition') {
         return HOUSEHOLD_COMPOSITION_TOTAL_COLUMNS.map((total) => ({
           key: `${question.key}:${total.key}`,
@@ -82,6 +88,9 @@ export function fuelColumns(
           householdCompositionTotal: total.key,
         }));
       }
+      if (question.key === LEGACY_FUEL_PENSION_KEY || question.forFuelTeam !== true) return [];
+      if (question.type === 'keyField' && KEY_FIELD_READERS[question.field] === undefined)
+        return [];
       return [{ key: question.key, label: question.label, question }];
     }),
   );

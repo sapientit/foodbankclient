@@ -843,18 +843,16 @@ describe('the questions themselves', () => {
       if (page === 2) await user.click(screen.getByLabelText('Oven'));
     }
 
-    const fuelPension = screen.getByRole('group', {
-      name: /people in the household over state pension age/,
+    const electricitySmart = screen.getByRole('group', {
+      name: /smart meter for electricity/,
     });
-    expect(fuelPension).toHaveTextContent(
-      'Are there people in the household over state pension age',
-    );
-    // Visible but not answerable — somebody has to be able to see what they
-    // would be agreeing to if they said yes above.
-    expect(within(fuelPension).getByRole('combobox')).toBeDisabled();
+    expect(within(electricitySmart).getByRole('combobox')).toBeDisabled();
+    expect(
+      screen.queryByText('Are there people in the household over state pension age'),
+    ).toBeNull();
 
     await user.click(screen.getByLabelText(/help with Energy costs/));
-    expect(within(fuelPension).getByRole('combobox')).toBeEnabled();
+    expect(within(electricitySmart).getByRole('combobox')).toBeEnabled();
   });
 
   it('starts a one-choice preference dropdown on its declared default and can clear it', async () => {

@@ -129,6 +129,44 @@ describe('fuel columns', () => {
     ]);
   });
 
+  it('uses composition totals and ignores the legacy pension flag from an older release', () => {
+    const definition: ReferralFormDefinition = {
+      version: 1,
+      pages: [
+        {
+          pageNum: 1,
+          pageTitle: 'Test',
+          questions: [
+            {
+              type: 'householdComposition',
+              key: 'Household Components',
+              label: 'Household composition',
+              required: true,
+              preference: false,
+            },
+            {
+              type: 'choice',
+              key: 'FuelPension',
+              label: 'Are there people in the household over state pension age',
+              required: false,
+              preference: false,
+              forFuelTeam: true,
+              answerMin: 0,
+              answerMax: 1,
+              options: [{ value: 'Yes', label: 'Yes' }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(fuelColumns(definition).map(({ label }) => label)).toEqual([
+      '<18',
+      '18+',
+      'State Pension age+',
+    ]);
+  });
+
   it('reads marked dynamic answers but never an unmarked answer', () => {
     const byKey = new Map(fuelColumns().map((column) => [column.key, column]));
     const electricityCrisis = byKey.get('Electricity crisis');
