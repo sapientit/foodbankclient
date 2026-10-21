@@ -162,6 +162,7 @@
           "questionKey": "Household Components",
           "questionTitle": "Household Composition\nPlease type relevant number in household for each gender and related age group",
           "required": true,
+          "forFuelTeam": true,
           "preference": false,
           "validation": {
             "type": "HouseholdComposition"
@@ -769,26 +770,6 @@
         },
         {
           "questionNum": 2,
-          "questionKey": "FuelPension",
-          "questionTitle": "Are there people in the household over state pension age",
-          "required": false,
-          "enabledWhen": {
-            "questionKey": "needsFuelHelp",
-            "hasAnswer": "Yes"
-          },
-          "forFuelTeam": true,
-          "preference": false,
-          "validation": {
-            "type": "CheckBox",
-            "answerMin": 0,
-            "answerMax": 1
-          },
-          "answers": [
-            "Yes"
-          ]
-        },
-        {
-          "questionNum": 3,
           "questionKey": "Electricity crisis",
           "questionTitle": "Electricity - If the client is on a prepayment meter and in fuel crisis (will run out in 5 days or less and does not have funds to top up), specify Electricity provider",
           "required": false,
@@ -804,7 +785,7 @@
           }
         },
         {
-          "questionNum": 4,
+          "questionNum": 3,
           "questionKey": "Electricity Smart",
           "questionTitle": "Are they on a smart meter for electricity?",
           "required": false,
@@ -824,7 +805,7 @@
           ]
         },
         {
-          "questionNum": 5,
+          "questionNum": 4,
           "questionKey": "Gas crisis",
           "questionTitle": "Gas - If the client is on a pre-payment meter and in fuel crisis (will run out in 5 days or less) and does not have funds to top up, specify Gas provider",
           "required": false,
@@ -840,7 +821,7 @@
           }
         },
         {
-          "questionNum": 6,
+          "questionNum": 5,
           "questionKey": "Gas Smart",
           "questionTitle": "Are they on a smart meter for gas?",
           "required": false,
@@ -860,7 +841,7 @@
           ]
         },
         {
-          "questionNum": 7,
+          "questionNum": 6,
           "questionKey": "Electricity debt",
           "questionTitle": "If they are billed for their electricity (not on a pre-payment meter), are they in fuel debt for electricity?",
           "required": false,
@@ -880,7 +861,7 @@
           ]
         },
         {
-          "questionNum": 8,
+          "questionNum": 7,
           "questionKey": "Gas debt",
           "questionTitle": "If they are billed for their gas (not on a pre-payment meter), are they in fuel debt for gas?",
           "required": false,
@@ -900,7 +881,7 @@
           ]
         },
         {
-          "questionNum": 9,
+          "questionNum": 8,
           "questionKey": "Permission",
           "questionTitle": "Do you give permission to share details with \"Energy Manage\" and/or \"The Fuel Bank Foundation\" who work in partnership with the foodbank to support our clients?",
           "required": false,

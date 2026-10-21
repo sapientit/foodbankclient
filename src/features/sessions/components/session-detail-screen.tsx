@@ -37,8 +37,8 @@ import styles from './session-form.module.css';
  * server's `403` on a genuine mutation attempt is the only check that means
  * anything, and this screen makes the same request whoever is looking at it.
  *
- * `GET /sessions/{id}` is real and **not capped by role** (`API.md` §2), so
- * this is a direct fetch rather than a projection over the list the way the
+ * `GET /sessions/{id}` is real, so this is a direct fetch rather than a
+ * projection over the list the way the
  * users and stock amend screens have to be — see `queries.ts`.
  */
 

@@ -1,5 +1,6 @@
 import type { FuelHelpList } from './queries';
 import { formatCalendarDate } from '../../lib/london-time';
+import { householdCompositionTotals } from '../referrals/household-composition';
 import { referralFormDefinition } from '../referrals/referral-form-config';
 import { needsOptionSources, optionsFor } from '../referrals/referral-form-definition';
 import type {
@@ -15,7 +16,21 @@ export interface FuelColumn {
   readonly key: string;
   readonly label: string;
   readonly question: Exclude<FormQuestion, { type: 'information' }>;
+  readonly householdCompositionTotal?: keyof NonNullable<
+    ReturnType<typeof householdCompositionTotals>
+  >;
 }
+
+// This old generated household-composition flag can be present in a historic
+// release, but the Fuel list now receives the three totals directly from the
+// composition instead. It must never become a duplicate Fuel column again.
+const LEGACY_FUEL_PENSION_KEY = 'FuelPension';
+
+const HOUSEHOLD_COMPOSITION_TOTAL_COLUMNS = [
+  { key: 'under18', label: '<18' },
+  { key: 'over18', label: '18+' },
+  { key: 'statePensionAge', label: 'State Pension age+' },
+] as const;
 
 /**
  * The fixed fields `GET /fuel-help-list` actually sends, and how each reads.
@@ -60,8 +75,20 @@ export function fuelColumns(
   definition: ReferralFormDefinition = referralFormDefinition,
 ): FuelColumn[] {
   return definition.pages.flatMap((page) =>
-    page.questions.flatMap((question) => {
-      if (question.type === 'information' || question.forFuelTeam !== true) return [];
+    page.questions.flatMap<FuelColumn>((question): FuelColumn[] => {
+      if (question.type === 'information') return [];
+      // Household composition is a fixed generated answer rather than a
+      // questionnaire-selected Fuel detail, so it is always represented by
+      // its three Fuel totals.
+      if (question.type === 'householdComposition') {
+        return HOUSEHOLD_COMPOSITION_TOTAL_COLUMNS.map((total) => ({
+          key: `${question.key}:${total.key}`,
+          label: total.label,
+          question,
+          householdCompositionTotal: total.key,
+        }));
+      }
+      if (question.key === LEGACY_FUEL_PENSION_KEY || question.forFuelTeam !== true) return [];
       if (question.type === 'keyField' && KEY_FIELD_READERS[question.field] === undefined)
         return [];
       return [{ key: question.key, label: question.label, question }];
@@ -86,6 +113,11 @@ export function fuelColumnValue(
   household: FuelHelpHousehold,
   sources: OptionSources,
 ): string {
+  if (column.householdCompositionTotal !== undefined) {
+    const totals = householdCompositionTotals(household.answers);
+    return totals === null ? 'Not answered' : String(totals[column.householdCompositionTotal]);
+  }
+
   if (column.question.type === 'keyField') {
     return KEY_FIELD_READERS[column.question.field]?.(household) ?? 'Not provided';
   }

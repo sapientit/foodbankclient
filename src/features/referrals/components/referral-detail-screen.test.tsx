@@ -990,8 +990,8 @@ describe('the admin referral detail screen', () => {
     const dialog = within(screen.getByRole('dialog', { name: 'Edit pick list admin notes' }));
     const input = dialog.getByLabelText('Pick list admin notes');
     expect(input).toHaveValue('Allergic to nuts');
-    expect(input).toHaveAttribute('maxlength', '80');
-    expect(input.tagName).toBe('INPUT');
+    expect(input).toHaveAttribute('maxlength', '400');
+    expect(input.tagName).toBe('TEXTAREA');
     // The server cannot check this, so the hint is the only guard.
     expect(input).toHaveAccessibleDescription(/printed on the household’s picking sheet/);
     expect(input).toHaveAccessibleDescription(/Never write the reason for referral here/);
@@ -2047,7 +2047,7 @@ describe('welcoming a newly authorised referrer', () => {
     await user.click(dialog.getByRole('button', { name: 'Approve and authorise referrer' }));
   }
 
-  it('opens a Gmail email to the referrer in the administrator’s own account once authorised', async () => {
+  it('opens a Gmail email to the referrer from the shared food bank account once authorised', async () => {
     server.use(
       http.get(REFERRAL, () => HttpResponse.json(referral({ id: 'r1', status: 'pending_review' }))),
       http.post(REFERRAL_ACCEPT, () => HttpResponse.json(referral({ id: 'r1', status: 'active' }))),
@@ -2059,7 +2059,7 @@ describe('welcoming a newly authorised referrer', () => {
       await screen.findByText(/Referral approved and referrer authorised\./),
     ).toBeInTheDocument();
     const params = openedComposeParams();
-    expect(params.get('authuser')).toBe('pete@x.com');
+    expect(params.get('authuser')).toBe('info@guildfordfoodbank.org');
     expect(params.get('to')).toBe('referrer@riverside.org');
     expect(params.get('body')).toMatch(/^Hi Sam Referrer\n/);
     expect(

@@ -127,8 +127,8 @@ export const routes: RouteObject[] = [
        */
       /*
        * Sessions. `sessions/:sessionId` is a real fetch of its own — unlike
-       * stock and users, `GET /sessions/{id}` exists and is not capped by role
-       * — so it is a sibling of the list rather than a parameter on it. React
+       * stock and users, `GET /sessions/{id}` exists — so it is a sibling of
+       * the list rather than a parameter on it. React
        * Router ranks static segments over dynamic ones regardless of array
        * order, so `sessions/new` and `sessions/recurring*` are never shadowed
        * by `sessions/:sessionId`.

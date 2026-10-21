@@ -623,14 +623,13 @@ function PicklistAdminPanel({
               and an administrator on the phone types without reading down. */}
           <p className={styles.hint} id={hintId}>
             This is printed on the household&rsquo;s picking sheet. Never write the reason for
-            referral here. One line of at most {MAX_PICKLIST_ADMIN_LENGTH} characters; leave blank
-            to remove it.
+            referral here. At most {MAX_PICKLIST_ADMIN_LENGTH} characters; leave blank to remove it.
           </p>
           <label htmlFor={inputId}>Pick list admin notes</label>
           <p className={styles.referrerComments}>
             Referrer comments: {referrerOther(referral.answers) ?? 'None provided.'}
           </p>
-          <input
+          <textarea
             aria-describedby={hintId}
             autoComplete="off"
             className={[styles.input, styles.picklistAdminInput].join(' ')}
@@ -639,14 +638,7 @@ function PicklistAdminPanel({
             onChange={(event) => {
               setValue(event.target.value);
             }}
-            // One line, so Enter (or a phone's Go key) saves, as it would in a form.
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !amend.isPending) {
-                event.preventDefault();
-                void save();
-              }
-            }}
-            type="text"
+            rows={6}
             value={value}
           />
         </ConfirmDialog>
@@ -877,7 +869,6 @@ function ReviewPanel({
       const emailUrl =
         typeof referral.referrerEmail === 'string' && authState.status === 'signed-in'
           ? welcomeEmailComposeUrl({
-              adminEmail: authState.user.email,
               referrerEmail: referral.referrerEmail,
               values: {
                 referrerName: referral.referrerName,

@@ -112,7 +112,6 @@ export function CreateReferrerScreen() {
       // administrator edits it or does not send it (screenDetails.md).
       if (values.matchType === 'email' && authState.status === 'signed-in') {
         const emailUrl = welcomeEmailComposeUrl({
-          adminEmail: authState.user.email,
           referrerEmail: normalisedValue,
           values: {
             // An authorised-referrer row has no person's name, so the greeting

@@ -102,7 +102,7 @@ export function HomeScreen() {
   const oldSessions = previousWeeksNotCompleted(previous.data ?? [], thisWeek.from);
   const shown =
     tab === 'custom'
-      ? filterSessionsByStatus(sessions.data ?? [], custom.showCompleted)
+      ? filterSessionsByStatus(sessions.data ?? [], isAdmin && custom.showCompleted)
       : (sessions.data ?? []);
   const pageCount = Math.max(1, Math.ceil(shown.length / 10));
   const displayed = shown.slice((page - 1) * 10, page * 10);
@@ -292,7 +292,7 @@ export function HomeScreen() {
             >
               {tab === rangeTab.id && (
                 <>
-                  {tab === 'custom' && <SessionListFilters />}
+                  {tab === 'custom' && <SessionListFilters showCompletedControl={isAdmin} />}
                   {sessions.isPending ? (
                     <Spinner label="Loading sessions…" />
                   ) : displayed.length === 0 ? (

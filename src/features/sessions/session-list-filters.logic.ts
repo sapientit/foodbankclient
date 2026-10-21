@@ -5,7 +5,7 @@ import type { SessionStatus } from './keys';
  * What the two session lists are showing, and how it is read off the URL.
  *
  * Both `/run-sessions` and `/sessions` render the same table over the same
- * three controls — a date window and whether completed sessions are included —
+ * date range and, for an administrator, whether completed sessions are included —
  * so the rules for them live once, here, with no React and no fetching.
  *
  * **The status narrowing is done in this client, not by the server.**
@@ -21,19 +21,10 @@ export const OPEN_STATUSES: readonly SessionStatus[] = ['planned', 'in_progress'
  * How far back the list reaches by default.
  *
  * A fortnight, because outcomes are routinely recorded after the event — the
- * Saturday session gets its no-shows on the Monday — and because a completed
- * session is worth looking back at for about as long as anybody remembers
- * running it. Without a lower bound the server applies none at all, so ticking
- * `Show completed` would list every session the food bank has ever run.
- *
- * **This is a default, not a limit, and how far back a team lead should be able
- * to reach is an open question** — `OPEN-QUESTIONS.md` Q38.
- * The date box is a plain date box: typing 2024 into it lists 2024, and from
- * there the session's listener sheet — the one page that carries a reason for
- * referral — is a link away. Nothing about the permissions changed; what
- * changed is that there is now a screen that walks somebody there. If the
- * charity wants a limit it cannot be enforced from here anyway, so do not add
- * one until Q38 is answered.
+ * Saturday session gets its no-shows recorded on the Monday — and because an
+ * administrator may need to inspect a recently completed session. Without a
+ * lower bound the server applies none at all, so its completed-session view
+ * would otherwise list every session the food bank has ever run.
  */
 export const DAYS_BACK = 14;
 
@@ -87,11 +78,10 @@ export function readSessionListSelection(
 }
 
 /**
- * `Show completed` brings in **cancelled sessions as well as confirmed ones**,
- * and that is deliberate: it is now the only way to reach a cancelled session
- * from a list, and a cancelled session nobody can find is how somebody comes to
- * run a session that is not happening. The status column is what tells the two
- * apart.
+ * Administrators' `Show completed` brings in **cancelled sessions as well as
+ * confirmed ones**. A team lead is never permitted to pass `true` here: closed
+ * sessions are omitted by the server and this client does not expose a stale
+ * `completed=true` URL as an apparent access path.
  *
  * Structural rather than typed on the generated `Session`, so this is testable
  * without a sixteen-field fixture — the same reasoning as

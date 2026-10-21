@@ -178,11 +178,10 @@ describe('team-lead run sheet', () => {
     );
     renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
     await screen.findByRole('row', { name: /Pat Adams/ });
-    const body = screen.getAllByRole('rowgroup')[1];
-    if (body === undefined) throw new Error('The table has no body');
     expect(
-      within(body)
+      screen
         .getAllByRole('rowheader')
+        .filter((cell) => cell.textContent.startsWith('Pat '))
         .map((cell) => cell.textContent),
     ).toEqual(['Pat Clark', 'Pat Davies', 'Pat Adams', 'Pat Baker']);
   });
@@ -234,7 +233,7 @@ describe('team-lead run sheet', () => {
       name: 'Run sheet for every household on this session',
     });
     const headings = screen.getAllByRole('columnheader');
-    expect(headings).toHaveLength(10);
+    expect(headings).toHaveLength(9);
     expect(table.querySelectorAll('colgroup > col')).toHaveLength(headings.length);
     // The long values are on the page in full rather than truncated into it:
     // the columns wrap, they do not clip.
@@ -254,7 +253,7 @@ describe('team-lead run sheet', () => {
       name: 'Run sheet for every household on this session',
     });
     const headings = within(table).getAllByRole('columnheader');
-    expect(headings).toHaveLength(11);
+    expect(headings).toHaveLength(10);
     expect(table.querySelectorAll('colgroup > col')).toHaveLength(headings.length);
   });
 
@@ -264,7 +263,7 @@ describe('team-lead run sheet', () => {
    * List — from the referral, so a household with no pick number yet has them
    * too.
    */
-  it("shows each household's first-time marker, voucher instruction and referrer comments", async () => {
+  it("shows each household's first-time marker and voucher instruction, with non-blank notes on their own rows", async () => {
     serveRunSheet([
       household('r1', 'Jamie', 'Rowe', 1, {
         firstTimeMarker: 'first_time',
@@ -285,27 +284,30 @@ describe('team-lead run sheet', () => {
     const headings = within(table)
       .getAllByRole('columnheader')
       .map((cell) => cell.textContent);
-    expect(headings.slice(-4)).toEqual(['Del?', 'First?', 'Voucher', 'Pick list notes']);
+    expect(headings.slice(-3)).toEqual(['Del?', 'First?', 'Voucher']);
 
-    const cellsOf = (name: RegExp) =>
-      within(screen.getByRole('row', { name }))
+    const cellsOf = (name: string) => {
+      const row = screen.getByRole('rowheader', { name }).parentElement;
+      if (row === null) throw new Error(`No row for ${name}`);
+      return within(row)
         .getAllByRole('cell')
-        .slice(-4)
+        .slice(-3)
         .map((cell) => cell.textContent);
-    expect(cellsOf(/Jamie Rowe/)).toEqual([
-      '',
-      'First time',
-      'Provide voucher for this client',
-      'Ring the bell twice',
-    ]);
+    };
+    expect(cellsOf('Jamie Rowe')).toEqual(['', 'First time', 'Provide voucher for this client']);
     // Not yet picked for, and still shown. A recorded previous session leaves
     // First? blank, as on the Client List.
-    expect(cellsOf(/Alex Shaw/)).toEqual([
-      '',
-      '',
-      'Client has already received voucher',
-      'No tins',
-    ]);
+    expect(cellsOf('Alex Shaw')).toEqual(['', '', 'Client has already received voucher']);
+    expect(
+      within(table).getByRole('cell', {
+        name: 'Pick list notes for pick #1, Jamie Rowe: Ring the bell twice',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByRole('cell', {
+        name: 'Pick list notes for no pick number, Alex Shaw: No tins',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('leaves out the Voucher column when the voucher scheme does not apply', async () => {
@@ -313,7 +315,7 @@ describe('team-lead run sheet', () => {
 
     renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
 
-    const row = await screen.findByRole('row', { name: /Jamie Rowe/ });
+    const row = await screen.findByRole('row', { name: /^#1 Jamie Rowe/ });
     expect(screen.queryByRole('columnheader', { name: 'Voucher' })).toBeNull();
     expect(within(row).getByRole('cell', { name: 'Admin' })).toBeInTheDocument();
   });
@@ -327,7 +329,7 @@ describe('team-lead run sheet', () => {
 
     renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
 
-    await screen.findByRole('row', { name: /Jamie Rowe/ });
+    await screen.findByRole('row', { name: /^#1 Jamie Rowe/ });
     expect(screen.getByText('Ring the bell twice')).toBeInTheDocument();
     expect(screen.queryByText('Peanuts')).toBeNull();
     expect(screen.queryByText('Dog')).toBeNull();

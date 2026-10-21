@@ -23,7 +23,7 @@ import styles from './session-list-filters.module.css';
  * `{ replace: true }` because changing a filter is not a place to come back to
  * with the back button — the same idiom the referral list uses.
  */
-export function SessionListFilters() {
+export function SessionListFilters({ showCompletedControl }: { showCompletedControl: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const selection = readSessionListSelection(searchParams, londonToday());
   const fromId = useId();
@@ -71,18 +71,20 @@ export function SessionListFilters() {
           />
         </span>
       </fieldset>
-      <p className={styles.field}>
-        <label>
-          <input
-            checked={selection.showCompleted}
-            onChange={(event) => {
-              set(SHOW_COMPLETED_PARAM, event.target.checked ? 'true' : '');
-            }}
-            type="checkbox"
-          />{' '}
-          Show completed
-        </label>
-      </p>
+      {showCompletedControl && (
+        <p className={styles.field}>
+          <label>
+            <input
+              checked={selection.showCompleted}
+              onChange={(event) => {
+                set(SHOW_COMPLETED_PARAM, event.target.checked ? 'true' : '');
+              }}
+              type="checkbox"
+            />{' '}
+            Show completed
+          </label>
+        </p>
+      )}
     </div>
   );
 }

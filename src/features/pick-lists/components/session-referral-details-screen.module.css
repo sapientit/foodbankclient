@@ -82,6 +82,11 @@
   border-block-end: 2px solid #1a1a1a;
 }
 
+.picklistAdminRow td {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* A telephone number is read as one thing, not two short fragments. The
    screen table can scroll horizontally, which is safer than breaking a number
    mid-read; the print layout keeps its own measured column widths below. */
@@ -173,10 +178,6 @@
     inline-size: 11%;
   }
 
-  .picklistAdmin {
-    inline-size: 17%;
-  }
-
   .pickNumber,
   .postcode,
   .phone,
@@ -192,9 +193,10 @@
     display: table-header-group;
   }
 
-  /* A household is one row and belongs on one page. Splitting an address across
-     a page break is how the wrong door gets knocked on. */
-  .table tr {
+  /* Keep a household's contact row and its note together whenever they fit.
+     A 400-character note is allowed to flow onto the next page when it cannot:
+     printing all of it matters more than an artificial height limit. */
+  .household {
     break-inside: avoid;
   }
 

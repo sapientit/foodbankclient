@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fuelColumns, fuelColumnValue } from './fuel-help.logic';
+import { householdCompositionTotals } from '../referrals/household-composition';
 import type { FuelHelpList } from './queries';
 import type { ReferralFormDefinition } from '../referrals/referral-form-definition';
 
@@ -16,7 +17,13 @@ const HOUSEHOLD: FuelHelpList['households'][number] = {
   formId: null,
   answers: {
     refereeEmail: 'jamie@example.org',
-    FuelPension: 'Yes',
+    'Household Components': {
+      '0-2': { female: 1 },
+      '3-11': { male: 1 },
+      '12-17': { 'non-binary': 1 },
+      'working-age': { female: 1 },
+      'state-pension-age': { male: 1 },
+    },
     'Electricity crisis': 'Example Energy',
     'Electricity Smart': 'Yes',
     'Gas crisis': 'Example Gas',
@@ -77,7 +84,9 @@ describe('fuel columns', () => {
       'refereePhone',
       'refereeAddress',
       'refereePostcode',
-      'FuelPension',
+      'Household Components:under18',
+      'Household Components:over18',
+      'Household Components:statePensionAge',
       'Electricity crisis',
       'Electricity Smart',
       'Gas crisis',
@@ -85,6 +94,76 @@ describe('fuel columns', () => {
       'Electricity debt',
       'Gas debt',
       'Permission',
+    ]);
+  });
+
+  it('calculates fuel totals for current and historic composition without sex detail', () => {
+    expect(householdCompositionTotals(HOUSEHOLD.answers)).toEqual({
+      under18: 3,
+      over18: 2,
+      statePensionAge: 1,
+    });
+    expect(
+      householdCompositionTotals({
+        'Household composition': {
+          '0-4': { female: 2 },
+          '5-11': { male: 1 },
+          '12-17': { female: 1 },
+          'working-age': { male: 2 },
+          'state-pension-age': { female: 1 },
+        },
+      }),
+    ).toEqual({ under18: 4, over18: 3, statePensionAge: 1 });
+  });
+
+  it('renders the three composition totals as separate fuel columns', () => {
+    const columns = fuelColumns().filter(
+      (column) => column.householdCompositionTotal !== undefined,
+    );
+
+    expect(columns.map(({ label }) => label)).toEqual(['<18', '18+', 'State Pension age+']);
+    expect(columns.map((column) => fuelColumnValue(column, HOUSEHOLD, {}))).toEqual([
+      '3',
+      '2',
+      '1',
+    ]);
+  });
+
+  it('uses composition totals and ignores the legacy pension flag from an older release', () => {
+    const definition: ReferralFormDefinition = {
+      version: 1,
+      pages: [
+        {
+          pageNum: 1,
+          pageTitle: 'Test',
+          questions: [
+            {
+              type: 'householdComposition',
+              key: 'Household Components',
+              label: 'Household composition',
+              required: true,
+              preference: false,
+            },
+            {
+              type: 'choice',
+              key: 'FuelPension',
+              label: 'Are there people in the household over state pension age',
+              required: false,
+              preference: false,
+              forFuelTeam: true,
+              answerMin: 0,
+              answerMax: 1,
+              options: [{ value: 'Yes', label: 'Yes' }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(fuelColumns(definition).map(({ label }) => label)).toEqual([
+      '<18',
+      '18+',
+      'State Pension age+',
     ]);
   });
 

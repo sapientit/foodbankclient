@@ -6,11 +6,11 @@ import rawTemplate from './referrer-welcome-email.config.json';
  * address — never a domain rule. `screenDetails.md`, "#Valid referrers".
  *
  * **Nothing is sent from here.** This builds a Gmail compose URL and opens it
- * in the administrator's own Google account, where they edit the text and send
- * it themselves. No OAuth scope and no Google project setting is involved: it
- * is a link, and Gmail recognises the account from the browser's own Google
- * sign-in. The referrer's address, name and organisation do travel to Google in
- * that URL — the charity accepted that on 2026-09-29, recorded in
+ * from the shared food bank account, where the administrator edits the text and
+ * sends it themselves. No OAuth scope and no Google project setting is involved:
+ * it is a link, and Gmail recognises the shared account from the browser's own
+ * Google sign-in. The referrer's address, name and organisation do travel to
+ * Google in that URL — the charity accepted that on 2026-09-29, recorded in
  * `docs/engineering/personal-data.md`.
  *
  * The wording in `referrer-welcome-email.config.json` is the charity's, and is
@@ -20,6 +20,9 @@ import rawTemplate from './referrer-welcome-email.config.json';
 
 const PLACEHOLDERS = ['referrerName', 'organisationName', 'adminName'] as const;
 type Placeholder = (typeof PLACEHOLDERS)[number];
+
+/** The shared address selected for every manually-sent referrer welcome email. */
+const SHARED_WELCOME_EMAIL_ADDRESS = 'info@guildfordfoodbank.org';
 
 export type WelcomeEmailValues = Readonly<Record<Placeholder, string | null>>;
 
@@ -78,19 +81,15 @@ export function fillWelcomeEmailText(
 }
 
 /**
- * `authuser` names the administrator's own address, so Gmail opens in that
- * account even when the browser is signed in to several.
+ * `authuser` names the shared food bank address, so Gmail opens a compose window
+ * from that account even when the browser is signed in to several accounts.
  */
 export function welcomeEmailComposeUrl(
-  {
-    adminEmail,
-    referrerEmail,
-    values,
-  }: { adminEmail: string; referrerEmail: string; values: WelcomeEmailValues },
+  { referrerEmail, values }: { referrerEmail: string; values: WelcomeEmailValues },
   template: WelcomeEmailTemplate = welcomeEmailTemplate,
 ): string {
   const params = new URLSearchParams({
-    authuser: adminEmail,
+    authuser: SHARED_WELCOME_EMAIL_ADDRESS,
     view: 'cm',
     // Full-window compose rather than Gmail's small pop-up over the inbox: display only.
     fs: '1',

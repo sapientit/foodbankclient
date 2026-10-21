@@ -9,19 +9,13 @@ import styles from './session-model-summary-screen.module.css';
 
 type Order = 'model' | 'pick-number';
 
-function collectionMethodLabel(method: 'collection' | 'delivery' | 'referrer_collect'): string {
-  switch (method) {
-    case 'collection':
-      return 'Collection';
-    case 'delivery':
-      return 'Delivery';
-    case 'referrer_collect':
-      return 'Referrer collection';
-  }
+function collectionMethod(answers: Readonly<Record<string, unknown>>): string {
+  const value = answers['Collection method'];
+  return typeof value === 'string' ? value : '';
 }
 
 function dietaryRequirement(answers: Readonly<Record<string, unknown>>): string {
-  const value = answers.Allergies;
+  const value = answers['Dietary Req'];
   return typeof value === 'string' ? value : '';
 }
 
@@ -72,7 +66,7 @@ export function SessionModelSummaryScreen() {
           household.pickNumber === null ? '' : `#${String(household.pickNumber)}`,
           household.modelParcelName ?? '',
           [household.refereeFirstName, household.refereeSurname].filter(Boolean).join(' '),
-          collectionMethodLabel(household.collectionMethod),
+          collectionMethod(household.answers),
           dietaryRequirement(household.answers),
         ].join('\t'),
       )
@@ -137,7 +131,7 @@ export function SessionModelSummaryScreen() {
                       .filter(Boolean)
                       .join(' ') || 'Unknown'}
                   </th>
-                  <td>{collectionMethodLabel(household.collectionMethod)}</td>
+                  <td>{collectionMethod(household.answers)}</td>
                   <td>{dietaryRequirement(household.answers)}</td>
                   <td>{household.children}</td>
                   <td>{household.adults}</td>

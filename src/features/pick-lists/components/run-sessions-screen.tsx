@@ -8,6 +8,7 @@ import {
   useState,
   type MouseEvent,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useAuth } from '../../../auth/auth-context';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
@@ -26,6 +27,7 @@ import { ApiError, describeApiError, isNotFound, pendingPickNumbers } from '../.
 import { formatSessionDate, formatTimeRange, londonToday } from '../../../lib/london-time';
 import { deliveryLabel, standingFromCapacity } from '../../../lib/session-description';
 import { useSession, useSessions, type Session } from '../../sessions/queries';
+import { sessionKeys } from '../../sessions/keys';
 import {
   filterSessionsByStatus,
   readSessionListSelection,
@@ -37,6 +39,7 @@ import {
   useReferrals,
   useReferralOptionSources,
 } from '../../referrals/queries';
+import { referralKeys } from '../../referrals/keys';
 import { describeAnswers } from '../../referrals/referral-answers.logic';
 import {
   EMPTY_REFERRAL_FORM_DEFINITION,
@@ -55,6 +58,7 @@ import {
   useSetParcelLines,
   type Parcel,
 } from '../queries';
+import { pickListKeys } from '../keys';
 import {
   COMPLETE_SESSION_UNAVAILABLE_REASON,
   FIRST_TIME_MARKER,
@@ -81,7 +85,7 @@ import {
 import {
   countPickListInformationLines,
   firstPrintPageHasStockCapacity,
-  splitPrintLines,
+  splitPrintLinesIntoTwoPages,
 } from '../pick-list-print.logic';
 import { composeInformationForPickers } from '../pick-list-information';
 
@@ -94,18 +98,20 @@ import { composeInformationForPickers } from '../pick-list-information';
  * list that stopped at today would hide exactly the sessions with work left on
  * them. Open means `planned` or `in_progress`.
  *
- * **`Show completed` brings back the ones that are finished with**, because a
- * completed session is now something to look at rather than something to do:
- * who attended, what each household was given, the listener sheet. It is off by
- * default so the list a team lead opens mid-shift is the work in front of them.
- * A date window bounds it either way — the server puts no lower bound on the
- * past at all, so without one this would grow without limit as the weeks pass.
+ * Administrators can include completed and cancelled sessions to read the
+ * record. Team leads cannot: closed sessions and the referrals in them are
+ * absent from their API responses, including direct session routes.
  */
 export function RunSessionsScreen() {
+  const { state } = useAuth();
   const [searchParams] = useSearchParams();
   const selection = readSessionListSelection(searchParams, londonToday());
   const sessions = useSessions({ from: selection.from, to: selection.to });
-  const shown = filterSessionsByStatus(sessions.data ?? [], selection.showCompleted);
+  const canShowCompleted = state.status === 'signed-in' && state.user.role === 'admin';
+  const shown = filterSessionsByStatus(
+    sessions.data ?? [],
+    canShowCompleted && selection.showCompleted,
+  );
 
   return (
     <div className={styles.page}>
@@ -113,11 +119,10 @@ export function RunSessionsScreen() {
         <PageHeader icon={<CalendarIcon />} title="Client List" />
       </div>
       <p className={styles.listIntro}>
-        Select the session you are running. Pick lists are prepared when you open it. A completed
-        session opens as a record of what happened and cannot be changed.
+        Select the session you are running. Pick lists are prepared when you open it.
       </p>
       <section aria-label="Session filters" className={styles.listFiltersCard}>
-        <SessionListFilters />
+        <SessionListFilters showCompletedControl={canShowCompleted} />
       </section>
       {sessions.isPending && <Spinner label="Loading sessions…" />}
       {sessions.isError && (
@@ -128,16 +133,18 @@ export function RunSessionsScreen() {
           <EmptyState
             headline="No sessions to show"
             sentence={
-              selection.showCompleted
+              canShowCompleted && selection.showCompleted
                 ? 'Nothing falls between these dates. Try widening them.'
-                : 'Nothing left to run between these dates. Try widening them, or tick Show completed to look back.'
+                : canShowCompleted
+                  ? 'Nothing left to run between these dates. Try widening them, or tick Show completed to look back.'
+                  : 'Nothing left to run between these dates. Try widening them.'
             }
           />
         ) : (
           <section aria-label="Session results" className={styles.listResults}>
             <SessionTable
               caption={
-                selection.showCompleted
+                canShowCompleted && selection.showCompleted
                   ? 'Sessions in this date range, completed ones included'
                   : 'Open sessions in this date range'
               }
@@ -410,6 +417,33 @@ export function PickListPrintScreen() {
     !reasons.isError;
   const definitionFor = (formId: string | null) =>
     parsedReleases?.find((release) => release.formId === formId)?.definition ?? null;
+  const overflowingPickNumbers =
+    !informationReady || print.data === undefined
+      ? []
+      : print.data.parcels
+          .filter((parcel) =>
+            currentParcels.some((current) => current.pickNumber === parcel.pickNumber),
+          )
+          .flatMap((parcel) => {
+            const sessionParcel = (list.data?.parcels ?? []).find(
+              (candidate) => candidate.pickNumber === parcel.pickNumber,
+            );
+            const information =
+              sessionParcel === undefined
+                ? null
+                : composeInformationForPickers(
+                    sessionParcel,
+                    definitionFor(sessionParcel.formId),
+                    reasons.sources,
+                  );
+            return splitPrintLinesIntoTwoPages(
+              parcel.lines,
+              countPickListInformationLines(information),
+            ).overflows
+              ? [parcel.pickNumber]
+              : [];
+          });
+  const printingBlockedByOverflow = overflowingPickNumbers.length > 0;
   const openPrintDialog = useCallback(
     (pickListId: string) => {
       /*
@@ -430,12 +464,13 @@ export function PickListPrintScreen() {
       readOnly !== null &&
       informationReady &&
       print.data !== undefined &&
+      !printingBlockedByOverflow &&
       printed.current !== print.data.pickList.id
     ) {
       printed.current = print.data.pickList.id;
       openPrintDialog(print.data.pickList.id);
     }
-  }, [informationReady, openPrintDialog, print.data, readOnly]);
+  }, [informationReady, openPrintDialog, print.data, printingBlockedByOverflow, readOnly]);
 
   const requestCurrentPrint = useCallback(() => {
     // Both halves of the sheet, so a reprint carries today's admin notes too.
@@ -454,13 +489,20 @@ export function PickListPrintScreen() {
     if (
       manualPrintRequest === null ||
       !informationReady ||
+      printingBlockedByOverflow ||
       print.data?.pickList.id !== manualPrintRequest.id ||
       handledManualPrintSequence.current === manualPrintRequest.sequence
     )
       return;
     handledManualPrintSequence.current = manualPrintRequest.sequence;
     openPrintDialog(manualPrintRequest.id);
-  }, [informationReady, manualPrintRequest, openPrintDialog, print.data]);
+  }, [
+    informationReady,
+    manualPrintRequest,
+    openPrintDialog,
+    print.data,
+    printingBlockedByOverflow,
+  ]);
 
   if (session.isPending || list.isPending || (readyToPrint && print.isPending))
     return <Spinner label="Preparing print sheets…" />;
@@ -494,6 +536,23 @@ export function PickListPrintScreen() {
     return <ErrorNotice error={reasons.error} onRetry={() => void reasons.refetch()} />;
   if (print.data === undefined || !informationReady)
     return <Spinner label="Preparing print sheets…" />;
+  if (printingBlockedByOverflow)
+    return (
+      <div className={styles.tabPage}>
+        <div className={classNames(styles.headerCard, styles.screenOnly)}>
+          <PageHeader icon={<ClipboardCheckIcon />} title="Pick lists" />
+        </div>
+        <section aria-label="Pick list printing" className={styles.card}>
+          <p role="alert">
+            {`Pick ${overflowingPickNumbers
+              .map((pickNumber) => `#${String(pickNumber)}`)
+              .join(
+                ', ',
+              )} cannot fit on one double-sided sheet. Reduce its stock lines, or ask an administrator to shorten Information for pickers; no items have been left off.`}
+          </p>
+        </section>
+      </div>
+    );
   return (
     <div className={styles.tabPage}>
       <div className={classNames(styles.headerCard, styles.screenOnly)}>
@@ -538,7 +597,10 @@ export function PickListPrintScreen() {
               informationLines,
               parcel.lines[0],
             );
-            const printPages = splitPrintLines(parcel.lines, informationLines);
+            const { pages: printPages } = splitPrintLinesIntoTwoPages(
+              parcel.lines,
+              informationLines,
+            );
             return (
               <section className={styles.printSheet} key={parcel.pickNumber}>
                 <header className={styles.printHeader}>
@@ -584,7 +646,7 @@ export function PickListPrintScreen() {
                     <div
                       className={classNames(
                         styles.printLinePage,
-                        pageIndex === 0 && !firstPageHasStockCapacity
+                        pageIndex === 1 && !firstPageHasStockCapacity
                           ? styles.printLinePageAfterInformation
                           : undefined,
                       )}
@@ -643,6 +705,8 @@ export function PickListPrintScreen() {
 
 export function RunSessionDetailScreen() {
   const { sessionId = '' } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { state: authState } = useAuth();
   /*
    * **An administrator can open a household's referral from its name here; a
@@ -660,6 +724,7 @@ export function RunSessionDetailScreen() {
    * that means anything.
    */
   const canOpenReferral = authState.status === 'signed-in' && authState.user.role === 'admin';
+  const isTeamLead = authState.status === 'signed-in' && authState.user.role === 'team_lead';
   const session = useSession(sessionId);
   /** `null` while the session is still loading — not yet known to be either. */
   const readOnly = session.data === undefined ? null : isSessionReadOnly(session.data.status);
@@ -929,7 +994,18 @@ export function RunSessionDetailScreen() {
             allOutcomesRecorded={allOutcomesRecorded}
             completing={complete.isPending}
             onComplete={() => {
-              complete.mutate(sessionId);
+              complete.mutate(sessionId, {
+                onSuccess: () => {
+                  if (!isTeamLead) return;
+                  // A just-confirmed session has ceased to exist for this
+                  // role. Drop every route-local response before leaving, so
+                  // Back cannot briefly re-render household data from memory.
+                  queryClient.removeQueries({ queryKey: sessionKeys.all });
+                  queryClient.removeQueries({ queryKey: referralKeys.all });
+                  queryClient.removeQueries({ queryKey: pickListKeys.all });
+                  void navigate('/run-sessions', { replace: true });
+                },
+              });
             }}
             onToggleStockCheck={() => {
               setStockCheckOpen((open) => !open);
@@ -978,9 +1054,6 @@ export function RunSessionDetailScreen() {
                       Voucher
                     </th>
                   )}
-                  <th className={styles.otherColumn} scope="col">
-                    Pick list notes
-                  </th>
                   <th scope="col">Status</th>
                   <th scope="col">Action</th>
                 </tr>
@@ -1075,137 +1148,144 @@ function ClientRow({
   const status = parcelStatus(parcel);
   const reviewed = parcel.reviewedAt !== null;
   return (
-    <tr>
-      {/* The pick number heads the row: it is what matches a sheet in a hall to
+    <>
+      <tr>
+        {/* The pick number heads the row: it is what matches a sheet in a hall to
           a line on this screen, and it is what the refusal to close the session
           names. Its own column so the numbers align down one edge rather than
           moving with the length of the name before them. */}
-      <th className={styles.pickCell} scope="row">
-        #{parcel.pickNumber}
-      </th>
-      {/* The household's referral, opened by their name — the same screen the
+        <th className={styles.pickCell} scope="row">
+          #{parcel.pickNumber}
+        </th>
+        {/* The household's referral, opened by their name — the same screen the
           referral list and the search reach. An id in the path and never a
           name: see `.claude/rules/pii-security.md`. Plain text for a team lead,
           for whom that screen is not a task. */}
-      <td>
-        {canOpenReferral ? (
-          <Link to={`/referrals/${parcel.referralId}`}>{parcelName(parcel)}</Link>
-        ) : (
-          parcelName(parcel)
-        )}
-      </td>
-      <td className={styles.compactColumn}>
-        {parcel.firstTimeMarker !== null && (
-          <span className={styles.status} data-status={parcel.firstTimeMarker}>
-            {FIRST_TIME_MARKER[parcel.firstTimeMarker]}
-          </span>
-        )}
-      </td>
-      {voucherSchemeApplies && (
+        <td>
+          {canOpenReferral ? (
+            <Link to={`/referrals/${parcel.referralId}`}>{parcelName(parcel)}</Link>
+          ) : (
+            parcelName(parcel)
+          )}
+        </td>
         <td className={styles.compactColumn}>
-          {parcel.voucherInstruction !== null && (
-            <span className={styles.status}>
-              {voucherInstructionLabel(parcel.voucherInstruction)}
+          {parcel.firstTimeMarker !== null && (
+            <span className={styles.status} data-status={parcel.firstTimeMarker}>
+              {FIRST_TIME_MARKER[parcel.firstTimeMarker]}
             </span>
           )}
         </td>
-      )}
-      <td className={styles.otherColumn}>
-        {parcel.picklistAdmin !== null && (
-          <OtherAnswer
-            label={`Pick list notes for ${describeParcel(parcel)}, scrolls`}
-            text={parcel.picklistAdmin}
-          />
+        {voucherSchemeApplies && (
+          <td className={styles.compactColumn}>
+            {parcel.voucherInstruction !== null && (
+              <span className={styles.status}>
+                {voucherInstructionLabel(parcel.voucherInstruction)}
+              </span>
+            )}
+          </td>
         )}
-      </td>
-      <td>
-        <span className={styles.status} data-status={status.state}>
-          {status.label}
-        </span>
-      </td>
-      <td>
-        {/* On a finished session the workspace is still worth opening — it is
+        <td>
+          <span className={styles.status} data-status={status.state}>
+            {status.label}
+          </span>
+        </td>
+        <td>
+          {/* On a finished session the workspace is still worth opening — it is
             where the parcel's contents are — but there is nothing left to
             review, so the link says what it now does. */}
-        {readOnly ? (
-          <Link
-            className={classNames(styles.pickListLink, 'button-link')}
-            to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
-          >
-            View Pick list
-          </Link>
-        ) : !reviewed && parcel.attendance === 'pending' ? (
-          <Link
-            className={classNames(styles.pickListLink, 'button-link')}
-            to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
-          >
-            Check pick list
-          </Link>
-        ) : (
-          /*
-           * Named for the household, not just the outcome. Every row renders the
-           * same two words, so a screen reader's list of buttons on a session of
-           * twenty is twenty identical pairs — and the pick number and name that
-           * tell them apart are in neighbouring cells, which do not reach the
-           * accessible name. These are the buttons that decide whether a
-           * household is recorded as fed, so the wrong one is not a cosmetic
-           * mistake.
-           *
-           * The visible words come first, because that is what somebody using
-           * voice control says.
-           */
-          <div className={styles.rowActions}>
-            <button
-              aria-label={`${attendedLabel(parcel)} — ${describeParcel(parcel)}`}
-              disabled={attendance.isPending}
-              onClick={() => {
-                attendance.mutate({ id: parcel.id, attendance: 'attended' });
-              }}
-              type="button"
-            >
-              {attendedLabel(parcel)}
-            </button>
-            <button
-              aria-label={`${missedLabel(parcel)} — ${describeParcel(parcel)}`}
-              disabled={attendance.isPending}
-              onClick={() => {
-                attendance.mutate({ id: parcel.id, attendance: 'no_show' });
-              }}
-              type="button"
-            >
-              {missedLabel(parcel)}
-            </button>
-            {/*
-             * The way back into the household's pick list, which reviewing used
-             * to take away. Reviewing settles the quantities; it does not close
-             * the list — the server keeps the lines editable right up to the
-             * session being confirmed, and a stock check answering that an item
-             * is short is exactly the moment a team lead needs to go back in and
-             * take it out of a bag. Recording an outcome is the step that stops
-             * the parcel changing, because by then its stock has moved, so from
-             * there the same link only reads.
-             *
-             * Named for the household like the buttons beside it: three controls
-             * a row, twenty rows, and the pick number and name that tell them
-             * apart sit in neighbouring cells that no accessible name reaches.
-             */}
+          {readOnly ? (
             <Link
-              aria-label={`${pickListLabel(parcel)} — ${describeParcel(parcel)}`}
               className={classNames(styles.pickListLink, 'button-link')}
               to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
             >
-              {pickListLabel(parcel)}
+              View Pick list
             </Link>
-          </div>
-        )}
-      </td>
-    </tr>
+          ) : !reviewed && parcel.attendance === 'pending' ? (
+            <Link
+              className={classNames(styles.pickListLink, 'button-link')}
+              to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
+            >
+              Check pick list
+            </Link>
+          ) : (
+            /*
+             * Named for the household, not just the outcome. Every row renders the
+             * same two words, so a screen reader's list of buttons on a session of
+             * twenty is twenty identical pairs — and the pick number and name that
+             * tell them apart are in neighbouring cells, which do not reach the
+             * accessible name. These are the buttons that decide whether a
+             * household is recorded as fed, so the wrong one is not a cosmetic
+             * mistake.
+             *
+             * The visible words come first, because that is what somebody using
+             * voice control says.
+             */
+            <div className={styles.rowActions}>
+              <button
+                aria-label={`${attendedLabel(parcel)} — ${describeParcel(parcel)}`}
+                disabled={attendance.isPending}
+                onClick={() => {
+                  attendance.mutate({ id: parcel.id, attendance: 'attended' });
+                }}
+                type="button"
+              >
+                {attendedLabel(parcel)}
+              </button>
+              <button
+                aria-label={`${missedLabel(parcel)} — ${describeParcel(parcel)}`}
+                disabled={attendance.isPending}
+                onClick={() => {
+                  attendance.mutate({ id: parcel.id, attendance: 'no_show' });
+                }}
+                type="button"
+              >
+                {missedLabel(parcel)}
+              </button>
+              {/*
+               * The way back into the household's pick list, which reviewing used
+               * to take away. Reviewing settles the quantities; it does not close
+               * the list — the server keeps the lines editable right up to the
+               * session being confirmed, and a stock check answering that an item
+               * is short is exactly the moment a team lead needs to go back in and
+               * take it out of a bag. Recording an outcome is the step that stops
+               * the parcel changing, because by then its stock has moved, so from
+               * there the same link only reads.
+               *
+               * Named for the household like the buttons beside it: three controls
+               * a row, twenty rows, and the pick number and name that tell them
+               * apart sit in neighbouring cells that no accessible name reaches.
+               */}
+              <Link
+                aria-label={`${pickListLabel(parcel)} — ${describeParcel(parcel)}`}
+                className={classNames(styles.pickListLink, 'button-link')}
+                to={`/run-sessions/${sessionId}/clients/${parcel.id}`}
+              >
+                {pickListLabel(parcel)}
+              </Link>
+            </div>
+          )}
+        </td>
+      </tr>
+      {Boolean(parcel.picklistAdmin?.trim()) && (
+        <tr className={styles.picklistAdminRow}>
+          <td
+            aria-label={`Pick list notes for ${describeParcel(parcel)}: ${parcel.picklistAdmin ?? ''}`}
+            colSpan={voucherSchemeApplies ? 6 : 5}
+          >
+            <OtherAnswer
+              label={`Pick list notes for ${describeParcel(parcel)}, scrolls`}
+              text={parcel.picklistAdmin ?? ''}
+            />
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
 /**
  * A compact operational note, wrapped and
- * held to three lines so that one long answer cannot stretch every row;
+ * held to two lines so that one long answer cannot stretch every row;
  * anything longer scrolls within the cell. `screenDetails.md`, "#Session processing".
  *
  * **Focusable only while it actually scrolls.** A scrolling box the keyboard
@@ -1214,7 +1294,7 @@ function ClientRow({
  * team lead tabs through all session. So it measures, and becomes a named,
  * focusable group only when there is something to scroll to — and then marks
  * its lower edge, because a phone's hidden scrollbar gives no other sign that a
- * fourth line is there.
+ * third line is there.
  */
 function OtherAnswer({ text, label }: { text: string; label: string }) {
   const ref = useRef<HTMLDivElement>(null);

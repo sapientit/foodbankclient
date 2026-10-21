@@ -126,6 +126,22 @@ beforeEach(() => {
 });
 
 describe('a team lead’s referral detail view', () => {
+  it('does not render a referral that the server hides because its session is closed', async () => {
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(
+          { error: { code: 'NOT_FOUND', message: 'No such referral', requestId: 'request-1' } },
+          { status: 404 },
+        ),
+      ),
+    );
+
+    renderApp('/referrals/r1');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('That no longer exists');
+    expect(screen.queryByRole('heading', { name: 'Jamie Rowe' })).toBeNull();
+  });
+
   it('renders with reasonId, referrerEmail and referrerPhone absent, and never shows the string "undefined"', async () => {
     const reasonsRequested = vi.fn();
     const repeatReferralsRequested = vi.fn();

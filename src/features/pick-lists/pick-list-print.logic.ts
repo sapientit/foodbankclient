@@ -33,6 +33,13 @@ export interface PrintableLine {
   readonly description: string | null;
 }
 
+export interface TwoPagePrintLayout<T extends PrintableLine> {
+  /** The fixed front and back of one physical duplex sheet. */
+  readonly pages: readonly [T[][], T[][]];
+  /** True when printing the complete parcel would need another physical sheet. */
+  readonly overflows: boolean;
+}
+
 /**
  * The notes keep explicit blank lines (`white-space: pre-wrap` on paper), and
  * long lines wrap at the printable width.  Count both before allocating the
@@ -55,6 +62,10 @@ function informationUnits(informationLines: number): number {
   return informationLines === 0
     ? 0
     : INFORMATION_HEADING_UNITS + informationLines * INFORMATION_LINE_UNITS;
+}
+
+function firstPrintPageCanFitInformation(informationLines: number): boolean {
+  return FIRST_PAGE_COLUMN_UNITS - informationUnits(informationLines) - COLUMN_SAFETY_UNITS >= 0;
 }
 
 function lineUnits(line: PrintableLine): number {
@@ -127,4 +138,32 @@ export function splitPrintLines<T extends PrintableLine>(
   }
 
   return pages;
+}
+
+/**
+ * A pick list is one double-sided sheet: always return its front and back.
+ * An empty back is intentional, so it still identifies the parcel when the
+ * sheets are separated. Never silently lose lines that would need a third
+ * page; callers hold the print dialog back when `overflows` is true.
+ */
+export function splitPrintLinesIntoTwoPages<T extends PrintableLine>(
+  lines: readonly T[],
+  informationLines: number,
+): TwoPagePrintLayout<T> {
+  if (!firstPrintPageCanFitInformation(informationLines)) {
+    return { pages: [[], []], overflows: true };
+  }
+
+  const pages = splitPrintLines(lines, informationLines);
+  if (lines.length > 0 && !firstPrintPageHasStockCapacity(informationLines, lines[0])) {
+    return {
+      pages: [[], pages[0] ?? []],
+      overflows: pages.length > 1,
+    };
+  }
+
+  return {
+    pages: [pages[0] ?? [], pages[1] ?? []],
+    overflows: pages.length > 2,
+  };
 }

@@ -1,4 +1,5 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
@@ -7,6 +8,8 @@ import { renderApp } from '../../../test/render-app';
 import type { ConfigurationRelease } from '../configuration-releases/queries';
 import rawFormConfig from '../referrals/referral-form.config.json';
 import type { Session } from '../sessions/queries';
+import { sessionKeys } from '../sessions/keys';
+import { referralKeys } from '../referrals/keys';
 import type { Parcel, PickList } from './queries';
 import { PRINT_UNAVAILABLE_REASON } from './run-session.logic';
 
@@ -330,6 +333,7 @@ describe('a team lead running a session', () => {
   it('names the unprepared pick list rather than showing a generic 404 when Text messages is opened directly on a session nobody has opened yet', async () => {
     server.use(
       http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
       http.get('/api/v1/sessions/:sessionId/pick-list', () =>
         HttpResponse.json(
           { error: { code: 'NOT_FOUND', message: 'No pick list', requestId: 'r1' } },
@@ -450,7 +454,7 @@ describe('a team lead running a session', () => {
     expect(screen.getAllByText('Sat, 4 Jan 2020')).toHaveLength(2);
   });
 
-  it('brings back the completed and the cancelled when Show completed is ticked', async () => {
+  it('does not offer closed sessions, even when a stale URL asks for them', async () => {
     const past = (id: string, status: Session['status'], startTime: string): Session => ({
       ...SESSION,
       id,
@@ -472,22 +476,34 @@ describe('a team lead running a session', () => {
       ),
     );
 
-    renderApp('/run-sessions');
+    renderApp('/run-sessions?completed=true');
 
     expect(await screen.findByText('09:00–10:30')).toBeInTheDocument();
     expect(screen.queryByText('13:00–14:30')).toBeNull();
+    expect(screen.queryByText('15:00–16:30')).toBeNull();
+    expect(screen.queryByLabelText('Show completed')).toBeNull();
+  });
 
-    const user = userEvent.setup();
-    await user.click(screen.getByLabelText('Show completed'));
+  it('does not load referrals or parcels when a closed session URL is hidden by the server', async () => {
+    let referralsRequested = 0;
+    server.use(
+      http.get('/api/v1/sessions/:id', () =>
+        HttpResponse.json(
+          { error: { code: 'NOT_FOUND', message: 'No such session', requestId: 'request-1' } },
+          { status: 404 },
+        ),
+      ),
+      http.get('/api/v1/referrals', () => {
+        referralsRequested += 1;
+        return HttpResponse.json({ referrals: [] });
+      }),
+    );
 
-    // A completed session is a record of what happened, not work to do, and
-    // this is how somebody gets back to one.
-    expect(await screen.findByText('13:00–14:30')).toBeInTheDocument();
-    // Cancelled too, deliberately: it is the only route left to one, and the
-    // status column is what tells them apart.
-    expect(screen.getByText('15:00–16:30')).toBeInTheDocument();
-    expect(screen.getByText('Confirmed')).toBeInTheDocument();
-    expect(screen.getByText('Cancelled')).toBeInTheDocument();
+    renderApp(`/run-sessions/${SESSION.id}`);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('That no longer exists');
+    expect(screen.queryByText('Sam Taylor')).toBeNull();
+    expect(referralsRequested).toBe(0);
   });
 
   it('does not describe an empty list as having no upcoming sessions', async () => {
@@ -1142,32 +1158,6 @@ describe('a team lead running a session', () => {
     expect(screen.queryByRole('link', { name: /^Amend Pick list/ })).toBeNull();
   });
 
-  it('does not offer attendance controls after a session is confirmed', async () => {
-    const confirmedSession: Session = { ...SESSION, status: 'confirmed' };
-    const reviewedPendingParcel: Parcel = {
-      ...PARCEL,
-      reviewedAt: '2026-08-05T10:00:00.000Z',
-    };
-    server.use(
-      http.get('/api/v1/sessions/:id', () => HttpResponse.json(confirmedSession)),
-      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
-      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
-        HttpResponse.json({ pickList: PICK_LIST, parcels: [reviewedPendingParcel] }),
-      ),
-      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
-        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
-      ),
-      http.get('/api/v1/stock/items', () => HttpResponse.json({ items: [] })),
-    );
-
-    renderApp(`/run-sessions/${SESSION.id}`);
-
-    await screen.findByRole('heading', { name: 'Clients' });
-    expect(screen.queryByRole('region', { name: 'Session actions' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Attended/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^No show/ })).toBeNull();
-  });
-
   it('names the pick numbers still waiting when the session refuses to close', async () => {
     /*
      * `screenDetails.md`: "When the screen refuses to close a session it names
@@ -1368,11 +1358,15 @@ describe('a team lead running a session', () => {
     const headings = within(table)
       .getAllByRole('columnheader')
       .map((cell) => cell.textContent);
-    expect(headings.indexOf('Pick list notes')).toBe(headings.indexOf('Status') - 1);
-    expect(within(table).getByRole('cell', { name: 'Bring to side door' })).toBeInTheDocument();
+    expect(headings).not.toContain('Pick list notes');
+    expect(
+      within(table).getByRole('cell', {
+        name: 'Pick list notes for pick #1, Sam Taylor: Bring to side door',
+      }),
+    ).toBeInTheDocument();
   });
 
-  it('adds no tab stop for pick-list notes that fit their three lines', async () => {
+  it('adds no tab stop for pick-list notes that fit their two lines', async () => {
     // jsdom lays nothing out, so stand in for an answer that exactly fits.
     const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(60);
     const clientHeight = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(60);
@@ -1400,7 +1394,7 @@ describe('a team lead running a session', () => {
     expect(screen.queryByRole('group', { name: /^Pick list notes/ })).toBeNull();
   });
 
-  it('lets the keyboard reach pick-list notes too long for their three lines', async () => {
+  it('lets the keyboard reach pick-list notes too long for their two lines', async () => {
     // jsdom lays nothing out, so stand in for an answer that overflows its cell.
     const scrollHeight = vi
       .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
@@ -1518,6 +1512,53 @@ describe('a team lead running a session', () => {
     expect(
       screen.queryByText('Record an outcome for every client before completing session.'),
     ).toBeNull();
+  });
+
+  it('removes completed-session and referral cache entries before returning a team lead to the list', async () => {
+    const attendedParcel: Parcel = {
+      ...PARCEL,
+      reviewedAt: '2026-08-05T10:00:00.000Z',
+      attendance: 'attended',
+    };
+    let closed = false;
+    server.use(
+      http.get('/api/v1/sessions', () => HttpResponse.json({ sessions: closed ? [] : [SESSION] })),
+      http.get('/api/v1/sessions/:id', () => HttpResponse.json(SESSION)),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => HttpResponse.json(PICK_LIST)),
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [attendedParcel] }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.post('/api/v1/sessions/:sessionId/confirm', () => {
+        closed = true;
+        return HttpResponse.json({ ...SESSION, status: 'confirmed' });
+      }),
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60_000 }, mutations: { retry: false } },
+    });
+    // A referral opened earlier in the session must not survive closure in the
+    // in-memory cache, even though this role cannot navigate to it from here.
+    queryClient.setQueryData(referralKeys.detail(PARCEL.referralId), {
+      referralId: PARCEL.referralId,
+    });
+    const { router } = renderApp('/run-sessions', queryClient);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('link', { name: /Thu, 6 Aug 2099, 10:00–11:30/ }));
+    await user.click(await screen.findByRole('button', { name: 'Complete session' }));
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/run-sessions');
+    });
+    expect(await screen.findByText('No sessions to show')).toBeInTheDocument();
+    expect(screen.queryByText('Sam Taylor')).toBeNull();
+    expect(queryClient.getQueriesData({ queryKey: referralKeys.all })).toEqual([]);
+    expect(queryClient.getQueriesData({ queryKey: sessionKeys.all })).toEqual([
+      [expect.any(Array), []],
+    ]);
   });
 
   it('prints the Information for pickers composed from the session parcel: marked answers, admin line, stored note', async () => {
@@ -1741,6 +1782,160 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}/print`);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/sheets are held back/);
+    expect(printSpy).not.toHaveBeenCalled();
+  });
+
+  it('prints a labelled blank back for a parcel that fits on the front', async () => {
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    onTestFinished(() => {
+      printSpy.mockRestore();
+    });
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [{ ...PARCEL, reviewedAt: '2026-08-05T10:00:00.000Z' }],
+        }),
+      ),
+      http.get('/api/v1/pick-lists/:id/print', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [
+            {
+              pickNumber: 1,
+              refereeFirstName: 'Sam',
+              refereeSurname: 'Taylor',
+              isDelivery: false,
+              deliveryAddress: null,
+              deliveryPostcode: null,
+              deliveryPhone: null,
+              notes: null,
+              lines: PARCEL.lines,
+            },
+          ],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.post('/api/v1/pick-lists/:id/print', () => HttpResponse.json(PICK_LIST)),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/print`);
+
+    await screen.findByRole('button', { name: 'Open print dialog' });
+    await waitFor(() => {
+      expect(printSpy).toHaveBeenCalledOnce();
+    });
+    expect(screen.getByText('Printed page 1 of 2')).toBeInTheDocument();
+    expect(screen.getByText('Printed page 2 of 2')).toBeInTheDocument();
+    expect(screen.getByText('Pick #1 — Sam Taylor')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('table', { name: 'Picking items, page 2, column 1' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('uses the back for stock when Information for pickers fills the front', async () => {
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    onTestFinished(() => {
+      printSpy.mockRestore();
+    });
+    const informationOnlyParcel: Parcel = {
+      ...PARCEL,
+      reviewedAt: '2026-08-05T10:00:00.000Z',
+      picklistAdmin: Array.from({ length: 22 }, () => 'x').join('\n'),
+      answers: { 'Household Components': PARCEL.answers['Household Components'] },
+    };
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({ pickList: PICK_LIST, parcels: [informationOnlyParcel] }),
+      ),
+      http.get('/api/v1/pick-lists/:id/print', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [
+            {
+              pickNumber: 1,
+              refereeFirstName: 'Sam',
+              refereeSurname: 'Taylor',
+              isDelivery: false,
+              deliveryAddress: null,
+              deliveryPostcode: null,
+              deliveryPhone: null,
+              notes: null,
+              lines: PARCEL.lines,
+            },
+          ],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+      http.post('/api/v1/pick-lists/:id/print', () => HttpResponse.json(PICK_LIST)),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/print`);
+
+    await screen.findByRole('button', { name: 'Open print dialog' });
+    await waitFor(() => {
+      expect(printSpy).toHaveBeenCalledOnce();
+    });
+    expect(
+      screen.queryByRole('table', { name: 'Picking items, page 1, column 1' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('table', { name: 'Picking items, page 2, column 1' }),
+    ).toHaveTextContent('Baked beans');
+    expect(screen.getByText('Pick #1 — Sam Taylor')).toBeInTheDocument();
+  });
+
+  it('holds an oversized parcel back instead of opening a third printed page', async () => {
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    onTestFinished(() => {
+      printSpy.mockRestore();
+    });
+    const lines = Array.from({ length: 134 }, (_, index) => ({
+      stockItemId: `stock-${String(index + 1)}`,
+      name: `Stock item ${String(index + 1)}`,
+      description: null,
+      shelfNumber: `A${String(index + 1)}`,
+      quantity: 1,
+    }));
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [{ ...PARCEL, reviewedAt: '2026-08-05T10:00:00.000Z' }],
+        }),
+      ),
+      http.get('/api/v1/pick-lists/:id/print', () =>
+        HttpResponse.json({
+          pickList: PICK_LIST,
+          parcels: [
+            {
+              pickNumber: 1,
+              refereeFirstName: 'Sam',
+              refereeSurname: 'Taylor',
+              isDelivery: false,
+              deliveryAddress: null,
+              deliveryPostcode: null,
+              deliveryPhone: null,
+              notes: null,
+              lines,
+            },
+          ],
+        }),
+      ),
+      http.get('/api/v1/sessions/:sessionId/sms-summary', () =>
+        HttpResponse.json({ sessionId: SESSION.id, unreadTotal: 0, households: [] }),
+      ),
+    );
+
+    renderApp(`/run-sessions/${SESSION.id}/print`);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Pick #1 cannot fit on one double-sided sheet',
+    );
     expect(printSpy).not.toHaveBeenCalled();
   });
 

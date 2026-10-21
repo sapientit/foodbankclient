@@ -9,9 +9,8 @@ import { sortRecurringSessions, sortSessions } from './sessions.logic';
  * The only import boundary for session data — the materialised list, one
  * session, ad hoc create/amend/cancel, and the weekly templates.
  *
- * **Unlike stock and users, `GET /sessions/{id}` genuinely exists and is not
- * capped by role** (`API.md` §2: "Not capped: `GET /sessions/{id}` and every
- * pick-list route"). So the detail screen is a real fetch of its own rather
+ * **Unlike stock and users, `GET /sessions/{id}` genuinely exists.** So the
+ * detail screen is a real fetch of its own rather
  * than a projection over the list — there is no reason to fold the two the way
  * the stock items/levels split was, and no reason to splice a mutation's
  * response into a cached array the way the users screens do: `useSession`
@@ -68,9 +67,9 @@ async function fetchSessions(filters: SessionListFilters): Promise<Session[]> {
  *
  * The near end does not hold any more. The server applies **no lower bound at
  * all**, which was harmless while the lists only ever showed open sessions and
- * is not once completed ones can be asked for — without a `from`, ticking
- * `Show completed` asks for every session the food bank has ever run. So the
- * lists bound the past themselves; see `session-list-filters.logic.ts`.
+ * is not once an administrator can ask for completed ones — without a `from`,
+ * that asks for every session the food bank has ever run. So the lists bound
+ * the past themselves; see `session-list-filters.logic.ts`.
  *
  * `status` is still never sent, for a different reason: the parameter takes one
  * value and the lists want two of them.
@@ -79,7 +78,7 @@ export function useSessions(filters: SessionListFilters = {}) {
   return useQuery({ queryKey: sessionKeys.list(filters), queryFn: () => fetchSessions(filters) });
 }
 
-/** Not capped by role — see the module comment. A stale or invented id is a plain `404`. */
+/** A stale, invented, or team-lead-inaccessible closed-session id is a plain `404`. */
 export function useSession(id: string) {
   return useQuery({
     queryKey: sessionKeys.detail(id),

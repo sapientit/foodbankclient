@@ -232,6 +232,8 @@
 
 .picklistAdminInput {
   inline-size: min(80ch, 100%);
+  min-block-size: 10rem;
+  resize: vertical;
 }
 
 .referrerComments {

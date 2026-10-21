@@ -935,7 +935,11 @@ export interface paths {
          *     cannot widen it — a `to` beyond the horizon is silently **clamped** back
          *     to it rather than refused, and a `from` beyond it simply returns an
          *     empty list. A narrower `to` still applies. Only the far end is capped:
-         *     a team lead can still list sessions in the past.
+         *     a team lead can still list sessions in the past — **but never a
+         *     `confirmed` or `cancelled` one**, which is left out of a team lead's
+         *     list whatever the dates (see "Closed sessions are invisible to a team
+         *     lead" at the top). A team lead asking for `status=confirmed` or
+         *     `status=cancelled` gets an empty list.
          *
          *     Note the unauthenticated `GET /api/v1/public/sessions` window is
          *     fourteen days, so it reaches further ahead than a team lead's list.
@@ -949,7 +953,8 @@ export interface paths {
          *     however far out it is. That is preparation, not a hole: the charity
          *     does not want a team lead stopped from getting a fortnight's picking
          *     ready, and does not need the server enforcing a window nobody works
-         *     outside anyway.
+         *     outside anyway. Closed sessions are the exception: those routes
+         *     answer a team lead `404` for one.
          */
         get: {
             parameters: {
@@ -1213,6 +1218,13 @@ export interface paths {
          *     session closed with people unaccounted for has wrong stock figures.
          *     Once confirmed, the session and its pick list can no longer be changed.
          *     There is no override.
+         *
+         *     Confirming closes the session, so **from then on a team lead cannot
+         *     see it** anywhere else. **Confirm itself is idempotent for every
+         *     role**: a repeat (a double tap, a retry) returns `200` with the session
+         *     unchanged, team lead included — the one route that answers a team
+         *     lead about a closed session, and it carries no household data. A team
+         *     lead gets `404` for a cancelled session.
          */
         post: {
             parameters: {
@@ -1241,6 +1253,7 @@ export interface paths {
                         };
                     };
                 };
+                404: components["responses"]["NotFound"];
                 /** @description Somebody has not been marked attended or not */
                 409: {
                     headers: {
@@ -3324,6 +3337,7 @@ export interface paths {
                         };
                     };
                 };
+                404: components["responses"]["NotFound"];
             };
         };
         put?: never;
@@ -5923,6 +5937,7 @@ export interface paths {
                     };
                     content?: never;
                 };
+                404: components["responses"]["NotFound"];
                 /** @description A model parcel is not configured for every booked household size; or a preference line names a stock item that does not exist (`details.unknownStockItemIds`); or a preference line or a pick-list information entry names a referral that is not on this session (`details.offSessionReferralIds`). Nothing is created in any of those cases. */
                 422: {
                     headers: {
@@ -6155,6 +6170,7 @@ export interface paths {
                         };
                     };
                 };
+                404: components["responses"]["NotFound"];
             };
         };
         put?: never;
@@ -6218,6 +6234,7 @@ export interface paths {
                         };
                     };
                 };
+                404: components["responses"]["NotFound"];
                 /** @description One or more parcels have not been reviewed */
                 409: {
                     headers: {
@@ -6252,6 +6269,7 @@ export interface paths {
                         "application/json": components["schemas"]["PickList"];
                     };
                 };
+                404: components["responses"]["NotFound"];
                 /** @description The session is confirmed */
                 409: {
                     headers: {
@@ -6317,6 +6335,7 @@ export interface paths {
                         };
                     };
                 };
+                404: components["responses"]["NotFound"];
             };
         };
         put?: never;
@@ -6371,6 +6390,7 @@ export interface paths {
                     };
                     content?: never;
                 };
+                404: components["responses"]["NotFound"];
                 /** @description The session has been confirmed */
                 409: {
                     headers: {
@@ -6428,6 +6448,7 @@ export interface paths {
                         };
                     };
                 };
+                404: components["responses"]["NotFound"];
                 /** @description The session has been confirmed, or a line still needs attention */
                 409: {
                     headers: {
@@ -6476,6 +6497,7 @@ export interface paths {
                     };
                     content?: never;
                 };
+                404: components["responses"]["NotFound"];
                 /** @description The session has been confirmed */
                 409: {
                     headers: {
@@ -6569,6 +6591,7 @@ export interface paths {
                         };
                     };
                 };
+                404: components["responses"]["NotFound"];
                 /** @description The pick list has not been reviewed yet, this household has cancelled, the session has been confirmed, or somebody else recorded this household at the same moment. */
                 409: {
                     headers: {
@@ -7415,7 +7438,7 @@ export interface components {
              */
             adminInfo?: string | null;
             /**
-             * @description The administrators' one line for the picker. Exactly the rules of `adminInfo`: a string sets it, explicit `null` clears it, omitting the key leaves it alone; **an empty or whitespace-only string is a `400`, not a clearance**, and so is one over 80 characters. Refused with a `409` on the same terms as the rest of an amendment — a cancelled or rejected referral, or one on a confirmed session — so a completed session's sheets cannot change after they were printed.
+             * @description The administrators' one line for the picker. Exactly the rules of `adminInfo`: a string sets it, explicit `null` clears it, omitting the key leaves it alone; **an empty or whitespace-only string is a `400`, not a clearance**, and so is one over 400 characters. Refused with a `409` on the same terms as the rest of an amendment — a cancelled or rejected referral, or one on a confirmed session — so a completed session's sheets cannot change after they were printed.
              *     **It is printed on the picking sheet**, which must never carry the reason for referral. Say so where it is typed.
              */
             picklistAdmin?: string | null;
