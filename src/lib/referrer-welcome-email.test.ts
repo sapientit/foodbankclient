@@ -66,11 +66,10 @@ describe('filling the welcome email', () => {
 });
 
 describe('the Gmail compose URL', () => {
-  it('opens compose in the administrator’s own account, addressed to the referrer', () => {
+  it('opens compose from the shared food bank account, addressed to the referrer', () => {
     const params = composeParams(
       welcomeEmailComposeUrl(
         {
-          adminEmail: 'pete@charity.org',
           referrerEmail: 'anna@riverside.org',
           values: { referrerName: 'Anna', organisationName: 'Riverside', adminName: 'Pete' },
         },
@@ -78,7 +77,7 @@ describe('the Gmail compose URL', () => {
       ),
     );
 
-    expect(params.get('authuser')).toBe('pete@charity.org');
+    expect(params.get('authuser')).toBe('info@guildfordfoodbank.org');
     expect(params.get('view')).toBe('cm');
     expect(params.get('to')).toBe('anna@riverside.org');
     expect(params.get('su')).toBe('Welcome, Riverside');
@@ -88,7 +87,6 @@ describe('the Gmail compose URL', () => {
     const params = composeParams(
       welcomeEmailComposeUrl(
         {
-          adminEmail: 'pete@charity.org',
           referrerEmail: 'anna@riverside.org',
           values: { referrerName: null, organisationName: 'Riverside', adminName: 'Pete' },
         },

@@ -164,7 +164,7 @@ describe('welcoming a newly authorised referrer', () => {
     await user.click(screen.getByRole('button', { name: 'Authorise referrer' }));
   }
 
-  it('opens a Gmail email to an exact address in the administrator’s own account, then returns to the list', async () => {
+  it('opens a Gmail email to an exact address from the shared food bank account, then returns to the list', async () => {
     await authoriseEmail();
 
     expect(
@@ -172,7 +172,7 @@ describe('welcoming a newly authorised referrer', () => {
     ).toBeInTheDocument();
     expect(openTab).toHaveBeenCalledTimes(1);
     const params = new URL(String(openTab.mock.calls[0]?.[0])).searchParams;
-    expect(params.get('authuser')).toBe('pete@x.com');
+    expect(params.get('authuser')).toBe('info@guildfordfoodbank.org');
     expect(params.get('to')).toBe('anna@example.org');
     // An approved-referrer entry records no person, so the greeting has no name.
     expect(params.get('body')).toMatch(/^Hi\n/);

@@ -869,7 +869,6 @@ function ReviewPanel({
       const emailUrl =
         typeof referral.referrerEmail === 'string' && authState.status === 'signed-in'
           ? welcomeEmailComposeUrl({
-              adminEmail: authState.user.email,
               referrerEmail: referral.referrerEmail,
               values: {
                 referrerName: referral.referrerName,

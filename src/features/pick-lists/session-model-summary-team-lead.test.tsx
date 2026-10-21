@@ -52,7 +52,7 @@ beforeEach(() => {
 });
 
 describe('team-lead Model summary', () => {
-  it('uses the Dietary Req JSON answer on screen and in the model-order copy', async () => {
+  it('uses the JSON answers in the model-order copy', async () => {
     server.use(
       http.get('/api/v1/sessions/:sessionId/model-summary', () =>
         HttpResponse.json({
@@ -66,7 +66,11 @@ describe('team-lead Model summary', () => {
               adults: 2,
               children: 1,
               collectionMethod: 'collection',
-              answers: { 'Dietary Req': 'Gluten-free', Allergies: 'Old value' },
+              answers: {
+                'Collection method': 'On Foot',
+                'Dietary Req': 'Gluten-free',
+                Allergies: 'Old value',
+              },
             },
           ],
         } satisfies SessionModelSummary),
@@ -76,13 +80,14 @@ describe('team-lead Model summary', () => {
     renderApp(`/run-sessions/${SESSION_ID}/model-summary`);
 
     const table = await screen.findByRole('table');
+    expect(within(table).getByRole('row', { name: /Jamie Rowe/ })).toHaveTextContent('On Foot');
     expect(within(table).getByRole('row', { name: /Jamie Rowe/ })).toHaveTextContent('Gluten-free');
     expect(within(table).queryByText('Old value')).toBeNull();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Copy model summary' }));
     expect(await navigator.clipboard.readText()).toBe(
-      'Pick #\tModel name\tClient\tCollection method\tDietary Req\n#7\tFamily parcel\tJamie Rowe\tCollection\tGluten-free',
+      'Pick #\tModel name\tClient\tCollection method\tDietary Req\n#7\tFamily parcel\tJamie Rowe\tOn Foot\tGluten-free',
     );
   });
 });
