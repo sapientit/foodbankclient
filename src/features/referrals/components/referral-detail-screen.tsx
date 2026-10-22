@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../../../auth/auth-context';
 import { ConfirmDialog } from '../../../components/confirm-dialog';
@@ -769,24 +769,38 @@ function PreviousReferralsTable({ matches }: { matches: readonly RepeatReferralM
           </tr>
         </thead>
         <tbody>
-          {matches.map((match) => (
-            <tr key={match.referralId}>
-              <td>{refereeName(match) ?? '—'}</td>
-              <td>
-                {match.refereeDateOfBirth === null
-                  ? '—'
-                  : formatCalendarDate(match.refereeDateOfBirth)}
-              </td>
-              <td>{match.refereeAddress ?? '—'}</td>
-              <td>{match.refereePostcode ?? '—'}</td>
-              <td>{match.refereePhone ?? '—'}</td>
-              <td>{formatSessionDate(match.sessionDate)}</td>
-              <td>{REPEAT_REFERRAL_OUTCOME_LABELS[match.outcome]}</td>
-              <td>
-                {match.matchedOn.map((field) => REPEAT_REFERRAL_MATCH_LABELS[field]).join(', ')}
-              </td>
-            </tr>
-          ))}
+          {matches.map((match) => {
+            const adminInfo =
+              typeof match.adminInfo === 'string' && match.adminInfo.trim() !== ''
+                ? match.adminInfo
+                : null;
+
+            return (
+              <Fragment key={match.referralId}>
+                <tr>
+                  <td>{refereeName(match) ?? '—'}</td>
+                  <td>
+                    {match.refereeDateOfBirth === null
+                      ? '—'
+                      : formatCalendarDate(match.refereeDateOfBirth)}
+                  </td>
+                  <td>{match.refereeAddress ?? '—'}</td>
+                  <td>{match.refereePostcode ?? '—'}</td>
+                  <td>{match.refereePhone ?? '—'}</td>
+                  <td>{formatSessionDate(match.sessionDate)}</td>
+                  <td>{REPEAT_REFERRAL_OUTCOME_LABELS[match.outcome]}</td>
+                  <td>
+                    {match.matchedOn.map((field) => REPEAT_REFERRAL_MATCH_LABELS[field]).join(', ')}
+                  </td>
+                </tr>
+                {adminInfo !== null && (
+                  <tr className={styles.previousReferralAdminInfo}>
+                    <td colSpan={8}>{adminInfo}</td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>

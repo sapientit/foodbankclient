@@ -196,6 +196,14 @@
   border-block-end: 1px solid #d4d4d4;
 }
 
+/* The administrator's own note follows its referral across the full table,
+   rather than stealing width from the identifying fields. It has no label: its
+   position makes its owner clear, and labels would repeat for every match. */
+.previousReferralAdminInfo td {
+  padding-block-start: 0;
+  white-space: pre-wrap;
+}
+
 .form,
 .field {
   display: grid;

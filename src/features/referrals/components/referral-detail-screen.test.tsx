@@ -1184,7 +1184,7 @@ describe('the admin referral detail screen', () => {
     expect(matchesRequested).not.toHaveBeenCalled();
   });
 
-  it('shows matching previous referrals only after an administrator asks', async () => {
+  it('shows non-blank administrator notes on their own line beneath matching previous referrals', async () => {
     const excludePostcodeRequests: string[] = [];
     server.use(
       http.get(REFERRAL, () =>
@@ -1215,6 +1215,7 @@ describe('the admin referral detail screen', () => {
               refereeAddress: '1 Elm Street',
               refereePostcode: 'AB1 2CD',
               refereePhone: null,
+              adminInfo: 'Needs a doorstep delivery.',
             },
             {
               referralId: 'r-older',
@@ -1228,6 +1229,7 @@ describe('the admin referral detail screen', () => {
               refereeAddress: null,
               refereePostcode: null,
               refereePhone: '07123 456789',
+              adminInfo: '  ',
             },
           ],
         });
@@ -1246,6 +1248,15 @@ describe('the admin referral detail screen', () => {
     expect(screen.getByText('Tue, 11 Aug 2026')).toBeInTheDocument();
     expect(screen.getByText('07123 456789')).toBeInTheDocument();
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+
+    const note = screen.getByText('Needs a doorstep delivery.');
+    const noteRow = note.closest('tr');
+    expect(noteRow).not.toBeNull();
+    expect(noteRow).toHaveTextContent(/^Needs a doorstep delivery\.$/);
+    const rows = within(screen.getByRole('table')).getAllByRole('row');
+    expect(rows).toHaveLength(4);
+    expect(rows[2]).toBe(noteRow);
+
     expect(excludePostcodeRequests).toEqual(['false']);
     await user.click(screen.getByRole('checkbox', { name: 'Exclude postcode matches' }));
     await waitFor(() => {
