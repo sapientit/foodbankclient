@@ -135,20 +135,14 @@ function normaliseLabelledHouseholdComposition(
   value: unknown,
   preferLegacyAgeBands: boolean,
 ): HouseholdCompositionDisplay | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  if (!isHouseholdCompositionRecord(value)) return null;
 
   const composition: Partial<
     Record<AnyHouseholdAgeBand, Partial<Record<HouseholdGender, number>>>
   > = {};
   for (const [labelledAgeBand, labelledRow] of Object.entries(value)) {
     const ageBand = labelledAgeBandKey(labelledAgeBand);
-    if (
-      ageBand === undefined ||
-      typeof labelledRow !== 'object' ||
-      labelledRow === null ||
-      Array.isArray(labelledRow)
-    )
-      return null;
+    if (ageBand === undefined || !isHouseholdCompositionRecord(labelledRow)) return null;
 
     const row: Partial<Record<HouseholdGender, number>> = {};
     for (const [labelledGender, count] of Object.entries(labelledRow)) {
@@ -172,6 +166,10 @@ function normaliseLabelledHouseholdComposition(
     ? [legacyCompositionDisplay(composition), currentCompositionDisplay(composition)]
     : [currentCompositionDisplay(composition), legacyCompositionDisplay(composition)];
   return candidates.find((candidate) => candidate !== null) ?? null;
+}
+
+function isHouseholdCompositionRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function labelledAgeBandKey(label: string): AnyHouseholdAgeBand | undefined {
