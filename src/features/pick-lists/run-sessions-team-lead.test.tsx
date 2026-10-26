@@ -1678,6 +1678,15 @@ describe('a team lead running a session', () => {
     const composition = await screen.findByRole('table', { name: 'Household composition' });
     expect(within(composition).getByRole('columnheader', { name: '0–4' })).toBeInTheDocument();
     expect(within(composition).getByRole('columnheader', { name: '5–11' })).toBeInTheDocument();
+    const instructions = screen.getByRole('region', { name: 'Team lead instructions' });
+    expect(instructions).toHaveTextContent('Team lead instructions');
+    // The instructions are the first header/grid item, under the identity;
+    // print CSS puts that first item in the first third and bottom-aligns it
+    // with this composition grid.
+    expect(instructions.closest('header')).toContainElement(composition);
+    expect(
+      instructions.compareDocumentPosition(composition) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     await waitFor(() => {
       expect(printSpy).toHaveBeenCalledOnce();
     });

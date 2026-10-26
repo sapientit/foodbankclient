@@ -105,6 +105,21 @@
   font-weight: 700;
 }
 
+/* Deliberately empty: this is paper space for the team lead's handwriting,
+   not a new stored parcel field. It remains under the identity in the first
+   printed column, alongside the household composition. */
+.teamLeadInstructions {
+  min-block-size: 5rem;
+  margin-block-start: 0.75rem;
+  padding: 0.4rem;
+  border: 2px solid currentcolor;
+}
+
+.teamLeadInstructions h2 {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
 .delivery {
   padding: 0.75rem;
   font-weight: 700;
@@ -537,6 +552,7 @@
   }
 
   .printHeader {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.35rem 0.75rem;
   }
 
@@ -547,6 +563,19 @@
 
   .printName {
     font-size: 1rem;
+  }
+
+  /* The box is confined to the first third of the printable width (after the
+     A4 margins above). Aligning the whole first-column identity block to the
+     grid row's end puts the handwritten box's lower border level with the
+     household-composition grid's lower border. */
+  .printIdentity {
+    align-self: end;
+  }
+
+  .teamLeadInstructions {
+    min-block-size: 4.25rem;
+    margin-block-start: 0.4rem;
   }
 
   .delivery,
@@ -562,7 +591,10 @@
 
   .printLineColumns {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.5rem;
+    /* The wider gaps are intentional fold guides. The slightly narrower
+       columns still respect the server's one-line name/description limits. */
+    column-gap: 1.25rem;
+    row-gap: 0.5rem;
     margin-block-start: 0.5rem;
   }
 
