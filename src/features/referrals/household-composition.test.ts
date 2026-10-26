@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   commonUsageHouseholdCounts,
   emptyHouseholdComposition,
+  householdCompositionForDisplay,
   isHouseholdComposition,
   operationalHouseholdCounts,
 } from './household-composition';
@@ -24,6 +25,28 @@ describe('isHouseholdComposition', () => {
     expect(isHouseholdComposition({ '0-2': { female: 31 } })).toBe(false);
     expect(isHouseholdComposition({ '18-24': { female: 1 } })).toBe(false);
     expect(isHouseholdComposition({ '0-2': { other: 1 } })).toBe(false);
+  });
+});
+
+describe('householdCompositionForDisplay', () => {
+  it('normalises a historic labelled grid for the printed pick list', () => {
+    expect(
+      householdCompositionForDisplay({
+        'Household Components': {
+          '0-2': { Female: 1 },
+          '18 to State Pension age': { Male: 1 },
+        },
+      }),
+    ).toEqual({
+      composition: { '0-2': { female: 1 }, 'working-age': { male: 1 } },
+      ageBands: [
+        { key: '0-2', label: '0–2' },
+        { key: '3-11', label: '3–11' },
+        { key: '12-17', label: '12–17' },
+        { key: 'working-age', label: '18 to State Pension age' },
+        { key: 'state-pension-age', label: 'State Pension age or over' },
+      ],
+    });
   });
 });
 

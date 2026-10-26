@@ -1004,12 +1004,15 @@ export function RunSessionDetailScreen() {
                 onSuccess: () => {
                   if (!isTeamLead) return;
                   // A just-confirmed session has ceased to exist for this
-                  // role. Drop every route-local response before leaving, so
-                  // Back cannot briefly re-render household data from memory.
-                  queryClient.removeQueries({ queryKey: sessionKeys.all });
-                  queryClient.removeQueries({ queryKey: referralKeys.all });
-                  queryClient.removeQueries({ queryKey: pickListKeys.all });
-                  void navigate('/run-sessions', { replace: true });
+                  // role. First leave the route so its active observers cannot
+                  // recreate a query after it is removed; then clear every
+                  // route-local response before a later return can use it.
+                  void (async () => {
+                    await navigate('/run-sessions', { replace: true });
+                    queryClient.removeQueries({ queryKey: sessionKeys.all });
+                    queryClient.removeQueries({ queryKey: referralKeys.all });
+                    queryClient.removeQueries({ queryKey: pickListKeys.all });
+                  })();
                 },
               });
             }}

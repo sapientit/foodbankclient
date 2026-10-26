@@ -41,6 +41,7 @@ export type HouseholdComposition = Readonly<
   Partial<Record<HouseholdAgeBand, Readonly<Partial<Record<HouseholdGender, number>>>>>
 >;
 type LegacyHouseholdAgeBand = (typeof LEGACY_HOUSEHOLD_AGE_BANDS)[number]['key'];
+type AnyHouseholdAgeBand = HouseholdAgeBand | LegacyHouseholdAgeBand;
 export type LegacyHouseholdComposition = Readonly<
   Partial<Record<LegacyHouseholdAgeBand, Readonly<Partial<Record<HouseholdGender, number>>>>>
 >;
@@ -87,13 +88,110 @@ export function householdCompositionForDisplay(
     return { composition: legacy, ageBands: LEGACY_HOUSEHOLD_AGE_BANDS };
   if (isHouseholdComposition(legacy)) return { composition: legacy, ageBands: HOUSEHOLD_AGE_BANDS };
 
+  const normalisedLegacy = normaliseLabelledHouseholdComposition(legacy, true);
+  if (normalisedLegacy !== null) return normalisedLegacy;
+
   const current = answers[HOUSEHOLD_COMPONENTS_KEY];
   if (isLegacyHouseholdComposition(current) && !isHouseholdComposition(current))
     return { composition: current, ageBands: LEGACY_HOUSEHOLD_AGE_BANDS };
   if (isHouseholdComposition(current))
     return { composition: current, ageBands: HOUSEHOLD_AGE_BANDS };
 
-  return null;
+  return normaliseLabelledHouseholdComposition(current, false);
+}
+
+/* Older released forms wrote the visible grid labels rather than the stable
+   internal keys. They remain valid historic answers: normalise only that
+   known, sparse positive shape before rendering it on a pick sheet. */
+const LABELLED_AGE_BANDS = {
+  '0-2': '0-2',
+  '0–2': '0-2',
+  '3-11': '3-11',
+  '3–11': '3-11',
+  '0-4': '0-4',
+  '0–4': '0-4',
+  '5-11': '5-11',
+  '5–11': '5-11',
+  '12-17': '12-17',
+  '12–17': '12-17',
+  'working-age': 'working-age',
+  'state-pension-age': 'state-pension-age',
+  '18 to State Pension age': 'working-age',
+  'State Pension age or over': 'state-pension-age',
+} as const satisfies Readonly<Record<string, AnyHouseholdAgeBand>>;
+
+const LABELLED_GENDERS = {
+  female: 'female',
+  Female: 'female',
+  male: 'male',
+  Male: 'male',
+  'non-binary': 'non-binary',
+  'Non-Binary': 'non-binary',
+  'prefer-not-to-say': 'prefer-not-to-say',
+  'Prefer not to say': 'prefer-not-to-say',
+} as const satisfies Readonly<Record<string, HouseholdGender>>;
+
+function normaliseLabelledHouseholdComposition(
+  value: unknown,
+  preferLegacyAgeBands: boolean,
+): HouseholdCompositionDisplay | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+
+  const composition: Partial<
+    Record<AnyHouseholdAgeBand, Partial<Record<HouseholdGender, number>>>
+  > = {};
+  for (const [labelledAgeBand, labelledRow] of Object.entries(value)) {
+    const ageBand = labelledAgeBandKey(labelledAgeBand);
+    if (
+      ageBand === undefined ||
+      typeof labelledRow !== 'object' ||
+      labelledRow === null ||
+      Array.isArray(labelledRow)
+    )
+      return null;
+
+    const row: Partial<Record<HouseholdGender, number>> = {};
+    for (const [labelledGender, count] of Object.entries(labelledRow)) {
+      const gender = labelledGenderKey(labelledGender);
+      if (
+        gender === undefined ||
+        typeof count !== 'number' ||
+        !Number.isSafeInteger(count) ||
+        count < 1 ||
+        count > 30 ||
+        row[gender] !== undefined
+      )
+        return null;
+      row[gender] = count;
+    }
+    if (Object.keys(row).length === 0 || composition[ageBand] !== undefined) return null;
+    composition[ageBand] = row;
+  }
+
+  const candidates = preferLegacyAgeBands
+    ? [legacyCompositionDisplay(composition), currentCompositionDisplay(composition)]
+    : [currentCompositionDisplay(composition), legacyCompositionDisplay(composition)];
+  return candidates.find((candidate) => candidate !== null) ?? null;
+}
+
+function labelledAgeBandKey(label: string): AnyHouseholdAgeBand | undefined {
+  return Object.entries(LABELLED_AGE_BANDS).find(([candidate]) => candidate === label.trim())?.[1];
+}
+
+function labelledGenderKey(label: string): HouseholdGender | undefined {
+  return Object.entries(LABELLED_GENDERS).find(([candidate]) => candidate === label.trim())?.[1];
+}
+
+function currentCompositionDisplay(value: unknown): HouseholdCompositionDisplay | null {
+  return isHouseholdComposition(value)
+    ? { composition: value, ageBands: HOUSEHOLD_AGE_BANDS }
+    : null;
+}
+
+function legacyCompositionDisplay(value: unknown): HouseholdCompositionDisplay | null {
+  return isLegacyHouseholdComposition(value)
+    ? { composition: value, ageBands: LEGACY_HOUSEHOLD_AGE_BANDS }
+    : null;
 }
 
 /**
