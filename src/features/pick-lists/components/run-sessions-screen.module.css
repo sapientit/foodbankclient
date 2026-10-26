@@ -565,6 +565,13 @@
     align-self: start;
   }
 
+  /* The composition is always the right-hand header panel. On a collection
+     sheet the empty middle third stays empty; on a delivery it holds the
+     delivery details rather than shifting the composition left. */
+  .printHeader > table {
+    grid-column: 3;
+  }
+
   .pickNumber {
     margin: 0;
     font-size: 1.5rem;
