@@ -570,6 +570,7 @@
      delivery details rather than shifting the composition left. */
   .printHeader > table {
     grid-column: 3;
+    justify-self: end;
   }
 
   .pickNumber {
