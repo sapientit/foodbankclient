@@ -1697,7 +1697,8 @@ describe('a team lead running a session', () => {
         expect(within(composition).getByRole('columnheader', { name: label })).toBeInTheDocument();
       }
       const instructions = screen.getByRole('region', { name: 'Team lead instructions' });
-      expect(instructions).toHaveTextContent('Team lead instructions');
+      expect(instructions).toBeEmptyDOMElement();
+      expect(screen.getByRole('heading', { name: '#1 Sam Taylor' })).toBeInTheDocument();
       // The instructions are the first header/grid item, under the identity;
       // print CSS puts that first item in the first third and bottom-aligns it
       // with this composition grid.
@@ -2106,7 +2107,7 @@ describe('a team lead running a session', () => {
       'Flour',
       'Jam',
     ]);
-    expect(firstColumnItems).toHaveLength(13);
+    expect(firstColumnItems).toHaveLength(12);
     expect(screen.getByText('Printed page 1 of 2')).toBeInTheDocument();
     expect(screen.getByText('Printed page 2 of 2')).toBeInTheDocument();
     expect(screen.getByText('Pick #1 — Sam Taylor')).toBeInTheDocument();

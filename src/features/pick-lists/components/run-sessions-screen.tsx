@@ -605,16 +605,14 @@ export function PickListPrintScreen() {
               <section className={styles.printSheet} key={parcel.pickNumber}>
                 <header className={styles.printHeader}>
                   <div className={styles.printIdentity}>
-                    <h1 className={styles.pickNumber}>Pick #{parcel.pickNumber}</h1>
-                    <p className={styles.printName}>
-                      {parcel.refereeFirstName ?? 'Unknown'} {parcel.refereeSurname ?? ''}
-                    </p>
+                    <h1 className={styles.pickNumber}>
+                      #{parcel.pickNumber} {parcel.refereeFirstName ?? 'Unknown'}{' '}
+                      {parcel.refereeSurname ?? ''}
+                    </h1>
                     <section
                       aria-label="Team lead instructions"
                       className={styles.teamLeadInstructions}
-                    >
-                      <h2>Team lead instructions</h2>
-                    </section>
+                    />
                   </div>
                   {parcel.isDelivery && (
                     <p className={styles.delivery}>

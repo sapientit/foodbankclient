@@ -99,12 +99,6 @@
   font-size: 2.25rem;
 }
 
-.printName {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
 /* Deliberately empty: this is paper space for the team lead's handwriting,
    not a new stored parcel field. It remains under the identity in the first
    printed column, alongside the household composition. */
@@ -576,18 +570,15 @@
   .pickNumber {
     margin: 0;
     font-size: 1.5rem;
+    white-space: nowrap;
   }
 
-  .printName {
-    font-size: 1rem;
-  }
-
-  /* The first column is a full-height header grid: the pick identity stays at
-     its top while the bordered writing space fills the rest, down to the
-     household-composition grid's bottom edge. */
+  /* The first column is a full-height header grid: the one-line pick identity
+     stays at its top while the now deeper bordered writing space fills the
+     rest, down to the household-composition grid's bottom edge. */
   .printIdentity {
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .teamLeadInstructions {
@@ -607,9 +598,10 @@
   }
 
   .printLineColumns {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 0.92fr) repeat(2, minmax(0, 1fr));
     /* The wider gaps are intentional fold guides. The slightly narrower
-       columns still respect the server's one-line name/description limits. */
+       first column keeps its quantity inside the fold; all columns still
+       respect the server's one-line name/description limits. */
     column-gap: 1.25rem;
     row-gap: 0.5rem;
     margin-block-start: 0.5rem;
