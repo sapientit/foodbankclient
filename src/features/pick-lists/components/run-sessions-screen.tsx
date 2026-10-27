@@ -86,7 +86,7 @@ import {
 import {
   countPickListInformationLines,
   firstPrintPageHasStockCapacity,
-  splitPrintLinesIntoTwoPages,
+  splitPrintLinesIntoFourPages,
 } from '../pick-list-print.logic';
 import { composeInformationForPickers } from '../pick-list-information';
 
@@ -437,7 +437,7 @@ export function PickListPrintScreen() {
                     definitionFor(sessionParcel.formId),
                     reasons.sources,
                   );
-            return splitPrintLinesIntoTwoPages(
+            return splitPrintLinesIntoFourPages(
               parcel.lines,
               countPickListInformationLines(information),
             ).overflows
@@ -549,7 +549,7 @@ export function PickListPrintScreen() {
               .map((pickNumber) => `#${String(pickNumber)}`)
               .join(
                 ', ',
-              )} cannot fit on one double-sided sheet. Reduce its stock lines, or ask an administrator to shorten Information for pickers; no items have been left off.`}
+              )} cannot fit on two double-sided sheets. Reduce its stock lines, or ask an administrator to shorten Information for pickers; no items have been left off.`}
           </p>
         </section>
       </div>
@@ -598,7 +598,7 @@ export function PickListPrintScreen() {
               informationLines,
               parcel.lines[0],
             );
-            const { pages: printPages } = splitPrintLinesIntoTwoPages(
+            const { pages: printPages } = splitPrintLinesIntoFourPages(
               parcel.lines,
               informationLines,
             );
@@ -663,7 +663,8 @@ export function PickListPrintScreen() {
                       {pageIndex > 0 && (
                         <p className={styles.printContinuationHeader}>
                           Pick #{parcel.pickNumber} — {parcel.refereeFirstName ?? 'Unknown'}{' '}
-                          {parcel.refereeSurname ?? ''}
+                          {parcel.refereeSurname ?? ''} — page {pageIndex + 1} of{' '}
+                          {printPages.length}
                         </p>
                       )}
                       <div className={styles.printLineColumns}>

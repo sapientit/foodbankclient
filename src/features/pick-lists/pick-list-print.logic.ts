@@ -1,5 +1,6 @@
-/** The printed sheet always has three shelf-order columns. */
+/** The printed page always has three shelf-order columns. */
 const PRINT_COLUMNS = 3;
+const MAX_PRINT_PAGES = 4;
 
 /*
  * A first-page column has 44 print units after its compact heading. A stock
@@ -33,10 +34,10 @@ export interface PrintableLine {
   readonly description: string | null;
 }
 
-export interface TwoPagePrintLayout<T extends PrintableLine> {
-  /** The fixed front and back of one physical duplex sheet. */
-  readonly pages: readonly [T[][], T[][]];
-  /** True when printing the complete parcel would need another physical sheet. */
+export interface FourPagePrintLayout<T extends PrintableLine> {
+  /** One or two physical duplex sheets; a blank back is retained when needed. */
+  readonly pages: readonly T[][][];
+  /** True when printing the complete parcel would need a third physical sheet. */
   readonly overflows: boolean;
 }
 
@@ -143,15 +144,15 @@ export function splitPrintLines<T extends PrintableLine>(
 }
 
 /**
- * A pick list is one double-sided sheet: always return its front and back.
- * An empty back is intentional, so it still identifies the parcel when the
- * sheets are separated. Never silently lose lines that would need a third
- * page; callers hold the print dialog back when `overflows` is true.
+ * A pick list may use up to two double-sided sheets. Always return the front
+ * and back of the first sheet: an empty back still identifies a separated
+ * parcel. Never silently lose lines that would need a third sheet; callers
+ * hold the print dialog back when `overflows` is true.
  */
-export function splitPrintLinesIntoTwoPages<T extends PrintableLine>(
+export function splitPrintLinesIntoFourPages<T extends PrintableLine>(
   lines: readonly T[],
   informationLines: number,
-): TwoPagePrintLayout<T> {
+): FourPagePrintLayout<T> {
   if (!firstPrintPageCanFitInformation(informationLines)) {
     return { pages: [[], []], overflows: true };
   }
@@ -159,13 +160,13 @@ export function splitPrintLinesIntoTwoPages<T extends PrintableLine>(
   const pages = splitPrintLines(lines, informationLines);
   if (lines.length > 0 && !firstPrintPageHasStockCapacity(informationLines, lines[0])) {
     return {
-      pages: [[], pages[0] ?? []],
-      overflows: pages.length > 1,
+      pages: [[], ...pages.slice(0, MAX_PRINT_PAGES - 1)],
+      overflows: pages.length > MAX_PRINT_PAGES - 1,
     };
   }
 
   return {
-    pages: [pages[0] ?? [], pages[1] ?? []],
-    overflows: pages.length > 2,
+    pages: pages.length < 2 ? [pages[0] ?? [], []] : pages.slice(0, MAX_PRINT_PAGES),
+    overflows: pages.length > MAX_PRINT_PAGES,
   };
 }

@@ -3,7 +3,7 @@ import {
   countPickListInformationLines,
   firstPrintPageHasStockCapacity,
   splitPrintLines,
-  splitPrintLinesIntoTwoPages,
+  splitPrintLinesIntoFourPages,
 } from './pick-list-print.logic';
 
 describe('countPickListInformationLines', () => {
@@ -20,7 +20,7 @@ describe('splitPrintLines', () => {
       { id: 2, description: 'One described item block' },
     ];
 
-    expect(splitPrintLinesIntoTwoPages(lines, 0)).toEqual({
+    expect(splitPrintLinesIntoFourPages(lines, 0)).toEqual({
       pages: [[lines], []],
       overflows: false,
     });
@@ -29,30 +29,60 @@ describe('splitPrintLines', () => {
   it('keeps an information-filled front separate from stock on the back', () => {
     const line = { id: 1, description: null };
 
-    expect(splitPrintLinesIntoTwoPages([line], 21)).toEqual({
+    expect(splitPrintLinesIntoFourPages([line], 21)).toEqual({
       pages: [[], [[line]]],
       overflows: false,
     });
   });
 
+  it('uses three continuation pages after an information-filled front', () => {
+    const lines = Array.from({ length: 171 }, (_, index) => ({
+      id: index + 1,
+      description: null,
+    }));
+
+    const layout = splitPrintLinesIntoFourPages(lines, 21);
+
+    expect(layout.overflows).toBe(false);
+    expect(layout.pages).toHaveLength(4);
+    expect(layout.pages.flat(2).map((line) => line.id)).toEqual(
+      Array.from({ length: 171 }, (_, index) => index + 1),
+    );
+  });
+
   it('holds a parcel back when Information for pickers cannot fit the front', () => {
-    expect(splitPrintLinesIntoTwoPages([], 22)).toEqual({
+    expect(splitPrintLinesIntoFourPages([], 22)).toEqual({
       pages: [[], []],
       overflows: true,
     });
   });
 
-  it('holds an oversized parcel back rather than dropping lines beyond its second side', () => {
-    const lines = Array.from({ length: 134 }, (_, index) => ({
+  it('uses a second double-sided sheet before holding an oversized parcel back', () => {
+    const lines = Array.from({ length: 211 }, (_, index) => ({
       id: index + 1,
       description: null,
     }));
 
-    const layout = splitPrintLinesIntoTwoPages(lines, 0);
+    const layout = splitPrintLinesIntoFourPages(lines, 0);
 
     expect(layout.overflows).toBe(true);
     expect(layout.pages.flat(2).map((line) => line.id)).toEqual(
-      Array.from({ length: 96 }, (_, index) => index + 1),
+      Array.from({ length: 210 }, (_, index) => index + 1),
+    );
+  });
+
+  it('keeps a parcel of exactly four physical pages printable', () => {
+    const lines = Array.from({ length: 210 }, (_, index) => ({
+      id: index + 1,
+      description: null,
+    }));
+
+    const layout = splitPrintLinesIntoFourPages(lines, 0);
+
+    expect(layout.overflows).toBe(false);
+    expect(layout.pages).toHaveLength(4);
+    expect(layout.pages.flat(2).map((line) => line.id)).toEqual(
+      Array.from({ length: 210 }, (_, index) => index + 1),
     );
   });
 

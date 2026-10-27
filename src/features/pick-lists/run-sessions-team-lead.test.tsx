@@ -1858,7 +1858,7 @@ describe('a team lead running a session', () => {
     });
     expect(screen.getByText('Printed page 1 of 2')).toBeInTheDocument();
     expect(screen.getByText('Printed page 2 of 2')).toBeInTheDocument();
-    expect(screen.getByText('Pick #1 — Sam Taylor')).toBeInTheDocument();
+    expect(screen.getByText('Pick #1 — Sam Taylor — page 2 of 2')).toBeInTheDocument();
     expect(
       screen.queryByRole('table', { name: 'Picking items, page 2, column 1' }),
     ).not.toBeInTheDocument();
@@ -1915,15 +1915,15 @@ describe('a team lead running a session', () => {
     expect(
       screen.getByRole('table', { name: 'Picking items, page 2, column 1' }),
     ).toHaveTextContent('Baked beans');
-    expect(screen.getByText('Pick #1 — Sam Taylor')).toBeInTheDocument();
+    expect(screen.getByText('Pick #1 — Sam Taylor — page 2 of 2')).toBeInTheDocument();
   });
 
-  it('holds an oversized parcel back instead of opening a third printed page', async () => {
+  it('holds a parcel back only when it would need a fifth printed page', async () => {
     const printSpy = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     onTestFinished(() => {
       printSpy.mockRestore();
     });
-    const lines = Array.from({ length: 134 }, (_, index) => ({
+    const lines = Array.from({ length: 211 }, (_, index) => ({
       stockItemId: `stock-${String(index + 1)}`,
       name: `Stock item ${String(index + 1)}`,
       description: null,
@@ -1963,7 +1963,7 @@ describe('a team lead running a session', () => {
     renderApp(`/run-sessions/${SESSION.id}/print`);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Pick #1 cannot fit on one double-sided sheet',
+      'Pick #1 cannot fit on two double-sided sheets',
     );
     expect(printSpy).not.toHaveBeenCalled();
   });
@@ -2053,7 +2053,7 @@ describe('a team lead running a session', () => {
                   shelfNumber: 'C2',
                   quantity: 7,
                 },
-                ...Array.from({ length: 85 }, (_, index) => ({
+                ...Array.from({ length: 160 }, (_, index) => ({
                   stockItemId: `extra-${String(index + 8)}`,
                   name: `Extra item ${String(index + 8)}`,
                   description: null,
@@ -2108,9 +2108,13 @@ describe('a team lead running a session', () => {
       'Jam',
     ]);
     expect(firstColumnItems).toHaveLength(11);
-    expect(screen.getByText('Printed page 1 of 2')).toBeInTheDocument();
-    expect(screen.getByText('Printed page 2 of 2')).toBeInTheDocument();
-    expect(screen.getByText('Pick #1 — Sam Taylor')).toBeInTheDocument();
+    expect(screen.getByText('Printed page 1 of 4')).toBeInTheDocument();
+    expect(screen.getByText('Printed page 2 of 4')).toBeInTheDocument();
+    expect(screen.getByText('Printed page 3 of 4')).toBeInTheDocument();
+    expect(screen.getByText('Printed page 4 of 4')).toBeInTheDocument();
+    expect(screen.getByText('Pick #1 — Sam Taylor — page 2 of 4')).toBeInTheDocument();
+    expect(screen.getByText('Pick #1 — Sam Taylor — page 3 of 4')).toBeInTheDocument();
+    expect(screen.getByText('Pick #1 — Sam Taylor — page 4 of 4')).toBeInTheDocument();
     expect(
       within(screen.getByRole('table', { name: 'Picking items, page 2, column 1' })).getByRole(
         'rowheader',
