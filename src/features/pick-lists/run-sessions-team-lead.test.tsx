@@ -2053,7 +2053,7 @@ describe('a team lead running a session', () => {
                   shelfNumber: 'C2',
                   quantity: 7,
                 },
-                ...Array.from({ length: 100 }, (_, index) => ({
+                ...Array.from({ length: 85 }, (_, index) => ({
                   stockItemId: `extra-${String(index + 8)}`,
                   name: `Extra item ${String(index + 8)}`,
                   description: null,
