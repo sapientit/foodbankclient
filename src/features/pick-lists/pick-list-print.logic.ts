@@ -19,7 +19,7 @@ const PRINT_COLUMNS = 3;
    slack in every column rather than trusting an exactly full page. */
 const FIRST_PAGE_COLUMN_UNITS = 44;
 /* Continuation sheets repeat the compact pick identity before their columns. */
-const FOLLOWING_PAGE_COLUMN_UNITS = 90;
+const FOLLOWING_PAGE_COLUMN_UNITS = 85;
 const INFORMATION_HEADING_UNITS = 2;
 const INFORMATION_LINE_UNITS = 2;
 const STOCK_WITHOUT_DESCRIPTION_UNITS = 3;
