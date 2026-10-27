@@ -545,8 +545,14 @@
   }
 
   .printHeader {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.35rem 0.75rem;
+    /* The header begins at the ordinary 15 mm page margin. Its 84/85/84 mm
+       tracks and 7 mm gaps put the writing-box edge at 99 mm and the
+       composition-grid edge at 198 mm: the two physical fold lines. */
+    inline-size: min(100%, 267mm);
+    grid-template-columns: minmax(0, 84fr) minmax(0, 85fr) minmax(0, 84fr);
+    column-gap: 7mm;
+    row-gap: 0.35rem;
+    margin-inline: auto;
     align-items: stretch;
   }
 
@@ -563,7 +569,8 @@
      delivery details rather than shifting the composition left. */
   .printHeader > table {
     grid-column: 3;
-    justify-self: end;
+    /* Its own left border is the second fold guide. */
+    justify-self: start;
   }
 
   .pickNumber {
@@ -609,18 +616,6 @@
     margin-inline: auto;
     row-gap: 0.5rem;
     margin-block-start: 0.5rem;
-    position: relative;
-  }
-
-  .printLineColumns::before {
-    /* The second fold is halfway through the 14 mm gap before column three.
-       It is a short guide rather than a rule through the picking rows. */
-    position: absolute;
-    inset-block-start: 0;
-    inset-inline-start: 69.25%;
-    block-size: 6mm;
-    border-inline-start: 1px solid currentcolor;
-    content: '';
   }
 
   .printContinuationHeader {
