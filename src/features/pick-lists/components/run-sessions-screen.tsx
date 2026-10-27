@@ -8,6 +8,7 @@ import {
   useState,
   type MouseEvent,
 } from 'react';
+import { flushSync } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useAuth } from '../../../auth/auth-context';
@@ -1002,15 +1003,17 @@ export function RunSessionDetailScreen() {
                 onSuccess: () => {
                   if (!isTeamLead) return;
                   // A just-confirmed session has ceased to exist for this
-                  // role. First leave the route so its active observers cannot
-                  // recreate a query after it is removed; then clear every
-                  // route-local response before a later return can use it.
-                  void (async () => {
-                    await navigate('/run-sessions', { replace: true });
-                    queryClient.removeQueries({ queryKey: sessionKeys.all });
-                    queryClient.removeQueries({ queryKey: referralKeys.all });
-                    queryClient.removeQueries({ queryKey: pickListKeys.all });
-                  })();
+                  // role. Commit the route change before removing its cache:
+                  // awaiting `navigate` is not enough because this router's
+                  // imperative navigation can return void, leaving its
+                  // referral observer mounted for one microtask and able to
+                  // recreate the query just removed.
+                  flushSync(() => {
+                    void navigate('/run-sessions', { replace: true });
+                  });
+                  queryClient.removeQueries({ queryKey: sessionKeys.all });
+                  queryClient.removeQueries({ queryKey: referralKeys.all });
+                  queryClient.removeQueries({ queryKey: pickListKeys.all });
                 },
               });
             }}
