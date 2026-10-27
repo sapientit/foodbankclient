@@ -86,6 +86,20 @@ describe('splitPrintLines', () => {
     );
   });
 
+  it('adds a blank fourth back when stock needs only three pages', () => {
+    const lines = Array.from({ length: 97 }, (_, index) => ({
+      id: index + 1,
+      description: null,
+    }));
+
+    const layout = splitPrintLinesIntoFourPages(lines, 0);
+
+    expect(layout.overflows).toBe(false);
+    expect(layout.pages).toHaveLength(4);
+    expect(layout.pages[2]?.flat().map((line) => line.id)).toEqual([97]);
+    expect(layout.pages[3]).toEqual([]);
+  });
+
   it('keeps shelf order down complete columns before starting the next page', () => {
     const lines = Array.from({ length: 75 }, (_, index) => ({
       id: index + 1,

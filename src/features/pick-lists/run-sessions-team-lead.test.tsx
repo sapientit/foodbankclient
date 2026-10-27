@@ -2053,7 +2053,7 @@ describe('a team lead running a session', () => {
                   shelfNumber: 'C2',
                   quantity: 7,
                 },
-                ...Array.from({ length: 160 }, (_, index) => ({
+                ...Array.from({ length: 95 }, (_, index) => ({
                   stockItemId: `extra-${String(index + 8)}`,
                   name: `Extra item ${String(index + 8)}`,
                   description: null,
@@ -2115,6 +2115,9 @@ describe('a team lead running a session', () => {
     expect(screen.getByText('Pick #1 — Sam Taylor — page 2 of 4')).toBeInTheDocument();
     expect(screen.getByText('Pick #1 — Sam Taylor — page 3 of 4')).toBeInTheDocument();
     expect(screen.getByText('Pick #1 — Sam Taylor — page 4 of 4')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('table', { name: 'Picking items, page 4, column 1' }),
+    ).not.toBeInTheDocument();
     expect(
       within(screen.getByRole('table', { name: 'Picking items, page 2, column 1' })).getByRole(
         'rowheader',

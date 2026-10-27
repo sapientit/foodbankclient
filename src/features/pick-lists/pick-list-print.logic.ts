@@ -35,10 +35,20 @@ export interface PrintableLine {
 }
 
 export interface FourPagePrintLayout<T extends PrintableLine> {
-  /** One or two physical duplex sheets; a blank back is retained when needed. */
+  /** One or two physical duplex sheets; every sheet retains its blank back. */
   readonly pages: readonly T[][][];
   /** True when printing the complete parcel would need a third physical sheet. */
   readonly overflows: boolean;
+}
+
+function completeDuplexPages<T>(pages: readonly T[][][]): T[][][] {
+  const printedPages = pages.slice(0, MAX_PRINT_PAGES);
+  const atLeastOneSheet =
+    printedPages.length < 2
+      ? [...printedPages, ...Array<T[][]>(2 - printedPages.length).fill([])]
+      : printedPages;
+
+  return atLeastOneSheet.length % 2 === 0 ? atLeastOneSheet : [...atLeastOneSheet, []];
 }
 
 /**
@@ -145,9 +155,9 @@ export function splitPrintLines<T extends PrintableLine>(
 
 /**
  * A pick list may use up to two double-sided sheets. Always return the front
- * and back of the first sheet: an empty back still identifies a separated
- * parcel. Never silently lose lines that would need a third sheet; callers
- * hold the print dialog back when `overflows` is true.
+ * and back of every sheet: an empty back still identifies a separated parcel
+ * and preserves duplex printing. Never silently lose lines that would need a
+ * third sheet; callers hold the print dialog back when `overflows` is true.
  */
 export function splitPrintLinesIntoFourPages<T extends PrintableLine>(
   lines: readonly T[],
@@ -160,13 +170,13 @@ export function splitPrintLinesIntoFourPages<T extends PrintableLine>(
   const pages = splitPrintLines(lines, informationLines);
   if (lines.length > 0 && !firstPrintPageHasStockCapacity(informationLines, lines[0])) {
     return {
-      pages: [[], ...pages.slice(0, MAX_PRINT_PAGES - 1)],
+      pages: completeDuplexPages([[], ...pages]),
       overflows: pages.length > MAX_PRINT_PAGES - 1,
     };
   }
 
   return {
-    pages: pages.length < 2 ? [pages[0] ?? [], []] : pages.slice(0, MAX_PRINT_PAGES),
+    pages: completeDuplexPages(pages),
     overflows: pages.length > MAX_PRINT_PAGES,
   };
 }

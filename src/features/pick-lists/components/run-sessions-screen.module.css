@@ -597,11 +597,16 @@
   }
 
   .printLineColumns {
-    grid-template-columns: minmax(0, 0.92fr) repeat(2, minmax(0, 1fr));
-    /* The wider gaps are intentional fold guides. The slightly narrower
-       first column keeps its quantity inside the fold; all columns still
-       respect the server's one-line name/description limits. */
-    column-gap: 1.25rem;
+    /* A4 is 297 mm wide. Keep 20 mm clear at either edge, rather than trusting
+       a printer's default printable area. These 72/85/72 mm columns and two
+       14 mm gaps put the folds at the centres of the gaps (99 and 198 mm),
+       leaving first-column quantities 7 mm clear of the first fold. The flex
+       tracks contract together if a printer reports an unusually narrower
+       printable area, instead of overflowing it. */
+    inline-size: min(100%, 257mm);
+    grid-template-columns: minmax(0, 72fr) minmax(0, 85fr) minmax(0, 72fr);
+    column-gap: 14mm;
+    margin-inline: auto;
     row-gap: 0.5rem;
     margin-block-start: 0.5rem;
   }
@@ -617,6 +622,11 @@
      a real paper constraint rather than an estimate. */
   .printLines th {
     white-space: nowrap;
+  }
+
+  .printLines td {
+    /* The quantity must stay inside its column, away from the fold gap. */
+    inline-size: 2rem;
   }
 
   /* A page group is assembled in the markup so page two begins only after all
