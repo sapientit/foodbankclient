@@ -630,6 +630,15 @@
     break-after: page;
   }
 
+  /* The dashed separator distinguishes pages in the on-screen preview only.
+     The continuation identity below is the sole intentional content at the
+     top of the printed back. */
+  .printLinePage + .printLinePage {
+    margin-block-start: 0;
+    padding-block-start: 0;
+    border-block-start: 0;
+  }
+
   .printLinePage:last-child {
     break-after: auto;
   }

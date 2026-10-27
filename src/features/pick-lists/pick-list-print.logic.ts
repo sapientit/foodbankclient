@@ -2,7 +2,7 @@
 const PRINT_COLUMNS = 3;
 
 /*
- * A first-page column has 47 print units after its compact heading. A stock
+ * A first-page column has 44 print units after its compact heading. A stock
  * line with its separator consumes three units; its optional description
  * makes the item a five-unit block. Information for pickers uses two units
  * for each printed line, including lines formed by wrapping long text.
@@ -17,7 +17,7 @@ const PRINT_COLUMNS = 3;
 /* Printers, paper scaling and a near-limit English word can each use a little
    more vertical space than the nominal line unit. Leave one described item of
    slack in every column rather than trusting an exactly full page. */
-const FIRST_PAGE_COLUMN_UNITS = 47;
+const FIRST_PAGE_COLUMN_UNITS = 44;
 /* Continuation sheets repeat the compact pick identity before their columns. */
 const FOLLOWING_PAGE_COLUMN_UNITS = 90;
 const INFORMATION_HEADING_UNITS = 2;

@@ -1872,7 +1872,7 @@ describe('a team lead running a session', () => {
     const informationOnlyParcel: Parcel = {
       ...PARCEL,
       reviewedAt: '2026-08-05T10:00:00.000Z',
-      picklistAdmin: Array.from({ length: 22 }, () => 'x').join('\n'),
+      picklistAdmin: Array.from({ length: 21 }, () => 'x').join('\n'),
       answers: { 'Household Components': PARCEL.answers['Household Components'] },
     };
     server.use(
@@ -2107,7 +2107,7 @@ describe('a team lead running a session', () => {
       'Flour',
       'Jam',
     ]);
-    expect(firstColumnItems).toHaveLength(12);
+    expect(firstColumnItems).toHaveLength(11);
     expect(screen.getByText('Printed page 1 of 2')).toBeInTheDocument();
     expect(screen.getByText('Printed page 2 of 2')).toBeInTheDocument();
     expect(screen.getByText('Pick #1 — Sam Taylor')).toBeInTheDocument();

@@ -29,14 +29,14 @@ describe('splitPrintLines', () => {
   it('keeps an information-filled front separate from stock on the back', () => {
     const line = { id: 1, description: null };
 
-    expect(splitPrintLinesIntoTwoPages([line], 22)).toEqual({
+    expect(splitPrintLinesIntoTwoPages([line], 21)).toEqual({
       pages: [[], [[line]]],
       overflows: false,
     });
   });
 
   it('holds a parcel back when Information for pickers cannot fit the front', () => {
-    expect(splitPrintLinesIntoTwoPages([], 23)).toEqual({
+    expect(splitPrintLinesIntoTwoPages([], 22)).toEqual({
       pages: [[], []],
       overflows: true,
     });
@@ -52,7 +52,7 @@ describe('splitPrintLines', () => {
 
     expect(layout.overflows).toBe(true);
     expect(layout.pages.flat(2).map((line) => line.id)).toEqual(
-      Array.from({ length: 129 }, (_, index) => index + 1),
+      Array.from({ length: 126 }, (_, index) => index + 1),
     );
   });
 
@@ -66,16 +66,16 @@ describe('splitPrintLines', () => {
       splitPrintLines(lines, 0).map((page) => page.map((column) => column.map((line) => line.id))),
     ).toEqual([
       [
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-        [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28],
-        [29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26],
+        [27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
       ],
       [
         [
-          43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
-          65, 66, 67, 68, 69, 70, 71,
+          40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
+          62, 63, 64, 65, 66, 67, 68,
         ],
-        [72, 73, 74, 75],
+        [69, 70, 71, 72, 73, 74, 75],
       ],
     ]);
   });
@@ -90,16 +90,16 @@ describe('splitPrintLines', () => {
       splitPrintLines(lines, 0).map((page) => page.map((column) => column.map((line) => line.id))),
     ).toEqual([
       [
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-        [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28],
-        [29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26],
+        [27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
       ],
       [
         [
-          43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
-          65, 66, 67, 68, 69, 70, 71,
+          40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
+          62, 63, 64, 65, 66, 67, 68,
         ],
-        [72, 73, 74, 75],
+        [69, 70, 71, 72, 73, 74, 75],
       ],
     ]);
   });
@@ -114,11 +114,11 @@ describe('splitPrintLines', () => {
       splitPrintLines(lines, 2).map((page) => page.map((column) => column.map((line) => line.id))),
     ).toEqual([
       [
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
-        [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+        [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
       ],
-      [[34]],
+      [[31, 32, 33, 34]],
     ]);
   });
 
@@ -167,11 +167,11 @@ describe('splitPrintLines', () => {
       splitPrintLines(lines, 2).map((page) => page.map((column) => column.map((line) => line.id))),
     ).toEqual([
       [
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-        [12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
-        [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        [11, 12, 13, 14, 15, 16, 17, 18, 19],
+        [20, 21, 22, 23, 24, 25, 26, 27, 28, 29],
       ],
-      [[34, 35, 36, 37]],
+      [[30, 31, 32, 33, 34, 35, 36, 37]],
     ]);
   });
 
@@ -185,11 +185,11 @@ describe('splitPrintLines', () => {
       splitPrintLines(lines, 5).map((page) => page.map((column) => column.map((line) => line.id))),
     ).toEqual([
       [
-        [1, 2, 3, 4, 5, 6, 7, 8],
-        [9, 10, 11, 12, 13, 14, 15, 16, 17],
-        [18, 19, 20, 21, 22, 23, 24, 25, 26, 27],
+        [1, 2, 3, 4, 5, 6, 7],
+        [8, 9, 10, 11, 12, 13, 14, 15],
+        [16, 17, 18, 19, 20, 21, 22, 23, 24],
       ],
-      [[28, 29, 30, 31, 32, 33, 34]],
+      [[25, 26, 27, 28, 29, 30, 31, 32, 33, 34]],
     ]);
   });
 
