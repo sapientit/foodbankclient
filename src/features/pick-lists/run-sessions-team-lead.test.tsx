@@ -2093,6 +2093,11 @@ describe('a team lead running a session', () => {
     expect(screen.getByRole('region', { name: 'Information for pickers' })).toHaveTextContent(
       'Allergies: Gluten-free food for one person',
     );
+    for (const column of [1, 2, 3]) {
+      expect(
+        screen.getByRole('table', { name: `Picking items, page 1, column ${String(column)}` }),
+      ).toBeInTheDocument();
+    }
     const firstColumnItems = within(
       screen.getByRole('table', { name: 'Picking items, page 1, column 1' }),
     )

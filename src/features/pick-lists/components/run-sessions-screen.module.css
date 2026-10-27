@@ -609,6 +609,18 @@
     margin-inline: auto;
     row-gap: 0.5rem;
     margin-block-start: 0.5rem;
+    position: relative;
+  }
+
+  .printLineColumns::before {
+    /* The second fold is halfway through the 14 mm gap before column three.
+       It is a short guide rather than a rule through the picking rows. */
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 69.25%;
+    block-size: 6mm;
+    border-inline-start: 1px solid currentcolor;
+    content: '';
   }
 
   .printContinuationHeader {
@@ -622,6 +634,14 @@
      a real paper constraint rather than an estimate. */
   .printLines th {
     white-space: nowrap;
+  }
+
+  .printLineColumns > .printLines {
+    /* An automatic table layout lets the longest item widen an individual
+       table beyond its grid track.  Keep each quantity in its allocated
+       column, consistently on the first and continuation pages. */
+    min-inline-size: 0;
+    table-layout: fixed;
   }
 
   .printLines td {
