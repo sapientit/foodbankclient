@@ -487,7 +487,7 @@ describe('the admin referral detail screen', () => {
     expect(screen.queryByText('Generated')).toBeNull();
   });
 
-  it('shows the collection method once, under its fixed label, not again in the generic answers list', async () => {
+  it('shows the stored collection-method answer once under its fixed label, not the derived summary', async () => {
     server.use(
       http.get(REFERRAL, () =>
         HttpResponse.json(
@@ -503,10 +503,12 @@ describe('the admin referral detail screen', () => {
     renderApp('/referrals/r1');
 
     await screen.findByRole('heading', { name: 'Answers from the referral form' });
-    expect(screen.getByText('Collection method')).toBeInTheDocument();
-    expect(screen.getByText('Collection')).toBeInTheDocument();
+    const label = screen.getByText('Collection method');
+    expect(label).toBeInTheDocument();
+    expect(label.nextElementSibling).toHaveTextContent('On Foot');
+    expect(screen.getAllByText('On Foot', { exact: true })).toHaveLength(1);
+    expect(screen.queryByText('Collection', { exact: true })).toBeNull();
     expect(screen.queryByText('How will the parcel be collected')).toBeNull();
-    expect(screen.queryByText('On Foot')).toBeNull();
   });
 
   it('prefills stored page-one answers in their editing controls', async () => {
@@ -593,6 +595,61 @@ describe('the admin referral detail screen', () => {
         },
       });
     });
+  });
+
+  it('lets an administrator amend and save the referrer phone from the first edit page', async () => {
+    let receivedBody: unknown = null;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', referrerPhone: '01483 111111' })),
+      ),
+      http.patch(REFERRAL, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', referrerPhone: '01483 222222' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+    await screen.findByRole('button', { name: 'Edit' });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Referrer and client details' }));
+
+    const referrerPhone = await screen.findByLabelText(/Referrer's contact number/);
+    expect(referrerPhone).toHaveValue('01483 111111');
+    expect(referrerPhone).toBeEnabled();
+    await user.clear(referrerPhone);
+    await user.type(referrerPhone, '01483 222222');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => {
+      expect(receivedBody).toEqual({
+        referrerPhone: '01483 222222',
+      });
+    });
+  });
+
+  it('closes an unchanged edit page without sending an empty amendment', async () => {
+    let amendments = 0;
+    server.use(
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', referrerPhone: '01483 111111' })),
+      ),
+      http.patch(REFERRAL, () => {
+        amendments += 1;
+        return HttpResponse.json(referral({ id: 'r1' }));
+      }),
+    );
+
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+    await screen.findByRole('button', { name: 'Edit' });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Referrer and client details' }));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(await screen.findByRole('heading', { name: 'Jamie Rowe' })).toBeInTheDocument();
+    expect(amendments).toBe(0);
   });
 
   it('edits administrator notes separately from the form answers', async () => {
@@ -801,7 +858,7 @@ describe('the admin referral detail screen', () => {
     await user.type(surname, 'Rowe-Smith');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => {
-      expect(receivedBody).toMatchObject({ refereeSurname: 'Rowe-Smith', answers: {} });
+      expect(receivedBody).toEqual({ refereeSurname: 'Rowe-Smith' });
     });
     expect(receivedBody).not.toHaveProperty('referrerEmail');
   });

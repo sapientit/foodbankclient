@@ -1100,25 +1100,13 @@ function keyFieldAnswer(referral: Referral, field: KeyFieldName): string {
   }
 }
 
-function describeCollectionMethod(method: Referral['collectionMethod']): string {
-  switch (method) {
-    case 'collection':
-      return 'Collection';
-    case 'delivery':
-      return 'Delivery';
-    case 'referrer_collect':
-      return 'Referrer will collect';
-  }
+function collectionMethodAnswer(answers: Referral['answers']): string {
+  const answer = answers[COLLECTION_METHOD_KEY];
+  return typeof answer === 'string' ? answer : '—';
 }
 
 function editableKeyField(field: KeyFieldName): boolean {
-  return ![
-    'referrerName',
-    'referrerEmail',
-    'referrerOrganisation',
-    'referrerPhone',
-    'sessionId',
-  ].includes(field);
+  return !['referrerName', 'referrerEmail', 'referrerOrganisation', 'sessionId'].includes(field);
 }
 
 function addKeyFieldPatch(
@@ -1161,8 +1149,10 @@ function addKeyFieldPatch(
     case 'referrerName':
     case 'referrerEmail':
     case 'referrerOrganisation':
-    case 'referrerPhone':
     case 'sessionId':
+      break;
+    case 'referrerPhone':
+      if (typeof parsed === 'string') patch.referrerPhone = parsed;
       break;
   }
 }
@@ -1226,23 +1216,27 @@ function AnswerPageEditor({
       setErrors(nextErrors);
       return;
     }
-    let next: Record<string, unknown> = { ...referral.answers };
     const submitted = splitSubmission(definition, answers);
-    for (const question of dynamic) {
-      // Unchanged answers keep their exact stored form. In particular, a
-      // single-choice answer is stored as a string but represented as a
-      // one-item array by the edit control. Disabled answers must still be
-      // removed when a changed controlling answer hides them.
-      if (!touched.has(question.key) && isEnabled(question, answers)) continue;
-      const value = submitted.answers[question.key];
-      if (value === undefined) {
-        const { [question.key]: _removed, ...remaining } = next;
-        next = remaining;
-      } else {
-        next[question.key] = value;
+    const dynamicChanged = dynamic.some((question) => touched.has(question.key));
+    const patch: AmendReferralInput = {};
+    if (dynamicChanged) {
+      let next: Record<string, unknown> = { ...referral.answers };
+      for (const question of dynamic) {
+        // Unchanged answers keep their exact stored form. In particular, a
+        // single-choice answer is stored as a string but represented as a
+        // one-item array by the edit control. Disabled answers must still be
+        // removed when a changed controlling answer hides them.
+        if (!touched.has(question.key) && isEnabled(question, answers)) continue;
+        const value = submitted.answers[question.key];
+        if (value === undefined) {
+          const { [question.key]: _removed, ...remaining } = next;
+          next = remaining;
+        } else {
+          next[question.key] = value;
+        }
       }
+      patch.answers = next;
     }
-    const patch: AmendReferralInput = { answers: next };
     // These operational columns are derived from dynamic questions. They need
     // the same update when their source is changed in an amendment as when it
     // is first submitted.
@@ -1261,10 +1255,18 @@ function AnswerPageEditor({
       patch.collectionMethod = collectionMethod;
     }
     for (const question of shown) {
-      if (question.type === 'keyField' && editableKeyField(question.field)) {
+      if (
+        question.type === 'keyField' &&
+        editableKeyField(question.field) &&
+        touched.has(question.key)
+      ) {
         const value = answers[question.key];
         if (typeof value === 'string') addKeyFieldPatch(patch, question, value);
       }
+    }
+    if (Object.keys(patch).length === 0) {
+      onCancel();
+      return;
     }
     try {
       await amend.mutateAsync({ id: referral.id, patch });
@@ -1401,7 +1403,7 @@ function DetailsForm({
             </>
           )}
           <dt>Collection method</dt>
-          <dd>{describeCollectionMethod(referral.collectionMethod)}</dd>
+          <dd>{collectionMethodAnswer(referral.answers)}</dd>
           <dt>Fuel help</dt>
           <dd>{referral.needsFuelHelp ? 'Yes' : 'No'}</dd>
           {isAdminView && (

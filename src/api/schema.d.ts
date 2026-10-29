@@ -2260,9 +2260,9 @@ export interface paths {
          *     `null` clears it, and omitting it leaves it. Replacing the answers
          *     never touches it, which is the point of it being its own field.
          *
-         *     **The referrer's own details cannot be amended** — not `referrerEmail`
-         *     above all, which is what the accept-or-hold decision was made on. The
-         *     body is strict: sending a field that is not listed is a `400` naming it,
+         *     **The referrer's own details cannot be amended, apart from
+         *     `referrerPhone`** — `referrerEmail` above all, which is what the
+         *     accept-or-hold decision was made on. The body is strict: sending a field that is not listed is a `400` naming it,
          *     rather than a `200` that silently changed nothing.
          *
          *     **A correction overwrites and the original is not kept.** Nothing
@@ -7402,7 +7402,7 @@ export interface components {
         /**
          * @description **The household's own details, the answers, and the administrators' note.** Admin only — there is no self-service amendment; a referrer who needs a change phones the food bank and an administrator makes it.
          *     Every field is optional and **only what you send is written**, so a one-field correction stays a one-field request. `answers` is the exception: it **replaces** the stored set rather than merging into it, because you hold the form and a key you omit has been removed. Which key counts as "other information" is yours to know — the server never reads the form and does not police which of them changed. **A correction never changes `formId`**: the answers are corrected on the form the household answered, so render and edit them with that release even when a newer one is in use.
-         *     **The referrer's own details are not here and cannot be amended.** `referrerEmail` above all: it is what the authorisation decision was made on, so editing it would leave a referral whose accepted-or-held status no longer follows from its address. Name, phone and organisation stay fixed too — who sent a referral is a matter of record.
+         *     **The referrer's own details cannot be amended, except `referrerPhone`.** `referrerEmail` above all: it is what the authorisation decision was made on, so editing it would leave a referral whose accepted-or-held status no longer follows from its address. Name and organisation stay fixed too — who sent a referral is a matter of record. The phone is how the food bank reaches the referrer, so a landline they gave can be replaced with a mobile.
          *     **A correction overwrites and the original is not kept.** Nothing records what a field used to say, so there is nothing to show a user as "previously" and no undo.
          *     The form's "other information" answer is a free note to whoever runs the session, not a substitute for correcting a field — nearly everything here has its own field and is corrected outright, above. It earns its place for what a field can't say: a corrected address reaches the driver, while a note explaining why reaches the person handing the bag over — the answers appear beside the parcel on the picking screen and on the listener sheet.
          */
@@ -7415,6 +7415,8 @@ export interface components {
             refereePostcode?: string;
             /** @description Explicitly `null` to remove a number the household no longer has. */
             refereePhone?: string | null;
+            /** @description Replaces the referrer's number — typically a landline, which a `referrer_collect` reminder cannot be texted to, swapped for a mobile. **Not nullable**: every referral keeps a referrer number, so `null` is a `400`. */
+            referrerPhone?: string;
             adults?: number;
             children?: number;
             /**
