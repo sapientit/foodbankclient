@@ -15,6 +15,10 @@ const LIST: FuelHelpList = {
     {
       referralId: '5a77a337-0b77-4ff5-a895-32f384df1cb0',
       sessionDate: '2026-08-04',
+      referrerName: 'Alex Smith',
+      referrerEmail: 'alex@example.org',
+      referrerOrganisation: 'Example Advice',
+      referrerPhone: '09876 543210',
       refereeFirstName: 'Jamie',
       refereeSurname: 'Rowe',
       refereeDateOfBirth: '1975-08-04',
@@ -74,10 +78,15 @@ describe('fuel help list', () => {
     renderApp('/fuel-help');
 
     const row = await screen.findByRole('row', { name: /Jamie Rowe/ });
+    expect(screen.getByRole('rowheader', { name: 'Tue, 4 Aug 2026' })).toBeInTheDocument();
     expect(row).toHaveTextContent('Tue, 4 Aug 2026');
     expect(row).toHaveTextContent('1 Example Street');
     expect(row).toHaveTextContent('AB1 2CD');
     expect(row).toHaveTextContent('01234 567890');
+    expect(row).toHaveTextContent('Alex Smith');
+    expect(row).toHaveTextContent('alex@example.org');
+    expect(row).toHaveTextContent('Example Advice');
+    expect(row).toHaveTextContent('09876 543210');
     expect(row).toHaveTextContent('jamie@example.org');
     expect(row).toHaveTextContent('Example Energy');
     expect(row).toHaveTextContent('Example Gas');
@@ -89,6 +98,16 @@ describe('fuel help list', () => {
     expect(row).toHaveTextContent('4 Aug 1975');
     expect(
       screen.getByRole('columnheader', { name: "Client's date of birth" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: "Referrer's name" })).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: "Referrer's email address" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: "Referrer's organisation" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: "Referrer's contact number" }),
     ).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: '<18' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: '18+' })).toBeInTheDocument();

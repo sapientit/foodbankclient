@@ -15,7 +15,8 @@ type FuelHelpHousehold = FuelHelpList['households'][number];
 export interface FuelColumn {
   readonly key: string;
   readonly label: string;
-  readonly question: Exclude<FormQuestion, { type: 'information' }>;
+  readonly question?: Exclude<FormQuestion, { type: 'information' }>;
+  readonly fixedField?: FuelHelpKeyField;
   readonly householdCompositionTotal?: keyof NonNullable<
     ReturnType<typeof householdCompositionTotals>
   >;
@@ -32,35 +33,61 @@ const HOUSEHOLD_COMPOSITION_TOTAL_COLUMNS = [
   { key: 'statePensionAge', label: 'State Pension age+' },
 ] as const;
 
-/**
- * The fixed fields `GET /fuel-help-list` actually sends, and how each reads.
- *
- * **This map is the list of key fields the screen can show, and that is on
- * purpose.** The marker lives on the referral form while the endpoint decides
- * what it sends, so the two can disagree — `needsFuelHelp` was marked and
- * withheld for a while, and the column sat there reading "Not provided" on
- * every row of every extract without anybody noticing. Anything absent here is
- * left out of the table rather than rendered empty, so adding a field to the
- * response is one entry and forgetting one cannot produce a dead column.
- *
- * Deliberately not derived from eligibility or from another answer: a household
- * is on this list *because* it needs fuel help, so inventing a value from that
- * would turn a missing field into a claim about them.
- */
-const KEY_FIELD_READERS: Partial<
-  Record<KeyFieldName, (household: FuelHelpHousehold) => string | null>
+/** The only fixed fields the Fuel endpoint can return. `reasonId` is never sent. */
+const FUEL_HELP_KEY_FIELDS = [
+  'referrerName',
+  'referrerEmail',
+  'referrerOrganisation',
+  'referrerPhone',
+  'refereeFirstName',
+  'refereeSurname',
+  'refereeDateOfBirth',
+  'refereeAddress',
+  'refereePostcode',
+  'refereePhone',
+] as const satisfies readonly KeyFieldName[];
+
+type FuelHelpKeyField = (typeof FUEL_HELP_KEY_FIELDS)[number];
+
+const FUEL_HELP_FIELD_LABELS: Record<FuelHelpKeyField, string> = {
+  referrerName: "Referrer's name",
+  referrerEmail: "Referrer's email address",
+  referrerOrganisation: "Referrer's organisation",
+  referrerPhone: "Referrer's contact number",
+  refereeFirstName: "Client's first name",
+  refereeSurname: "Client's surname",
+  refereeDateOfBirth: "Client's date of birth",
+  refereeAddress: 'First line of address',
+  refereePostcode: "Client's postcode",
+  refereePhone: "Client's contact number",
+};
+
+/** Formats the optional fixed fields exactly as the endpoint carried them. */
+const KEY_FIELD_READERS: Record<
+  FuelHelpKeyField,
+  (household: FuelHelpHousehold) => string | null | undefined
 > = {
+  referrerName: (household) => household.referrerName,
+  referrerEmail: (household) => household.referrerEmail,
+  referrerOrganisation: (household) => household.referrerOrganisation,
+  referrerPhone: (household) => household.referrerPhone,
   refereeFirstName: (household) => household.refereeFirstName,
   refereeSurname: (household) => household.refereeSurname,
   // A calendar date, so formatted in UTC — see `formatCalendarDate`. The fuel
   // team gets it to tell two households of the same name apart, which is also
   // why it is a date and never an age.
   refereeDateOfBirth: (household) =>
-    household.refereeDateOfBirth === null ? null : formatCalendarDate(household.refereeDateOfBirth),
+    household.refereeDateOfBirth == null
+      ? household.refereeDateOfBirth
+      : formatCalendarDate(household.refereeDateOfBirth),
   refereeAddress: (household) => household.refereeAddress,
   refereePostcode: (household) => household.refereePostcode,
   refereePhone: (household) => household.refereePhone,
 };
+
+function isFuelHelpKeyField(field: KeyFieldName): field is FuelHelpKeyField {
+  return FUEL_HELP_KEY_FIELDS.includes(field as FuelHelpKeyField);
+}
 
 /**
  * The referral form owns which personal details the fuel team is permitted to
@@ -68,13 +95,16 @@ const KEY_FIELD_READERS: Partial<
  * fuel question appears in this copy-to-Excel list without a second list of
  * keys drifting out of date.
  *
- * A marked key field the endpoint does not return is skipped; see
- * `KEY_FIELD_READERS`.
+ * The endpoint has already applied the per-referral-form marker to its fixed
+ * fields. A fixed column belongs in the shared table only when at least one
+ * returned row actually carries that key; reapplying today's marker would hide
+ * fields a historical referral is allowed to provide.
  */
 export function fuelColumns(
   definition: ReferralFormDefinition = referralFormDefinition,
+  households: readonly FuelHelpHousehold[] = [],
 ): FuelColumn[] {
-  return definition.pages.flatMap((page) =>
+  const configuredColumns = definition.pages.flatMap((page) =>
     page.questions.flatMap<FuelColumn>((question): FuelColumn[] => {
       if (question.type === 'information') return [];
       // Household composition is a fixed generated answer rather than a
@@ -88,17 +118,41 @@ export function fuelColumns(
           householdCompositionTotal: total.key,
         }));
       }
+      if (question.type === 'keyField') {
+        if (
+          !isFuelHelpKeyField(question.field) ||
+          !households.some((household) => Object.hasOwn(household, question.field))
+        )
+          return [];
+        return [{ key: question.key, label: question.label, question, fixedField: question.field }];
+      }
       if (question.key === LEGACY_FUEL_PENSION_KEY || question.forFuelTeam !== true) return [];
-      if (question.type === 'keyField' && KEY_FIELD_READERS[question.field] === undefined)
-        return [];
       return [{ key: question.key, label: question.label, question }];
     }),
   );
+
+  const configuredFixedFields = new Set(
+    configuredColumns.flatMap((column) =>
+      column.fixedField === undefined ? [] : [column.fixedField],
+    ),
+  );
+  const historicFixedColumns = FUEL_HELP_KEY_FIELDS.flatMap((field): FuelColumn[] => {
+    if (
+      configuredFixedFields.has(field) ||
+      !households.some((household) => Object.hasOwn(household, field))
+    )
+      return [];
+    return [{ key: field, label: FUEL_HELP_FIELD_LABELS[field], fixedField: field }];
+  });
+
+  return [...configuredColumns, ...historicFixedColumns];
 }
 
 /** Whether any column's answer was chosen from a server lookup, and so needs one fetching. */
 export function fuelColumnsNeedOptionSources(columns: readonly FuelColumn[]): boolean {
-  return needsOptionSources(columns.map((column) => column.question));
+  return needsOptionSources(
+    columns.flatMap((column) => (column.question === undefined ? [] : [column.question])),
+  );
 }
 
 /**
@@ -118,10 +172,11 @@ export function fuelColumnValue(
     return totals === null ? 'Not answered' : String(totals[column.householdCompositionTotal]);
   }
 
-  if (column.question.type === 'keyField') {
-    return KEY_FIELD_READERS[column.question.field]?.(household) ?? 'Not provided';
+  if (column.fixedField !== undefined) {
+    return KEY_FIELD_READERS[column.fixedField](household) ?? 'Not provided';
   }
 
+  if (column.question === undefined) return 'Not answered';
   const answer = household.answers[column.key];
   if (column.question.type === 'choice' && column.question.optionsFrom !== undefined) {
     return optionText(optionsFor(column.question, sources), answer);

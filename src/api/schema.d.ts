@@ -8147,7 +8147,7 @@ export interface components {
              */
             adminInfo: string | null;
         };
-        /** @description One household to ring about a fuel bill, at one session they were fed at. Who is being helped, where they live, how to ring them, when it was, and the form answers whole — and deliberately nothing else. */
+        /** @description One household to ring about a fuel bill, at one session they were fed at. **The referee and referrer fields are optional, and which are present is decided per row by the referral form**: a field is on the row when the release in `formId` marks that question `forFuelTeam`, and the key is **absent** otherwise — absent, not null, since null already means the referral gave none. Two rows can differ, because a referral made under an older release carries that release's choice. Lay the table out from the fields actually present. Only the ten fields named here can ever appear: the reason for referral is never sent, whatever the form marks. A row whose release cannot be read carries none of them. */
         FuelHelpHousehold: {
             /** Format: uuid */
             referralId: string;
@@ -8156,18 +8156,23 @@ export interface components {
              * @description The session's own `YYYY-MM-DD`, London wall clock — **the session the parcel was issued at**, which is not always the session the referral now points at. Moving now deletes the pending parcel on the session being left, and a referral whose parcel has an outcome cannot be moved, so the two agree for anything moved from now on; referrals moved before that rule can still differ. Read this as given rather than joining back. The list is sorted by this, oldest first.
              */
             sessionDate: string;
-            refereeFirstName: string | null;
-            refereeSurname: string | null;
+            referrerName?: string | null;
+            referrerEmail?: string | null;
+            referrerOrganisation?: string | null;
+            /** @description Free text as the referrer typed it — format for display rather than assuming a shape. */
+            referrerPhone?: string | null;
+            refereeFirstName?: string | null;
+            refereeSurname?: string | null;
             /**
              * Format: date
              * @description `YYYY-MM-DD`. A date, not an age — an age is wrong a year later. Here to identify the household to whoever follows the bill up.
              */
-            refereeDateOfBirth: string | null;
+            refereeDateOfBirth?: string | null;
             /** @description Where the household lives. A delivery goes here too. */
-            refereeAddress: string | null;
-            refereePostcode: string | null;
+            refereeAddress?: string | null;
+            refereePostcode?: string | null;
             /** @description Here because the follow-up is a phone call. Free text as the referrer typed it — it is **not** normalised on the way in, so format it for display rather than assuming a shape. Null when the referral gave no number. */
-            refereePhone: string | null;
+            refereePhone?: string | null;
             /** @description Always `true` on this list — the repository filters on it — but a real column read off the referral rather than an implied constant, because the client form shows this question as a fixed field everywhere else it appears. */
             needsFuelHelp: boolean;
             /**

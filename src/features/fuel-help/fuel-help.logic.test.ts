@@ -7,6 +7,10 @@ import type { ReferralFormDefinition } from '../referrals/referral-form-definiti
 const HOUSEHOLD: FuelHelpList['households'][number] = {
   referralId: '5a77a337-0b77-4ff5-a895-32f384df1cb0',
   sessionDate: '2026-08-04',
+  referrerName: 'Alex Smith',
+  referrerEmail: 'alex@example.org',
+  referrerOrganisation: 'Example Advice',
+  referrerPhone: '09876 543210',
   refereeFirstName: 'Jamie',
   refereeSurname: 'Rowe',
   refereeDateOfBirth: '1975-08-04',
@@ -75,8 +79,12 @@ describe('fuel columns', () => {
     ).toBe('Shown');
   });
 
-  it('selects every form question marked for the fuel team in form order', () => {
-    expect(fuelColumns().map(({ key }) => key)).toEqual([
+  it('selects present fixed fields and marked dynamic answers in form order', () => {
+    expect(fuelColumns(undefined, [HOUSEHOLD]).map(({ key }) => key)).toEqual([
+      'referrerName',
+      'referrerEmail',
+      'referrerOrganisation',
+      'referrerPhone',
       'refereeFirstName',
       'refereeSurname',
       'refereeDateOfBirth',
@@ -117,7 +125,7 @@ describe('fuel columns', () => {
   });
 
   it('renders the three composition totals as separate fuel columns', () => {
-    const columns = fuelColumns().filter(
+    const columns = fuelColumns(undefined, [HOUSEHOLD]).filter(
       (column) => column.householdCompositionTotal !== undefined,
     );
 
@@ -168,7 +176,9 @@ describe('fuel columns', () => {
   });
 
   it('reads marked dynamic answers but never an unmarked answer', () => {
-    const byKey = new Map(fuelColumns().map((column) => [column.key, column]));
+    const byKey = new Map(
+      fuelColumns(undefined, [HOUSEHOLD]).map((column) => [column.key, column]),
+    );
     const electricityCrisis = byKey.get('Electricity crisis');
 
     expect(electricityCrisis).toBeDefined();
@@ -179,7 +189,9 @@ describe('fuel columns', () => {
   });
 
   it('shows a date of birth as a date rather than the stored string', () => {
-    const dateOfBirth = fuelColumns().find((column) => column.key === 'refereeDateOfBirth');
+    const dateOfBirth = fuelColumns(undefined, [HOUSEHOLD]).find(
+      (column) => column.key === 'refereeDateOfBirth',
+    );
 
     expect(dateOfBirth).toBeDefined();
     if (dateOfBirth !== undefined) {
@@ -193,13 +205,11 @@ describe('fuel columns', () => {
     }
   });
 
-  it('leaves out a marked fixed field the endpoint does not return, rather than showing it empty', () => {
+  it('uses the endpoint fields rather than reapplying the current form marker', () => {
     /*
-     * The marker lives on the referral form and the endpoint decides what it
-     * actually sends, so the two can disagree — `needsFuelHelp` was marked and
-     * withheld until the charity settled that the fuel team does not want it.
-     * A column that reads "Not provided" on every row of every extract is worse
-     * than no column at all in a table whose purpose is being pasted into Excel.
+     * `refereeSurname` is deliberately not marked in this active form. The
+     * endpoint supplied it because the referral's own release marked it, and
+     * that permission must not be undone by re-reading today's form.
      */
     const definition: ReferralFormDefinition = {
       version: 1,
@@ -210,25 +220,89 @@ describe('fuel columns', () => {
           questions: [
             {
               type: 'keyField',
-              field: 'adults',
-              key: 'adults',
-              label: 'Adults in the household',
-              required: true,
-              forFuelTeam: true,
-            },
-            {
-              type: 'keyField',
               field: 'refereeSurname',
               key: 'refereeSurname',
               label: "Client's surname",
               required: true,
-              forFuelTeam: true,
             },
           ],
         },
       ],
     };
 
-    expect(fuelColumns(definition).map(({ key }) => key)).toEqual(['refereeSurname']);
+    const surnameHousehold: FuelHelpList['households'][number] = {
+      referralId: '6b88b448-1c88-4aa6-b9a6-43a495ea2dc1',
+      sessionDate: '2026-08-04',
+      refereeSurname: 'Rowe',
+      needsFuelHelp: true,
+      formId: null,
+      answers: {},
+    };
+
+    expect(fuelColumns(definition, [surnameHousehold]).map(({ key }) => key)).toEqual([
+      'refereeSurname',
+    ]);
+  });
+
+  it('leaves out a fixed field absent from every endpoint row', () => {
+    const definition: ReferralFormDefinition = {
+      version: 1,
+      pages: [
+        {
+          pageNum: 1,
+          pageTitle: 'Test',
+          questions: [
+            {
+              type: 'keyField',
+              field: 'referrerEmail',
+              key: 'referrerEmail',
+              label: "Referrer's email address",
+              required: true,
+            },
+          ],
+        },
+      ],
+    };
+
+    const householdWithoutReferrerEmail: FuelHelpList['households'][number] = {
+      referralId: '6b88b448-1c88-4aa6-b9a6-43a495ea2dc1',
+      sessionDate: '2026-08-04',
+      needsFuelHelp: true,
+      formId: null,
+      answers: {},
+    };
+
+    expect(fuelColumns(definition, [householdWithoutReferrerEmail])).toEqual([]);
+  });
+
+  it('keeps an endpoint field whose question has been removed from today’s form', () => {
+    const definition: ReferralFormDefinition = {
+      version: 1,
+      pages: [
+        {
+          pageNum: 1,
+          pageTitle: 'Today',
+          questions: [
+            {
+              type: 'text',
+              key: 'current fuel answer',
+              label: 'Current fuel answer',
+              required: false,
+              preference: false,
+              forFuelTeam: true,
+              maxLength: 20,
+            },
+          ],
+        },
+      ],
+    };
+
+    const columns = fuelColumns(definition, [HOUSEHOLD]);
+    const referrerEmail = columns.find((column) => column.key === 'referrerEmail');
+
+    expect(referrerEmail?.label).toBe("Referrer's email address");
+    expect(
+      referrerEmail === undefined ? undefined : fuelColumnValue(referrerEmail, HOUSEHOLD, {}),
+    ).toBe('alex@example.org');
   });
 });

@@ -21,7 +21,8 @@ import styles from './fuel-help-list-screen.module.css';
 export function FuelHelpListScreen() {
   const list = useFuelHelpList();
   const form = usePublicReferralFormDefinition();
-  const columns = form.data === undefined ? [] : fuelColumns(form.data.definition);
+  const columns =
+    form.data === undefined ? [] : fuelColumns(form.data.definition, list.data?.households ?? []);
   // Only where a marked question chooses from a lookup, which none do today:
   // its answer would otherwise be copied into the spreadsheet as an id.
   const reasons = useReferralOptionSources(fuelColumnsNeedOptionSources(columns));
@@ -107,16 +108,10 @@ export function FuelHelpListScreen() {
               {list.data.households.map((household) => {
                 return (
                   <tr key={household.referralId}>
-                    <td>{formatSessionDate(household.sessionDate)}</td>
-                    {columns.map((column, index) => {
+                    <th scope="row">{formatSessionDate(household.sessionDate)}</th>
+                    {columns.map((column) => {
                       const value = fuelColumnValue(column, household, reasons.sources);
-                      return index === 0 ? (
-                        <th key={column.key} scope="row">
-                          {value}
-                        </th>
-                      ) : (
-                        <td key={column.key}>{value}</td>
-                      );
+                      return <td key={column.key}>{value}</td>;
                     })}
                   </tr>
                 );
