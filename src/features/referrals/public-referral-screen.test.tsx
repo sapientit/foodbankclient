@@ -203,7 +203,7 @@ async function typeAddress(value: string) {
 }
 
 /**
- * Typing an address and then leaving it. **"We do not recognise that address"
+ * Typing an address and then leaving it. **"not on our approved referrer list"
  * is only said about an address somebody has finished with** — see
  * `referrerVerdict` — so any test expecting it has to leave the field, exactly
  * as a referrer does on their way to the next question.
@@ -290,7 +290,7 @@ describe('the public referral form', () => {
     renderRefer();
 
     await typeWholeAddress('ada@charity.org');
-    await screen.findByText(/an administrator will need to approve/);
+    await screen.findByText(/Administrator approval is needed/);
 
     // `publicApi`, not `api`. The wrong client would attach a bearer header and,
     // on a 401, fire a refresh for somebody who has no account.
@@ -436,8 +436,10 @@ describe('the referrer check', () => {
     await typeWholeAddress('ada@charity.org');
 
     // Not a refusal any more. The referral is still taken.
-    expect(await screen.findByText(/an administrator will need to approve/)).toBeInTheDocument();
-    expect(screen.getByText(/You can carry on and send it/)).toBeInTheDocument();
+    expect(await screen.findByText(/Administrator approval is needed/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/provided a work\/organisation specific email address/),
+    ).toBeInTheDocument();
     // The person has done nothing wrong and an alert would say they had.
     expect(screen.queryByRole('alert')).toBeNull();
   });
@@ -469,7 +471,7 @@ describe('the referrer check', () => {
       expect(checked).toContain('pete@guildford.gov');
     });
     await settle();
-    expect(screen.queryByText(/We do not recognise/)).toBeNull();
+    expect(screen.queryByText(/not on our approved referrer list/)).toBeNull();
 
     await user.type(screen.getByLabelText(/Referrer's email address/), '.uk');
     expect(await screen.findByText('We have you as Guildford Council.')).toBeInTheDocument();
@@ -480,12 +482,12 @@ describe('the referrer check', () => {
     renderRefer();
 
     const user = await typeWholeAddress('ada@charity.orgg');
-    await screen.findByText(/an administrator will need to approve/);
+    await screen.findByText(/Administrator approval is needed/);
 
     // Correcting a typo. The verdict was about the address as it stood, and
     // saying it again over a half-corrected one is the same bug in reverse.
     await user.type(screen.getByLabelText(/Referrer's email address/), '{Backspace}');
-    expect(screen.queryByText(/We do not recognise/)).toBeNull();
+    expect(screen.queryByText(/not on our approved referrer list/)).toBeNull();
   });
 
   it('fills in the organisation a recognised address already belongs to', async () => {
@@ -659,7 +661,7 @@ describe('the referrer check', () => {
     await user.tab();
 
     fast.resolve();
-    expect(await screen.findByText(/an administrator will need to approve/)).toBeInTheDocument();
+    expect(await screen.findByText(/Administrator approval is needed/)).toBeInTheDocument();
 
     slow.resolve();
     await waitFor(() => {

@@ -794,7 +794,7 @@ function SubmissionFailureNotice({ error }: { error: unknown }) {
  *
  * **When each verdict is fair to show is `referrerVerdict`'s decision**, not
  * this component's: a half-typed address is a complete-looking one, and saying
- * "we do not recognise that address" about it is a claim about the person
+ * "not on our approved referrer list" about it is a claim about the person
  * rather than about what they have typed so far.
  */
 function ReferrerNotice({ verdict }: { verdict: ReferrerVerdict }) {
@@ -803,9 +803,12 @@ function ReferrerNotice({ verdict }: { verdict: ReferrerVerdict }) {
       {verdict.kind === 'checking' && <p>Checking that address…</p>}
 
       {verdict.kind === 'unrecognised' && (
+        /* Worded by the charity, 2026-11-03: referrers were giving a private
+           address, so the notice asks for a work or organisation one. */
         <p>
-          We do not recognise that address, so an administrator will need to approve this referral
-          before the household is booked in. You can carry on and send it.
+          Your email address is not on our approved referrer list. Administrator approval is needed
+          before the household is booked in. Please ensure you have provided a work/organisation
+          specific email address then please proceed and send the referral.
         </p>
       )}
 
