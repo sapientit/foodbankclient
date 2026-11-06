@@ -1,3 +1,4 @@
+import { ShowableError } from '../../lib/errors';
 import type { ConfigurationRelease } from '../configuration-releases/queries';
 import type { Referral } from '../referrals/queries';
 import { parseReferralFormConfig } from '../referrals/referral-form-config';
@@ -107,7 +108,10 @@ export function resolvePickListBody(
     if (release.status !== 'published') continue;
     const health = validatePreferenceRules(stockItems, release.rules, release.definition);
     if (health.errors.length > 0) {
-      throw new Error(`Preference rule configuration is invalid: ${health.errors.join(' ')}`);
+      // Showable, or `ErrorNotice` reports a broken rule as a connection problem.
+      throw new ShowableError(
+        `Preference rule configuration is invalid: ${health.errors.join(' ')}`,
+      );
     }
   }
 

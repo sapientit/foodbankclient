@@ -1464,7 +1464,7 @@ export interface paths {
          * The listener sheet for a session
          * @description **One sheet for the whole session**, not one per household — a listener
          *     is handed a single sheet and scans it for whoever is in front of them.
-         *     Ordered by surname for that reason.
+         *     Ordered by `pickNumber`, lowest first.
          *
          *     Open to a team leader, and **the only place a team leader is given the
          *     reason for referral**. That is a deliberate exception: a listener is
@@ -1501,9 +1501,10 @@ export interface paths {
          *     conversation was independent of picking — and that is no longer so:
          *     the sheet and the picking sheets are carried round the same hall, and
          *     a listener has to be able to match a household between the two. A
-         *     household referred since the pick list was made, or before one has
-         *     ever been generated, has no parcel and so no number, and the whole
-         *     sheet is refused rather than printed with gaps in it.
+         *     household referred or moved to the session since the pick list was
+         *     made, or before one has ever been generated, has no parcel here and so
+         *     no number, whatever it held on a session it left, and the whole sheet
+         *     is refused rather than printed with gaps in it.
          */
         get: {
             parameters: {

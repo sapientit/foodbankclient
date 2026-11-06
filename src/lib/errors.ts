@@ -199,8 +199,8 @@ export function isNotFound(error: unknown): boolean {
 
 /**
  * The listener sheet is an all-or-nothing pick-list snapshot. This explicit
- * conflict is what sends the team lead back to reconcile it before trying the
- * sheet again; matching a human-readable message would break on a copy edit.
+ * conflict is what makes the screen generate the missing pick lists and ask for
+ * the sheet again; matching a human-readable message would break on a copy edit.
  */
 export function isNewClientsAssigned(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 409 && error.code === 'NEW_CLIENTS_ASSIGNED';

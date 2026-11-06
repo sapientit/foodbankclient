@@ -1,23 +1,19 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useParams } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { isNewClientsAssigned } from '../../../lib/errors';
-import { referralKeys } from '../../referrals/keys';
-import {
-  fetchReferrals,
-  usePublicReferralFormDefinition,
-  useReferralOptionSources,
-} from '../../referrals/queries';
+import { usePublicReferralFormDefinition, useReferralOptionSources } from '../../referrals/queries';
+import { useSession } from '../../sessions/queries';
 import {
   listenerColumns,
   listenerColumnsNeedReferralReasons,
   listenerColumnValue,
   listenerFirstTimeOrVoucherText,
 } from '../listener-sheet.logic';
-import { useListenerSheet } from '../queries';
+import { useGenerateMissingPickLists, useListenerSheet } from '../queries';
+import { isSessionReadOnly } from '../run-session.logic';
 import styles from './listener-sheet-screen.module.css';
 
 /**
@@ -41,11 +37,15 @@ import styles from './listener-sheet-screen.module.css';
  */
 export function ListenerSheetScreen() {
   const { sessionId = '' } = useParams();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [rebuildError, setRebuildError] = useState<unknown>(null);
-  const [rebuilding, setRebuilding] = useState(false);
+  // Keyed so that "already tried to generate" belongs to one session, not to
+  // whichever session this route happens to be showing.
+  return <SessionListenerSheet key={sessionId} sessionId={sessionId} />;
+}
+
+function SessionListenerSheet({ sessionId }: { readonly sessionId: string }) {
+  const session = useSession(sessionId);
   const sheet = useListenerSheet(sessionId);
+  const generate = useGenerateMissingPickLists();
   const form = usePublicReferralFormDefinition();
   const columns = form.data === undefined ? [] : listenerColumns(form.data.definition);
 
@@ -53,27 +53,52 @@ export function ListenerSheetScreen() {
   const needsReasons = listenerColumnsNeedReferralReasons(columns);
   const reasons = useReferralOptionSources(needsReasons);
 
-  async function acknowledgeNewClients() {
-    setRebuilding(true);
-    setRebuildError(null);
-    try {
-      const filters = { sessionId };
-      const queryKey = referralKeys.list(filters);
-      // The conflict proves this tab may hold an apparently fresh but now old
-      // referral list. Reconciliation must use a read made after acknowledgement.
-      await queryClient.invalidateQueries({ queryKey });
-      await queryClient.fetchQuery({
-        queryKey,
-        queryFn: () => fetchReferrals(filters),
-        staleTime: 0,
-      });
-      void navigate(`/run-sessions/${sessionId}`);
-    } catch (error) {
-      setRebuildError(error);
-      setRebuilding(false);
+  /*
+   * The sheet is refused while any household on it has no pick number: somebody
+   * referred or moved here since the pick lists were made. Generating is
+   * idempotent and leaves existing parcels alone, so it happens without asking.
+   *
+   * **Once by itself, never in a loop.** The ref is set before the request, so
+   * nothing can start a second attempt that would answer `parcelsCreated: 0`. A
+   * second refusal — another client arriving in the same moment — is put in
+   * front of the person, whose "Try again" is the only thing that asks again. A
+   * finished session is read, never reconciled: `POST` on a confirmed list
+   * answers `200` having created nothing.
+   */
+  const newClientsAssigned = isNewClientsAssigned(sheet.error);
+  const closed = session.data !== undefined && isSessionReadOnly(session.data.status);
+  const canGenerate = session.data !== undefined && !closed;
+  const attempted = useRef(false);
+  const [retrying, setRetrying] = useState(false);
+  // Added up, because each attempt reports only what it created itself and the
+  // print-again warning has to cover all of them.
+  const [parcelsCreated, setParcelsCreated] = useState(0);
+  const { mutate } = generate;
+  const generatePickLists = useCallback(() => {
+    mutate(sessionId, {
+      onSuccess: (result) => {
+        setParcelsCreated((total) => total + (result.parcelsCreated ?? 0));
+      },
+    });
+  }, [mutate, sessionId]);
+  useEffect(() => {
+    if (newClientsAssigned && canGenerate && !sheet.isFetching && !attempted.current) {
+      attempted.current = true;
+      generatePickLists();
     }
-  }
+  }, [canGenerate, generatePickLists, newClientsAssigned, sheet.isFetching]);
 
+  // Only the automatic attempt takes over the screen. Pressing "Try again" leaves
+  // the notice standing, so the button keeps keyboard focus.
+  if (newClientsAssigned && !closed && (generate.isIdle || (generate.isPending && !retrying)))
+    return (
+      <div className={styles.page}>
+        <div className={styles.headerCard}>
+          <PageHeader title="Listener sheet" />
+        </div>
+        <Spinner label="Creating pick lists for new clients…" />
+      </div>
+    );
   if (sheet.isPending)
     return (
       <div className={styles.page}>
@@ -90,23 +115,41 @@ export function ListenerSheetScreen() {
           <div className={styles.headerCard}>
             <PageHeader title="Listener sheet" />
           </div>
-          <section className={styles.newClientsAssigned} role="alert">
+          <section className={styles.newClientsAssigned}>
             <h2>New clients assigned</h2>
-            <p>{sheet.error.message}</p>
-            <p>
-              Return to the session to rebuild the client list, then select Listener sheet again.
-            </p>
-            {rebuildError === null ? (
+            {closed ? (
+              <div role="alert">
+                <p>{sheet.error.message}</p>
+                <p>This session is closed, so no pick lists can be added to it.</p>
+              </div>
+            ) : generate.isError ? (
+              <>
+                <p>
+                  The listener sheet needs a pick number for every client, and the new clients’ pick
+                  lists could not be created.
+                </p>
+                <ErrorNotice error={generate.error} />
+              </>
+            ) : (
+              <p role="alert">{sheet.error.message}</p>
+            )}
+            {/* Its own button, because `ErrorNotice` rightly offers none on a
+                `409` or `422` — but here an administrator completing the grid is
+                exactly what makes the same request succeed. Outside the branches
+                above so it stays the same element, and keeps focus, throughout. */}
+            {!closed && (
               <button
-                aria-busy={rebuilding}
-                disabled={rebuilding}
-                onClick={() => void acknowledgeNewClients()}
+                aria-busy={generate.isPending}
+                aria-disabled={generate.isPending}
+                onClick={() => {
+                  if (generate.isPending) return;
+                  setRetrying(true);
+                  generatePickLists();
+                }}
                 type="button"
               >
-                {rebuilding ? 'Rebuilding client list…' : 'Acknowledge and return to session'}
+                {generate.isPending ? 'Trying again…' : 'Try again'}
               </button>
-            ) : (
-              <ErrorNotice error={rebuildError} onRetry={() => void acknowledgeNewClients()} />
             )}
           </section>
         </div>
@@ -173,6 +216,16 @@ export function ListenerSheetScreen() {
         />
       </div>
       <section aria-label="Listener sheet details" className={styles.detailsCard}>
+        {/* Said here because it is said nowhere else: the Clients tab's own
+            reconciliation will now find nothing left to create. */}
+        {parcelsCreated > 0 && (
+          <p className={styles.screenOnly} role="status">
+            {parcelsCreated} new pick list{parcelsCreated === 1 ? '' : 's'}{' '}
+            {generate.data?.firstPrintedAt === null
+              ? 'created.'
+              : `created — print the pick lists again to include ${parcelsCreated === 1 ? 'it' : 'them'}.`}
+          </p>
+        )}
         <p className={styles.screenOnly}>
           This sensitive sheet is for the selected listeners only. It lists non-delivery households
           on this session.

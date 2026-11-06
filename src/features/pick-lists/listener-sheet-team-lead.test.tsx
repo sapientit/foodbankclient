@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient } from '@tanstack/react-query';
 import { HttpResponse, http } from 'msw';
@@ -9,7 +9,7 @@ import type { ConfigurationRelease } from '../configuration-releases/queries';
 import { referralKeys } from '../referrals/keys';
 import rawFormConfig from '../referrals/referral-form.config.json';
 import { listenerColumns } from './listener-sheet.logic';
-import type { ListenerSheet } from './queries';
+import type { ListenerSheet, Reconciliation } from './queries';
 import type { ReferralReason } from '../referrals/queries';
 
 const SESSION_ID = 'session-1';
@@ -90,6 +90,40 @@ const REASONS = [
   { id: 'reason-debt', code: 'debt', label: 'Debt', displayOrder: 1 },
   { id: 'reason-illness', code: 'illness', label: 'Illness', displayOrder: 2 },
 ] satisfies ReferralReason[];
+
+/** The whole sheet refused: a household on the session has no pick number. */
+function newClientsRefusal() {
+  return HttpResponse.json(
+    {
+      error: {
+        code: 'NEW_CLIENTS_ASSIGNED',
+        message: 'New clients have been assigned to this session.',
+        requestId: 'request-1',
+        details: { missingParcels: ['referral-new'] },
+      },
+    },
+    { status: 409 },
+  );
+}
+
+function reconciliation(overrides: Partial<Reconciliation>) {
+  return {
+    id: 'pick-list-1',
+    sessionId: SESSION_ID,
+    status: 'draft',
+    generatedAt: '2099-08-06T09:00:00.000Z',
+    firstPrintedAt: null,
+    ...overrides,
+  } satisfies Reconciliation;
+}
+
+/** What generating reads first, for a test not interested in the resolved lines. */
+function generationInputs() {
+  return [
+    http.get('/api/v1/referrals', () => HttpResponse.json({ referrals: [] })),
+    http.get('/api/v1/stock/items', () => HttpResponse.json({ items: [] })),
+  ];
+}
 
 function reasonsHandler() {
   return http.get('/api/v1/public/referral-reasons', () =>
@@ -238,25 +272,44 @@ describe('a team lead listener sheet', () => {
     ).toBeInTheDocument();
   });
 
-  it('refreshes the client list before returning to rebuild pick lists after new clients are acknowledged', async () => {
-    const user = userEvent.setup();
+  it('prints households in the order the server sends them, never re-sorting by name', async () => {
+    const [first, second, third] = LISTENER_SHEET.households;
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
+        HttpResponse.json({
+          sessionId: SESSION_ID,
+          // Surnames deliberately out of alphabetical order against the numbers.
+          households: [
+            { ...first, pickNumber: 1, refereeSurname: 'Cole' },
+            { ...second, pickNumber: 2, refereeSurname: 'Ahmed' },
+            { ...third, pickNumber: 3, refereeSurname: 'Brown' },
+          ],
+        }),
+      ),
+      reasonsHandler(),
+    );
+
+    renderApp(`/run-sessions/${SESSION_ID}/listener`);
+
+    await screen.findByRole('row', { name: /#1/ });
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows.map((row) => within(row).getAllByRole('cell')[0]?.textContent)).toEqual([
+      '#1',
+      '#2',
+      '#3',
+    ]);
+  });
+
+  it('generates the missing pick lists from a fresh referral read and asks for the sheet again when new clients are assigned', async () => {
+    let sheetReads = 0;
     let referralReads = 0;
     let reconciliationPosts = 0;
     let reconciliationBody: unknown;
     server.use(
-      http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
-        HttpResponse.json(
-          {
-            error: {
-              code: 'NEW_CLIENTS_ASSIGNED',
-              message: 'New clients have been assigned to this session.',
-              requestId: 'request-1',
-              details: { missingParcels: ['referral-new'] },
-            },
-          },
-          { status: 409 },
-        ),
-      ),
+      http.get('/api/v1/sessions/:sessionId/listener-sheet', () => {
+        sheetReads += 1;
+        return reconciliationPosts === 0 ? newClientsRefusal() : HttpResponse.json(LISTENER_SHEET);
+      }),
       http.get('/api/v1/referrals', ({ request }) => {
         expect(new URL(request.url).searchParams.get('sessionId')).toBe(SESSION_ID);
         referralReads += 1;
@@ -363,37 +416,8 @@ describe('a team lead listener sheet', () => {
         expect(params.sessionId).toBe(SESSION_ID);
         reconciliationPosts += 1;
         reconciliationBody = await request.json();
-        return HttpResponse.json({ sessionId: SESSION_ID });
+        return HttpResponse.json(reconciliation({ parcelsCreated: 1 }));
       }),
-      http.get('/api/v1/sessions/:sessionId/pick-list', () =>
-        HttpResponse.json({
-          pickList: {
-            id: 'pick-list-1',
-            sessionId: SESSION_ID,
-            status: 'draft',
-            generatedAt: '2099-08-06T09:00:00.000Z',
-            firstPrintedAt: null,
-          },
-          parcels: [
-            {
-              id: 'parcel-new',
-              referralId: 'referral-new',
-              pickNumber: 1,
-              refereeFirstName: 'Nora',
-              refereeSurname: 'New',
-              isDelivery: false,
-              adults: 1,
-              children: 0,
-              householdSize: 1,
-              reviewedAt: null,
-              attendance: 'pending',
-              notes: null,
-              answers: {},
-              lines: [],
-            },
-          ],
-        }),
-      ),
       http.get(RELEASES_BULK, () => HttpResponse.json({ releases: [RELEASE] })),
       reasonsHandler(),
     );
@@ -407,22 +431,188 @@ describe('a team lead listener sheet', () => {
     });
     const { router } = renderApp(`/run-sessions/${SESSION_ID}/listener`, queryClient);
 
-    expect(
-      await screen.findByRole('heading', { name: 'New clients assigned' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('New clients have been assigned to this session.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Print listener sheet' })).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Acknowledge and return to session' }));
+    expect(await screen.findByRole('button', { name: 'Print listener sheet' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /#1.*First time/ })).toBeInTheDocument();
+    expect(await screen.findByText('1 new pick list created.')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'New clients assigned' })).toBeNull();
+    expect(sheetReads).toBe(2);
     expect(referralReads).toBe(1);
-    expect(await screen.findByRole('row', { name: /#1.*Nora New/ })).toBeInTheDocument();
     expect(reconciliationPosts).toBe(1);
     expect(reconciliationBody).toEqual({
       preferenceLines: [
         { referralId: 'referral-new', lines: [{ stockItemId: 'tea', quantity: 1 }] },
       ],
     });
-    expect(router.state.location.pathname).toBe(`/run-sessions/${SESSION_ID}`);
+    expect(router.state.location.pathname).toBe(`/run-sessions/${SESSION_ID}/listener`);
   });
+
+  it('says the pick lists must be printed again when the new pick lists arrive after printing', async () => {
+    let posted = false;
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
+        posted ? HttpResponse.json(LISTENER_SHEET) : newClientsRefusal(),
+      ),
+      ...generationInputs(),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => {
+        posted = true;
+        return HttpResponse.json(
+          reconciliation({ parcelsCreated: 2, firstPrintedAt: '2099-08-06T08:00:00.000Z' }),
+        );
+      }),
+      reasonsHandler(),
+    );
+
+    renderApp(`/run-sessions/${SESSION_ID}/listener`);
+
+    expect(
+      await screen.findByText(
+        '2 new pick lists created — print the pick lists again to include them.',
+      ),
+    ).toHaveAttribute('role', 'status');
+  });
+
+  it('asks once by itself and leaves a second refusal to the person, rather than looping', async () => {
+    const user = userEvent.setup();
+    let sheetReads = 0;
+    let posts = 0;
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/listener-sheet', () => {
+        sheetReads += 1;
+        return newClientsRefusal();
+      }),
+      ...generationInputs(),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => {
+        posts += 1;
+        return HttpResponse.json(reconciliation({ parcelsCreated: 1 }));
+      }),
+    );
+
+    renderApp(`/run-sessions/${SESSION_ID}/listener`);
+
+    const tryAgain = await screen.findByRole('button', { name: 'Try again' });
+    expect(screen.getByRole('heading', { name: 'New clients assigned' })).toBeInTheDocument();
+    expect(screen.getByText('New clients have been assigned to this session.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Print listener sheet' })).toBeNull();
+    expect(posts).toBe(1);
+    expect(sheetReads).toBe(2);
+
+    await user.click(tryAgain);
+    await waitFor(() => {
+      expect(sheetReads).toBe(3);
+    });
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBe(tryAgain);
+    expect(tryAgain).toHaveFocus();
+    expect(posts).toBe(2);
+  });
+
+  it('counts every pick list created across attempts in the print-again warning', async () => {
+    const user = userEvent.setup();
+    let posts = 0;
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
+        posts < 2 ? newClientsRefusal() : HttpResponse.json(LISTENER_SHEET),
+      ),
+      ...generationInputs(),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => {
+        posts += 1;
+        return HttpResponse.json(
+          reconciliation({ parcelsCreated: 1, firstPrintedAt: '2099-08-06T08:00:00.000Z' }),
+        );
+      }),
+      reasonsHandler(),
+    );
+
+    renderApp(`/run-sessions/${SESSION_ID}/listener`);
+
+    await user.click(await screen.findByRole('button', { name: 'Try again' }));
+
+    expect(
+      await screen.findByText(
+        '2 new pick lists created — print the pick lists again to include them.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the server’s reason and no sheet when the missing pick lists cannot be generated', async () => {
+    const user = userEvent.setup();
+    let posts = 0;
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
+        posts < 2 ? newClientsRefusal() : HttpResponse.json(LISTENER_SHEET),
+      ),
+      ...generationInputs(),
+      http.post('/api/v1/sessions/:sessionId/pick-list', () => {
+        posts += 1;
+        return posts === 1
+          ? HttpResponse.json(
+              {
+                error: {
+                  code: 'GRID_INCOMPLETE',
+                  message: 'The household grid has no model parcel for a household of 7.',
+                  requestId: 'request-2',
+                },
+              },
+              { status: 422 },
+            )
+          : HttpResponse.json(reconciliation({ parcelsCreated: 1 }));
+      }),
+      reasonsHandler(),
+    );
+
+    renderApp(`/run-sessions/${SESSION_ID}/listener`);
+
+    expect(
+      await screen.findByText('The household grid has no model parcel for a household of 7.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Print listener sheet' })).toBeNull();
+    expect(posts).toBe(1);
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('button', { name: 'Print listener sheet' })).toBeInTheDocument();
+  });
+
+  it.each(['confirmed', 'cancelled'])(
+    'never generates pick lists on a %s session, and says why there is no sheet',
+    async (status) => {
+      let posts = 0;
+      server.use(
+        http.get('/api/v1/sessions/:sessionId', () =>
+          HttpResponse.json({
+            id: SESSION_ID,
+            sessionDate: '2099-08-06',
+            startTime: '10:00',
+            startsAtUtc: '2099-08-06T09:00:00.000Z',
+            durationMinutes: 90,
+            location: 'St Mary’s Hall',
+            deliveryWindowStart: null,
+            deliveryWindowEnd: null,
+            deliveryCapacity: 0,
+            deliveryBooked: 0,
+            capacity: 25,
+            booked: 1,
+            status,
+            cancelledReason: null,
+            isCustomised: false,
+            recurringSessionId: null,
+            occurrenceDate: null,
+          }),
+        ),
+        http.get('/api/v1/sessions/:sessionId/listener-sheet', () => newClientsRefusal()),
+        http.post('/api/v1/sessions/:sessionId/pick-list', () => {
+          posts += 1;
+          return HttpResponse.json(reconciliation({ parcelsCreated: 0 }));
+        }),
+      );
+
+      renderApp(`/run-sessions/${SESSION_ID}/listener`);
+
+      expect(
+        await screen.findByText('This session is closed, so no pick lists can be added to it.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+      expect(posts).toBe(0);
+    },
+  );
 
   it('shows the marked listener-sheet columns in questionnaire order', async () => {
     server.use(

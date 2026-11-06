@@ -3,6 +3,7 @@ import { api } from '../../api/client';
 import type { components, paths } from '../../api/schema';
 import { unwrap, unwrapVoid } from '../../api/unwrap';
 import { fetchConfigurationReleasesBulk } from '../configuration-releases/queries';
+import { referralKeys } from '../referrals/keys';
 import type { Referral } from '../referrals/queries';
 import { sessionKeys } from '../sessions/keys';
 import { pickListKeys } from './keys';
@@ -386,6 +387,60 @@ export function useMarkSmsThreadRead() {
     // A closed session's reply counts on its own `sms-summary` as well as the
     // inbox and the dashboard's attention summary, all under this root.
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: pickListKeys.all }),
+  });
+}
+
+/**
+ * Creates the pick lists the listener sheet was refused for, so it can be asked
+ * for again.
+ *
+ * **Everything is read afresh.** The refusal proves this tab may hold an
+ * apparently fresh but now old referral list, and a referral missing from the
+ * body would get its parcel without its preference lines — which are never
+ * added afterwards, because existing parcels are not changed.
+ *
+ * The listener sheet is re-read as part of this mutation, so the screen never
+ * has a moment of "finished generating, still showing the refusal".
+ */
+export function useGenerateMissingPickLists() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionId: string): Promise<Reconciliation> => {
+      const [{ referrals }, { items: stockItems }] = await Promise.all([
+        unwrap(api.GET('/api/v1/referrals', { params: { query: { sessionId } } })),
+        unwrap(
+          api.GET('/api/v1/stock/items', {
+            params: { query: { includeInactive: 'true', order: 'category' } },
+          }),
+        ),
+      ]);
+      const formIds = distinctFormIds(referrals);
+      const releases =
+        formIds.length === 0 ? [] : parseReleases(await fetchConfigurationReleasesBulk(formIds));
+
+      const { preferenceLines, pickListInformation } = resolvePickListBody(
+        referrals,
+        stockItems,
+        releases,
+      );
+      return unwrap(
+        api.POST('/api/v1/sessions/{sessionId}/pick-list', {
+          params: { path: { sessionId } },
+          body: {
+            preferenceLines: [...preferenceLines],
+            ...(pickListInformation.length === 0
+              ? {}
+              : { pickListInformation: [...pickListInformation] }),
+          },
+        }),
+      );
+    },
+    onSuccess: async (_result, sessionId) => {
+      void queryClient.invalidateQueries({ queryKey: referralKeys.list({ sessionId }) });
+      void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(sessionId) });
+      void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() });
+      await queryClient.invalidateQueries({ queryKey: pickListKeys.all });
+    },
   });
 }
 
