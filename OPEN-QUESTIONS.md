@@ -63,3 +63,19 @@ specific grey or charcoal, drawn from the same darker-shade convention as the ot
 **A:**
 
 ---
+
+## Q55 — Should the fuel list's "Include column headings" box start ticked?
+
+`Status: open` · `Raised by: client` · `Blocks: nothing — it starts unticked meanwhile`
+
+Pete asked for a tick box offering column headings on the fuel help list's copy
+(`screenDetails.md`, `#Fuel help list`) without saying how it should start. It starts unticked and
+resets on leaving the screen, on the guess that rows are normally added to the bottom of a running
+spreadsheet, where a repeated heading row would be in the way. The guess is marked in
+`fuel-help-list-screen.tsx`.
+
+**Question for Pete:** should the box start unticked, as built, or ticked?
+
+**A:**
+
+---

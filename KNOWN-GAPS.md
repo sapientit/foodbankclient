@@ -36,6 +36,14 @@ they would be looking at a form that appears to have thrown their work away.
 Needs a real screen reader; if it is wrong, give the notice a focus target and
 land focus on it instead.
 
+**The fuel list's Copy button has been pasted into Excel once only: Chrome and
+Excel on a Mac, on 2026-11-06.** There `07700900123` kept its zero and `=1+1`
+stayed as text, because Excel honours the `mso-number-format` in the copied HTML.
+The same values pasted as plain text became `7700900123` and `2`. **No automated
+test can prove this**, and the browser could strip that style without any test
+noticing. Verify by hand on the machine the fuel team really uses, Windows Excel
+above all, with a household whose phone number has no space in it.
+
 ## The referral form's key-reuse guard cannot catch its most dangerous failure
 
 `reusedKeys` in `referral-form-guards.ts` fires when a retired key is reused

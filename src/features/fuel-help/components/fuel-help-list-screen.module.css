@@ -41,3 +41,79 @@
 .table thead th {
   border-block-end: 2px solid #1a1a1a;
 }
+
+/* Stays in view on a long list. At the bottom of the window because the app's
+   own header is sticky at the top, with a height that depends on its wrapping;
+   after the table in the page so the keyboard reaches a session, then Copy. */
+.copyBar {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  padding-block: 0.75rem;
+  background: #ffffff;
+  border-block-start: 2px solid #1a1a1a;
+}
+
+.headingsOption {
+  white-space: nowrap;
+}
+
+.copyStatus {
+  flex: 1 1 16rem;
+  margin: 0;
+  min-block-size: 1.5em;
+}
+
+/* The date column stays in view while the table scrolls sideways, because it
+   holds the control that chooses the rows. */
+.table tbody th,
+.table thead th:first-child {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background: #ffffff;
+}
+
+.copyFrom {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  vertical-align: bottom;
+  cursor: pointer;
+}
+
+.copyFrom input {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  margin: 0;
+  /* Moving between sessions by keyboard must not leave the focused radio under
+     the app's sticky header or the sticky Copy bar. */
+  scroll-margin-block: 9rem 6rem;
+}
+
+/* Lines a session's later dates up under the date beside the radio button. */
+.sessionContinues {
+  padding-inline-start: 1.75rem;
+}
+
+.table tr[data-first-of-session] > * {
+  border-block-start: 2px solid #737373;
+}
+
+/* Colour is never the only signal: the bar and the tick say the same thing. */
+.table tr[data-will-copy] > * {
+  background: #fff2b3;
+}
+
+.table tr[data-will-copy] > th {
+  box-shadow: inset 0.3rem 0 0 #1a1a1a;
+}
+
+.table tr[data-will-copy] > th::after {
+  content: ' ✓' / '';
+  font-weight: 700;
+}

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { fuelColumns, fuelColumnValue } from './fuel-help.logic';
+import {
+  fuelColumns,
+  fuelColumnValue,
+  fuelCopyCells,
+  fuelCopyHeadings,
+  fuelCopyHtml,
+  fuelCopyText,
+  householdsToCopy,
+} from './fuel-help.logic';
 import { householdCompositionTotals } from '../referrals/household-composition';
 import type { FuelHelpList } from './queries';
 import type { ReferralFormDefinition } from '../referrals/referral-form-definition';
@@ -304,5 +312,84 @@ describe('fuel columns', () => {
     expect(
       referrerEmail === undefined ? undefined : fuelColumnValue(referrerEmail, HOUSEHOLD, {}),
     ).toBe('alex@example.org');
+  });
+});
+
+type Household = FuelHelpList['households'][number];
+
+function onDate(referralId: string, sessionDate: string): Household {
+  return { ...HOUSEHOLD, referralId, sessionDate };
+}
+
+describe('which households a copy takes', () => {
+  const july = onDate('a', '2026-07-07');
+  const augustOne = onDate('b', '2026-08-04');
+  const augustTwo = onDate('c', '2026-08-04');
+  const september = onDate('d', '2026-09-01');
+  const list = [july, augustOne, augustTwo, september];
+
+  it('takes nothing while no session is chosen', () => {
+    expect(householdsToCopy(list, null)).toEqual([]);
+  });
+
+  it('takes the chosen session and every newer one, whole, oldest first', () => {
+    expect(householdsToCopy(list, '2026-08-04')).toEqual([augustOne, augustTwo, september]);
+    expect(householdsToCopy(list, '2026-07-07')).toEqual(list);
+    expect(householdsToCopy(list, '2026-09-01')).toEqual([september]);
+  });
+
+  it('takes nothing, not everything, when the chosen date is no longer on the list', () => {
+    expect(householdsToCopy([augustOne, september], '2026-07-07')).toEqual([]);
+    expect(householdsToCopy([], '2026-08-04')).toEqual([]);
+  });
+});
+
+describe('what a copy carries', () => {
+  const columns = fuelColumns(undefined, [HOUSEHOLD]);
+
+  it('heads the copy with the table headings, the date column first', () => {
+    expect(fuelCopyHeadings(columns)).toEqual(['Session date', ...columns.map((c) => c.label)]);
+  });
+
+  it('copies the same values the table shows, with the formatted date first', () => {
+    const [row] = fuelCopyCells([HOUSEHOLD], columns, {});
+
+    expect(row?.[0]).toBe('Tue, 4 Aug 2026');
+    expect(row?.slice(1)).toEqual(columns.map((column) => fuelColumnValue(column, HOUSEHOLD, {})));
+    expect(row).toContain('4 Aug 1975');
+  });
+
+  it('never carries an answer the fuel team marker does not cover', () => {
+    const cells = fuelCopyCells([HOUSEHOLD], columns, {});
+
+    expect(JSON.stringify(cells)).not.toContain('This answer is not for the fuel team.');
+    expect(cells[0]).toHaveLength(columns.length + 1);
+  });
+
+  it('keeps a tab or line break in an answer within its own cell and row', () => {
+    const text = fuelCopyText([
+      ['a', 'one\ttwo', 'three\r\nfour\nfive'],
+      ['x', 'y', 'z'],
+    ]);
+
+    expect(text).toBe('a\tone two\tthree four five\nx\ty\tz');
+    const lines = text.split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines.map((line) => line.split('\t').length)).toEqual([3, 3]);
+  });
+
+  it('escapes markup in an answer and marks every cell as text for Excel', () => {
+    const html = fuelCopyHtml([
+      ['07700 900123', '<b>"A" & B</b>'],
+      ['=1+1', 'plain'],
+    ]);
+
+    expect(html).toContain('&lt;b&gt;&quot;A&quot; &amp; B&lt;/b&gt;');
+    expect(html).not.toContain('<b>');
+    const cellCount = html.match(/<td /g)?.length;
+    expect(cellCount).toBe(4);
+    expect(html.match(/<td style="mso-number-format:'\\@'">/g)?.length).toBe(4);
+    expect(html.match(/<tr>/g)?.length).toBe(2);
+    expect(html).toContain('>=1+1</td>');
   });
 });

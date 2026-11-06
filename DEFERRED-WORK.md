@@ -34,3 +34,10 @@ notice an alert away from it. Preserve the existing polling behaviour. When the 
 known, decide the notification channel and its accessible visual equivalent before implementing it;
 do not record notification delivery, acknowledgement, or a team-lead preference merely to support
 the alert.
+
+## W7 — Redesign the fuel help list after Christmas 2026
+
+Pete said on 2026-11-06 that the fuel help list needs redesigning after Christmas. The copy-from-a-
+session control in `fuel-help-list-screen.tsx` is what the team has until then, so it was kept
+simple and remembers nothing. The scope of the redesign is Pete's to set when the work starts; take
+the requirement from him rather than inferring it from the current screen.

@@ -1,5 +1,5 @@
 import type { FuelHelpList } from './queries';
-import { formatCalendarDate } from '../../lib/london-time';
+import { formatCalendarDate, formatSessionDate } from '../../lib/london-time';
 import { householdCompositionTotals } from '../referrals/household-composition';
 import { referralFormDefinition } from '../referrals/referral-form-config';
 import { needsOptionSources, optionsFor } from '../referrals/referral-form-definition';
@@ -182,6 +182,74 @@ export function fuelColumnValue(
     return optionText(optionsFor(column.question, sources), answer);
   }
   return answerText(answer);
+}
+
+/**
+ * What a copy takes: every household of the chosen session date and of every
+ * newer one. A whole session at a time, because the fuel team should never stop
+ * part way through one. Nothing when the chosen date has aged off the list, so a
+ * stale choice cannot silently become "copy everything".
+ */
+export function householdsToCopy(
+  households: readonly FuelHelpHousehold[],
+  fromSessionDate: string | null,
+): readonly FuelHelpHousehold[] {
+  if (fromSessionDate === null) return [];
+  if (!households.some((household) => household.sessionDate === fromSessionDate)) return [];
+  // ISO calendar dates compare correctly as strings.
+  return households.filter((household) => household.sessionDate >= fromSessionDate);
+}
+
+/** The column headings, as the table shows them, for a copy that asks for them. */
+export function fuelCopyHeadings(columns: readonly FuelColumn[]): string[] {
+  return ['Session date', ...columns.map((column) => column.label)];
+}
+
+/** The cells of the copied rows, exactly as the table shows them. */
+export function fuelCopyCells(
+  households: readonly FuelHelpHousehold[],
+  columns: readonly FuelColumn[],
+  sources: OptionSources,
+): string[][] {
+  return households.map((household) => [
+    formatSessionDate(household.sessionDate),
+    ...columns.map((column) => fuelColumnValue(column, household, sources)),
+  ]);
+}
+
+/**
+ * Tab-separated text. A tab or line break typed into a free-text answer would
+ * otherwise push a household's remaining cells into the wrong column or row.
+ */
+export function fuelCopyText(cells: readonly (readonly string[])[]): string {
+  return cells
+    .map((row) => row.map((cell) => cell.replace(/[\t\r\n]+/g, ' ')).join('\t'))
+    .join('\n');
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+/**
+ * An HTML table whose cells Excel is told to treat as text. Without that Excel
+ * reads a pasted `07700900123` as a number and drops the leading zero, and runs
+ * an answer from the public form that begins with `=` as a formula.
+ */
+export function fuelCopyHtml(cells: readonly (readonly string[])[]): string {
+  const rows = cells
+    .map(
+      (row) =>
+        `<tr>${row
+          .map((cell) => `<td style="mso-number-format:'\\@'">${escapeHtml(cell)}</td>`)
+          .join('')}</tr>`,
+    )
+    .join('');
+  return `<table>${rows}</table>`;
 }
 
 /** A stored option as the words the charity gave it — see `listener-sheet.logic.ts`. */
