@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import { ErrorNotice } from '../../../components/error-notice';
 import { CalendarIcon, MapPinIcon, PhoneIcon, SearchIcon } from '../../../components/icons';
@@ -9,8 +9,11 @@ import { useReferralSearch, useReferralSearchMemory } from '../queries';
 import {
   REASON_ADDITIONAL_KEY,
   SECONDARY_REASON_KEY,
+  SURNAME_PREFIX_MIN_LENGTH,
   answerChoiceId,
   answerText,
+  referralSearchInput,
+  surnamePrefixState,
 } from '../referral-search.logic';
 import { REFERRAL_STATUS_LABELS } from '../referrals.logic';
 import styles from './referral-search-screen.module.css';
@@ -26,7 +29,10 @@ export function ReferralSearchScreen() {
   const [phone, setPhone] = useState(criteria?.phone ?? '');
   const [dateOfBirth, setDateOfBirth] = useState(criteria?.dateOfBirth ?? '');
   const [surnamePrefix, setSurnamePrefix] = useState(criteria?.surnamePrefix ?? '');
-  const hasTerm = postcode !== '' || phone !== '' || dateOfBirth !== '';
+  const input = referralSearchInput({ dateOfBirth, postcode, phone, surnamePrefix });
+  const surnameTooShort = surnamePrefixState(surnamePrefix) === 'too-short';
+  const surnameId = useId();
+  const surnameHintId = useId();
 
   function clear(): void {
     setDateOfBirth('');
@@ -43,8 +49,8 @@ export function ReferralSearchScreen() {
         <PageHeader
           description={
             <p>
-              Search by date of birth, postcode and/or phone number. A surname start narrows those
-              results.
+              Search by date of birth, postcode or phone number: a referral matching any one is
+              shown. A surname start can be searched on its own, or added to narrow those results.
             </p>
           }
           icon={<SearchIcon />}
@@ -55,13 +61,7 @@ export function ReferralSearchScreen() {
         className={styles.formPanel}
         onSubmit={(event) => {
           event.preventDefault();
-          if (!hasTerm) return;
-          const input = {
-            ...(dateOfBirth === '' ? {} : { dateOfBirth }),
-            ...(postcode === '' ? {} : { postcode }),
-            ...(phone === '' ? {} : { phone }),
-            ...(surnamePrefix === '' ? {} : { surnamePrefix }),
-          };
+          if (input === null) return;
           // Searching the same boxes twice is the same cached query, so it
           // would sit inside the stale window and look like a dead button.
           // Anything else is a new key and fetches on its own.
@@ -73,7 +73,7 @@ export function ReferralSearchScreen() {
       >
         <div className={styles.fieldGrid}>
           <label className={styles.field}>
-            <span>Date of birth</span>
+            <span>DoB</span>
             <span className={styles.inputWithIcon}>
               <CalendarIcon className={styles.fieldIcon} />
               <input
@@ -86,7 +86,7 @@ export function ReferralSearchScreen() {
             </span>
           </label>
           <label className={styles.field}>
-            <span>Postcode</span>
+            <span>or Postcode</span>
             <span className={styles.inputWithIcon}>
               <MapPinIcon className={styles.fieldIcon} />
               <input
@@ -99,7 +99,7 @@ export function ReferralSearchScreen() {
             </span>
           </label>
           <label className={styles.field}>
-            <span>Phone number</span>
+            <span>or Phone number</span>
             <span className={styles.inputWithIcon}>
               <PhoneIcon className={styles.fieldIcon} />
               <input
@@ -111,17 +111,27 @@ export function ReferralSearchScreen() {
               />
             </span>
           </label>
-          <label className={styles.field}>
-            <span>Start of surname</span>
+          <div className={styles.field}>
+            <label htmlFor={surnameId}>Start of surname</label>
+            {/* Not trimmed: a trailing space is part of the prefix the server
+                matches, which is how "Di " finds Di Lima and not Dibb. */}
             <input
+              aria-describedby={surnameHintId}
+              aria-invalid={surnameTooShort}
+              id={surnameId}
               value={surnamePrefix}
               onChange={(event) => {
                 setSurnamePrefix(event.target.value);
               }}
             />
-          </label>
+            <span className={surnameTooShort ? styles.fieldError : styles.hint} id={surnameHintId}>
+              {surnameTooShort
+                ? `Too short: type at least ${String(SURNAME_PREFIX_MIN_LENGTH)} characters to search.`
+                : `At least ${String(SURNAME_PREFIX_MIN_LENGTH)} characters. A space counts, so “Di ” finds Di Lima.`}
+            </span>
+          </div>
           <div className={styles.actions}>
-            <button disabled={!hasTerm || search.isFetching} type="submit">
+            <button disabled={input === null || search.isFetching} type="submit">
               Search
             </button>
             <button className="button-secondary" onClick={clear} type="button">

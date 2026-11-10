@@ -71,10 +71,10 @@ describe('administrator referral search', () => {
     );
     renderApp('/referrals/search');
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText('Date of birth'), '1985-03-04');
-    await user.type(screen.getByLabelText('Postcode'), 'GU23 4XX');
-    await user.type(screen.getByLabelText('Phone number'), '01483 123456');
-    await user.type(screen.getByLabelText('Start of surname'), 'Ro');
+    await user.type(await screen.findByLabelText('DoB'), '1985-03-04');
+    await user.type(screen.getByLabelText('or Postcode'), 'GU23 4XX');
+    await user.type(screen.getByLabelText('or Phone number'), '01483 123456');
+    await user.type(screen.getByLabelText('Start of surname'), 'Row');
     await user.click(screen.getByRole('button', { name: 'Search' }));
     expect(await screen.findByRole('link', { name: 'Rowe, Jamie' })).toHaveAttribute(
       'href',
@@ -105,7 +105,7 @@ describe('administrator referral search', () => {
       dateOfBirth: '1985-03-04',
       postcode: 'GU23 4XX',
       phone: '01483 123456',
-      surnamePrefix: 'Ro',
+      surnamePrefix: 'Row',
     });
   });
 
@@ -118,7 +118,7 @@ describe('administrator referral search', () => {
     );
     renderApp('/referrals/search');
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText('Postcode'), 'GU23 4XX');
+    await user.type(await screen.findByLabelText('or Postcode'), 'GU23 4XX');
     await user.click(screen.getByRole('button', { name: 'Search' }));
     expect(
       await screen.findByText('Low income / Domestic abuse / Rent arrears / —'),
@@ -135,7 +135,7 @@ describe('administrator referral search', () => {
     const { queryClient } = renderApp('/referrals/search');
     const user = userEvent.setup();
 
-    await user.type(await screen.findByLabelText('Date of birth'), '1985-03-04');
+    await user.type(await screen.findByLabelText('DoB'), '1985-03-04');
     await user.click(screen.getByRole('button', { name: 'Search' }));
     await screen.findByRole('link', { name: 'Rowe, Jamie' });
 
@@ -145,29 +145,53 @@ describe('administrator referral search', () => {
     renderApp('/referrals/search', queryClient);
 
     expect(await screen.findByRole('link', { name: 'Rowe, Jamie' })).toBeInTheDocument();
-    expect(await screen.findByLabelText('Date of birth')).toHaveValue('1985-03-04');
+    expect(await screen.findByLabelText('DoB')).toHaveValue('1985-03-04');
   });
 
-  it('will not search on a surname start without an identifier', async () => {
+  it('searches on a surname start alone, sending its trailing space', async () => {
+    let body: unknown;
+    server.use(
+      reasonsHandler(),
+      http.post('/api/v1/referrals/search', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ count: 1, results: [result()] });
+      }),
+    );
     renderApp('/referrals/search');
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText('Start of surname'), 'Ro');
-    expect(await screen.findByRole('button', { name: 'Search' })).toBeDisabled();
+    await user.type(await screen.findByLabelText('Start of surname'), 'Di ');
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByRole('link', { name: 'Rowe, Jamie' })).toBeInTheDocument();
+    expect(body).toEqual({ surnamePrefix: 'Di ' });
+  });
+
+  it('will not search on a surname start shorter than three characters', async () => {
+    renderApp('/referrals/search');
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('DoB'), '1985-03-04');
+    const search = screen.getByRole('button', { name: 'Search' });
+    expect(search).toBeEnabled();
+
+    const surname = screen.getByLabelText('Start of surname');
+    await user.type(surname, 'Ro');
+    expect(search).toBeDisabled();
+    expect(surname).toHaveAttribute('aria-invalid', 'true');
+    expect(surname).toHaveAccessibleDescription(/Too short: type at least 3 characters/);
   });
 
   it('clears every search field without putting the search terms in a URL', async () => {
     renderApp('/referrals/search');
     const user = userEvent.setup();
 
-    await user.type(await screen.findByLabelText('Date of birth'), '1985-03-04');
-    await user.type(screen.getByLabelText('Postcode'), 'GU23 4XX');
-    await user.type(screen.getByLabelText('Phone number'), '01483 123456');
+    await user.type(await screen.findByLabelText('DoB'), '1985-03-04');
+    await user.type(screen.getByLabelText('or Postcode'), 'GU23 4XX');
+    await user.type(screen.getByLabelText('or Phone number'), '01483 123456');
     await user.type(screen.getByLabelText('Start of surname'), 'Ro');
     await user.click(screen.getByRole('button', { name: 'Clear' }));
 
-    expect(screen.getByLabelText('Date of birth')).toHaveValue('');
-    expect(screen.getByLabelText('Postcode')).toHaveValue('');
-    expect(screen.getByLabelText('Phone number')).toHaveValue('');
+    expect(screen.getByLabelText('DoB')).toHaveValue('');
+    expect(screen.getByLabelText('or Postcode')).toHaveValue('');
+    expect(screen.getByLabelText('or Phone number')).toHaveValue('');
     expect(screen.getByLabelText('Start of surname')).toHaveValue('');
   });
 
@@ -177,7 +201,7 @@ describe('administrator referral search', () => {
     );
     renderApp('/referrals/search');
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText('Postcode'), 'GU23 4XX');
+    await user.type(await screen.findByLabelText('or Postcode'), 'GU23 4XX');
     await user.click(screen.getByRole('button', { name: 'Search' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Showing the first 0 results');
   });

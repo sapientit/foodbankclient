@@ -2496,7 +2496,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Find a referral by date of birth, postcode or phone number
+         * Find a referral by date of birth, postcode, phone number or surname
          * @description **Admin only.** The screen an administrator opens when somebody rings
          *     up. A team lead gets a `403`.
          *
@@ -2507,9 +2507,9 @@ export interface paths {
          *     this system puts personal data in a URL. Do not "fix" this to a `GET`
          *     with query parameters, and do not build a bookmarkable search link.
          *
-         *     **At least one of date of birth, postcode and phone number is required**;
-         *     none is a `400`. Search is
-         *     on the same three identifiers the duplicate count matches on, settled by
+         *     **At least one of date of birth, postcode, phone number and
+         *     `surnamePrefix` is required**; none is a `400`. The first three are
+         *     the same three identifiers the duplicate count matches on, settled by
          *     the same rule — so a postcode typed with no space and one typed in lower
          *     case are the same postcode. A value the rule cannot make sense of is
          *     simply not searched on rather than being an error, exactly as it is not
@@ -2522,9 +2522,19 @@ export interface paths {
          *     transposed digit, last year's address — and a search that insisted on
          *     all of them agreeing would fail at the moment it was most needed. Say
          *     so in the UI if you offer more than one box, because the opposite is the
-         *     natural assumption. `surnamePrefix` is an optional, case-insensitive
-         *     start-of-surname filter applied as an `AND` narrowing condition after
-         *     the identifier match, and cannot be used alone.
+         *     natural assumption.
+         *
+         *     **`surnamePrefix` always narrows and never widens.** Sent with any of
+         *     the three, it is `AND`ed around their combined match: only referrals
+         *     found by an identifier *and* whose surname begins with it come back.
+         *     Sent alone, it finds every referral whose surname begins with it. It
+         *     is matched case-insensitively — accented capitals included — against
+         *     the start of the surname, and must be **at least 3 characters once
+         *     leading whitespace is removed; a trailing space is kept and counts**,
+         *     so `"Di "` finds Di Lima and not Dibb. Do not trim the box's value
+         *     before sending it. A postcode or phone that cannot be settled is not
+         *     searched on, so one sent with a surname leaves a surname-only
+         *     search.
          *
          *     **This reaches every referral the food bank still holds details for,
          *     cancelled and rejected included** — "we turned that one away in March"
@@ -2576,7 +2586,7 @@ export interface paths {
                         "application/json": components["schemas"]["ReferralSearchResponse"];
                     };
                 };
-                /** @description No identifier was supplied */
+                /** @description Nothing to search on was supplied, a value failed its shape check, or `surnamePrefix` is shorter than 3 characters */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -8088,7 +8098,7 @@ export interface components {
              */
             voucherInstruction: "provide_voucher" | "already_received" | "refer_to_admin" | null;
         };
-        /** @description At least one of the three is required; a body with none of them is a `400`. Send what the caller gave you and let the server settle it — do not normalise or pad a partial postcode yourself. */
+        /** @description At least one of the four is required; a body with none of them is a `400`. Send what the caller gave you and let the server settle it — do not normalise or pad a partial postcode yourself. */
         ReferralSearchRequest: {
             /** @description Settled the same way the duplicate match settles it: uppercased, whitespace removed, kept only if it looks like a UK postcode. One that does not is not searched on rather than refused. */
             postcode?: string;
@@ -8099,7 +8109,7 @@ export interface components {
              * @description `YYYY-MM-DD`. Compared exactly; there is nothing to settle.
              */
             dateOfBirth?: string;
-            /** @description An optional case-insensitive start-of-surname filter. It narrows the date-of-birth, postcode and/or phone-number result set and cannot be used as a search on its own. */
+            /** @description The start of the surname, matched case-insensitively (accented capitals included). With any of the other three it narrows their result set (`AND`); alone it is a search of its own. It is never `OR`ed with them. At least 3 characters after leading whitespace is removed; trailing whitespace is kept and counts, so send the box's value untrimmed — `"Di "` is a valid three-character prefix. */
             surnamePrefix?: string;
         };
         ReferralSearchResponse: {

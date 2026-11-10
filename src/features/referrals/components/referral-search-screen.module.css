@@ -159,3 +159,17 @@
     padding: var(--space-4);
   }
 }
+
+.hint {
+  font-size: 0.9rem;
+  font-weight: 400;
+  /* #595959 on white is 7:1. */
+  color: #595959;
+}
+
+.fieldError {
+  font-size: 0.9rem;
+  font-weight: 400;
+  /* #b3261e on white is 5.9:1. */
+  color: #b3261e;
+}

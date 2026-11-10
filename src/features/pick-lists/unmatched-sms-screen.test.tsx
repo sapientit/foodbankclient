@@ -452,7 +452,7 @@ describe('SmsInboxLayout — Unknown messages tab', () => {
     await user.click(await screen.findByRole('link', { name: 'Search referrals for this number' }));
 
     expect(await screen.findByRole('heading', { name: 'Search referrals' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Phone number')).toHaveValue('+441111111111');
+    expect(screen.getByLabelText('or Phone number')).toHaveValue('+441111111111');
     expect(await screen.findByRole('heading', { name: '0 results found' })).toBeInTheDocument();
     expect(searchBody).toEqual({ phone: '+441111111111' });
     expect(router.state.location.pathname).toBe('/referrals/search');
