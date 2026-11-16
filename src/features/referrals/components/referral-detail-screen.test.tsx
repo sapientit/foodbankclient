@@ -677,6 +677,46 @@ describe('the admin referral detail screen', () => {
     });
   });
 
+  it('saves administrator notes even once the referral’s session is confirmed', async () => {
+    // Unlike the rest of the referral, the note stays open for writing once its
+    // session has closed — `foodbankserver`'s `INITIAL_SPEC1.txt`, "Referral
+    // maintenance": the office goes on learning things about a household after
+    // the session it came for is signed off, and the note is not one of the
+    // session's own figures.
+    let receivedBody: unknown = null;
+    server.use(
+      http.get(SESSIONS, () =>
+        HttpResponse.json({
+          sessions: [session({ id: 's1', location: 'Church Hall', status: 'confirmed' })],
+        }),
+      ),
+      http.get(REFERRAL, () =>
+        HttpResponse.json(referral({ id: 'r1', adminInfo: 'Ring after 2pm' })),
+      ),
+      http.patch(REFERRAL, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(referral({ id: 'r1', adminInfo: 'Use side entrance' }));
+      }),
+    );
+    renderApp('/referrals/r1');
+    const user = userEvent.setup();
+    await screen.findByText('Ring after 2pm');
+
+    expect(screen.getByRole('button', { name: 'Edit administrator notes' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await user.click(screen.getByRole('button', { name: 'Edit administrator notes' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Edit administrator notes' }));
+    const input = dialog.getByLabelText('Administrator notes');
+    await user.clear(input);
+    await user.type(input, 'Use side entrance');
+    await user.click(dialog.getByRole('button', { name: 'Save administrator notes' }));
+    await waitFor(() => {
+      expect(receivedBody).toEqual({ adminInfo: 'Use side entrance' });
+    });
+  });
+
   it('reads an answer chosen from the reason lookup as the words, never its id', async () => {
     // The secondary cause of crisis picks from the same maintained list as the
     // main one, so it is stored as the reason's id. An administrator reads it

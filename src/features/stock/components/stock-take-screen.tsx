@@ -316,15 +316,6 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
         </p>
         {groupingId !== '' && model !== null && (
           <>
-            {savedMessage !== null && (
-              <p className={styles.savedNotice} role="status">
-                {savedMessage}
-              </p>
-            )}
-            {save.error !== null && <ErrorNotice error={save.error} />}
-            {fieldErrors.page !== undefined && (
-              <p className={styles.fieldError}>{fieldErrors.page}</p>
-            )}
             {model.rows.length === 0 ? (
               <EmptyState
                 headline="Nothing to count in this grouping"
@@ -529,6 +520,19 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
                 </Link>
               )}
             </div>
+            {/* Below the button that produced them, not above the table: a
+                grouping runs to several pages of forty rows, Save sits at the
+                bottom of each one, and a counter who has scrolled down to
+                press it would never see a notice left at the top. */}
+            {savedMessage !== null && (
+              <p className={styles.savedNotice} role="status">
+                {savedMessage}
+              </p>
+            )}
+            {save.error !== null && <ErrorNotice error={save.error} />}
+            {fieldErrors.page !== undefined && (
+              <p className={styles.fieldError}>{fieldErrors.page}</p>
+            )}
           </>
         )}
       </section>

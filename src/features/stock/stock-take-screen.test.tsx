@@ -378,6 +378,51 @@ describe('saving a stock take page', () => {
     expect(saves).toBe(0);
   });
 
+  it('places the saved confirmation after the Save button, not above the table', async () => {
+    // A grouping runs to several pages of forty rows, and Save sits at the
+    // bottom of each one — a confirmation left at the top would be off-screen
+    // for a counter who scrolled down to press it.
+    server.use(
+      http.post(TAKE, () =>
+        HttpResponse.json({ applied: 1, levels: [{ stockItemId: BEANS.id, quantityOnHand: 9 }] }),
+      ),
+    );
+    renderApp('/stock/take');
+    const user = userEvent.setup();
+    await chooseGrouping(user);
+
+    await user.type(await screen.findByLabelText('Counted Baked beans individually'), '9');
+    const saveButton = screen.getByRole('button', { name: 'Save this page' });
+    await user.click(saveButton);
+
+    const message = await screen.findByText('One changed count saved.');
+    expect(
+      saveButton.compareDocumentPosition(message) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('keeps the saved confirmation up until the counter does something else', async () => {
+    server.use(
+      http.post(TAKE, () =>
+        HttpResponse.json({ applied: 1, levels: [{ stockItemId: BEANS.id, quantityOnHand: 9 }] }),
+      ),
+    );
+    renderApp('/stock/take');
+    const user = userEvent.setup();
+    await chooseGrouping(user);
+
+    await user.type(await screen.findByLabelText('Counted Baked beans individually'), '9');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
+    expect(await screen.findByText('One changed count saved.')).toBeInTheDocument();
+
+    // Not a popup, and not on a timer: it is the only record a counter who
+    // has stepped away gets that Save worked, so nothing clears it on its own.
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 500);
+    });
+    expect(screen.getByText('One changed count saved.')).toBeInTheDocument();
+  });
+
   it('identifies an invalid count and links it to its explanation', async () => {
     renderApp('/stock/take');
     const user = userEvent.setup();
