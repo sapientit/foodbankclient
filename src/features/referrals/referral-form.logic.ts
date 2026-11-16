@@ -1,8 +1,9 @@
-import type {
-  ChoiceQuestion,
-  FormPage,
-  FormQuestion,
-  ReferralFormDefinition,
+import {
+  questionsByKey,
+  type ChoiceQuestion,
+  type FormPage,
+  type FormQuestion,
+  type ReferralFormDefinition,
 } from './referral-form-definition';
 import { YES } from './referral-key-fields';
 import type { HouseholdComposition } from './household-composition';
@@ -91,6 +92,22 @@ export function selectNone(): readonly string[] {
   return [];
 }
 
+/**
+ * Whether a choice question is really a yes/no: "choose up to 1", with
+ * exactly one answer on offer and it is `Yes`. Stored exactly as any other
+ * such question would be — `[]` or `["Yes"]` — so nothing about validation or
+ * submission changes; only the rendered control does, a tick rather than a
+ * dropdown offering "None" next to a single option.
+ */
+export function isYesNoChoice(question: ChoiceQuestion): boolean {
+  return (
+    question.answerMax === 1 &&
+    question.optionsFrom === undefined &&
+    question.options.length === 1 &&
+    question.options[0]?.value === YES
+  );
+}
+
 /** Whether an unticked box should still be clickable. False once a multi-answer question is full. */
 export function canSelectMore(question: ChoiceQuestion, selected: readonly string[]): boolean {
   return question.answerMax === 1 || selected.length < question.answerMax;
@@ -99,15 +116,25 @@ export function canSelectMore(question: ChoiceQuestion, selected: readonly strin
 /**
  * Whether a question is answerable, or greyed out waiting on another one.
  *
- * `Referral questions.csv` rows 42-43: "Greyed out unless Yes for fuel."
- * Deliberately **one level** — a question that enables another is itself always
- * enabled, and `referral-form-config.ts` refuses a config where that is not
- * true. Chained conditions would need cycle detection and a form nobody could
- * reason about, for a rule two rows of the CSV need.
+ * `Referral questions.csv` rows 42-43: "Greyed out unless Yes for fuel." A
+ * condition can chain — Q3 on Q2 on Q1 — so being enabled also means every
+ * question up the chain is enabled; a question whose controller is itself
+ * greyed out is greyed out too, whatever its own stored answer happens to
+ * hold (an old referral's leftover data, say). The recursion always
+ * terminates: `referral-form-config.ts` only accepts a config where a
+ * question's controller comes before it on the form, so a chain can never
+ * loop back on itself.
  */
-export function isEnabled(question: FormQuestion, answers: FormAnswers): boolean {
+export function isEnabled(
+  question: FormQuestion,
+  answers: FormAnswers,
+  byKey: ReadonlyMap<string, FormQuestion>,
+): boolean {
   const condition = question.enabledWhen;
   if (condition === undefined) return true;
+
+  const controller = byKey.get(condition.questionKey);
+  if (controller !== undefined && !isEnabled(controller, answers, byKey)) return false;
 
   const value = answers[condition.questionKey];
   if (value === undefined) return false;
@@ -125,6 +152,13 @@ export function isEnabled(question: FormQuestion, answers: FormAnswers): boolean
  * submits — a claim that the client is on a pre-payment meter, which nobody
  * asked and nobody can see on screen. Run it whenever an answer changes.
  *
+ * Works against the one frozen `answers` throughout, even for a chained
+ * condition — `isEnabled` already walks a whole chain back to its root on
+ * every call, so a question two levels down a greyed-out chain is recognised
+ * as greyed out from its controller's *structure*, not from whether this
+ * function happened to have blanked that controller's answer yet. No pass
+ * ordering is load-bearing here; only `isEnabled`'s own recursion is.
+ *
  * Returns the same object when nothing needed clearing, so a caller can use it
  * as a `setState` guard without re-rendering the whole form on every keystroke.
  */
@@ -132,12 +166,13 @@ export function clearDisabledAnswers(
   definition: ReferralFormDefinition,
   answers: FormAnswers,
 ): FormAnswers {
+  const byKey = questionsByKey(definition);
   let cleared: Record<string, AnswerValue> | null = null;
 
   for (const page of definition.pages) {
     for (const question of page.questions) {
       if (question.type === 'information') continue;
-      if (question.enabledWhen === undefined || isEnabled(question, answers)) continue;
+      if (question.enabledWhen === undefined || isEnabled(question, answers, byKey)) continue;
 
       const empty: AnswerValue = question.type === 'choice' ? [] : '';
       const current = answers[question.key];
@@ -158,9 +193,18 @@ function isEmptyAnswer(value: AnswerValue | undefined): boolean {
     : Array.isArray(value) && value.length === 0;
 }
 
-/** The questions on a page that are not greyed out — what a page's validation applies to. */
-export function enabledQuestions(page: FormPage, answers: FormAnswers): readonly FormQuestion[] {
-  return page.questions.filter((question) => isEnabled(question, answers));
+/**
+ * The questions on a page that are not greyed out — what a page's validation
+ * applies to. Takes the whole definition, not just the page, because a
+ * question's controller can sit on an earlier page.
+ */
+export function enabledQuestions(
+  definition: ReferralFormDefinition,
+  page: FormPage,
+  answers: FormAnswers,
+): readonly FormQuestion[] {
+  const byKey = questionsByKey(definition);
+  return page.questions.filter((question) => isEnabled(question, answers, byKey));
 }
 
 /** `Page 3 of 7`. Announced as well as shown: on a phone the pages are the only sense of how much is left. */

@@ -65,11 +65,24 @@ declare **and ours to enforce**:
   somebody remembered to strip it.
 - **A single-answer choice stores the bare value, not a list of one** — `Eggs: "Yes"`, as
   `referral details.txt` describes. Multi-answer choices store an array.
+- **A "choose up to 1" question whose one answer is `Yes` renders as a tick, not a dropdown.**
+  `isYesNoChoice` in `referral-form.logic.ts` is the only thing that decides this, purely from the
+  question's shape (`answerMax: 1`, one option, and it is `Yes`) — there is no separate yes/no
+  question type in the config, and the stored answer is exactly what `ChoiceField` would store,
+  `[]` or `["Yes"]`. `needsFuelHelp` is the one key field with the same control; everything else that
+  looks like a yes/no in `Referral questions.csv` is one of these.
 - **A greyed-out question's answer is dropped, twice.** `clearDisabledAnswers` empties it as soon as
   the condition stops holding, and `splitSubmission` leaves it out regardless. Saying yes to fuel,
   answering what follows, then saying no must not leave a claim about somebody's gas meter behind.
-  `enabledWhen` is deliberately **one level deep** and `referral-form-config.ts` refuses a config
-  where the enabling question is itself conditional.
+- **`enabledWhen` can chain, but only forwards.** Q3 may depend on Q2 which depends on Q1, as long as
+  each controller comes before the question it gates — `referral-form-config.ts` checks the two
+  questions' order in the form, not just that the controller exists, and refuses a condition that
+  points at itself or at something later. That ordering is what keeps a cycle unwritable and what lets
+  `isEnabled` walk the whole chain safely: being enabled means every question up the chain is enabled,
+  not just that this question's own condition happens to match a stale stored answer. That recursion
+  is also why `clearDisabledAnswers` needs no pass ordering of its own — a question two levels down a
+  greyed-out chain is recognised as greyed out from its controller's structure, checked fresh on every
+  call, not from whether an earlier iteration happened to have blanked that controller's answer yet.
 - **The reason dropdown is the exception and stays server-side** (`GET /public/referral-reasons`). It
   is a maintained lookup and the referral points at one by `reasonId`. The secondary cause of crisis
   draws from the same list via `optionsFrom` and is an ordinary answer. Fetch both; hard-code neither.

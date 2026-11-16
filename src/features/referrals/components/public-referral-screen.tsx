@@ -20,6 +20,7 @@ import {
 import {
   isAnswerableQuestion,
   keyFieldKey,
+  questionsByKey,
   type AnswerableQuestion,
   type ReferralFormDefinition,
 } from '../referral-form-definition';
@@ -424,6 +425,8 @@ export function PublicReferralScreen() {
 
   if (page === undefined || definition === undefined || formId === undefined) return null;
 
+  const byKey = questionsByKey(definition);
+
   const change = (key: string, value: AnswerValue) => {
     setAnswers((current) => {
       const next = { ...current, [key]: value };
@@ -449,7 +452,7 @@ export function PublicReferralScreen() {
     // holding somebody to its rules would be a refusal they cannot act on.
     const answerable = page.questions.filter(
       (question): question is AnswerableQuestion =>
-        isAnswerableQuestion(question) && isEnabled(question, answers),
+        isAnswerableQuestion(question) && isEnabled(question, answers, byKey),
     );
     const schema = buildPageSchema({ ...page, questions: answerable });
 
@@ -692,7 +695,7 @@ export function PublicReferralScreen() {
       >
         {page.questions.map((question) => (
           <ReferralQuestionField
-            enabled={isEnabled(question, answers)}
+            enabled={isEnabled(question, answers, byKey)}
             error={question.type === 'information' ? undefined : errors[question.key]}
             key={question.type === 'information' ? question.label : question.key}
             lookups={lookups}

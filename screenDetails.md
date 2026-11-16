@@ -200,7 +200,9 @@ The form is asked a page at a time, with a title on each page, because it is lon
 
 Where a question allows no answer at all, the screen offers "None" as a choice of its own and starts there unless the form says otherwise. None means none: choosing it clears everything else, choosing anything else clears it, and it is not recorded as an answer. Where a question allows several answers, the screen says how many may be chosen and stops accepting more once that many are.
 
-A question that only applies because of an earlier answer is greyed out until that answer is given, and anything already typed into it is forgotten when it greys out again. The referral must never carry an answer to a question that is not on the screen.
+Where a question allows at most one answer and only offers one thing to choose — "Would they like eggs?", every smart-meter and fuel-debt question — the screen is a plain tick, not a dropdown offering "None" next to a single option. It reads and is recorded exactly as any other such answer would be.
+
+A question that only applies because of an earlier answer is greyed out until that answer is given, and anything already typed into it is forgotten when it greys out again. The referral must never carry an answer to a question that is not on the screen. This can chain — a question can depend on one that itself only applies because of a still earlier answer — but only forwards: a question may only be made to depend on one the referrer has already been asked, never on one still to come.
 
 The client's postcode is stored in capitals with a single space, however it was typed, because it is searched on and one household spelled three ways matches nothing.
 

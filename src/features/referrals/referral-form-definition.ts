@@ -249,6 +249,21 @@ export function allQuestions(definition: ReferralFormDefinition): readonly FormQ
   return definition.pages.flatMap((page) => page.questions);
 }
 
+/**
+ * Every answerable question, by its key — what `isEnabled` walks to resolve a
+ * chain of `enabledWhen`. An information row has no key and is never a
+ * controller, so it is never in this map.
+ */
+export function questionsByKey(
+  definition: ReferralFormDefinition,
+): ReadonlyMap<string, FormQuestion> {
+  const byKey = new Map<string, FormQuestion>();
+  for (const question of allQuestions(definition)) {
+    if (question.type !== 'information') byKey.set(question.key, question);
+  }
+  return byKey;
+}
+
 /** Only the questions that end up in the `answers` bag — what the guards and the answers renderer work on. */
 export function dynamicQuestions(definition: ReferralFormDefinition): readonly DynamicQuestion[] {
   return allQuestions(definition).filter(isDynamicQuestion);

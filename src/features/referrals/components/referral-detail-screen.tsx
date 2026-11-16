@@ -28,6 +28,7 @@ import {
   isAnswerableQuestion,
   isDynamicQuestion,
   needsOptionSources,
+  questionsByKey,
   EMPTY_REFERRAL_FORM_DEFINITION,
   type DynamicQuestion,
   type FormPage,
@@ -1189,9 +1190,10 @@ function AnswerPageEditor({
   const questions = page.questions.filter(isAnswerableQuestion);
   const dynamic = questions.filter(isDynamicQuestion);
   const lookups: QuestionLookups = { sessions: [], referralReasons: reasons, organisations: [] };
+  const byKey = questionsByKey(definition);
 
   const save = async () => {
-    const shown = questions.filter((question) => isEnabled(question, answers));
+    const shown = questions.filter((question) => isEnabled(question, answers, byKey));
     // A stored referral can predate a newly required question. Keep skipped
     // questions skipped; only validate values already held or changed here.
     const toValidate = shown.filter((question) => {
@@ -1226,7 +1228,7 @@ function AnswerPageEditor({
         // single-choice answer is stored as a string but represented as a
         // one-item array by the edit control. Disabled answers must still be
         // removed when a changed controlling answer hides them.
-        if (!touched.has(question.key) && isEnabled(question, answers)) continue;
+        if (!touched.has(question.key) && isEnabled(question, answers, byKey)) continue;
         const value = submitted.answers[question.key];
         if (value === undefined) {
           const { [question.key]: _removed, ...remaining } = next;
@@ -1291,7 +1293,7 @@ function AnswerPageEditor({
         {questions.map((question) => (
           <ReferralQuestionField
             enabled={
-              isEnabled(question, answers) &&
+              isEnabled(question, answers, byKey) &&
               (question.type !== 'keyField' || editableKeyField(question.field))
             }
             error={errors[question.key]}

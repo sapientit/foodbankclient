@@ -270,7 +270,29 @@ describe('parseReferralFormConfig', () => {
     ).toThrow(/not a question on this form/);
   });
 
-  it('refuses a chain of conditions, which `isEnabled` deliberately cannot follow', () => {
+  it('refuses a condition naming a question that comes later on the form', () => {
+    expect(() =>
+      parseReferralFormConfig({
+        version: 1,
+        pages: [
+          {
+            pageNum: 1,
+            pageTitle: 'Page',
+            questions: [
+              {
+                ...choice,
+                questionKey: 'first',
+                enabledWhen: { questionKey: 'second', hasAnswer: 'Yes' },
+              },
+              { ...choice, questionKey: 'second' },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(/does not come before it/);
+  });
+
+  it('refuses a cycle of mutual conditions — at least one of the two must point forward', () => {
     expect(() =>
       parseReferralFormConfig({
         version: 1,
@@ -293,7 +315,38 @@ describe('parseReferralFormConfig', () => {
           },
         ],
       }),
-    ).toThrow(/itself conditional/);
+    ).toThrow(/does not come before it/);
+  });
+
+  it('accepts a chain of conditions, each depending on the one before it', () => {
+    const definition = parseReferralFormConfig({
+      version: 1,
+      pages: [
+        {
+          pageNum: 1,
+          pageTitle: 'Page',
+          questions: [
+            { ...choice, questionKey: 'first' },
+            {
+              ...choice,
+              questionKey: 'second',
+              enabledWhen: { questionKey: 'first', hasAnswer: 'Yes' },
+            },
+            {
+              ...choice,
+              questionKey: 'third',
+              enabledWhen: { questionKey: 'second', hasAnswer: 'Yes' },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(
+      definition.pages[0]?.questions.map((question) =>
+        question.type === 'information' ? null : question.key,
+      ),
+    ).toEqual(['first', 'second', 'third']);
   });
 
   it('refuses answers on a question that is not a choice', () => {

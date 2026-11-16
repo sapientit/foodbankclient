@@ -126,7 +126,11 @@ function toClientQuestion_(source, errors) {
       validation: { type: 'HouseholdComposition' },
     };
   }
-  if (source.answerFormat === 'Choice list' || source.answerFormat === 'Cause of crisis') {
+  if (
+    source.answerFormat === 'Choice list' ||
+    source.answerFormat === 'Cause of crisis' ||
+    source.answerFormat === 'Yes / No'
+  ) {
     const validation = {
       type: 'CheckBox',
       answerMin: source.answerMin,
@@ -404,6 +408,15 @@ function validateQuestionLine_(line, question, rowNumber, error) {
     }
     return;
   }
+  if (format === 'Yes / No') {
+    if (question.selection !== undefined) error(rowNumber, 'Yes / No cannot have a selection.');
+    if (option !== '')
+      error(rowNumber, 'Yes / No has an implicit Yes answer; leave Answer / option shown blank.');
+    if (!['', 'Yes', 'No'].includes(defaultValue))
+      error(rowNumber, 'Default? must be Yes, No or blank for a Yes / No question.');
+    if (defaultValue === 'Yes') question.default = true;
+    return;
+  }
   if (option !== '' || defaultValue !== '')
     error(rowNumber, `${format} cannot have an Answer / option shown value or a default.`);
   if (format === 'householdComposition' && question.selection !== undefined)
@@ -416,6 +429,18 @@ function finalizeQuestion_(question, errors) {
     errors.push(
       `Question "${question.questionKey}": Pick-list information requires Use for picking rules? to be Yes.`,
     );
+  // A Yes/No *fixed field* (needsFuelHelp) keeps its own control client-side and
+  // never reaches here with this shape attached — `toClientQuestion_` returns it
+  // as a `keyField` before any of `answerMin`/`answers`/`default` are read. Only
+  // a dynamic preference question falls through to become a one-tick choice.
+  if (question.answerFormat === 'Yes / No' && !CLIENT_KEY_FIELDS.has(question.questionKey)) {
+    question.answerMin = question.required ? 1 : 0;
+    question.answerMax = 1;
+    question.answers = ['Yes'];
+    if (question.default === true) question.default = ['Yes'];
+    else delete question.default;
+    return;
+  }
   if (!['Choice list', 'Cause of crisis'].includes(question.answerFormat)) return;
   const selection = parseSelection_(question.selection);
   if (selection === null) {

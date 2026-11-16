@@ -1,5 +1,6 @@
 import {
   isDynamicQuestion,
+  questionsByKey,
   type DynamicQuestion,
   type FormQuestion,
   type ReferralFormDefinition,
@@ -86,10 +87,11 @@ export function splitSubmission(
 ): ReferralSubmissionParts {
   const keyFields: Record<string, string | number | boolean | null> = {};
   const dynamic: Record<string, string | number | readonly string[] | HouseholdComposition> = {};
+  const byKey = questionsByKey(definition);
 
   for (const page of definition.pages) {
     for (const question of page.questions) {
-      if (!isEnabled(question, answers)) continue;
+      if (!isEnabled(question, answers, byKey)) continue;
       if (question.type === 'information') continue;
 
       const held = answers[question.key];
@@ -169,11 +171,12 @@ export function describeSubmission(
   lookups: ReferralLookups,
 ): readonly ConfirmationLine[] {
   const lines: ConfirmationLine[] = [];
+  const byKey = questionsByKey(definition);
 
   for (const page of definition.pages) {
     for (const question of page.questions) {
       if (question.type === 'information') continue;
-      if (!question.required || !isEnabled(question, answers)) continue;
+      if (!question.required || !isEnabled(question, answers, byKey)) continue;
 
       const value = confirmationValue(question, answers[question.key], lookups);
       if (value === '') continue;

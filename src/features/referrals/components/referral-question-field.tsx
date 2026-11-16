@@ -12,6 +12,7 @@ import {
   canSelectMore,
   choiceInstruction,
   isNoneSelected,
+  isYesNoChoice,
   offersNone,
   selectNone,
   toggleChoice,
@@ -106,9 +107,19 @@ export function ReferralQuestionField(props: FieldProps) {
     describedBy: describedBy === '' ? undefined : describedBy,
   };
 
+  // Both kinds of yes/no question — the one fixed field and any "choose up to
+  // 1, answer Yes" dynamic one — get the same whole-row tap target as every
+  // other tick on the form (`.choice`), not the single label-plus-input
+  // layout everything else below uses. A 20px box on its own is not a target
+  // somebody can reliably hit one-handed on a hall's phone.
+  const isYesNo =
+    question.type === 'choice'
+      ? isYesNoChoice(question)
+      : question.type === 'keyField' && keyFieldSpec(question.field).control.kind === 'yesNo';
+
   return (
     <div className={styles.field} data-disabled={enabled ? undefined : 'true'}>
-      {question.type === 'choice' ? (
+      {question.type === 'choice' && !isYesNoChoice(question) ? (
         <ChoiceField {...shared} question={question} />
       ) : question.type === 'householdComposition' ? (
         <HouseholdCompositionField {...shared} question={question} />
@@ -122,6 +133,12 @@ export function ReferralQuestionField(props: FieldProps) {
             ),
           )}
         </p>
+      ) : isYesNo ? (
+        <label className={styles.choice}>
+          <SingleControl {...shared} />
+          {question.label}
+          {question.required && <span className={styles.required}> (required)</span>}
+        </label>
       ) : (
         <>
           <label className={styles.label} htmlFor={fieldId}>
@@ -161,9 +178,12 @@ function SingleControl(props: ControlProps) {
     case 'number':
       return <NumberControl {...props} question={props.question} />;
     case 'choice':
+      // The only choice question reaching here is a yes/no one — see
+      // `ReferralQuestionField`; anything else is a fieldset, not a labelled
+      // control.
+      return <YesNoChoiceControl {...props} question={props.question} />;
     case 'householdComposition':
     case 'information':
-      // Handled above — a choice is a fieldset, not a labelled control.
       return null;
   }
 }
@@ -333,6 +353,31 @@ function PlainInput({
   );
 }
 
+/** The tick itself, shared by the two kinds of yes/no question below — they differ only in what ticking means to `onChange`. */
+function YesNoCheckbox(props: {
+  readonly describedBy: string | undefined;
+  readonly checked: boolean;
+  readonly enabled: boolean;
+  readonly error: string | undefined;
+  readonly fieldId: string;
+  readonly onChange: (checked: boolean) => void;
+}) {
+  return (
+    <input
+      aria-describedby={props.describedBy}
+      aria-invalid={props.error === undefined ? undefined : true}
+      checked={props.checked}
+      className={styles.checkbox}
+      disabled={!props.enabled}
+      id={props.fieldId}
+      onChange={(event) => {
+        props.onChange(event.target.checked);
+      }}
+      type="checkbox"
+    />
+  );
+}
+
 /**
  * A single tick, holding the string `Yes` rather than a boolean, so it reads
  * the same as every other "Choose 0 or 1 (yes)" row in the CSV and
@@ -340,16 +385,39 @@ function PlainInput({
  */
 function YesNoControl(props: ControlProps) {
   return (
-    <input
-      aria-describedby={props.describedBy}
+    <YesNoCheckbox
       checked={props.value === YES}
-      className={styles.checkbox}
-      disabled={!props.enabled}
-      id={props.fieldId}
-      onChange={(event) => {
-        props.onChange(event.target.checked ? YES : '');
+      describedBy={props.describedBy}
+      enabled={props.enabled}
+      error={props.error}
+      fieldId={props.fieldId}
+      onChange={(checked) => {
+        props.onChange(checked ? YES : '');
       }}
-      type="checkbox"
+    />
+  );
+}
+
+/**
+ * The same tick, for a dynamic "choose up to 1" question whose one answer is
+ * `Yes` — Eggs, Porridge, the fuel follow-ups and the rest. The answer is
+ * still `["Yes"]` or `[]`, exactly what `ChoiceField` would store; only the
+ * control reads as a tick instead of a dropdown with one option in it.
+ */
+function YesNoChoiceControl(props: ControlProps & { question: ChoiceQuestion }) {
+  const selected: readonly string[] =
+    typeof props.value === 'string' || isHouseholdComposition(props.value) ? [] : props.value;
+
+  return (
+    <YesNoCheckbox
+      checked={selected.includes(YES)}
+      describedBy={props.describedBy}
+      enabled={props.enabled}
+      error={props.error}
+      fieldId={props.fieldId}
+      onChange={(checked) => {
+        props.onChange(checked ? [YES] : []);
+      }}
     />
   );
 }

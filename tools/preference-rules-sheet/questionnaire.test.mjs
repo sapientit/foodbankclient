@@ -131,6 +131,205 @@ test('allows the questionnaire to make the server-optional client phone mandator
   assert.equal(clientPhone.keyField, 'refereePhone');
 });
 
+test('converts a Yes/No preference question into a one-tick choice, defaulted as asked', () => {
+  const headers = [
+    'Page',
+    'Question key',
+    'Question wording',
+    'Answer format',
+    'Selection',
+    'Required',
+    'Use for picking rules?',
+    'Answer / option shown',
+    'Default?',
+    'Shown when key',
+    'Shown when answer',
+    'Pick-list information',
+    'For Fuel Team',
+    'For Listener Sheet',
+  ];
+  const { parseQuestionnaire_, toClientConfig_ } = loadQuestionnaireScript({
+    headers,
+    values: [
+      [
+        '1 — Preferences',
+        'Porridge',
+        'Would they like porridge oats?',
+        'Yes / No',
+        '',
+        'No',
+        'Yes',
+        '',
+        'Yes',
+        '',
+        '',
+        '',
+        'No',
+        'No',
+      ],
+    ],
+  });
+
+  const parsed = parseQuestionnaire_();
+  assert.equal(parsed.errors.length, 0, parsed.errors.join('\n'));
+  const converted = toClientConfig_(parsed.json);
+  assert.equal(converted.errors.length, 0, converted.errors.join('\n'));
+  const question = converted.json.pages[0].questions[0];
+  // `assert.deepEqual` on a whole object compares prototypes too, and the
+  // Apps Script runs in its own vm context — same shape, different realm.
+  assert.equal(question.validation.type, 'CheckBox');
+  assert.equal(question.validation.answerMin, 0);
+  assert.equal(question.validation.answerMax, 1);
+  assert.deepEqual([...question.answers], ['Yes']);
+  assert.deepEqual([...question.default], ['Yes']);
+});
+
+test('a required Yes/No question demands the tick, not just offers it', () => {
+  const headers = [
+    'Page',
+    'Question key',
+    'Question wording',
+    'Answer format',
+    'Selection',
+    'Required',
+    'Use for picking rules?',
+    'Answer / option shown',
+    'Default?',
+    'Shown when key',
+    'Shown when answer',
+    'Pick-list information',
+    'For Fuel Team',
+    'For Listener Sheet',
+  ];
+  const { parseQuestionnaire_, toClientConfig_ } = loadQuestionnaireScript({
+    headers,
+    values: [
+      [
+        '1 — Preferences',
+        'Permission',
+        'Do you give permission?',
+        'Yes / No',
+        '',
+        'Yes',
+        'No',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'No',
+        'No',
+      ],
+    ],
+  });
+
+  const parsed = parseQuestionnaire_();
+  assert.equal(parsed.errors.length, 0, parsed.errors.join('\n'));
+  const converted = toClientConfig_(parsed.json);
+  assert.equal(converted.errors.length, 0, converted.errors.join('\n'));
+  const question = converted.json.pages[0].questions[0];
+  assert.equal(question.validation.answerMin, 1);
+  assert.equal(question.validation.answerMax, 1);
+  assert.equal(question.default, undefined);
+});
+
+test('refuses an authored answer option on a Yes/No question — its one answer is implicit', () => {
+  const headers = [
+    'Page',
+    'Question key',
+    'Question wording',
+    'Answer format',
+    'Selection',
+    'Required',
+    'Use for picking rules?',
+    'Answer / option shown',
+    'Default?',
+    'Shown when key',
+    'Shown when answer',
+    'Pick-list information',
+    'For Fuel Team',
+    'For Listener Sheet',
+  ];
+  const { parseQuestionnaire_ } = loadQuestionnaireScript({
+    headers,
+    values: [
+      [
+        '1 — Preferences',
+        'Eggs',
+        'Would they like eggs?',
+        'Yes / No',
+        '',
+        'No',
+        'Yes',
+        'Yes',
+        '',
+        '',
+        '',
+        '',
+        'No',
+        'No',
+      ],
+    ],
+  });
+
+  const parsed = parseQuestionnaire_();
+  assert.match(parsed.errors.join('\n'), /implicit Yes answer/);
+});
+
+test('does not let a Yes/No fixed field pick up answers or a default meant for a dynamic question', () => {
+  const headers = [
+    'Page',
+    'Question key',
+    'Question wording',
+    'Answer format',
+    'Selection',
+    'Required',
+    'Use for picking rules?',
+    'Answer / option shown',
+    'Default?',
+    'Shown when key',
+    'Shown when answer',
+    'Pick-list information',
+    'For Fuel Team',
+    'For Listener Sheet',
+  ];
+  const { parseQuestionnaire_, toClientConfig_ } = loadQuestionnaireScript({
+    headers,
+    values: [
+      [
+        '1 — Client details',
+        'needsFuelHelp',
+        'Does the client need help with Energy costs?',
+        'Yes / No',
+        '',
+        'No',
+        'No',
+        '',
+        'Yes',
+        '',
+        '',
+        '',
+        'No',
+        'No',
+      ],
+    ],
+  });
+
+  const parsed = parseQuestionnaire_();
+  assert.equal(parsed.errors.length, 0, parsed.errors.join('\n'));
+  const converted = toClientConfig_(parsed.json);
+  assert.equal(converted.errors.length, 0, converted.errors.join('\n'));
+  const question = converted.json.pages[0].questions[0];
+  // Field-by-field, not a whole-object `deepEqual` — the Apps Script runs in
+  // its own vm context, so a cross-realm object comparison fails on prototype
+  // alone even when every field matches.
+  assert.equal(question.questionKey, 'needsFuelHelp');
+  assert.equal(question.keyField, 'needsFuelHelp');
+  assert.equal(question.required, false);
+  assert.equal(question.answers, undefined);
+  assert.equal(question.default, undefined);
+});
+
 test('converts exact and ranged selection limits from the questionnaire sheet', () => {
   const headers = [
     'Page',

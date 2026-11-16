@@ -14,6 +14,7 @@ import { usePublicReferralFormDefinition } from '../queries';
 import {
   isAnswerableQuestion,
   keyFieldKey,
+  questionsByKey,
   type AnswerableQuestion,
   type KeyFieldQuestion,
   type OptionSources,
@@ -178,6 +179,7 @@ function ReReferForm({
     () => ({ version: definition.version, pages }),
     [definition.version, pages],
   );
+  const byKey = useMemo(() => questionsByKey(reReferDefinition), [reReferDefinition]);
 
   // Only reasons still offered — the same list the public form itself would
   // show, so a retired reason is never a selectable option here either. See
@@ -252,7 +254,7 @@ function ReReferForm({
   const validatePage = (): boolean => {
     const answerable = page.questions.filter(
       (question): question is AnswerableQuestion =>
-        isAnswerableQuestion(question) && isEnabled(question, answers),
+        isAnswerableQuestion(question) && isEnabled(question, answers, byKey),
     );
     const schema = buildPageSchema({ ...page, questions: answerable });
 
@@ -388,7 +390,7 @@ function ReReferForm({
             />
           ) : (
             <ReferralQuestionField
-              enabled={isEnabled(question, answers)}
+              enabled={isEnabled(question, answers, byKey)}
               error={question.type === 'information' ? undefined : errors[question.key]}
               key={question.type === 'information' ? question.label : question.key}
               lookups={lookups}

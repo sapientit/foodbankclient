@@ -12,6 +12,7 @@ import {
   enabledQuestions,
   isEnabled,
   isNoneSelected,
+  isYesNoChoice,
   offersNone,
   selectNone,
   toggleChoice,
@@ -121,20 +122,40 @@ describe('isEnabled', () => {
     answerMax: 1,
     enabledWhen: { questionKey: 'needsFuelHelp', hasAnswer: 'Yes' },
   });
+  const noLookup = new Map<string, FormQuestion>();
 
   it('is true for a question with no condition', () => {
-    expect(isEnabled(choice(), {})).toBe(true);
+    expect(isEnabled(choice(), {}, noLookup)).toBe(true);
   });
 
   it('is false until the question it depends on is answered that way', () => {
-    expect(isEnabled(conditional, {})).toBe(false);
-    expect(isEnabled(conditional, { needsFuelHelp: '' })).toBe(false);
-    expect(isEnabled(conditional, { needsFuelHelp: 'Yes' })).toBe(true);
+    expect(isEnabled(conditional, {}, noLookup)).toBe(false);
+    expect(isEnabled(conditional, { needsFuelHelp: '' }, noLookup)).toBe(false);
+    expect(isEnabled(conditional, { needsFuelHelp: 'Yes' }, noLookup)).toBe(true);
   });
 
   it('reads a condition on a choice question, whose answer is a list', () => {
-    expect(isEnabled(conditional, { needsFuelHelp: ['Yes'] })).toBe(true);
-    expect(isEnabled(conditional, { needsFuelHelp: [] })).toBe(false);
+    expect(isEnabled(conditional, { needsFuelHelp: ['Yes'] }, noLookup)).toBe(true);
+    expect(isEnabled(conditional, { needsFuelHelp: [] }, noLookup)).toBe(false);
+  });
+
+  it('is greyed out when its own controller is, even if its stored answer would otherwise match', () => {
+    // needsFuelHelp still holds "Yes" — left over from before wantsHelp
+    // existed, say — but wantsHelp now says no, so needsFuelHelp is itself
+    // greyed out and Pre-Payment must follow it down rather than trust its
+    // own condition in isolation.
+    const grandparent: FormQuestion = {
+      key: 'needsFuelHelp',
+      type: 'keyField',
+      field: 'needsFuelHelp',
+      label: 'Fuel help?',
+      required: false,
+      enabledWhen: { questionKey: 'wantsHelp', hasAnswer: 'Yes' },
+    };
+    const chained = new Map<string, FormQuestion>([[grandparent.key, grandparent]]);
+
+    expect(isEnabled(conditional, { wantsHelp: '', needsFuelHelp: 'Yes' }, chained)).toBe(false);
+    expect(isEnabled(conditional, { wantsHelp: 'Yes', needsFuelHelp: 'Yes' }, chained)).toBe(true);
   });
 });
 
@@ -175,6 +196,37 @@ describe('clearDisabledAnswers', () => {
     const answers = { needsFuelHelp: '', 'Pre-Payment': [] };
     expect(clearDisabledAnswers(form(fuel, prePayment), answers)).toBe(answers);
   });
+
+  it('clears a question two levels down the chain in the same pass as the one directly above it', () => {
+    const top = choice({
+      key: 'Smart Meter',
+      answerMax: 1,
+      options: [{ value: 'Yes', label: 'Yes' }],
+    });
+    const middle = choice({
+      key: 'Pre-Payment',
+      answerMax: 1,
+      options: [{ value: 'Yes', label: 'Yes' }],
+      enabledWhen: { questionKey: 'Smart Meter', hasAnswer: 'Yes' },
+    });
+    const bottom = choice({
+      key: 'Debt Amount',
+      answerMax: 1,
+      options: [{ value: 'Yes', label: 'Yes' }],
+      enabledWhen: { questionKey: 'Pre-Payment', hasAnswer: 'Yes' },
+    });
+    // Smart Meter was never Yes, so Pre-Payment should never have been
+    // enabled either — and Debt Amount, under Pre-Payment, is stale twice
+    // over. One ordered walk of the form must clear both, not just the one
+    // directly beneath Smart Meter.
+    const answers = { 'Smart Meter': [], 'Pre-Payment': ['Yes'], 'Debt Amount': ['Yes'] };
+
+    expect(clearDisabledAnswers(form(top, middle, bottom), answers)).toEqual({
+      'Smart Meter': [],
+      'Pre-Payment': [],
+      'Debt Amount': [],
+    });
+  });
 });
 
 describe('enabledQuestions', () => {
@@ -196,11 +248,93 @@ describe('enabledQuestions', () => {
     expect(page).toBeDefined();
 
     expect(
-      enabledQuestions(page!, {})
+      enabledQuestions(definition, page!, {})
         .filter((question) => question.type !== 'information')
         .map((question) => question.key),
     ).toEqual(['needsFuelHelp']);
-    expect(enabledQuestions(page!, { needsFuelHelp: 'Yes' })).toHaveLength(2);
+    expect(enabledQuestions(definition, page!, { needsFuelHelp: 'Yes' })).toHaveLength(2);
+  });
+
+  it('resolves a controller that sits on an earlier page', () => {
+    const definition: ReferralFormDefinition = {
+      version: 1,
+      pages: [
+        {
+          pageNum: 1,
+          pageTitle: 'One',
+          questions: [
+            {
+              key: 'needsFuelHelp',
+              type: 'keyField',
+              field: 'needsFuelHelp',
+              label: 'Fuel?',
+              required: false,
+            },
+          ],
+        },
+        {
+          pageNum: 2,
+          pageTitle: 'Two',
+          questions: [
+            choice({
+              key: 'Pre-Payment',
+              enabledWhen: { questionKey: 'needsFuelHelp', hasAnswer: 'Yes' },
+            }),
+          ],
+        },
+      ],
+    };
+    const [, pageTwo] = definition.pages;
+    expect(pageTwo).toBeDefined();
+
+    expect(enabledQuestions(definition, pageTwo!, {})).toHaveLength(0);
+    expect(enabledQuestions(definition, pageTwo!, { needsFuelHelp: 'Yes' })).toHaveLength(1);
+  });
+});
+
+describe('isYesNoChoice', () => {
+  it('is true for a choose-up-to-one question whose one answer is Yes', () => {
+    expect(isYesNoChoice(choice({ answerMax: 1, options: [{ value: 'Yes', label: 'Yes' }] }))).toBe(
+      true,
+    );
+  });
+
+  it('is false when more than one answer is on offer, even if one of them is Yes', () => {
+    expect(
+      isYesNoChoice(
+        choice({
+          answerMax: 1,
+          options: [
+            { value: 'Yes', label: 'Yes' },
+            { value: 'No', label: 'No' },
+          ],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('is false for a question that allows more than one answer', () => {
+    expect(isYesNoChoice(choice({ answerMax: 2, options: [{ value: 'Yes', label: 'Yes' }] }))).toBe(
+      false,
+    );
+  });
+
+  it('is false when the one option on offer is not literally Yes', () => {
+    expect(
+      isYesNoChoice(choice({ answerMax: 1, options: [{ value: 'Maybe', label: 'Maybe' }] })),
+    ).toBe(false);
+  });
+
+  it('is false when the options come from a server-side list', () => {
+    expect(
+      isYesNoChoice(
+        choice({
+          answerMax: 1,
+          options: [{ value: 'Yes', label: 'Yes' }],
+          optionsFrom: 'referralReasons',
+        }),
+      ),
+    ).toBe(false);
   });
 });
 

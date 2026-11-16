@@ -845,16 +845,16 @@ describe('the questions themselves', () => {
       if (page === 2) await user.click(screen.getByLabelText('Oven'));
     }
 
-    const electricitySmart = screen.getByRole('group', {
+    const electricitySmart = screen.getByRole('checkbox', {
       name: /smart meter for electricity/,
     });
-    expect(within(electricitySmart).getByRole('combobox')).toBeDisabled();
+    expect(electricitySmart).toBeDisabled();
     expect(
       screen.queryByText('Are there people in the household over state pension age'),
     ).toBeNull();
 
     await user.click(screen.getByLabelText(/help with Energy costs/));
-    expect(within(electricitySmart).getByRole('combobox')).toBeEnabled();
+    expect(electricitySmart).toBeEnabled();
   });
 
   it('starts a one-choice preference dropdown on its declared default and can clear it', async () => {

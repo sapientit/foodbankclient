@@ -134,21 +134,23 @@ function isRawInformation(
 
 function checkTheWholeForm(config: RawConfig, ctx: z.RefinementCtx) {
   const questions = config.pages.flatMap((page) => page.questions);
-  const byKey = new Map(
-    questions
-      .filter(
-        (question): question is Exclude<RawQuestion, z.infer<typeof informationQuestionSchema>> =>
-          !isRawInformation(question),
-      )
-      .map((question) => [question.questionKey, question]),
-  );
+  const keyIndex = new Map<string, number>();
+  questions.forEach((question, index) => {
+    if (!isRawInformation(question)) keyIndex.set(question.questionKey, index);
+  });
 
   const seen = new Set<string>();
-  for (const question of questions) {
+  questions.forEach((question, index) => {
     if (isRawInformation(question)) {
       if (question.enabledWhen !== undefined)
-        checkEnabledWhen(question.questionTitle, question.enabledWhen.questionKey, byKey, ctx);
-      continue;
+        checkEnabledWhen(
+          question.questionTitle,
+          index,
+          question.enabledWhen.questionKey,
+          keyIndex,
+          ctx,
+        );
+      return;
     }
     const at = question.questionKey;
 
@@ -158,12 +160,12 @@ function checkTheWholeForm(config: RawConfig, ctx: z.RefinementCtx) {
     seen.add(at);
 
     if (question.enabledWhen !== undefined) {
-      checkEnabledWhen(at, question.enabledWhen.questionKey, byKey, ctx);
+      checkEnabledWhen(at, index, question.enabledWhen.questionKey, keyIndex, ctx);
     }
 
-    if (isRawKeyField(question)) continue;
+    if (isRawKeyField(question)) return;
     checkDynamicQuestion(question, ctx);
-  }
+  });
 
   const pickListInformationLength = questions.reduce(
     (total, question) => {
@@ -200,20 +202,23 @@ function maximumAnswerLength(question: RawDynamicQuestion): number {
 }
 
 /**
- * The condition must name a real question, and that question must not itself be
- * conditional. `isEnabled` in `referral-form.logic.ts` is deliberately one level
- * deep; this is what makes that safe rather than assumed, and it is also what
- * makes a cycle impossible to write.
+ * The condition must name a real question that comes earlier on the form —
+ * never itself, never one that comes later. That is what makes a chain of
+ * conditions safe: a referrer can only answer a controlling question before
+ * reaching the one it gates, a cycle is impossible to write (it would need a
+ * question to come before itself), and `isEnabled` in `referral-form.logic.ts`
+ * can walk a chain of conditions and be sure the walk ends.
  */
 function checkEnabledWhen(
   at: string,
+  atIndex: number,
   enabledBy: string,
-  byKey: ReadonlyMap<string, RawQuestion>,
+  keyIndex: ReadonlyMap<string, number>,
   ctx: z.RefinementCtx,
 ) {
-  const controller = byKey.get(enabledBy);
+  const controllerIndex = keyIndex.get(enabledBy);
 
-  if (controller === undefined) {
+  if (controllerIndex === undefined) {
     ctx.addIssue({
       code: 'custom',
       message: `"${at}" is enabled by "${enabledBy}", which is not a question on this form.`,
@@ -221,10 +226,10 @@ function checkEnabledWhen(
     return;
   }
 
-  if (controller.enabledWhen !== undefined) {
+  if (controllerIndex >= atIndex) {
     ctx.addIssue({
       code: 'custom',
-      message: `"${at}" is enabled by "${enabledBy}", which is itself conditional. A question that enables another must always be answerable.`,
+      message: `"${at}" is enabled by "${enabledBy}", which does not come before it on the form. A question can only depend on one the referrer has already answered.`,
     });
   }
 }
