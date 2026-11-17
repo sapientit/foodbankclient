@@ -20,6 +20,10 @@ import styles from './confirm-dialog.module.css';
  * Escape is handled here rather than through the native `cancel` event, for the
  * same reason — one path, tested. `preventDefault` stops a real browser closing
  * the element behind React's back, leaving a mounted dialog that is invisible.
+ *
+ * Omitting `onCancel` makes this a plain acknowledgement — one button, no
+ * question. Escape and the single button both call `onConfirm`, and it takes
+ * initial focus since there is no destructive answer to steer away from.
  */
 export function ConfirmDialog({
   title,
@@ -64,12 +68,14 @@ export function ConfirmDialog({
   destructive?: boolean;
   busy?: boolean;
   onConfirm: () => void;
-  onCancel: () => void;
+  /** Omit for a plain acknowledgement with no question and one button. */
+  onCancel?: () => void;
   children: ReactNode;
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -81,8 +87,9 @@ export function ConfirmDialog({
     else dialog.setAttribute('open', '');
 
     // Cancel, not confirm: the destructive answer is never the one a stray
-    // Enter or Space lands on.
-    cancelRef.current?.focus();
+    // Enter or Space lands on. With no Cancel button there is only one
+    // control, so it takes focus instead.
+    (cancelRef.current ?? confirmRef.current)?.focus();
 
     return () => {
       // Whatever opened the dialog is where the keyboard was, and where it has
@@ -99,7 +106,7 @@ export function ConfirmDialog({
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           event.preventDefault();
-          onCancel();
+          (onCancel ?? onConfirm)();
           return;
         }
 
@@ -114,9 +121,11 @@ export function ConfirmDialog({
       <div className={styles.body}>{children}</div>
 
       <div className={styles.actions}>
-        <button className="button-secondary" onClick={onCancel} ref={cancelRef} type="button">
-          {cancelLabel}
-        </button>
+        {onCancel !== undefined && (
+          <button className="button-secondary" onClick={onCancel} ref={cancelRef} type="button">
+            {cancelLabel}
+          </button>
+        )}
         {secondary !== undefined && (
           <button
             className={classNames(styles.secondary, 'button-secondary')}
@@ -131,6 +140,7 @@ export function ConfirmDialog({
           className={destructive ? 'button-danger' : undefined}
           disabled={busy}
           onClick={onConfirm}
+          ref={confirmRef}
           type="button"
         >
           {busy ? 'Working…' : confirmLabel}

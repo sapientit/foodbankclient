@@ -130,4 +130,20 @@ describe('ConfirmDialog', () => {
 
     expect(screen.getByRole('button', { name: 'Save changes' })).not.toHaveClass('button-danger');
   });
+
+  it('renders a single button and no question when onCancel is omitted', async () => {
+    const onConfirm = vi.fn();
+    render(
+      <ConfirmDialog confirmLabel="OK" onConfirm={onConfirm} title="Stock Take Complete">
+        <p>The last page of this grouping has been saved.</p>
+      </ConfirmDialog>,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'OK' })).toHaveFocus();
+
+    await userEvent.setup().keyboard('{Escape}');
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
+import { ConfirmDialog } from '../../../components/confirm-dialog';
 import { EmptyState } from '../../../components/empty-state';
 import { ErrorNotice } from '../../../components/error-notice';
 import { ListIcon } from '../../../components/icons';
@@ -62,6 +63,7 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
   const [baselines, setBaselines] = useState<Record<string, number>>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [showComplete, setShowComplete] = useState(false);
 
   useEffect(() => {
     if (Object.keys(typed).length === 0) return;
@@ -506,7 +508,11 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
               <button
                 className={styles.primary}
                 disabled={save.isPending}
-                onClick={() => void saveGrouping()}
+                onClick={() => {
+                  void saveGrouping().then((saved) => {
+                    if (saved && pageIndex === pageCount - 1) setShowComplete(true);
+                  });
+                }}
                 type="button"
               >
                 {save.isPending ? 'Saving…' : 'Save this page'}
@@ -532,6 +538,17 @@ export function StockTakeScreen({ onAuthError }: { readonly onAuthError?: () => 
             {save.error !== null && <ErrorNotice error={save.error} />}
             {fieldErrors.page !== undefined && (
               <p className={styles.fieldError}>{fieldErrors.page}</p>
+            )}
+            {showComplete && (
+              <ConfirmDialog
+                confirmLabel="OK"
+                onConfirm={() => {
+                  setShowComplete(false);
+                }}
+                title="Stock Take Complete"
+              >
+                <p>The last page of this grouping has been saved.</p>
+              </ConfirmDialog>
             )}
           </>
         )}

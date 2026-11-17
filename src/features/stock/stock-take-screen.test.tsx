@@ -543,6 +543,47 @@ describe('saving a stock take page', () => {
     });
   });
 
+  it('shows a Stock Take Complete popup when the last (and only) page saves', async () => {
+    server.use(
+      http.post(TAKE, () =>
+        HttpResponse.json({ applied: 1, levels: [{ stockItemId: BEANS.id, quantityOnHand: 9 }] }),
+      ),
+    );
+    renderApp('/stock/take');
+    const user = userEvent.setup();
+    await chooseGrouping(user);
+
+    await user.type(await screen.findByLabelText('Counted Baked beans individually'), '9');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Stock Take Complete' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'OK' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('does not show the completion popup when an earlier page saves', async () => {
+    const levels = directLevels(41);
+    server.use(
+      http.get(LEVELS, () => HttpResponse.json({ items: levels })),
+      http.post(TAKE, () =>
+        HttpResponse.json({
+          applied: 1,
+          levels: [{ stockItemId: 'item-1', quantityOnHand: 99 }],
+        }),
+      ),
+    );
+    renderApp('/stock/take');
+    const user = userEvent.setup();
+    await chooseGrouping(user);
+
+    expect(await screen.findByText('Page 1 of 2 — items 1–40 of 41.')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Counted Item 1 individually'), '99');
+    await user.click(screen.getByRole('button', { name: 'Save this page' }));
+
+    expect(await screen.findByText('One changed count saved.')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('requires a whole number in the individual count of a directly grouped packed item', async () => {
     let saves = 0;
     const boxedFormula: StockLevel = {
