@@ -39,10 +39,28 @@ export interface ReferralListFilters {
   readonly status?: ReferralStatus;
 }
 
+/**
+ * `GET /referrals/check` — the "Check referrals" screen's own paginated
+ * view of the same data `ReferralListFilters` above describes, not a
+ * replacement for it. Running a session and the extract still need the
+ * plain, unbounded `GET /referrals`; this route is this one screen's.
+ */
+export interface ReferralCheckFilters extends ReferralListFilters {
+  /** 1-based; the server defaults to 1 when omitted. */
+  readonly page?: number;
+}
+
 export const referralKeys = {
   all: ['referrals'] as const,
   lists: () => [...referralKeys.all, 'list'] as const,
   list: (filters: ReferralListFilters) => [...referralKeys.lists(), filters] as const,
+  /**
+   * Nested under `lists()`, not a sibling root: every mutation that
+   * invalidates `lists()` must invalidate this too, since both are views of
+   * the same underlying referrals. Keeping one root is what makes that
+   * automatic rather than something to remember at each mutation.
+   */
+  check: (filters: ReferralCheckFilters) => [...referralKeys.lists(), 'check', filters] as const,
   detail: (id: string) => [...referralKeys.all, 'detail', id] as const,
   firstTimeReview: (id: string) => [...referralKeys.detail(id), 'first-time-review'] as const,
   /**

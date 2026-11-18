@@ -144,21 +144,6 @@ export function needsReferrerApproval(referral: Pick<Referral, 'status'>): boole
 }
 
 /**
- * Referrals waiting on a referrer decision sort ahead of everything else, each
- * group newest first. A household waiting on a decision is more urgent than one
- * already booked in — `screenDetails.md`, "Referrals awaiting a decision" — and
- * putting them at the top is the difference between a queue somebody works and a
- * queue somebody has to go looking for.
- */
-export function sortForReview(referrals: readonly Referral[]): Referral[] {
-  const sorted = sortReferrals(referrals);
-  return [
-    ...sorted.filter((referral) => needsReferrerApproval(referral)),
-    ...sorted.filter((referral) => !needsReferrerApproval(referral)),
-  ];
-}
-
-/**
  * The single fact this whole slice turns on. `reasonId`, `referrerEmail` and
  * `referrerPhone` are absent together or present together — they come off the
  * same role check in the server's response mapper (`API.md` §2), never

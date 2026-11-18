@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 
 const REFRESH = '/api/v1/auth/refresh';
-const REFERRALS = '/api/v1/referrals';
+const REFERRALS_CHECK = '/api/v1/referrals/check';
 const SESSIONS = '/api/v1/sessions';
 
 async function bootAt(path: string) {
@@ -112,16 +112,18 @@ describe('App', () => {
         return refreshes === 1 ? signedIn() : unauthorized();
       }),
       http.get(SESSIONS, () => HttpResponse.json({ sessions: [] })),
-      http.get(REFERRALS, () => {
+      http.get(REFERRALS_CHECK, () => {
         lists += 1;
-        return lists === 1 ? HttpResponse.json({ referrals: [JAMIE] }) : unauthorized();
+        return lists === 1
+          ? HttpResponse.json({ referrals: [JAMIE], page: 1, pageSize: 40, totalCount: 1 })
+          : unauthorized();
       }),
     );
 
     await bootAt('/referrals');
 
     expect(await screen.findByText('Rowe, Jamie')).toBeInTheDocument();
-    expect(queryClient.getQueryData(referralKeys.list({}))).toBeDefined();
+    expect(queryClient.getQueryData(referralKeys.check({}))).toBeDefined();
 
     // Filtering asks for a list the cache does not hold, which is the request
     // whose 401 discovers that the sign-in is over.
@@ -129,6 +131,6 @@ describe('App', () => {
 
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
     expect(screen.queryByText('Rowe, Jamie')).toBeNull();
-    expect(queryClient.getQueryData(referralKeys.list({}))).toBeUndefined();
+    expect(queryClient.getQueryData(referralKeys.check({}))).toBeUndefined();
   });
 });

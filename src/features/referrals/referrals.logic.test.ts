@@ -19,7 +19,6 @@ import {
   parseWholeNumber,
   refereeName,
   refereeNameForList,
-  sortForReview,
   sortReferrals,
   wouldExceedCapacity,
 } from './referrals.logic';
@@ -228,34 +227,6 @@ describe('needsReferrerApproval', () => {
     expect(needsReferrerApproval({ status: 'reviewed' })).toBe(false);
     expect(needsReferrerApproval({ status: 'rejected' })).toBe(false);
     expect(needsReferrerApproval({ status: 'cancelled' })).toBe(false);
-  });
-});
-
-describe('sortForReview', () => {
-  it('puts referrals waiting on a referrer decision first, each group newest first', () => {
-    // A household waiting on a decision is more urgent than one already booked
-    // in, and a queue nobody sees is a queue nobody works.
-    const list = [
-      referral({ id: 'old-active', status: 'active', referredAt: '2026-07-01T09:00:00.000Z' }),
-      referral({
-        id: 'old-pending',
-        status: 'pending_review',
-        referredAt: '2026-06-01T09:00:00.000Z',
-      }),
-      referral({ id: 'new-active', status: 'active', referredAt: '2026-07-05T09:00:00.000Z' }),
-      referral({
-        id: 'new-pending',
-        status: 'pending_review',
-        referredAt: '2026-07-04T09:00:00.000Z',
-      }),
-    ];
-
-    expect(sortForReview(list).map((r) => r.id)).toEqual([
-      'new-pending',
-      'old-pending',
-      'new-active',
-      'old-active',
-    ]);
   });
 });
 

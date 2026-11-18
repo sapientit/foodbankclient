@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { api, publicApi } from '../../api/client';
 import type { components, paths } from '../../api/schema';
@@ -11,7 +11,12 @@ import {
   usePublicQuestionnaire,
   type PublicQuestionnaire,
 } from '../configuration-releases/queries';
-import { publicReferralKeys, referralKeys, type ReferralListFilters } from './keys';
+import {
+  publicReferralKeys,
+  referralKeys,
+  type ReferralCheckFilters,
+  type ReferralListFilters,
+} from './keys';
 import { looksLikeEmail, sortByStart } from './public-referral.logic';
 import { parseReferralFormConfig } from './referral-form-config';
 import type { ReferralFormDefinition } from './referral-form-definition';
@@ -467,12 +472,48 @@ export async function fetchReferrals(filters: ReferralListFilters): Promise<Refe
 /**
  * `sessionId` and `status` are the only filters the endpoint takes — see
  * `ReferralListFilters`'s own comment for why nothing free-text is offered.
+ *
+ * **The plain, unbounded list.** Running a session (the client list, the
+ * run sheet, the listener sheet) and the extract are built on getting
+ * *every* referral that matches, so this hook and `GET /referrals` itself
+ * stay exactly that. `useReferralsForCheck` below is `ReferralsScreen`'s own
+ * paginated view of the same data — not a replacement for this one.
  */
 export function useReferrals(filters: ReferralListFilters = {}, enabled = true) {
   return useQuery({
     queryKey: referralKeys.list(filters),
     enabled,
     queryFn: () => fetchReferrals(filters),
+  });
+}
+
+export type ReferralCheckResponse = components['schemas']['ReferralListResponse'];
+
+export async function fetchReferralsForCheck(
+  filters: ReferralCheckFilters,
+): Promise<ReferralCheckResponse> {
+  return unwrap(api.GET('/api/v1/referrals/check', { params: { query: filters } }));
+}
+
+/**
+ * `ReferralsScreen`'s own view: `GET /referrals/check` does the
+ * attention-first sort and the thirty-day cutoff on a settled referral
+ * itself, forty rows at a time (`openapi.yaml`, that operation; the domain
+ * rule is `../foodbankserver/INITIAL_SPEC1.txt`, "Checking referrals"). This
+ * hook does not re-sort, re-filter or re-slice what it returns — that
+ * would either duplicate the server's rule or drift from it.
+ *
+ * **`placeholderData: keepPreviousData` is load-bearing.** Without it,
+ * changing the filter or the page to one with no cached data yet unmounts
+ * the whole results section — table, row links and the pager — while it
+ * refetches, which drops a keyboard or screen-reader user's focus to
+ * `<body>` with nothing announced.
+ */
+export function useReferralsForCheck(filters: ReferralCheckFilters = {}) {
+  return useQuery({
+    queryKey: referralKeys.check(filters),
+    placeholderData: keepPreviousData,
+    queryFn: () => fetchReferralsForCheck(filters),
   });
 }
 

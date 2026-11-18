@@ -2154,7 +2154,16 @@ export interface paths {
         };
         /**
          * List referrals
-         * @description **A team lead does not receive `reasonId`, `referrerEmail`,
+         * @description **The plain, unbounded list.** Every referral the filter matches,
+         *     with no page size and no age cutoff — this is what running a
+         *     session is built on (the Client List, the Run Sheet and the
+         *     listener sheet all need *every* referral on a session) and what the
+         *     extract reads. `GET /referrals/check` is a different screen's view
+         *     of the same data, paginated and reordered for an administrator
+         *     working through the whole list; it is not a replacement for this
+         *     route; see that operation.
+         *
+         *     **A team lead does not receive `reasonId`, `referrerEmail`,
          *     `referrerPhone` or `reviewComment`.** Why someone is hungry is not
          *     picking information.
          *
@@ -2188,6 +2197,75 @@ export interface paths {
                         "application/json": {
                             referrals: components["schemas"]["Referral"][];
                         };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/referrals/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List referrals for the "Check referrals" screen, paginated
+         * @description A second view of `GET /referrals`'s data for the administrator
+         *     working through the whole referral list, not for running a
+         *     session — see that operation for who else reads the plain list and
+         *     why it stays unbounded.
+         *
+         *     **Paginated, forty at a time, attention-first.** A referral nobody
+         *     has acted on yet — `pending_review` or `active` — always appears
+         *     and always sorts above every settled one, however old it is. A
+         *     settled referral (`reviewed`, `rejected` or `cancelled`) drops out
+         *     once more than thirty days have passed since it was referred
+         *     (`referredAt`, not the session date). This holds whatever
+         *     `sessionId` or `status` narrows the list to — the same
+         *     attention-first, thirty-day-bounded result, narrowed to match.
+         *     Within each of the two groups the newest referral comes first —
+         *     the opposite of `GET /referrals`'s own order. See
+         *     `INITIAL_SPEC1.txt`, "Checking referrals".
+         *
+         *     `page` is 1-based and defaults to 1. The page size is fixed at forty
+         *     and is not a request parameter; `totalCount` is every row the
+         *     request matched, uncapped, so `totalCount` divided by `pageSize` is
+         *     how many pages there are.
+         *
+         *     Same role-shaped rows and the same team-lead restrictions as
+         *     `GET /referrals` — a team lead never sees a rejected referral or
+         *     `reasonId`/`referrerEmail`/`referrerPhone`/`reviewComment`, and
+         *     nobody receives `adminInfo` here either.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    sessionId?: string;
+                    status?: "pending_review" | "active" | "reviewed" | "rejected" | "cancelled";
+                    /** @description 1-based. Defaults to 1. */
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description One page of referrals */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReferralListResponse"];
                     };
                 };
             };
@@ -7771,6 +7849,16 @@ export interface components {
         RepeatReferralList: components["schemas"]["RepeatReferralSummary"] & {
             /** @description The 50 most recent, at most. Compare against `count` to know whether there are more; there is no paging and no further page to ask for. */
             matches: components["schemas"]["RepeatReferralMatch"][];
+        };
+        /** @description `GET /referrals`'s envelope. See that operation for the attention-first ordering and the thirty-day cutoff on a settled referral. */
+        ReferralListResponse: {
+            referrals: components["schemas"]["Referral"][];
+            /** @description Echoes the request's `page`. */
+            page: number;
+            /** @description Always 40 today; not a request parameter. */
+            pageSize: number;
+            /** @description Every referral the request matched, uncapped. Divide by `pageSize` for the number of pages. */
+            totalCount: number;
         };
         /**
          * @description The staff view. **The last six fields are admin-only** — a team lead
