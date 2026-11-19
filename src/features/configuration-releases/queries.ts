@@ -63,6 +63,19 @@ export function useConfigurationReleasesBulk(formIds: readonly string[]) {
 }
 
 /**
+ * Every release, newest first, without `questionnaire`/`rules` content — used
+ * to find the currently `published` release's `formId`. That id is then the
+ * input to {@link useConfigurationReleasesBulk} for the full content.
+ */
+export function useConfigurationReleaseHistory() {
+  return useQuery({
+    queryKey: configurationReleaseKeys.history(),
+    queryFn: (): Promise<readonly ConfigurationReleaseSummary[]> =>
+      unwrap(api.GET('/api/v1/configuration-releases')),
+  });
+}
+
+/**
  * Where the configuration workbook is and which Google OAuth client to ask
  * Sheets consent against — the same client `/extracts/config` names.
  * `configured: false` (both other fields absent) until the deployment sets
