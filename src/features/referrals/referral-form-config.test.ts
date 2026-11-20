@@ -163,35 +163,6 @@ describe('parseReferralFormConfig', () => {
     ).toThrow(/pick-list information, so it must be a preference question/);
   });
 
-  it('rejects configured information that could exceed the parcel note limit', () => {
-    expect(() =>
-      parseReferralFormConfig({
-        version: 1,
-        pages: [
-          {
-            pageNum: 1,
-            pageTitle: 'Page',
-            questions: [
-              {
-                ...choice,
-                questionKey: 'First',
-                pickListInformation: 'Yes',
-                validation: { type: 'String', maxLength: 700 },
-              },
-              {
-                ...choice,
-                questionNum: 2,
-                questionKey: 'Second',
-                pickListInformation: 'Yes',
-                validation: { type: 'String', maxLength: 700 },
-              },
-            ],
-          },
-        ],
-      }),
-    ).toThrow(/Pick-list information can be at most 1200 characters/);
-  });
-
   it('refuses a household composition question under a different key', () => {
     expect(() =>
       parseReferralFormConfig(

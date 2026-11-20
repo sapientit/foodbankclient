@@ -116,7 +116,6 @@ const configShape = z.object({
 });
 
 const configSchema = configShape.superRefine(checkTheWholeForm);
-export const PICK_LIST_INFORMATION_MAX_LENGTH = 1200;
 
 type RawConfig = z.infer<typeof configShape>;
 type RawQuestion = z.infer<typeof questionSchema>;
@@ -166,39 +165,6 @@ function checkTheWholeForm(config: RawConfig, ctx: z.RefinementCtx) {
     if (isRawKeyField(question)) return;
     checkDynamicQuestion(question, ctx);
   });
-
-  const pickListInformationLength = questions.reduce(
-    (total, question) => {
-      if (isRawInformation(question) || isRawKeyField(question)) return total;
-      if (question.pickListInformation === undefined) return total;
-      return total + question.questionKey.length + 2 + maximumAnswerLength(question);
-    },
-    Math.max(
-      0,
-      questions.filter(
-        (question) =>
-          'pickListInformation' in question && question.pickListInformation !== undefined,
-      ).length - 1,
-    ),
-  );
-  if (pickListInformationLength > PICK_LIST_INFORMATION_MAX_LENGTH) {
-    ctx.addIssue({
-      code: 'custom',
-      message: `Pick-list information can be at most ${String(PICK_LIST_INFORMATION_MAX_LENGTH)} characters.`,
-    });
-  }
-}
-
-function maximumAnswerLength(question: RawDynamicQuestion): number {
-  if (question.validation.type === 'String') return question.validation.maxLength;
-  if (question.validation.type === 'Number') return 20;
-  if (question.validation.type === 'HouseholdComposition') return 0;
-  if (question.validation.optionsFrom !== undefined)
-    return question.validation.answerMax * (question.validation.maxAnswerLength ?? 0);
-  const longest = Math.max(0, ...(question.answers ?? []).map((answer) => answer.length));
-  return (
-    question.validation.answerMax * longest + Math.max(0, question.validation.answerMax - 1) * 2
-  );
 }
 
 /**
