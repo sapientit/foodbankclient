@@ -250,7 +250,7 @@ describe('a team lead’s referral detail view', () => {
     // labelled pair is the admin's and the grid is theirs.
     expect(screen.getByRole('table', { name: 'Household composition' })).toBeInTheDocument();
     expect(screen.queryByText('Adults (>11)')).toBeNull();
-    expect(screen.queryByText('Children (5-11)')).toBeNull();
+    expect(screen.queryByText('Children (3-11)')).toBeNull();
   });
 
   it('does not offer a team lead a copy button, even on a no-show, though outcome itself is not admin-only', async () => {

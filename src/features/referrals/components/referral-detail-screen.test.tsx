@@ -463,7 +463,7 @@ describe('the admin referral detail screen', () => {
     // they count. Bare "Adults" would read as everyone over 18, which is not
     // what sizes the parcel and not what a correction should be typed against.
     expect(await screen.findByText('Adults (>11)')).toBeInTheDocument();
-    expect(screen.getByText('Children (5-11)')).toBeInTheDocument();
+    expect(screen.getByText('Children (3-11)')).toBeInTheDocument();
     expect(screen.queryByText('Adults', { exact: true })).toBeNull();
   });
 

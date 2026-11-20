@@ -1400,7 +1400,7 @@ function DetailsForm({
             <>
               <dt>Adults (&gt;11)</dt>
               <dd>{referral.adults}</dd>
-              <dt>Children (5-11)</dt>
+              <dt>Children (3-11)</dt>
               <dd>{referral.children}</dd>
             </>
           )}
