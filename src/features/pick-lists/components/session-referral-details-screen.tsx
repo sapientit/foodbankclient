@@ -4,7 +4,13 @@ import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatSessionDate } from '../../../lib/london-time';
 import { useSessionReferralDetails } from '../queries';
-import { FIRST_TIME_MARKER, byPickNumber, voucherInstructionLabel } from '../run-session.logic';
+import {
+  COLLECTION_METHOD_LEGEND,
+  FIRST_TIME_MARKER,
+  byPickNumber,
+  collectionMethodMarker,
+  voucherInstructionLabel,
+} from '../run-session.logic';
 import styles from './session-referral-details-screen.module.css';
 
 function householdName(firstName: string | null, surname: string | null): string {
@@ -14,8 +20,9 @@ function householdName(firstName: string | null, surname: string | null): string
 /**
  * The Run sheet: the session's contact list, plus the three things the Client
  * List also shows about each household — whether they are new, the
- * Christmas-voucher instruction, the picker note and delivery marker. All come
- * with the referral, so a household nobody has picked for yet has them too.
+ * Christmas-voucher instruction, the picker note — and its own compact
+ * collection-method marker. All come with the referral, so a household nobody
+ * has picked for yet has them too.
  * `screenDetails.md`, "#Session processing".
  */
 export function SessionReferralDetailsScreen() {
@@ -92,7 +99,7 @@ export function SessionReferralDetailsScreen() {
               <col className={styles.phone} />
               <col className={styles.referrer} />
               <col className={styles.referrerPhone} />
-              <col className={styles.delivery} />
+              <col className={styles.collection} />
               <col className={styles.firstTime} />
               {voucherSchemeApplies && <col className={styles.voucher} />}
             </colgroup>
@@ -105,59 +112,70 @@ export function SessionReferralDetailsScreen() {
                 <th scope="col">Phone</th>
                 <th scope="col">Referrer</th>
                 <th scope="col">Ref Phone</th>
-                <th scope="col">Del?</th>
+                <th scope="col" title={COLLECTION_METHOD_LEGEND}>
+                  Col?
+                </th>
                 <th scope="col">First?</th>
                 {voucherSchemeApplies && <th scope="col">Voucher</th>}
               </tr>
             </thead>
-            {byPickNumber(data.referrals).map((referral) => (
-              <tbody className={styles.household} key={referral.referralId}>
-                <tr>
-                  <td>
-                    {referral.pickNumber === null ? (
-                      <span aria-label="No pick number assigned">—</span>
-                    ) : (
-                      `#${String(referral.pickNumber)}`
-                    )}
-                  </td>
-                  <th scope="row">
-                    {householdName(referral.refereeFirstName, referral.refereeSurname)}
-                  </th>
-                  <td>{referral.refereeAddress ?? '—'}</td>
-                  <td>{referral.refereePostcode ?? '—'}</td>
-                  <td>{referral.refereePhone ?? '—'}</td>
-                  <td>{referral.referrerName ?? '—'}</td>
-                  <td>{referral.referrerPhone ?? '—'}</td>
-                  <td>{referral.isDelivery ? <span aria-label="Delivery">✓</span> : ''}</td>
-                  <td>
-                    {referral.firstTimeMarker === null
-                      ? ''
-                      : FIRST_TIME_MARKER[referral.firstTimeMarker]}
-                  </td>
-                  {voucherSchemeApplies && (
+            {byPickNumber(data.referrals).map((referral) => {
+              const collection = collectionMethodMarker(referral);
+              return (
+                <tbody className={styles.household} key={referral.referralId}>
+                  <tr>
                     <td>
-                      {referral.voucherInstruction === null
+                      {referral.pickNumber === null ? (
+                        <span aria-label="No pick number assigned">—</span>
+                      ) : (
+                        `#${String(referral.pickNumber)}`
+                      )}
+                    </td>
+                    <th scope="row">
+                      {householdName(referral.refereeFirstName, referral.refereeSurname)}
+                    </th>
+                    <td>{referral.refereeAddress ?? '—'}</td>
+                    <td>{referral.refereePostcode ?? '—'}</td>
+                    <td>{referral.refereePhone ?? '—'}</td>
+                    <td>{referral.referrerName ?? '—'}</td>
+                    <td>{referral.referrerPhone ?? '—'}</td>
+                    <td>
+                      {collection === null ? (
+                        ''
+                      ) : (
+                        <span aria-label={collection.label}>{collection.letter}</span>
+                      )}
+                    </td>
+                    <td>
+                      {referral.firstTimeMarker === null
                         ? ''
-                        : voucherInstructionLabel(referral.voucherInstruction)}
+                        : FIRST_TIME_MARKER[referral.firstTimeMarker]}
                     </td>
-                  )}
-                </tr>
-                {Boolean(referral.picklistAdmin?.trim()) && (
-                  <tr className={styles.picklistAdminRow}>
-                    <td
-                      aria-label={`Pick list notes for ${
-                        referral.pickNumber === null
-                          ? 'no pick number'
-                          : `pick #${String(referral.pickNumber)}`
-                      }, ${householdName(referral.refereeFirstName, referral.refereeSurname)}: ${referral.picklistAdmin ?? ''}`}
-                      colSpan={voucherSchemeApplies ? 10 : 9}
-                    >
-                      {referral.picklistAdmin}
-                    </td>
+                    {voucherSchemeApplies && (
+                      <td>
+                        {referral.voucherInstruction === null
+                          ? ''
+                          : voucherInstructionLabel(referral.voucherInstruction)}
+                      </td>
+                    )}
                   </tr>
-                )}
-              </tbody>
-            ))}
+                  {Boolean(referral.picklistAdmin?.trim()) && (
+                    <tr className={styles.picklistAdminRow}>
+                      <td
+                        aria-label={`Pick list notes for ${
+                          referral.pickNumber === null
+                            ? 'no pick number'
+                            : `pick #${String(referral.pickNumber)}`
+                        }, ${householdName(referral.refereeFirstName, referral.refereeSurname)}: ${referral.picklistAdmin ?? ''}`}
+                        colSpan={voucherSchemeApplies ? 10 : 9}
+                      >
+                        {referral.picklistAdmin}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              );
+            })}
           </table>
         </div>
       </section>

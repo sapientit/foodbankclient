@@ -26,7 +26,8 @@ const household = (
   referrerPhone: '01483 999999',
   pickNumber,
   picklistAdmin: null,
-  isDelivery: false,
+  formId: 'form-1',
+  answers: { 'Collection method': 'Car' },
   firstTimeMarker: null,
   voucherInstruction: null,
   ...extra,
@@ -121,7 +122,8 @@ describe('team-lead run sheet', () => {
               referrerPhone: '01483 999999',
               pickNumber: 1,
               picklistAdmin: null,
-              isDelivery: false,
+              formId: 'form-1',
+              answers: { 'Collection method': 'Car' },
               firstTimeMarker: null,
               voucherInstruction: null,
             },
@@ -155,7 +157,8 @@ describe('team-lead run sheet', () => {
       referrerPhone: '01483 999999',
       pickNumber,
       picklistAdmin: null,
-      isDelivery: false,
+      formId: 'form-1',
+      answers: { 'Collection method': 'Car' },
       firstTimeMarker: null,
       voucherInstruction: null,
     });
@@ -284,7 +287,7 @@ describe('team-lead run sheet', () => {
     const headings = within(table)
       .getAllByRole('columnheader')
       .map((cell) => cell.textContent);
-    expect(headings.slice(-3)).toEqual(['Del?', 'First?', 'Voucher']);
+    expect(headings.slice(-3)).toEqual(['Col?', 'First?', 'Voucher']);
 
     const cellsOf = (name: string) => {
       const row = screen.getByRole('rowheader', { name }).parentElement;
@@ -294,10 +297,10 @@ describe('team-lead run sheet', () => {
         .slice(-3)
         .map((cell) => cell.textContent);
     };
-    expect(cellsOf('Jamie Rowe')).toEqual(['', 'First time', 'Provide voucher for this client']);
+    expect(cellsOf('Jamie Rowe')).toEqual(['C', 'First time', 'Provide voucher for this client']);
     // Not yet picked for, and still shown. A recorded previous session leaves
     // First? blank, as on the Client List.
-    expect(cellsOf('Alex Shaw')).toEqual(['', '', 'Client has already received voucher']);
+    expect(cellsOf('Alex Shaw')).toEqual(['C', '', 'Client has already received voucher']);
     expect(
       within(table).getByRole('cell', {
         name: 'Pick list notes for pick #1, Jamie Rowe: Ring the bell twice',
@@ -318,6 +321,43 @@ describe('team-lead run sheet', () => {
     const row = await screen.findByRole('row', { name: /^#1 Jamie Rowe/ });
     expect(screen.queryByRole('columnheader', { name: 'Voucher' })).toBeNull();
     expect(within(row).getByRole('cell', { name: 'Admin' })).toBeInTheDocument();
+  });
+
+  it("shows each household's collection method as a single letter, with the legend on hover", async () => {
+    serveRunSheet([
+      household('r1', 'Jamie', 'Rowe', 1, { answers: { 'Collection method': 'Car' } }),
+      household('r2', 'Alex', 'Shaw', 2, {
+        answers: { 'Collection method': 'Public Transport' },
+      }),
+      household('r3', 'Sam', 'Lee', 3, { answers: { 'Collection method': 'On Foot' } }),
+      household('r4', 'Pat', 'Kim', 4, {
+        answers: { 'Collection method': 'Referrer will collect' },
+      }),
+      household('r5', 'Dee', 'Wren', 5, {
+        answers: { 'Collection method': 'Delivery Requested' },
+      }),
+    ]);
+
+    renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
+
+    const heading = await screen.findByRole('columnheader', { name: 'Col?' });
+    expect(heading).toHaveAttribute(
+      'title',
+      'C - car, B - bus, F - foot, R - referrer, D - delivery',
+    );
+    expect(screen.getByRole('row', { name: /Jamie Rowe/ })).toHaveTextContent(/C/);
+    expect(
+      within(screen.getByRole('row', { name: /Alex Shaw/ })).getByLabelText('Bus'),
+    ).toHaveTextContent('B');
+    expect(
+      within(screen.getByRole('row', { name: /Sam Lee/ })).getByLabelText('Foot'),
+    ).toHaveTextContent('F');
+    expect(
+      within(screen.getByRole('row', { name: /Pat Kim/ })).getByLabelText('Referrer'),
+    ).toHaveTextContent('R');
+    expect(
+      within(screen.getByRole('row', { name: /Dee Wren/ })).getByLabelText('Delivery'),
+    ).toHaveTextContent('D');
   });
 
   it('shows the pick-list note and no arbitrary referral answer', async () => {

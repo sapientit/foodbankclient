@@ -1587,14 +1587,19 @@ export interface paths {
          *
          *     **It also carries what the Run Sheet shows beside each household** —
          *     `picklistAdmin` (the administrators' line for the picker, read live),
-         *     `isDelivery`, `firstTimeMarker` and `voucherInstruction`. These come
-         *     with the referral, not the parcel, so a household not yet picked for
-         *     carries them too; you do not need the pick list to show them.
+         *     `answers`, `formId`, `firstTimeMarker` and `voucherInstruction`. These
+         *     come with the referral, not the parcel, so a household not yet picked
+         *     for carries them too; you do not need the pick list to show them.
          *
-         *     **No `answers` and no `formId`.** The Run Sheet no longer shows the
-         *     "other information" answer — `picklistAdmin` has taken its place — and
-         *     the whole answer map was every dynamic answer the referrer gave, on a
-         *     team-lead payload, for the sake of one.
+         *     **`answers` and `formId` are back, whole, exactly as on the listener
+         *     sheet.** The Run Sheet needs a specific answer the form holds — how a
+         *     household's parcel is actually being collected, in more detail than
+         *     the fixed `collectionMethod` column says — and the server does not
+         *     know, and will not learn, which key on the form that is, the same
+         *     reasoning as the fuel help list. So the whole map comes back rather
+         *     than one field being picked out, and **neither `collectionMethod` nor
+         *     `isDelivery` is on this response**: read collection detail from
+         *     `answers` instead.
          *
          *     **What it deliberately leaves out:** date of birth, the reason for
          *     referral, the administrator's review comment, the administrators'
@@ -8154,7 +8159,7 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** @description One household on the Run Sheet: contact details for the session being run, plus the line for the picker, the delivery marker and the two derived first-time and voucher values. `referrerOrganisation` and `pickNumber` aside, every field is typed nullable to match `Referral`'s own referee and referrer columns — in practice none of them is null for a referral the food bank still holds. `pickNumber` is nullable for a different reason — see its own description. */
+        /** @description One household on the Run Sheet: contact details for the session being run, plus the line for the picker, the form's answers whole and the two derived first-time and voucher values. `referrerOrganisation` and `pickNumber` aside, every field is typed nullable to match `Referral`'s own referee and referrer columns — in practice none of them is null for a referral the food bank still holds. `pickNumber` is nullable for a different reason — see its own description. */
         ReferralDetailsHousehold: {
             /** Format: uuid */
             referralId: string;
@@ -8173,8 +8178,15 @@ export interface components {
             pickNumber: number | null;
             /** @description The referral's current administrators' line for the picker — the same value as `Parcel.picklistAdmin`, read on every request rather than copied, so an amendment shows on the next read without a pick list being generated again. Present whether or not the household has a parcel yet. It must never say why the household was referred; only the administrator typing it can ensure that. Null when there is none. */
             picklistAdmin: string | null;
-            /** @description `true` only where the referral's `collectionMethod` is `delivery`; `false` for `collection` and `referrer_collect`. For the Run Sheet's compact delivery marker. */
-            isDelivery: boolean;
+            /**
+             * Format: uuid
+             * @description The release of the referral form these answers were given to. Render `answers` with **that** release's questionnaire from `GET /configuration-releases/bulk` — never with whichever release is in use now. Null never in practice: migration `0040` recorded every earlier referral under the baseline release. The column is nullable, so the type says so.
+             */
+            formId: string | null;
+            /** @description The referrer's dynamic answers, whole, exactly as stored. Take from it whatever the screen needs — how the household's parcel is actually being collected, in more detail than a fixed column could say, among them. The server does not read or filter them. */
+            answers: {
+                [key: string]: unknown;
+            };
             /**
              * @description Whether this household is new — **identical to `Parcel.firstTimeMarker`**, same rule, same values, present whether or not the household has a parcel yet. Never the date or the raw review status.
              * @enum {string|null}
