@@ -74,48 +74,6 @@ export const FIRST_TIME_MARKER: Record<Exclude<Parcel['firstTimeMarker'], null>,
   admin: 'Admin',
 };
 
-/**
- * The Run sheet's `Col?` column: a single letter for how the household
- * is actually getting their parcel, read from the referral's own
- * `Collection method` answer — `referral-form.config.json`'s question 21 —
- * rather than the derived three-way `collectionMethod` the server also
- * carries, which collapses Car, Public Transport and On Foot into one
- * `collection` value and cannot tell them apart. `screenDetails.md`,
- * "#Session processing".
- *
- * An answer the form no longer offers (a future option this list does not
- * know about) is shown in full rather than hidden behind a guessed letter.
- */
-export const COLLECTION_METHOD_ANSWER_KEY = 'Collection method';
-
-const COLLECTION_METHODS: readonly {
-  readonly answer: string;
-  readonly letter: string;
-  readonly label: string;
-}[] = [
-  { answer: 'Car', letter: 'C', label: 'Car' },
-  { answer: 'Public Transport', letter: 'B', label: 'Bus' },
-  { answer: 'On Foot', letter: 'F', label: 'Foot' },
-  { answer: 'Referrer will collect', letter: 'R', label: 'Referrer' },
-  { answer: 'Delivery Requested', letter: 'D', label: 'Delivery' },
-];
-
-/** The column heading's hover text, spelling out what each letter means. */
-export const COLLECTION_METHOD_LEGEND = COLLECTION_METHODS.map(
-  (method) => `${method.letter} - ${method.label.toLowerCase()}`,
-).join(', ');
-
-export function collectionMethodMarker(holder: {
-  readonly answers: Readonly<Record<string, unknown>>;
-}): { readonly letter: string; readonly label: string } | null {
-  const answer = holder.answers[COLLECTION_METHOD_ANSWER_KEY];
-  if (typeof answer !== 'string' || answer === '') return null;
-  const known = COLLECTION_METHODS.find((method) => method.answer === answer);
-  return known === undefined
-    ? { letter: answer, label: answer }
-    : { letter: known.letter, label: known.label };
-}
-
 export function voucherInstructionLabel(
   instruction: Exclude<Parcel['voucherInstruction'], null>,
 ): string {

@@ -149,7 +149,7 @@
   }
 
   .address {
-    inline-size: 14%;
+    inline-size: 19%;
   }
 
   .postcode {
@@ -165,13 +165,10 @@
     inline-size: 10%;
   }
 
-  .collection {
-    inline-size: 4%;
+  .delivery,
+  .referrerFlag {
+    inline-size: 3%;
     text-align: center;
-  }
-
-  .firstTime {
-    inline-size: 7%;
   }
 
   .voucher {

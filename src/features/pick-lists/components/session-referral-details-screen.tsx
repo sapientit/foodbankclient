@@ -3,14 +3,9 @@ import { ErrorNotice } from '../../../components/error-notice';
 import { PageHeader } from '../../../components/page-header';
 import { Spinner } from '../../../components/spinner';
 import { formatSessionDate } from '../../../lib/london-time';
+import { isDeliveryAnswer, isReferrerCollectAnswer } from '../collection-method.logic';
 import { useSessionReferralDetails } from '../queries';
-import {
-  COLLECTION_METHOD_LEGEND,
-  FIRST_TIME_MARKER,
-  byPickNumber,
-  collectionMethodMarker,
-  voucherInstructionLabel,
-} from '../run-session.logic';
+import { byPickNumber, voucherInstructionLabel } from '../run-session.logic';
 import styles from './session-referral-details-screen.module.css';
 
 function householdName(firstName: string | null, surname: string | null): string {
@@ -18,11 +13,11 @@ function householdName(firstName: string | null, surname: string | null): string
 }
 
 /**
- * The Run sheet: the session's contact list, plus the three things the Client
- * List also shows about each household — whether they are new, the
- * Christmas-voucher instruction, the picker note — and its own compact
- * collection-method marker. All come with the referral, so a household nobody
- * has picked for yet has them too.
+ * The Run sheet: the session's contact list, plus the picker note, the
+ * Christmas-voucher instruction and its own `Del?`/`Ref?` markers — but not
+ * the Client List's `First?` marker, which belongs to that screen's review
+ * of who is new rather than to a contact list. All come with the referral,
+ * so a household nobody has picked for yet has them too.
  * `screenDetails.md`, "#Session processing".
  */
 export function SessionReferralDetailsScreen() {
@@ -99,8 +94,8 @@ export function SessionReferralDetailsScreen() {
               <col className={styles.phone} />
               <col className={styles.referrer} />
               <col className={styles.referrerPhone} />
-              <col className={styles.collection} />
-              <col className={styles.firstTime} />
+              <col className={styles.delivery} />
+              <col className={styles.referrerFlag} />
               {voucherSchemeApplies && <col className={styles.voucher} />}
             </colgroup>
             <thead>
@@ -112,15 +107,12 @@ export function SessionReferralDetailsScreen() {
                 <th scope="col">Phone</th>
                 <th scope="col">Referrer</th>
                 <th scope="col">Ref Phone</th>
-                <th scope="col" title={COLLECTION_METHOD_LEGEND}>
-                  Col?
-                </th>
-                <th scope="col">First?</th>
+                <th scope="col">Del?</th>
+                <th scope="col">Ref?</th>
                 {voucherSchemeApplies && <th scope="col">Voucher</th>}
               </tr>
             </thead>
             {byPickNumber(data.referrals).map((referral) => {
-              const collection = collectionMethodMarker(referral);
               return (
                 <tbody className={styles.household} key={referral.referralId}>
                   <tr>
@@ -140,16 +132,14 @@ export function SessionReferralDetailsScreen() {
                     <td>{referral.referrerName ?? '—'}</td>
                     <td>{referral.referrerPhone ?? '—'}</td>
                     <td>
-                      {collection === null ? (
-                        ''
-                      ) : (
-                        <span aria-label={collection.label}>{collection.letter}</span>
-                      )}
+                      {isDeliveryAnswer(referral) ? <span aria-label="Delivery">✓</span> : ''}
                     </td>
                     <td>
-                      {referral.firstTimeMarker === null
-                        ? ''
-                        : FIRST_TIME_MARKER[referral.firstTimeMarker]}
+                      {isReferrerCollectAnswer(referral) ? (
+                        <span aria-label="Referrer">✓</span>
+                      ) : (
+                        ''
+                      )}
                     </td>
                     {voucherSchemeApplies && (
                       <td>

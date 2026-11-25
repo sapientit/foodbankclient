@@ -45,6 +45,13 @@ const enabledWhenSchema = z.object({
   hasAnswer: z.string().min(1),
 });
 
+/**
+ * `true` marks the question for the listener sheet under its own title;
+ * a non-empty string marks it under that shorter text instead. See
+ * `forListenerSheet` on `BaseQuestion`.
+ */
+const forListenerSheetSchema = z.union([z.boolean(), z.string().min(1)]);
+
 const keyFieldQuestionSchema = z.object({
   questionNum: z.number().int().positive(),
   questionKey: z.string().min(1),
@@ -54,7 +61,7 @@ const keyFieldQuestionSchema = z.object({
   helpText: z.string().min(1).optional(),
   enabledWhen: enabledWhenSchema.optional(),
   forFuelTeam: z.boolean().optional(),
-  forListenerSheet: z.boolean().optional(),
+  forListenerSheet: forListenerSheetSchema.optional(),
 });
 
 const dynamicQuestionSchema = z.object({
@@ -67,7 +74,7 @@ const dynamicQuestionSchema = z.object({
   helpText: z.string().min(1).optional(),
   enabledWhen: enabledWhenSchema.optional(),
   forFuelTeam: z.boolean().optional(),
-  forListenerSheet: z.boolean().optional(),
+  forListenerSheet: forListenerSheetSchema.optional(),
   validation: z.discriminatedUnion('type', [
     z.object({
       type: z.literal('String'),

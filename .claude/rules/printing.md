@@ -21,6 +21,10 @@ for changing it, not a plan for writing it.
 - **The listener sheet is the sole exception.** It is one sensitive sheet per session, for selected
   listeners only. **What it shows is chosen by the referral form's `forListenerSheet` marker**, not
   by a list in the screen — the charity decides what a listener needs by marking the questionnaire.
+  The marker also supplies that column's printed heading: `true` (the sheet's own `Yes`) keeps the
+  question's full wording, any other non-empty string replaces it with that shorter text. A fixed
+  `Ref?` column sits beside the pick number regardless of any marker, read from the referral's
+  `Collection method` answer the same way the Run sheet's own `Ref?` is.
   It uses `GET /sessions/{id}/listener-sheet`, whose narrow payload is the boundary: it sends the
   name, the reason's label, the fuel flag and the answers whole, so **no other referral field can
   reach the page and no unmarked answer may**. A marked question the endpoint cannot fill is left

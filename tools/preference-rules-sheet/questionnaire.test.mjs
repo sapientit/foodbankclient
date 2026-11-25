@@ -82,6 +82,161 @@ test('preserves the For Listener Sheet marker in generated questionnaire JSON', 
   assert.equal(converted.json.pages[0].questions[0].forListenerSheet, true);
 });
 
+test('a For Listener Sheet cell other than Yes or No becomes a shortened column heading', () => {
+  const headers = [
+    'Page',
+    'Question key',
+    'Question wording',
+    'Answer format',
+    'Selection',
+    'Required',
+    'Use for picking rules?',
+    'Answer / option shown',
+    'Default?',
+    'Shown when key',
+    'Shown when answer',
+    'Pick-list information',
+    'For Fuel Team',
+    'For Listener Sheet',
+  ];
+  const { parseQuestionnaire_, toClientConfig_ } = loadQuestionnaireScript({
+    headers,
+    values: [
+      [
+        '1 — Client details',
+        'pm okay',
+        'Is it OK for the team to leave a message with someone else in the household?',
+        'Text',
+        '',
+        'No',
+        'No',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'No',
+        'PM?',
+      ],
+    ],
+  });
+
+  const parsed = parseQuestionnaire_();
+  assert.equal(parsed.errors.length, 0, parsed.errors.join('\n'));
+  const converted = toClientConfig_(parsed.json);
+  assert.equal(converted.errors.length, 0);
+  assert.equal(converted.json.pages[0].questions[0].forListenerSheet, 'PM?');
+});
+
+test('a blank or No For Listener Sheet cell leaves the question off the sheet', () => {
+  const headers = [
+    'Page',
+    'Question key',
+    'Question wording',
+    'Answer format',
+    'Selection',
+    'Required',
+    'Use for picking rules?',
+    'Answer / option shown',
+    'Default?',
+    'Shown when key',
+    'Shown when answer',
+    'Pick-list information',
+    'For Fuel Team',
+    'For Listener Sheet',
+  ];
+  const { parseQuestionnaire_, toClientConfig_ } = loadQuestionnaireScript({
+    headers,
+    values: [
+      [
+        '1 — Client details',
+        'not marked',
+        'An ordinary question',
+        'Text',
+        '',
+        'No',
+        'No',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'No',
+        'No',
+      ],
+    ],
+  });
+
+  const parsed = parseQuestionnaire_();
+  assert.equal(parsed.errors.length, 0, parsed.errors.join('\n'));
+  const converted = toClientConfig_(parsed.json);
+  assert.equal(converted.errors.length, 0);
+  assert.equal('forListenerSheet' in converted.json.pages[0].questions[0], false);
+});
+
+test('normalises True and False listener-sheet include and exclude markers', () => {
+  const headers = [
+    'Page',
+    'Question key',
+    'Question wording',
+    'Answer format',
+    'Selection',
+    'Required',
+    'Use for picking rules?',
+    'Answer / option shown',
+    'Default?',
+    'Shown when key',
+    'Shown when answer',
+    'Pick-list information',
+    'For Fuel Team',
+    'For Listener Sheet',
+  ];
+  const { parseQuestionnaire_, toClientConfig_ } = loadQuestionnaireScript({
+    headers,
+    values: [
+      [
+        '1 — Client details',
+        'show with wording',
+        'What should the listener know?',
+        'Text',
+        '',
+        'No',
+        'No',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'No',
+        ' true ',
+      ],
+      [
+        '1 — Client details',
+        'hide from listener',
+        'This must not appear on the listener sheet',
+        'Text',
+        '',
+        'No',
+        'No',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'No',
+        'FALSE',
+      ],
+    ],
+  });
+
+  const parsed = parseQuestionnaire_();
+  assert.equal(parsed.errors.length, 0, parsed.errors.join('\n'));
+  const converted = toClientConfig_(parsed.json);
+  assert.equal(converted.errors.length, 0, converted.errors.join('\n'));
+  assert.equal(converted.json.pages[0].questions[0].forListenerSheet, true);
+  assert.equal('forListenerSheet' in converted.json.pages[0].questions[1], false);
+});
+
 test('allows the questionnaire to make the server-optional client phone mandatory', () => {
   const headers = [
     'Page',

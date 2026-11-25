@@ -262,14 +262,13 @@ describe('team-lead run sheet', () => {
 
   /**
    * `screenDetails.md`, "#Session processing": the Run sheet carries the same
-   * first-time marker, voucher instruction and referrer comments as the Client
-   * List — from the referral, so a household with no pick number yet has them
-   * too.
+   * voucher instruction and referrer comments as the Client List — from the
+   * referral, so a household with no pick number yet has them too. It does
+   * not carry the Client List's `First?` marker.
    */
-  it("shows each household's first-time marker and voucher instruction, with non-blank notes on their own rows", async () => {
+  it("shows each household's voucher instruction, with non-blank notes on their own rows", async () => {
     serveRunSheet([
       household('r1', 'Jamie', 'Rowe', 1, {
-        firstTimeMarker: 'first_time',
         voucherInstruction: 'provide_voucher',
         picklistAdmin: 'Ring the bell twice',
       }),
@@ -287,7 +286,7 @@ describe('team-lead run sheet', () => {
     const headings = within(table)
       .getAllByRole('columnheader')
       .map((cell) => cell.textContent);
-    expect(headings.slice(-3)).toEqual(['Col?', 'First?', 'Voucher']);
+    expect(headings.slice(-3)).toEqual(['Del?', 'Ref?', 'Voucher']);
 
     const cellsOf = (name: string) => {
       const row = screen.getByRole('rowheader', { name }).parentElement;
@@ -297,10 +296,11 @@ describe('team-lead run sheet', () => {
         .slice(-3)
         .map((cell) => cell.textContent);
     };
-    expect(cellsOf('Jamie Rowe')).toEqual(['C', 'First time', 'Provide voucher for this client']);
-    // Not yet picked for, and still shown. A recorded previous session leaves
-    // First? blank, as on the Client List.
-    expect(cellsOf('Alex Shaw')).toEqual(['C', '', 'Client has already received voucher']);
+    // The fixture's default Collection method answer is `Car`, so neither
+    // Del? nor Ref? is ticked.
+    expect(cellsOf('Jamie Rowe')).toEqual(['', '', 'Provide voucher for this client']);
+    // Not yet picked for, and still shown.
+    expect(cellsOf('Alex Shaw')).toEqual(['', '', 'Client has already received voucher']);
     expect(
       within(table).getByRole('cell', {
         name: 'Pick list notes for pick #1, Jamie Rowe: Ring the bell twice',
@@ -314,16 +314,16 @@ describe('team-lead run sheet', () => {
   });
 
   it('leaves out the Voucher column when the voucher scheme does not apply', async () => {
-    serveRunSheet([household('r1', 'Jamie', 'Rowe', 1, { firstTimeMarker: 'admin' })]);
+    serveRunSheet([household('r1', 'Jamie', 'Rowe', 1)]);
 
     renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
 
     const row = await screen.findByRole('row', { name: /^#1 Jamie Rowe/ });
     expect(screen.queryByRole('columnheader', { name: 'Voucher' })).toBeNull();
-    expect(within(row).getByRole('cell', { name: 'Admin' })).toBeInTheDocument();
+    expect(row).toBeInTheDocument();
   });
 
-  it("shows each household's collection method as a single letter, with the legend on hover", async () => {
+  it('ticks Del? for a delivery and Ref? for a referrer collection, and neither for an ordinary collection', async () => {
     serveRunSheet([
       household('r1', 'Jamie', 'Rowe', 1, { answers: { 'Collection method': 'Car' } }),
       household('r2', 'Alex', 'Shaw', 2, {
@@ -340,24 +340,21 @@ describe('team-lead run sheet', () => {
 
     renderApp(`/run-sessions/${SESSION_ID}/referral-details`);
 
-    const heading = await screen.findByRole('columnheader', { name: 'Col?' });
-    expect(heading).toHaveAttribute(
-      'title',
-      'C - car, B - bus, F - foot, R - referrer, D - delivery',
-    );
-    expect(screen.getByRole('row', { name: /Jamie Rowe/ })).toHaveTextContent(/C/);
-    expect(
-      within(screen.getByRole('row', { name: /Alex Shaw/ })).getByLabelText('Bus'),
-    ).toHaveTextContent('B');
-    expect(
-      within(screen.getByRole('row', { name: /Sam Lee/ })).getByLabelText('Foot'),
-    ).toHaveTextContent('F');
-    expect(
-      within(screen.getByRole('row', { name: /Pat Kim/ })).getByLabelText('Referrer'),
-    ).toHaveTextContent('R');
-    expect(
-      within(screen.getByRole('row', { name: /Dee Wren/ })).getByLabelText('Delivery'),
-    ).toHaveTextContent('D');
+    await screen.findByRole('columnheader', { name: 'Del?' });
+    expect(screen.getByRole('columnheader', { name: 'Ref?' })).toBeInTheDocument();
+
+    const flagsOf = (name: string) => {
+      const row = screen.getByRole('row', { name: new RegExp(name) });
+      return {
+        delivery: within(row).queryByLabelText('Delivery') !== null,
+        referrer: within(row).queryByLabelText('Referrer') !== null,
+      };
+    };
+    expect(flagsOf('Jamie Rowe')).toEqual({ delivery: false, referrer: false });
+    expect(flagsOf('Alex Shaw')).toEqual({ delivery: false, referrer: false });
+    expect(flagsOf('Sam Lee')).toEqual({ delivery: false, referrer: false });
+    expect(flagsOf('Pat Kim')).toEqual({ delivery: false, referrer: true });
+    expect(flagsOf('Dee Wren')).toEqual({ delivery: true, referrer: false });
   });
 
   it('shows the pick-list note and no arbitrary referral answer', async () => {

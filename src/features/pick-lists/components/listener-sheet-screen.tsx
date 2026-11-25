@@ -6,6 +6,7 @@ import { Spinner } from '../../../components/spinner';
 import { isNewClientsAssigned } from '../../../lib/errors';
 import { usePublicReferralFormDefinition, useReferralOptionSources } from '../../referrals/queries';
 import { useSession } from '../../sessions/queries';
+import { isReferrerCollectAnswer } from '../collection-method.logic';
 import {
   listenerColumns,
   listenerColumnsNeedReferralReasons,
@@ -26,6 +27,12 @@ import styles from './listener-sheet-screen.module.css';
  * what a listener needs by marking the questionnaire; this screen holds no list
  * of its own, because the one it used to hold named a question the form had
  * since renamed, and the column read "None given" on every sheet.
+ *
+ * **`Ref?` is the one fixed exception.** It is not drawn from any marked
+ * question — a listener needs to know a referrer is collecting whether or
+ * not the form marks anything else — so it is read the same way as the Run
+ * sheet's own `Ref?`, straight from the referral's `Collection method`
+ * answer.
  *
  * **Columns come from the currently active release, not each household's
  * own.** A session mixing households from more than one release is possible
@@ -240,6 +247,7 @@ function SessionListenerSheet({ sessionId }: { readonly sessionId: string }) {
             <thead>
               <tr>
                 <th scope="col">Pick number</th>
+                <th scope="col">Ref?</th>
                 {columns.map((column) => (
                   <th key={column.key} scope="col">
                     {column.label}
@@ -252,6 +260,9 @@ function SessionListenerSheet({ sessionId }: { readonly sessionId: string }) {
               {sheet.data.households.map((household) => (
                 <tr key={household.referralId}>
                   <td>#{household.pickNumber}</td>
+                  <td>
+                    {isReferrerCollectAnswer(household) ? <span aria-label="Referrer">✓</span> : ''}
+                  </td>
                   {columns.map((column, index) => {
                     const value = listenerColumnValue(column, household, reasons.sources);
                     // The first column heads its row: a listener finds a household

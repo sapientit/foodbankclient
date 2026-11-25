@@ -93,10 +93,13 @@ referral question rather than a stock-selection rule. It is column 12,
 immediately before **For Fuel Team**. Enter **Yes** to copy that question's
 answer into the initial parcel note, **No** or blank otherwise; it may only be
 Yes for a question marked **Use for picking rules?**. **For Listener Sheet** is
-column 14, immediately after **For Fuel Team**: enter **Yes** to include that
-question on the sensitive listener sheet, or **No** or blank to leave it out.
-For an existing workbook, add that column-14 heading before validating; the
-generator deliberately refuses a sheet whose fixed headers do not match.
+column 14, immediately after **For Fuel Team**: enter **Yes** (or **True**) to
+include that question on the sensitive listener sheet under its own full
+wording, **No** (or **False**) or blank to leave it out, or any other text to
+include it under that shorter text instead — for a question whose full wording
+is too long to print as a column heading. For an existing workbook, add that
+column-14 heading before validating; the generator deliberately refuses a
+sheet whose fixed headers do not match.
 
 Validation checks the fixed headers, page numbering, unique question keys,
 answer-format names, choice-selection limits, defaults, conditional keys and

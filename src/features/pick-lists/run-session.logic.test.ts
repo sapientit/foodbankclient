@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  COLLECTION_METHOD_LEGEND,
   byPickNumber,
-  collectionMethodMarker,
   describeReadOnlySession,
   isSessionReadOnly,
   otherAnswer,
@@ -114,37 +112,6 @@ describe('otherAnswer', () => {
 
   it('does not confuse another question with the Other question', () => {
     expect(otherAnswer({ answers: { other: 'lower case', Pets: 'Other' } })).toBeNull();
-  });
-});
-
-describe('collectionMethodMarker', () => {
-  it.each([
-    ['Car', 'C', 'Car'],
-    ['Public Transport', 'B', 'Bus'],
-    ['On Foot', 'F', 'Foot'],
-    ['Referrer will collect', 'R', 'Referrer'],
-    ['Delivery Requested', 'D', 'Delivery'],
-  ])('maps the %s answer to %s (%s)', (answer, letter, label) => {
-    expect(collectionMethodMarker({ answers: { 'Collection method': answer } })).toEqual({
-      letter,
-      label,
-    });
-  });
-
-  it('shows an answer the form no longer offers in full, rather than hiding it', () => {
-    expect(collectionMethodMarker({ answers: { 'Collection method': 'Taxi' } })).toEqual({
-      letter: 'Taxi',
-      label: 'Taxi',
-    });
-  });
-
-  it('is null when there is no answer to show', () => {
-    expect(collectionMethodMarker({ answers: {} })).toBeNull();
-    expect(collectionMethodMarker({ answers: { 'Collection method': 3 } })).toBeNull();
-  });
-
-  it('spells out every letter in the legend', () => {
-    expect(COLLECTION_METHOD_LEGEND).toBe('C - car, B - bus, F - foot, R - referrer, D - delivery');
   });
 });
 

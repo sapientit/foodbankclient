@@ -167,6 +167,20 @@ function splitQuestionWording_(wording) {
   return { questionTitle, ...(helpText === '' ? {} : { helpText }) };
 }
 
+/**
+ * The For Listener Sheet cell: `Yes` or `True` marks the question under its
+ * own full wording, blank, `No` or `False` leaves it off the sheet, and
+ * anything else is taken as the shorter heading to print instead — so a long
+ * question never has to stand as a printed column heading.
+ */
+function forListenerSheetValue_(cellText) {
+  const trimmed = (cellText || '').trim();
+  const normalised = trimmed.toLowerCase();
+  if (normalised === '' || normalised === 'no' || normalised === 'false') return undefined;
+  if (normalised === 'yes' || normalised === 'true') return true;
+  return trimmed;
+}
+
 function parseQuestionnaire_() {
   const sheet = SpreadsheetApp.getActive().getSheetByName(QUESTIONNAIRE_SHEET);
   if (sheet === null)
@@ -268,8 +282,9 @@ function parseQuestionnaire_() {
         error(rowNumber, 'Pick-list information must be Yes, No or blank.');
       if (!['', 'Yes', 'No'].includes(line['For Fuel Team']))
         error(rowNumber, 'For Fuel Team must be blank, Yes or No.');
-      if (!['', 'Yes', 'No'].includes(line['For Listener Sheet']))
-        error(rowNumber, 'For Listener Sheet must be blank, Yes or No.');
+      // Blank, `No` or `False` leaves the question off the listener sheet;
+      // `Yes` or `True` shows it under its own wording; anything else is a
+      // shorter heading to print instead — see `forListenerSheetValue_`.
       if ((line['Shown when key'] === '') !== (line['Shown when answer'] === ''))
         error(
           rowNumber,
@@ -324,7 +339,10 @@ function parseQuestionnaire_() {
         preference: line['Use for picking rules?'] === 'Yes',
         ...(line['Pick-list information'] === 'Yes' ? { pickListInformation: 'Yes' } : {}),
         ...(line['For Fuel Team'] === 'Yes' ? { forFuelTeam: true } : {}),
-        ...(line['For Listener Sheet'] === 'Yes' ? { forListenerSheet: true } : {}),
+        ...(() => {
+          const forListenerSheet = forListenerSheetValue_(line['For Listener Sheet']);
+          return forListenerSheet === undefined ? {} : { forListenerSheet };
+        })(),
         ...(line['Shown when key'] === ''
           ? {}
           : {

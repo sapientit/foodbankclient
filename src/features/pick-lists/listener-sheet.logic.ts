@@ -68,16 +68,23 @@ const KEY_FIELD_READERS: Partial<
  * and the pick-list information, and for the same reason: a second list of keys
  * kept in the client drifts out of date silently, and the first symptom is a
  * volunteer holding a sheet with a blank column where the answer should be.
+ *
+ * **The marker also supplies the column's heading.** `true` keeps the
+ * question's own `label`; any other non-empty string replaces it, for a
+ * question whose full wording is too long to sit as a printed column
+ * heading. `false` or absent leaves the question off the sheet, as before.
  */
 export function listenerColumns(
   definition: ReferralFormDefinition = referralFormDefinition,
 ): ListenerColumn[] {
   return definition.pages.flatMap((page) =>
     page.questions.flatMap((question) => {
-      if (question.type === 'information' || question.forListenerSheet !== true) return [];
+      if (question.type === 'information' || question.forListenerSheet === undefined) return [];
+      if (question.forListenerSheet === false) return [];
       if (question.type === 'keyField' && KEY_FIELD_READERS[question.field] === undefined)
         return [];
-      return [{ key: question.key, label: question.label, question }];
+      const label = question.forListenerSheet === true ? question.label : question.forListenerSheet;
+      return [{ key: question.key, label, question }];
     }),
   );
 }

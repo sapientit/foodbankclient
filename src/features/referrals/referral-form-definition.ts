@@ -112,7 +112,11 @@ interface BaseQuestion {
   /**
    * Marks what belongs on the listener sheet — the one printed page a team
    * leader may see a reason for referral on, for the trained volunteers who
-   * talk to households about their situation.
+   * talk to households about their situation — **and supplies that column's
+   * printed heading.** `true` shows the question under its own full
+   * `label`; any other non-empty string shows it under that shorter text
+   * instead, so a question's full wording never has to stand as a printed
+   * column heading; `false` or absent leaves the question off the sheet.
    *
    * **A marker cannot conjure a value.** `GET /sessions/{id}/listener-sheet`
    * sends a deliberately narrow payload and is the boundary that keeps every
@@ -120,7 +124,7 @@ interface BaseQuestion {
    * not carry leaves it out rather than printing an empty column. See
    * `listener-sheet.logic.ts`.
    */
-  readonly forListenerSheet?: boolean;
+  readonly forListenerSheet?: boolean | string;
 }
 
 /** Display-only text in the form. It deliberately has no answer key. */

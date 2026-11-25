@@ -627,6 +627,7 @@ describe('a team lead listener sheet', () => {
     await screen.findByRole('columnheader', { name: 'First time / voucher' });
     expect(screen.getAllByRole('columnheader').map((heading) => heading.textContent)).toEqual([
       'Pick number',
+      'Ref?',
       "Client's first name",
       "Client's surname",
       'Main cause of crisis',
@@ -664,6 +665,53 @@ describe('a team lead listener sheet', () => {
     expect(screen.queryByText('07000 000000')).toBeNull();
     expect(screen.queryByText('Baked beans: 2')).toBeNull();
     expect(screen.queryByText('Please arrange an interpreter.')).toBeNull();
+  });
+
+  it('ticks Ref? for a referrer collection and leaves it blank otherwise', async () => {
+    server.use(
+      http.get('/api/v1/sessions/:sessionId/listener-sheet', () =>
+        HttpResponse.json({
+          sessionId: SESSION_ID,
+          households: [
+            {
+              referralId: 'referral-referrer',
+              pickNumber: 1,
+              refereeFirstName: 'Robin',
+              refereeSurname: 'Ross',
+              reason: 'Low income',
+              needsFuelHelp: false,
+              formId: null,
+              firstTimeMarker: null,
+              voucherInstruction: null,
+              answers: { 'Collection method': 'Referrer will collect' },
+            },
+            {
+              referralId: 'referral-ordinary',
+              pickNumber: 2,
+              refereeFirstName: 'Orla',
+              refereeSurname: 'Owen',
+              reason: 'Low income',
+              needsFuelHelp: false,
+              formId: null,
+              firstTimeMarker: null,
+              voucherInstruction: null,
+              answers: { 'Collection method': 'On Foot' },
+            },
+          ],
+        } satisfies ListenerSheet),
+      ),
+      reasonsHandler(),
+    );
+
+    renderApp(`/run-sessions/${SESSION_ID}/listener`);
+
+    expect(await screen.findByRole('columnheader', { name: 'Ref?' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('row', { name: /Robin Ross/ })).getByLabelText('Referrer'),
+    ).toHaveTextContent('✓');
+    expect(
+      within(screen.getByRole('row', { name: /Orla Owen/ })).queryByLabelText('Referrer'),
+    ).toBeNull();
   });
 
   it('reads its columns from the currently active release, not the bundled default', async () => {
@@ -762,6 +810,56 @@ describe('a team lead listener sheet', () => {
 
     expect(await screen.findByRole('row', { name: /#1.*First time/ })).toBeInTheDocument();
     expect(reasonReads).toBe(1);
+  });
+
+  it('shows a shortened heading when the marker is text rather than Yes, and the full title when it is Yes', () => {
+    expect(
+      listenerColumns({
+        version: 1,
+        pages: [
+          {
+            pageNum: 1,
+            pageTitle: 'Test',
+            questions: [
+              {
+                type: 'text',
+                key: 'ok-to-leave-message',
+                label:
+                  'Is it OK for the team to leave a message with someone else in the household?',
+                required: false,
+                preference: false,
+                maxLength: 100,
+                forListenerSheet: 'PM?',
+              },
+              {
+                type: 'text',
+                key: 'reasonAdditional',
+                label: 'Additional information about crisis',
+                required: false,
+                preference: false,
+                maxLength: 100,
+                forListenerSheet: true,
+              },
+              {
+                type: 'text',
+                key: 'off-the-sheet',
+                label: 'Never shown',
+                required: false,
+                preference: false,
+                maxLength: 100,
+                forListenerSheet: false,
+              },
+            ],
+          },
+        ],
+      }),
+    ).toEqual([
+      expect.objectContaining({ key: 'ok-to-leave-message', label: 'PM?' }),
+      expect.objectContaining({
+        key: 'reasonAdditional',
+        label: 'Additional information about crisis',
+      }),
+    ]);
   });
 
   it('never prints a column for a marked question the endpoint does not send', () => {
