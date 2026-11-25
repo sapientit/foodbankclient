@@ -28,7 +28,6 @@ const household = (
   picklistAdmin: null,
   formId: 'form-1',
   answers: { 'Collection method': 'Car' },
-  firstTimeMarker: null,
   voucherInstruction: null,
   ...extra,
 });
@@ -124,7 +123,6 @@ describe('team-lead run sheet', () => {
               picklistAdmin: null,
               formId: 'form-1',
               answers: { 'Collection method': 'Car' },
-              firstTimeMarker: null,
               voucherInstruction: null,
             },
           ],
@@ -159,7 +157,6 @@ describe('team-lead run sheet', () => {
       picklistAdmin: null,
       formId: 'form-1',
       answers: { 'Collection method': 'Car' },
-      firstTimeMarker: null,
       voucherInstruction: null,
     });
     server.use(
@@ -222,7 +219,6 @@ describe('team-lead run sheet', () => {
               pickNumber: null,
               answers: {},
               formId: 'form-1',
-              firstTimeMarker: null,
               voucherInstruction: null,
             },
           ],

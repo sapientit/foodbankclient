@@ -1587,9 +1587,12 @@ export interface paths {
          *
          *     **It also carries what the Run Sheet shows beside each household** —
          *     `picklistAdmin` (the administrators' line for the picker, read live),
-         *     `answers`, `formId`, `firstTimeMarker` and `voucherInstruction`. These
-         *     come with the referral, not the parcel, so a household not yet picked
-         *     for carries them too; you do not need the pick list to show them.
+         *     `answers`, `formId` and `voucherInstruction`. These come with the
+         *     referral, not the parcel, so a household not yet picked for carries
+         *     them too; you do not need the pick list to show them.
+         *
+         *     **No `firstTimeMarker` — removed.** It stays on the Client List and
+         *     the listener sheet; the Run Sheet no longer needs it.
          *
          *     **`answers` and `formId` are back, whole, exactly as on the listener
          *     sheet.** The Run Sheet needs a specific answer the form holds — how a
@@ -1603,10 +1606,9 @@ export interface paths {
          *
          *     **What it deliberately leaves out:** date of birth, the reason for
          *     referral, the administrator's review comment, the administrators'
-         *     note, the form's answers, the parcel contents, and the referrer's email
-         *     address. The reason in
-         *     particular stays where it was — a team leader gets it on the listener
-         *     sheet and nowhere else.
+         *     note, the parcel contents, and the referrer's email address. The
+         *     reason in particular stays where it was — a team leader gets it on the
+         *     listener sheet and nowhere else.
          *
          *     **Who is on it:** every household holding a place — `pending_review`,
          *     `active` and `reviewed` alike. Cancelled and rejected households are
@@ -8188,12 +8190,7 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
-             * @description Whether this household is new — **identical to `Parcel.firstTimeMarker`**, same rule, same values, present whether or not the household has a parcel yet. Never the date or the raw review status.
-             * @enum {string|null}
-             */
-            firstTimeMarker: "first_time" | "admin" | null;
-            /**
-             * @description The one Christmas-voucher instruction for this household — **identical to `Parcel.voucherInstruction`**, derived fresh on every read and present whether or not the household has a parcel yet. `null` outside the configured voucher range.
+             * @description The one Christmas-voucher instruction for this household — **identical to `Parcel.voucherInstruction`**, derived fresh on every read and present whether or not the household has a parcel yet. `null` outside the configured voucher range. **No `firstTimeMarker` here** — removed from the Run Sheet. It stays on the Client List and the listener sheet.
              * @enum {string|null}
              */
             voucherInstruction: "provide_voucher" | "already_received" | "refer_to_admin" | null;
